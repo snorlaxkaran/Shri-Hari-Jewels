@@ -126,7 +126,7 @@ export default function ImageUpload({ images, onChange }: ImageUploadProps) {
                 className="w-full h-full object-cover"
               />
               {img.id === primaryId && (
-                <span className="absolute top-1 left-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-zinc-900 text-white">
+                <span className="absolute top-1 left-1 text-[9px] font-medium px-1.5 py-0.5 rounded text-white" style={{ backgroundColor: "var(--accent)" }}>
                   Cover
                 </span>
               )}

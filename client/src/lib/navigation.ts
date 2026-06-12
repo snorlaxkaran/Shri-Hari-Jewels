@@ -1,21 +1,20 @@
 import {
   LayoutDashboard,
   Diamond,
+  Gem,
+  ShoppingCart,
   ShoppingBag,
   Users,
-  Layers,
-  Tag,
-  Image,
   BarChart2,
   FileText,
   Settings,
 } from "lucide-react";
-import { createElement, type ReactNode } from "react";
+import { createElement } from "react";
 
 export type NavItem = {
   label: string;
   href: string;
-  icon: ReactNode;
+  icon: React.ReactNode;
   badge?: string | number;
 };
 
@@ -32,27 +31,11 @@ export const navSections: NavSection[] = [
     title: "Main",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: icon(LayoutDashboard) },
-      {
-        label: "Inventory",
-        href: "/inventory",
-        icon: icon(Diamond),
-        badge: 248,
-      },
-      {
-        label: "Orders",
-        href: "/orders",
-        icon: icon(ShoppingBag),
-        badge: 12,
-      },
+      { label: "Products", href: "/inventory", icon: icon(Diamond) },
+      { label: "Raw Stock", href: "/raw-inventory", icon: icon(Gem) },
+      { label: "Sales", href: "/sales", icon: icon(ShoppingCart) },
+      { label: "Orders", href: "/orders", icon: icon(ShoppingBag) },
       { label: "Customers", href: "/customers", icon: icon(Users) },
-    ],
-  },
-  {
-    title: "Catalogue",
-    items: [
-      { label: "Collections", href: "/collections", icon: icon(Layers) },
-      { label: "Pricing", href: "/pricing", icon: icon(Tag) },
-      { label: "Gallery", href: "/gallery", icon: icon(Image) },
     ],
   },
   {
@@ -71,6 +54,16 @@ export const navSections: NavSection[] = [
     items: [{ label: "Settings", href: "/settings", icon: icon(Settings) }],
   },
 ];
+
+export const filterNavSections = (
+  canAccess: (href: string) => boolean,
+): NavSection[] =>
+  navSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => canAccess(item.href)),
+    }))
+    .filter((section) => section.items.length > 0);
 
 export const getPageTitle = (pathname: string): string => {
   for (const section of navSections) {

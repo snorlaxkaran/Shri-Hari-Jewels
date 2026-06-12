@@ -1,0 +1,231 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ShopSettings {
+  id           String   @id @default("default")
+  businessName String   @default("Shree Hari Jewels")
+  address      String?
+  phone        String?
+  upiVpa       String?
+  updatedAt    DateTime @updatedAt
+}
+
+model Product {
+  id            String   @id @default(uuid())
+  sku           String   @unique
+  name          String
+  category      String
+  metal         String
+  purity        String
+  weightGrams   Float
+  makingCharges Float
+  stoneCarat    Float?
+  price         Float
+  stock         Int
+  status        String
+  imageColor    String   @default("#a1a1aa")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  units  InventoryUnit[]
+  images ProductImage[]
+}
+
+model InventoryUnit {
+  id        String   @id @default(uuid())
+  itemCode  String   @unique
+  productId String
+  status    String   @default("Available")
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sale    Sale?
+
+  @@index([productId])
+}
+
+model Customer {
+  id          String    @id @default(uuid())
+  name        String
+  mobile      String    @unique
+  email       String?
+  address     String?
+  city        String?
+  birthday    DateTime?
+  anniversary DateTime?
+  ringSize    String?
+  preferences String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  sales    Sale[]
+  orders   Order[]
+  invoices Invoice[]
+}
+
+model Order {
+  id             String    @id @default(uuid())
+  orderNo        String    @unique
+  customerId     String
+  description    String
+  estimatedTotal Float?
+  status         String    @default("Pending")
+  paymentStatus  String    @default("Unpaid")
+  notes          String?
+  dueDate        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model Sale {
+  id            String   @id @default(uuid())
+  unitId        String   @unique
+  itemCode      String
+  productId     String
+  productName   String
+  sku           String
+  category      String
+  listPrice     Float
+  discount      Float    @default(0)
+  dealPrice     Float
+  paymentMode   String   @default("Cash")
+  paymentStatus     String   @default("Completed")
+  paymentRef        String?
+  razorpayQrId      String?
+  razorpayPaymentId String?
+  cartGroupId       String?
+  customerId        String?
+  customerPhone String
+  customerName  String?
+  soldAt        DateTime @default(now())
+
+  unit     InventoryUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  customer Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  invoice  Invoice?
+
+  @@index([soldAt])
+  @@index([category])
+  @@index([customerPhone])
+  @@index([customerId])
+  @@index([productId])
+  @@index([paymentStatus])
+  @@index([cartGroupId])
+}
+
+model Invoice {
+  id             String   @id @default(uuid())
+  invoiceNo      String   @unique
+  saleId         String   @unique
+  customerId     String?
+  customerName   String
+  customerMobile String
+  itemCode       String
+  productName    String
+  sku            String
+  listPrice      Float
+  discount       Float    @default(0)
+  total          Float
+  paymentMode    String
+  paymentRef     String?
+  status         String   @default("Paid")
+  createdAt      DateTime @default(now())
+
+  sale     Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
+
+model ProductImage {
+  id        String @id @default(uuid())
+  productId String
+  url       String
+  name      String
+  sortOrder Int    @default(0)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model MetalLot {
+  id           String   @id @default(uuid())
+  lotNumber    String   @unique
+  metalType    String
+  purity       String
+  weightGrams  Float
+  purchaseRate Float
+  currentRate  Float
+  vendor       String
+  location     String   @default("Main Vault")
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([metalType])
+  @@index([location])
+}
+
+model StoneLot {
+  id                String   @id @default(uuid())
+  certificateNumber String   @unique
+  stoneType         String
+  carat             Float
+  color             String?
+  clarity           String?
+  cut               String?
+  vendor            String
+  purchaseRate      Float?
+  currentRate       Float?
+  location          String   @default("Main Vault")
+  status            String   @default("In Stock")
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([stoneType])
+  @@index([location])
+  @@index([status])
+}
+
+model RawStockAuditLog {
+  id              String   @id @default(uuid())
+  stockType       String
+  stockId         String
+  lotRef          String
+  action          String
+  previousValue   String?
+  newValue        String?
+  fromLocation    String?
+  toLocation      String?
+  delta           Float?
+  reason          String?
+  performedById     String?
+  performedByName   String
+  createdAt       DateTime @default(now())
+
+  @@index([stockType, stockId])
+  @@index([createdAt])
+}

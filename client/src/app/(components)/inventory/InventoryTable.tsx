@@ -27,10 +27,14 @@ export default function InventoryTable({ rows, onRowClick }: InventoryTableProps
                 src={params.row.images[0].url}
                 alt={params.row.name}
                 loading="lazy"
-                className="w-8 h-8 rounded-md flex-shrink-0 object-cover border border-zinc-200"
+                className="w-11 h-11 rounded-lg flex-shrink-0 object-cover border"
+                style={{ borderColor: "var(--border)" }}
               />
             ) : (
-              <div className="w-8 h-8 rounded-md flex-shrink-0 bg-zinc-100" />
+              <div
+                className="w-11 h-11 rounded-lg flex-shrink-0"
+                style={{ backgroundColor: "var(--bg-muted)" }}
+              />
             )}
             <div>
               <p className="font-medium text-[13px] text-zinc-900">

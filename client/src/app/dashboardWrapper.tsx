@@ -1,9 +1,15 @@
-const dashboardWrapper = ({ children }: { children: React.ReactNode }) => {
+"use client";
+
+import { AuthProvider } from "@/lib/auth/auth-context";
+
+const DashboardWrapper = ({ children }: { children: React.ReactNode }) => {
   return (
-    <div className="bg-zinc-50 text-zinc-900 w-full min-h-screen">
-      {children}
-    </div>
+    <AuthProvider>
+      <div className="w-full min-h-screen" style={{ backgroundColor: "var(--bg-page)", color: "var(--text-primary)" }}>
+        {children}
+      </div>
+    </AuthProvider>
   );
 };
 
-export default dashboardWrapper;
+export default DashboardWrapper;

@@ -9,7 +9,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="flex h-screen w-full min-h-0 bg-zinc-50">
+    <div className="flex h-screen w-full min-h-0" style={{ backgroundColor: "var(--bg-page)" }}>
       <NavigationProgress />
       <Sidebar
         mobileOpen={mobileOpen}

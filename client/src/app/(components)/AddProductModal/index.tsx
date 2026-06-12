@@ -11,11 +11,12 @@ import {
 import { generateSku, generateUnitCodes } from "@/lib/inventory/sku";
 import type { PendingImage } from "@/lib/inventory/images";
 import ImageUpload from "@/app/(components)/ImageUpload";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 type AddProductModalProps = {
   open: boolean;
   onClose: () => void;
-  onSubmit: (input: NewProductInput) => void;
+  onSubmit: (input: NewProductInput) => Promise<void>;
   existingSkus: string[];
   existingUnitCodes: string[];
 };
@@ -44,6 +45,7 @@ export default function AddProductModal({
   const [quantity, setQuantity] = useState("1");
   const [images, setImages] = useState<PendingImage[]>([]);
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const previewSku = useMemo(
     () => generateSku(existingSkus, category),
@@ -58,11 +60,11 @@ export default function AddProductModal({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !submitting) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onClose, submitting]);
 
   const reset = () => {
     setCategory("Earrings");
@@ -79,11 +81,12 @@ export default function AddProductModal({
   };
 
   const handleClose = () => {
+    if (submitting) return;
     reset();
     onClose();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -114,20 +117,27 @@ export default function AddProductModal({
       return;
     }
 
-    onSubmit({
-      name: name.trim(),
-      category,
-      metal,
-      purity,
-      weightGrams: weight,
-      makingCharges: charges,
-      stoneCarat: stoneCarat ? parseFloat(stoneCarat) : undefined,
-      price: unitPrice,
-      quantity: qty,
-      images: images.map(({ id, url, name }) => ({ id, url, name })),
-    });
-    reset();
-    onClose();
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        name: name.trim(),
+        category,
+        metal,
+        purity,
+        weightGrams: weight,
+        makingCharges: charges,
+        stoneCarat: stoneCarat ? parseFloat(stoneCarat) : undefined,
+        price: unitPrice,
+        quantity: qty,
+        images: images.map(({ id, url, name }) => ({ id, url, name })),
+      });
+      reset();
+      onClose();
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (!open) return null;
@@ -151,7 +161,8 @@ export default function AddProductModal({
           </h2>
           <button
             onClick={handleClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100"
+            disabled={submitting}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 disabled:opacity-50"
             aria-label="Close"
           >
             <X size={18} />
@@ -350,15 +361,17 @@ export default function AddProductModal({
             <button
               type="button"
               onClick={handleClose}
-              className="btn-secondary flex-1 px-4 py-2.5 text-sm"
+              disabled={submitting}
+              className="btn-secondary flex-1 px-4 py-2.5 text-sm disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn-primary flex-1 px-4 py-2.5 text-sm"
+              disabled={submitting}
+              className="btn-primary flex-1 px-4 py-2.5 text-sm disabled:opacity-50"
             >
-              Add Product
+              {submitting ? "Saving…" : "Add Product"}
             </button>
           </div>
         </form>

@@ -6,182 +6,128 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
-  startTransition,
 } from "react";
-import { v4 as uuid } from "uuid";
-import type { InventoryItem, NewProductInput } from "@/lib/types";
-import { CATEGORY_COLORS, type ProductCategory } from "./categories";
-import { generateSku, generateUnitCodes } from "./sku";
-import { getStockStatus } from "./status";
-import { seedInventoryItems } from "./seed";
-
-const STORAGE_KEY = "shj-inventory";
+import type {
+  InventoryItem,
+  NewProductInput,
+  UpdateProductInput,
+} from "@/lib/types";
+import {
+  addProductUnits,
+  createProduct,
+  deleteInventoryUnit as deleteInventoryUnitApi,
+  deleteProduct as deleteProductApi,
+  fetchInventory,
+  updateProduct as updateProductApi,
+} from "@/lib/api/inventory";
 
 type InventoryContextValue = {
   items: InventoryItem[];
   hydrated: boolean;
-  addProduct: (input: NewProductInput) => InventoryItem;
-  addQuantityToSku: (sku: string, quantity: number) => InventoryItem | null;
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
+  addProduct: (input: NewProductInput) => Promise<InventoryItem>;
+  updateProduct: (
+    id: string,
+    input: UpdateProductInput,
+  ) => Promise<InventoryItem>;
+  deleteProduct: (id: string) => Promise<void>;
+  removeUnit: (unitId: string) => Promise<InventoryItem>;
+  addQuantityToSku: (sku: string, quantity: number) => Promise<InventoryItem | null>;
 };
 
 const InventoryContext = createContext<InventoryContextValue | null>(null);
 
-let memoryCache: InventoryItem[] | null = null;
-let hasLoadedFromStorage = false;
-
-const loadItems = (): InventoryItem[] => {
-  if (memoryCache) return memoryCache;
-  if (typeof window === "undefined") return seedInventoryItems;
-
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return seedInventoryItems;
-    const parsed = JSON.parse(raw) as InventoryItem[];
-    if (parsed.length === 0) return seedInventoryItems;
-    const items = parsed.map((item) => ({
-      ...item,
-      images: item.images ?? [],
-    }));
-    memoryCache = items;
-    return items;
-  } catch {
-    return seedInventoryItems;
-  }
-};
-
-const saveItems = (items: InventoryItem[]) => {
-  memoryCache = items;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  } catch {
-    // Quota exceeded — keep in-memory only
-  }
-};
-
 export function InventoryProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<InventoryItem[]>(seedInventoryItems);
-  const [hydrated, setHydrated] = useState(hasLoadedFromStorage);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (hasLoadedFromStorage && memoryCache) {
-      setItems(memoryCache);
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchInventory();
+      setItems(data);
+    } catch {
+      setError("Could not connect to the server. Is the backend running?");
+    } finally {
+      setLoading(false);
       setHydrated(true);
-      return;
     }
-
-    const id = requestAnimationFrame(() => {
-      const loaded = loadItems();
-      hasLoadedFromStorage = true;
-      startTransition(() => {
-        setItems(loaded);
-        setHydrated(true);
-      });
-    });
-
-    return () => cancelAnimationFrame(id);
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
+    refresh();
+  }, [refresh]);
 
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => saveItems(items), 500);
+  const addProduct = useCallback(async (input: NewProductInput) => {
+    const product = await createProduct(input);
+    setItems((prev) => [product, ...prev]);
+    return product;
+  }, []);
 
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
-  }, [items, hydrated]);
+  const updateProduct = useCallback(async (id: string, input: UpdateProductInput) => {
+    const updated = await updateProductApi(id, input);
+    setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
+    return updated;
+  }, []);
 
-  const addProduct = useCallback(
-    (input: NewProductInput): InventoryItem => {
-      const category = input.category as ProductCategory;
-      const existingSkus = items.map((i) => i.sku);
-      const existingUnitCodes = items.flatMap((i) =>
-        i.units.map((u) => u.itemCode),
+  const deleteProduct = useCallback(async (id: string) => {
+    await deleteProductApi(id);
+    setItems((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+  const removeUnit = useCallback(async (unitId: string) => {
+    const updated = await deleteInventoryUnitApi(unitId);
+    setItems((prev) =>
+      prev.map((item) => (item.id === updated.id ? updated : item)),
+    );
+    return updated;
+  }, []);
+
+  const addQuantityToSku = useCallback(
+    async (sku: string, quantity: number) => {
+      const existing = items.find((i) => i.sku === sku);
+      if (!existing) return null;
+
+      const updated = await addProductUnits(existing.id, quantity);
+      setItems((prev) =>
+        prev.map((item) => (item.id === updated.id ? updated : item)),
       );
-
-      const sku = generateSku(existingSkus, category);
-      const unitCodes = generateUnitCodes(
-        sku,
-        input.quantity,
-        existingUnitCodes,
-      );
-      const now = new Date().toISOString();
-
-      const product: InventoryItem = {
-        id: uuid(),
-        sku,
-        name: input.name.trim(),
-        category: input.category,
-        metal: input.metal,
-        purity: input.purity,
-        weightGrams: input.weightGrams,
-        makingCharges: input.makingCharges,
-        stoneCarat: input.stoneCarat,
-        stock: input.quantity,
-        price: input.price,
-        status: getStockStatus(input.quantity),
-        imageColor: CATEGORY_COLORS[category] ?? "#a1a1aa",
-        images: input.images,
-        createdAt: now,
-        units: unitCodes.map((itemCode) => ({
-          id: uuid(),
-          itemCode,
-          sku,
-          status: "Available",
-          createdAt: now,
-        })),
-      };
-
-      setItems((prev) => [product, ...prev]);
-      return product;
+      return updated;
     },
     [items],
   );
 
-  const addQuantityToSku = useCallback(
-    (sku: string, quantity: number): InventoryItem | null => {
-      let updated: InventoryItem | null = null;
-
-      setItems((prev) =>
-        prev.map((item) => {
-          if (item.sku !== sku) return item;
-
-          const existingUnitCodes = prev.flatMap((i) =>
-            i.units.map((u) => u.itemCode),
-          );
-          const newCodes = generateUnitCodes(sku, quantity, existingUnitCodes);
-          const now = new Date().toISOString();
-          const newUnits = newCodes.map((itemCode) => ({
-            id: uuid(),
-            itemCode,
-            sku,
-            status: "Available" as const,
-            createdAt: now,
-          }));
-
-          const stock = item.stock + quantity;
-          updated = {
-            ...item,
-            stock,
-            status: getStockStatus(stock),
-            units: [...item.units, ...newUnits],
-          };
-          return updated;
-        }),
-      );
-
-      return updated;
-    },
-    [],
-  );
-
   const value = useMemo(
-    () => ({ items, hydrated, addProduct, addQuantityToSku }),
-    [items, hydrated, addProduct, addQuantityToSku],
+    () => ({
+      items,
+      hydrated,
+      loading,
+      error,
+      refresh,
+      addProduct,
+      updateProduct,
+      deleteProduct,
+      removeUnit,
+      addQuantityToSku,
+    }),
+    [
+      items,
+      hydrated,
+      loading,
+      error,
+      refresh,
+      addProduct,
+      updateProduct,
+      deleteProduct,
+      removeUnit,
+      addQuantityToSku,
+    ],
   );
 
   return (

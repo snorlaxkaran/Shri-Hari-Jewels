@@ -1,14 +1,38 @@
+export type UserRole =
+  | "Admin"
+  | "ProductionManager"
+  | "SalesManager"
+  | "Karigar"
+  | "Accountant";
+
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+};
+
+export type LoginInput = {
+  email: string;
+  password: string;
+};
+
 export type MetalType = "Gold" | "Silver" | "Platinum" | "Rose Gold";
 export type Purity = "24K" | "22K" | "18K" | "14K" | "925";
+export type InventoryUnitStatus = "Available" | "Sold" | "Reserved";
+
+export type PaymentMode = "Cash" | "UPI" | "Card";
+export type PaymentStatus = "Paid" | "Partial" | "Unpaid";
 export type OrderStatus =
   | "Pending"
-  | "Processing"
+  | "Designing"
+  | "Production"
+  | "QC"
   | "Ready"
   | "Delivered"
   | "Cancelled";
-export type PaymentStatus = "Paid" | "Partial" | "Unpaid";
 
-export type InventoryUnitStatus = "Available" | "Sold" | "Reserved";
+export type CustomerTier = "Bronze" | "Silver" | "Gold" | "Platinum";
 
 export type ProductImage = {
   id: string;
@@ -56,57 +80,228 @@ export type NewProductInput = {
   images: ProductImage[];
 };
 
-export type Order = {
-  id: string;
-  orderNo: string;
-  customerName: string;
-  items: number;
-  total: number;
-  status: OrderStatus;
-  paymentStatus: PaymentStatus;
-  date: string;
+export type UpdateProductInput = {
+  name?: string;
+  category?: string;
+  metal?: MetalType;
+  purity?: Purity;
+  weightGrams?: number;
+  makingCharges?: number;
+  stoneCarat?: number | null;
+  price?: number;
+  images?: ProductImage[];
 };
 
 export type Customer = {
   id: string;
   name: string;
-  phone: string;
-  email: string;
-  city: string;
+  mobile: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  birthday?: string;
+  anniversary?: string;
+  ringSize?: string;
+  preferences?: string;
   totalOrders: number;
   totalSpent: number;
-  lastVisit: string;
-  tier: "Bronze" | "Silver" | "Gold" | "Platinum";
+  lastVisit?: string;
+  tier: CustomerTier;
+  createdAt: string;
 };
 
-export type Collection = {
-  id: string;
+export type NewCustomerInput = {
   name: string;
-  description: string;
-  itemCount: number;
-  featured: boolean;
-  season: string;
+  mobile: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  birthday?: string;
+  anniversary?: string;
+  ringSize?: string;
+  preferences?: string;
 };
+
+export type UpdateCustomerInput = {
+  name?: string;
+  mobile?: string;
+  email?: string | null;
+  address?: string | null;
+  city?: string | null;
+  birthday?: string | null;
+  anniversary?: string | null;
+  ringSize?: string | null;
+  preferences?: string | null;
+};
+
+export type CustomerDetail = Customer & {
+  sales: Sale[];
+};
+
+export type Order = {
+  id: string;
+  orderNo: string;
+  customerId: string;
+  customerName: string;
+  customerMobile: string;
+  description: string;
+  estimatedTotal?: number;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  notes?: string;
+  dueDate?: string;
+  createdAt: string;
+};
+
+export type NewOrderInput = {
+  customerId: string;
+  description: string;
+  estimatedTotal?: number;
+  notes?: string;
+  dueDate?: string;
+};
+
+export type UpdateOrderInput = {
+  status?: OrderStatus;
+  paymentStatus?: PaymentStatus;
+  description?: string;
+  estimatedTotal?: number;
+  notes?: string;
+  dueDate?: string;
+};
+
+export type SalePaymentStatus = "Pending" | "Completed";
+
+export type Sale = {
+  id: string;
+  itemCode: string;
+  productId: string;
+  productName: string;
+  sku: string;
+  category: string;
+  listPrice: number;
+  discount: number;
+  dealPrice: number;
+  paymentMode: PaymentMode;
+  paymentStatus: SalePaymentStatus;
+  paymentRef?: string;
+  cartGroupId?: string;
+  customerId?: string;
+  customerPhone: string;
+  customerName?: string;
+  soldAt: string;
+};
+
+export type InvoiceStatus = "Paid" | "Pending";
 
 export type Invoice = {
   id: string;
   invoiceNo: string;
+  saleId: string;
+  customerId?: string;
   customerName: string;
-  amount: number;
-  gst: number;
-  date: string;
-  status: "Paid" | "Due" | "Overdue";
+  customerMobile: string;
+  itemCode: string;
+  productName: string;
+  sku: string;
+  listPrice: number;
+  discount: number;
+  total: number;
+  paymentMode: PaymentMode;
+  paymentRef?: string;
+  status: InvoiceStatus;
+  createdAt: string;
+};
+
+export type ShopSettings = {
+  businessName: string;
+  address: string | null;
+  phone: string | null;
+  upiVpa: string | null;
+};
+
+export type UpdateShopSettingsInput = {
+  businessName?: string;
+  address?: string;
+  phone?: string;
+  upiVpa?: string;
+};
+
+export type RecordSaleResult = {
+  sale: Sale;
+  invoice?: Invoice;
+  upiQrString?: string;
+  upiQrImageUrl?: string;
+  requiresConfirmation: boolean;
+  autoCapture: boolean;
+};
+
+export type SaleUnitLookup = {
+  itemCode: string;
+  productName: string;
+  sku: string;
+  category: string;
+  listPrice: number;
+};
+
+export type CartLineItem = SaleUnitLookup & {
+  discount: number;
+  dealPrice: number;
+};
+
+export type RecordSaleInput = {
+  itemCode: string;
+  customerId: string;
+  dealPrice: number;
+  discount?: number;
+  paymentMode: PaymentMode;
+};
+
+export type CartSaleItemInput = {
+  itemCode: string;
+  dealPrice: number;
+  discount?: number;
+};
+
+export type RecordCartSaleInput = {
+  items: CartSaleItemInput[];
+  customerId: string;
+  paymentMode: PaymentMode;
+};
+
+export type RecordCartSaleResult = {
+  sales: Sale[];
+  invoices?: Invoice[];
+  total: number;
+  primarySaleId?: string;
+  upiQrString?: string;
+  upiQrImageUrl?: string;
+  requiresConfirmation: boolean;
+  autoCapture: boolean;
+};
+
+export type TopProduct = {
+  productId: string;
+  productName: string;
+  sku: string;
+  unitsSold: number;
+  revenue: number;
 };
 
 export type DashboardStats = {
   totalRevenue: number;
   revenueChange: number;
-  totalOrders: number;
-  ordersChange: number;
+  totalSales: number;
+  salesChange: number;
   inventoryCount: number;
+  inventoryValue: number;
   lowStockCount: number;
   activeCustomers: number;
   customersChange: number;
+  todaySales: number;
+  monthlySales: number;
+  pendingOrders: number;
+  customerCount: number;
 };
 
 export type SalesDataPoint = {
@@ -119,4 +314,146 @@ export type CategoryBreakdown = {
   category: string;
   value: number;
   color: string;
+};
+
+export type SalesAnalytics = {
+  stats: DashboardStats;
+  monthly: SalesDataPoint[];
+  categoryBreakdown: CategoryBreakdown[];
+  recentSales: Sale[];
+  topProducts: TopProduct[];
+};
+
+export type RawMetalType = "Gold" | "Silver" | "Platinum";
+export type RawStoneType = "Diamond" | "Precious" | "SemiPrecious";
+export type RawStockAction = "Create" | "Update" | "Transfer" | "Adjustment";
+export type StoneLotStatus = "In Stock" | "Reserved" | "Issued";
+
+export type MetalLot = {
+  id: string;
+  lotNumber: string;
+  metalType: RawMetalType;
+  purity: Purity;
+  weightGrams: number;
+  purchaseRate: number;
+  currentRate: number;
+  vendor: string;
+  location: string;
+  notes?: string;
+  stockValue: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewMetalLotInput = {
+  metalType: RawMetalType;
+  purity: Purity;
+  weightGrams: number;
+  purchaseRate: number;
+  currentRate: number;
+  vendor: string;
+  location?: string;
+  notes?: string;
+};
+
+export type UpdateMetalLotInput = {
+  purity?: Purity;
+  purchaseRate?: number;
+  currentRate?: number;
+  vendor?: string;
+  location?: string;
+  notes?: string | null;
+};
+
+export type TransferMetalLotInput = {
+  toLocation: string;
+  reason?: string;
+};
+
+export type AdjustMetalLotInput = {
+  weightGrams: number;
+  reason: string;
+};
+
+export type StoneLot = {
+  id: string;
+  certificateNumber: string;
+  stoneType: RawStoneType;
+  carat: number;
+  color?: string;
+  clarity?: string;
+  cut?: string;
+  vendor: string;
+  purchaseRate?: number;
+  currentRate?: number;
+  location: string;
+  status: StoneLotStatus;
+  notes?: string;
+  stockValue?: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewStoneLotInput = {
+  certificateNumber?: string;
+  stoneType: RawStoneType;
+  carat: number;
+  color?: string;
+  clarity?: string;
+  cut?: string;
+  vendor: string;
+  purchaseRate?: number;
+  currentRate?: number;
+  location?: string;
+  notes?: string;
+};
+
+export type UpdateStoneLotInput = {
+  color?: string | null;
+  clarity?: string | null;
+  cut?: string | null;
+  vendor?: string;
+  purchaseRate?: number | null;
+  currentRate?: number | null;
+  location?: string;
+  status?: StoneLotStatus;
+  notes?: string | null;
+};
+
+export type TransferStoneLotInput = {
+  toLocation: string;
+  reason?: string;
+};
+
+export type AdjustStoneLotInput = {
+  carat: number;
+  reason: string;
+};
+
+export type RawStockAuditLog = {
+  id: string;
+  stockType: "Metal" | "Stone";
+  stockId: string;
+  lotRef: string;
+  action: RawStockAction;
+  previousValue?: string;
+  newValue?: string;
+  fromLocation?: string;
+  toLocation?: string;
+  delta?: number;
+  reason?: string;
+  performedById?: string;
+  performedByName: string;
+  createdAt: string;
+};
+
+export type RawInventorySummary = {
+  goldGrams: number;
+  silverGrams: number;
+  platinumGrams: number;
+  diamondCarats: number;
+  preciousCarats: number;
+  semiPreciousCarats: number;
+  metalValue: number;
+  stoneValue: number;
 };

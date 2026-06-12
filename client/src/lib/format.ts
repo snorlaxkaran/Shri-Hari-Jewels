@@ -1,10 +1,41 @@
-import numeral from "numeral";
+const inrFormatter = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
+});
 
-export const formatCurrency = (amount: number) =>
-  `₹${numeral(amount).format("0,0")}`;
+const trimDecimals = (value: string) => value.replace(/\.?0+$/, "");
 
-export const formatCompact = (amount: number) =>
-  `₹${numeral(amount).format("0.0a").toUpperCase()}`;
+/** Indian Rupee — e.g. ₹2,85,000 */
+export const formatCurrency = (amount: number) => {
+  if (!Number.isFinite(amount)) return inrFormatter.format(0);
+  return inrFormatter.format(amount);
+};
+
+/** Compact INR — e.g. ₹4.2 L, ₹1.25 Cr */
+export const formatCompact = (amount: number) => {
+  if (!Number.isFinite(amount)) return inrFormatter.format(0);
+
+  const abs = Math.abs(amount);
+  const sign = amount < 0 ? "-" : "";
+
+  if (abs >= 1_00_00_000) {
+    return `${sign}₹${trimDecimals((abs / 1_00_00_000).toFixed(2))} Cr`;
+  }
+  if (abs >= 1_00_000) {
+    return `${sign}₹${trimDecimals((abs / 1_00_000).toFixed(2))} L`;
+  }
+  return formatCurrency(amount);
+};
+
+/** Chart Y-axis labels in Indian units */
+export const formatChartAxis = (value: number) => {
+  const abs = Math.abs(value);
+  if (abs >= 1_00_00_000) return `₹${(abs / 1_00_00_000).toFixed(1)} Cr`;
+  if (abs >= 1_00_000) return `₹${(abs / 1_00_000).toFixed(0)} L`;
+  if (abs >= 1_000) return `₹${(abs / 1_000).toFixed(0)} K`;
+  return formatCurrency(abs);
+};
 
 export const formatDate = (date: string) =>
   new Date(date).toLocaleDateString("en-IN", {
@@ -12,3 +43,11 @@ export const formatDate = (date: string) =>
     month: "short",
     year: "numeric",
   });
+
+export const formatNumber = (value: number, decimals = 2) => {
+  if (!Number.isFinite(value)) return "0";
+  return value.toLocaleString("en-IN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals,
+  });
+};

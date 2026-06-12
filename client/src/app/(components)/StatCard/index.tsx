@@ -20,7 +20,7 @@ export default function StatCard({
   return (
     <div className="surface-card p-5">
       <div className="flex items-start justify-between mb-3">
-        <div className="p-2 rounded-lg bg-zinc-100 text-zinc-600">{icon}</div>
+        <div className="stat-icon">{icon}</div>
         {change !== undefined && (
           <span
             className={`flex items-center gap-0.5 text-xs font-medium ${
@@ -37,10 +37,15 @@ export default function StatCard({
           </span>
         )}
       </div>
-      <p className="text-2xl font-semibold text-zinc-900 tracking-tight">
+      <p
+        className="text-2xl font-semibold tracking-tight"
+        style={{ color: "var(--text-primary)" }}
+      >
         {value}
       </p>
-      <p className="text-xs mt-1 text-zinc-400">{label}</p>
+      <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+        {label}
+      </p>
     </div>
   );
 }
