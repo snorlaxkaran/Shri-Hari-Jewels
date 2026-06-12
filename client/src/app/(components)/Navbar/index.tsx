@@ -1,49 +1,79 @@
 "use client";
 
-import { Bell, Menu, Settings } from "lucide-react";
+import { Bell, Menu, Search, Settings } from "lucide-react";
 import Link from "next/link";
-import React from "react";
+import { useState } from "react";
 
-const Navbar = () => {
+type NavbarProps = {
+  onMenuClick: () => void;
+};
+
+const Navbar = ({ onMenuClick }: NavbarProps) => {
+  const [searchValue, setSearchValue] = useState("");
+
   return (
-    <div className="flex justify-between items-center w-full mb-7">
-      <div className="flex justify-between items-center gap-5">
+    <div className="flex justify-between items-center w-full mb-6">
+      <div className="flex items-center gap-3">
         <button
-          className="px-3 py-3 bg-gray-100 rounded-full hover:bg-blue-100"
-          onClick={() => {}}
+          className="md:hidden p-2 rounded-lg bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors"
+          onClick={onMenuClick}
+          aria-label="Toggle menu"
         >
           <Menu className="w-4 h-4" />
         </button>
+
         <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
             type="search"
-            name=""
-            placeholder="Start type to search groups & products"
-            className="pl-10 pr-4 py-2 w-50 md:w-80 border-2 border-gray-300 bg-white rounded-lg focus:outline-none focus:border-blue-500"
-            id=""
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            placeholder="Search products, collections…"
+            className="input-field pl-9 pr-4 py-2 text-sm w-52 md:w-80 transition-all duration-150"
           />
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Bell className="text-gray-500 size-{20}" />
-          </div>
         </div>
       </div>
-      <div className="flex justify-between items-center gap-5">
-        <div className="hidden md:flex justify-between items-center gap-5">
-          <div className="relative">
-            <Bell className="cursor-pointer text-gray-500 size-{24}" />
-            <span className="absolute -top-2 -right-2 inline-flex items-center justify-center px-[0.4rem] py-1 text-xs font-semibold leading-none text-red-100 bg-red-400 rounded-full">
+
+      <div className="flex items-center gap-1">
+        <div className="hidden md:flex items-center gap-1">
+          <button
+            className="relative p-2 rounded-lg text-zinc-500 hover:bg-white hover:text-zinc-900 transition-colors"
+            aria-label="Notifications"
+          >
+            <Bell className="w-5 h-5" />
+            <span className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center text-[10px] font-semibold rounded-full bg-zinc-900 text-white">
               3
             </span>
-          </div>
-          <hr className="w-0 h-7 border border-solid border-l border-gray-300 mx-3" />
-          <div className="flex items-center gap-3 cursor-pointer">
-            <div className="w-9 h-9">image</div>
-            <span className="font font-semibold">Karan</span>
-          </div>
+          </button>
+
+          <div className="h-6 w-px bg-zinc-200 mx-2" />
+
+          <button className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-white transition-colors">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold bg-zinc-900 text-white">
+              K
+            </div>
+            <span className="text-sm font-medium text-zinc-900">Karan</span>
+          </button>
         </div>
-        <Link href={"/settings"}>
-          <Settings className="cursor-pointer text-gray-500 size-{24}" />
+
+        <Link href="/settings">
+          <button
+            className="p-2 rounded-lg text-zinc-500 hover:bg-white hover:text-zinc-900 transition-colors"
+            aria-label="Settings"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
         </Link>
+
+        <button
+          className="relative p-2 rounded-lg text-zinc-500 hover:bg-white transition-colors md:hidden"
+          aria-label="Notifications"
+        >
+          <Bell className="w-5 h-5" />
+          <span className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center text-[10px] font-semibold rounded-full bg-zinc-900 text-white">
+            3
+          </span>
+        </button>
       </div>
     </div>
   );

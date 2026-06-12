@@ -1,0 +1,136 @@
+import type { InventoryItem, InventoryUnit } from "@/lib/types";
+import { CATEGORY_COLORS } from "./categories";
+import { formatUnitCode } from "./sku";
+import { getStockStatus } from "./status";
+
+const makeUnits = (sku: string, stock: number): InventoryUnit[] =>
+  Array.from({ length: stock }, (_, i) => ({
+    id: `${sku}-unit-${i + 1}`,
+    itemCode: formatUnitCode(sku, i + 1),
+    sku,
+    status: "Available" as const,
+    createdAt: "2026-01-15T10:00:00.000Z",
+  }));
+
+const seed = (
+  partial: Omit<InventoryItem, "units" | "status" | "createdAt" | "images"> & {
+    stock: number;
+    images?: InventoryItem["images"];
+  },
+): InventoryItem => ({
+  ...partial,
+  images: partial.images ?? [],
+  units: makeUnits(partial.sku, partial.stock),
+  status: getStockStatus(partial.stock),
+  createdAt: "2026-01-15T10:00:00.000Z",
+});
+
+export const seedInventoryItems: InventoryItem[] = [
+  seed({
+    id: "1",
+    sku: "NK-26-0001",
+    name: "Temple Lakshmi Necklace",
+    category: "Necklaces",
+    metal: "Gold",
+    purity: "22K",
+    weightGrams: 45.2,
+    makingCharges: 8500,
+    stoneCarat: 0.5,
+    stock: 3,
+    price: 285000,
+    imageColor: CATEGORY_COLORS.Necklaces,
+  }),
+  seed({
+    id: "2",
+    sku: "RG-26-0001",
+    name: "Solitaire Diamond Ring",
+    category: "Rings",
+    metal: "Gold",
+    purity: "18K",
+    weightGrams: 4.8,
+    makingCharges: 12000,
+    stoneCarat: 1.2,
+    stock: 8,
+    price: 195000,
+    imageColor: CATEGORY_COLORS.Rings,
+  }),
+  seed({
+    id: "3",
+    sku: "BG-26-0001",
+    name: "Kundan Bridal Bangle Set",
+    category: "Bangles",
+    metal: "Gold",
+    purity: "22K",
+    weightGrams: 62.0,
+    makingCharges: 15000,
+    stock: 2,
+    price: 420000,
+    imageColor: CATEGORY_COLORS.Bangles,
+  }),
+  seed({
+    id: "4",
+    sku: "ER-26-0001",
+    name: "Pearl Drop Earrings",
+    category: "Earrings",
+    metal: "Silver",
+    purity: "925",
+    weightGrams: 12.5,
+    makingCharges: 2500,
+    stock: 15,
+    price: 18500,
+    imageColor: CATEGORY_COLORS.Earrings,
+  }),
+  seed({
+    id: "5",
+    sku: "RG-26-0002",
+    name: "Antique Ruby Ring",
+    category: "Rings",
+    metal: "Rose Gold",
+    purity: "18K",
+    weightGrams: 6.2,
+    makingCharges: 9500,
+    stoneCarat: 0.8,
+    stock: 0,
+    price: 142000,
+    imageColor: "#e8b4b8",
+  }),
+  seed({
+    id: "6",
+    sku: "NK-26-0002",
+    name: "Mangalsutra Classic",
+    category: "Necklaces",
+    metal: "Gold",
+    purity: "22K",
+    weightGrams: 8.5,
+    makingCharges: 3200,
+    stock: 22,
+    price: 68000,
+    imageColor: CATEGORY_COLORS.Necklaces,
+  }),
+  seed({
+    id: "7",
+    sku: "BG-26-0002",
+    name: "Plain Gold Bangle Pair",
+    category: "Bangles",
+    metal: "Gold",
+    purity: "22K",
+    weightGrams: 24.0,
+    makingCharges: 4800,
+    stock: 11,
+    price: 156000,
+    imageColor: CATEGORY_COLORS.Bangles,
+  }),
+  seed({
+    id: "8",
+    sku: "ER-26-0002",
+    name: "Jhumka Gold Earrings",
+    category: "Earrings",
+    metal: "Gold",
+    purity: "22K",
+    weightGrams: 9.8,
+    makingCharges: 3800,
+    stock: 6,
+    price: 72000,
+    imageColor: CATEGORY_COLORS.Earrings,
+  }),
+];
