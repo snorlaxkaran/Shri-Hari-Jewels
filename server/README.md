@@ -33,3 +33,24 @@ npm run dev            # http://localhost:4000
 | `DATABASE_URL` | `file:./dev.db`         | SQLite connection |
 | `PORT`         | `4000`                  | API port          |
 | `CLIENT_URL`   | `http://localhost:3000` | CORS origin       |
+| `JWT_SECRET`   | (dev fallback)          | **Required in production** |
+
+## Deploy to Render (production)
+
+The repo includes a [`render.yaml`](../render.yaml) blueprint for one-click deploy.
+
+1. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
+2. Connect repo: `snorlaxkaran/Shri-Hari-Jewels`
+3. Render creates `shri-hari-jewels-api` with env vars from the blueprint
+4. After deploy, copy the API URL (e.g. `https://shri-hari-jewels-api.onrender.com`)
+5. In **Vercel** → project settings → **Environment Variables**, add:
+
+   ```
+   NEXT_PUBLIC_API_URL=https://shri-hari-jewels-api.onrender.com
+   ```
+
+6. Redeploy the Vercel frontend
+
+**Default login after seed:** `admin@shreehari.com` / `admin123`
+
+**Health check:** `GET /api/health`
