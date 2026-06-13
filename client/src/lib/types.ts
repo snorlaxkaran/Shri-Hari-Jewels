@@ -292,6 +292,15 @@ export type NewBranchInput = {
   manager?: string;
 };
 
+export type UpdateBranchInput = {
+  name?: string;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  manager?: string | null;
+  active?: boolean;
+};
+
 export type RecordSaleResult = {
   sale: Sale;
   invoice?: Invoice;
