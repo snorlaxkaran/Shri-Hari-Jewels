@@ -9,11 +9,42 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import { fetchCurrentUser, login as loginApi } from "@/lib/api/auth";
+import { login as loginApi } from "@/lib/api/auth";
 import { clearAuthToken, setAuthToken } from "@/lib/api/client";
 import type { AuthUser, LoginInput } from "@/lib/types";
 
 const TOKEN_KEY = "shj_auth_token";
+
+// Decode JWT payload without a library (browser-safe, no network needed)
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const base64 = token.split(".")[1];
+    const json = atob(base64.replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+function getUserFromToken(token: string): AuthUser | null {
+  const payload = decodeJwtPayload(token);
+  if (!payload) return null;
+
+  // Check expiry
+  const exp = typeof payload.exp === "number" ? payload.exp : 0;
+  if (exp * 1000 < Date.now()) return null;
+
+  const { sub, email, name, role } = payload as {
+    sub?: string;
+    email?: string;
+    name?: string;
+    role?: string;
+  };
+
+  if (!sub || !email || !name || !role) return null;
+
+  return { id: sub, email, name, role: role as AuthUser["role"] };
+}
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -29,26 +60,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const bootstrap = useCallback(async () => {
+  const bootstrap = useCallback(() => {
     const token =
       typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+
     if (!token) {
       setUser(null);
       setLoading(false);
       return;
     }
 
-    setAuthToken(token);
-    try {
-      const current = await fetchCurrentUser();
-      setUser(current);
-    } catch {
-      clearAuthToken();
+    // Decode JWT locally — zero network cost, instant
+    const decoded = getUserFromToken(token);
+    if (!decoded) {
+      // Token missing or expired — clear it and send to login
       localStorage.removeItem(TOKEN_KEY);
+      clearAuthToken();
       setUser(null);
-    } finally {
       setLoading(false);
+      return;
     }
+
+    setAuthToken(token);
+    setUser(decoded);
+    setLoading(false);
   }, []);
 
   useEffect(() => {

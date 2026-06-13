@@ -22,12 +22,19 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, pathname, router]);
 
-  if (loading || !user) {
+  // loading is now near-instant (JWT decoded locally, no network)
+  // so this skeleton flash is imperceptible
+  if (loading) {
     return <PageSkeleton />;
   }
 
+  // Not logged in — redirect is already queued, show nothing
+  if (!user) {
+    return null;
+  }
+
   if (!canAccessRoute(user.role, pathname)) {
-    return <PageSkeleton />;
+    return null;
   }
 
   return <>{children}</>;
