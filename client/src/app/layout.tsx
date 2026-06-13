@@ -11,7 +11,7 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "Shree Hari Jewels — ERP",
+  title: "Shree Hari Jewels - ERP",
   description: "Jewelry inventory, orders, and business management",
 };
 

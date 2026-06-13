@@ -1,7 +1,7 @@
-# Render Blueprint — one-click deploy for Shri Hari Jewels API
+# Render Blueprint - one-click deploy for Shri Hari Jewels API
 # https://render.com/docs/blueprint-spec
 #
-# Deploy: Render Dashboard → New → Blueprint → connect snorlaxkaran/Shri-Hari-Jewels
+# Deploy: Render Dashboard -> New -> Blueprint -> connect snorlaxkaran/Shri-Hari-Jewels
 
 services:
   - type: web

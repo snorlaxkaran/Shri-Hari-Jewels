@@ -1,4 +1,4 @@
-# Shri Hari Jewels — API Server
+# Shri Hari Jewels - API Server
 
 Express + Prisma + SQLite backend for the jewelry ERP.
 
@@ -9,6 +9,7 @@ cd server
 npm install
 cp .env.example .env   # if .env doesn't exist
 npm run db:push        # create/update tables
+npm run db:seed        # create default admin and sample data
 npm run dev            # http://localhost:4000
 ```
 
@@ -39,7 +40,7 @@ npm run dev            # http://localhost:4000
 
 The repo includes a [`render.yaml`](../render.yaml) blueprint for one-click deploy.
 
-1. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
+1. Go to [Render Dashboard](https://dashboard.render.com) -> **New** -> **Blueprint**
 2. Connect repo: `snorlaxkaran/Shri-Hari-Jewels`
 3. Render creates `shri-hari-jewels-api` with env vars from the blueprint
 4. After deploy, copy the API URL (e.g. `https://shri-hari-jewels-api.onrender.com`)
@@ -54,7 +55,7 @@ The repo includes a [`render.yaml`](../render.yaml) blueprint for one-click depl
 **Default login after seed:** `admin@shreehari.com` / `admin123`
 
 **Default branches after seed:**
-- Head Office (Admin) — Mumbai HQ
+- Head Office (Admin) - Mumbai HQ
 - Jaipur Store
 - Delhi Store
 

@@ -98,7 +98,7 @@ export default function LoginPage() {
             disabled={submitting || loading}
             className="btn-primary w-full px-4 py-2.5 text-sm disabled:opacity-50"
           >
-            {submitting ? "Signing in…" : "Sign in"}
+            {submitting ? "Signing in..." : "Sign in"}
           </button>
         </form>
 

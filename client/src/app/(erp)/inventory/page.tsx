@@ -82,7 +82,7 @@ export default function InventoryPage() {
   const handleAddProduct = async (input: Parameters<typeof addProduct>[0]) => {
     const product = await addProduct(input);
     setSuccessMessage(
-      `Added ${product.name} — SKU ${product.sku} with ${product.stock} unit${product.stock > 1 ? "s" : ""}`,
+      `Added ${product.name} - SKU ${product.sku} with ${product.stock} unit${product.stock > 1 ? "s" : ""}`,
     );
     setTimeout(() => setSuccessMessage(""), 4000);
   };
@@ -97,8 +97,8 @@ export default function InventoryPage() {
         title="Products"
         subtitle={
           metalTab === "all"
-            ? `${filtered.length} SKUs · ${items.reduce((s, i) => s + i.stock, 0)} total units`
-            : `${filtered.length} SKUs · ${metalStats.activeQty} active units`
+            ? `${filtered.length} SKUs - ${items.reduce((s, i) => s + i.stock, 0)} total units`
+            : `${filtered.length} SKUs - ${metalStats.activeQty} active units`
         }
         action={
           canAdd ? (
@@ -169,7 +169,7 @@ export default function InventoryPage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, SKU, or item code…"
+            placeholder="Search by name, SKU, or item code..."
             className="input-field w-full pl-9 pr-4 py-2 text-sm"
           />
         </div>

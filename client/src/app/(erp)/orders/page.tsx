@@ -122,7 +122,7 @@ export default function OrdersPage() {
                     <td className="px-5 py-3">
                       {order.estimatedTotal
                         ? formatCurrency(order.estimatedTotal)
-                        : "—"}
+                        : "-"}
                     </td>
                     <td className="px-5 py-3">
                       <select

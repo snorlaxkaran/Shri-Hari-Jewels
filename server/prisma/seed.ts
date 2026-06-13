@@ -198,16 +198,16 @@ async function main() {
     });
   }
 
-  console.log("✅ Seeded database successfully!");
+  console.log("Seeded database successfully!");
   console.log(`\nDefault Admin Account:`);
-  console.log(`📧 Email: ${adminUser.email}`);
-  console.log(`🔑 Password: admin123`);
-  console.log(`\n🏪 Branches:`);
+  console.log(`Email: ${adminUser.email}`);
+  console.log(`Password: admin123`);
+  console.log(`\nBranches:`);
   for (const branch of branches) {
-    console.log(`   • ${branch.name} (ID: ${branch.id})`);
+    console.log(`   - ${branch.name} (ID: ${branch.id})`);
   }
-  console.log(`\n👤 Sample Customer: ${customer.name} (${customer.mobile})`);
-  console.log(`💍 Sample Product: RG-26-0001 — item codes RG-26-0001-001, RG-26-0001-002`);
+  console.log(`\nSample Customer: ${customer.name} (${customer.mobile})`);
+  console.log(`Sample Product: RG-26-0001 - item codes RG-26-0001-001, RG-26-0001-002`);
 }
 
 main()

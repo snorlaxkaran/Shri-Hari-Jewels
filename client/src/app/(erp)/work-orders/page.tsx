@@ -9,7 +9,6 @@ import FilterPill from "@/app/(components)/ui/FilterPill";
 import { useOrders } from "@/lib/orders/orders-context";
 import { useWorkOrders } from "@/lib/work-orders/work-orders-context";
 import type {
-  WorkOrder,
   WorkOrderStatus,
   WorkOrderPriority,
 } from "@/lib/types";
@@ -150,7 +149,7 @@ export default function WorkOrdersPage() {
                     <td className="px-5 py-3 max-w-xs truncate">
                       {workOrder.title}
                     </td>
-                    <td className="px-5 py-3">{workOrder.orderNo ?? "—"}</td>
+                    <td className="px-5 py-3">{workOrder.orderNo ?? "-"}</td>
                     <td className="px-5 py-3">
                       {workOrder.assignedToName ?? "Unassigned"}
                     </td>
@@ -193,7 +192,7 @@ export default function WorkOrdersPage() {
                       </select>
                     </td>
                     <td className="px-5 py-3">
-                      {workOrder.dueDate ? formatDate(workOrder.dueDate) : "—"}
+                      {workOrder.dueDate ? formatDate(workOrder.dueDate) : "-"}
                     </td>
                   </tr>
                 ))}

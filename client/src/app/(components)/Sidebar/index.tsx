@@ -4,20 +4,14 @@ import { Gem, MoreVertical, X } from "lucide-react";
 
 import Link from "next/link";
 
-import { useMemo } from "react";
-import { usePathname } from "next/navigation";
-
-import { useInventory } from "@/lib/inventory/inventory-context";
-
-import { useOrders } from "@/lib/orders/orders-context";
-
-import { useSales } from "@/lib/sales/sales-context";
+import { useCallback, useMemo, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "@/lib/auth/auth-context";
 
 import { canAccessRoute, ROLE_LABELS } from "@/lib/auth/permissions";
 
-import { filterNavSections, type NavItem } from "@/lib/navigation";
+import { filterNavSections } from "@/lib/navigation";
 
 type SidebarContentProps = {
   pathname: string;
@@ -27,36 +21,6 @@ type SidebarContentProps = {
   showClose?: boolean;
 };
 
-const getItemBadge = (
-  item: NavItem,
-
-  inventoryUnitCount: number,
-
-  inventoryReady: boolean,
-
-  salesCount: number,
-
-  salesReady: boolean,
-
-  pendingOrders: number,
-
-  ordersReady: boolean,
-): string | number | undefined => {
-  if (item.href === "/inventory") {
-    return inventoryReady ? inventoryUnitCount : undefined;
-  }
-
-  if (item.href === "/sales") {
-    return salesReady ? salesCount : undefined;
-  }
-
-  if (item.href === "/orders") {
-    return ordersReady && pendingOrders > 0 ? pendingOrders : undefined;
-  }
-
-  return item.badge;
-};
-
 const SidebarContent = ({
   pathname,
 
@@ -64,13 +28,10 @@ const SidebarContent = ({
 
   showClose = false,
 }: SidebarContentProps) => {
+  const router = useRouter();
+  const prefetchedRoutes = useRef(new Set<string>());
+
   const { user, logout } = useAuth();
-
-  const { items, hydrated } = useInventory();
-
-  const { analytics, hydrated: salesReady } = useSales();
-
-  const { orders, hydrated: ordersReady } = useOrders();
 
   const sections = useMemo(
     () =>
@@ -78,21 +39,13 @@ const SidebarContent = ({
     [user],
   );
 
-  const inventoryUnitCount = useMemo(
-    () => items.reduce((sum, item) => sum + item.stock, 0),
-    [items],
-  );
-
-  const salesCount = useMemo(
-    () => analytics?.stats.totalSales ?? 0,
-    [analytics],
-  );
-
-  const pendingOrders = useMemo(
-    () =>
-      orders.filter((o) => o.status !== "Delivered" && o.status !== "Cancelled")
-        .length,
-    [orders],
+  const prefetchRoute = useCallback(
+    (href: string) => {
+      if (prefetchedRoutes.current.has(href)) return;
+      prefetchedRoutes.current.add(href);
+      router.prefetch(href);
+    },
+    [router],
   );
 
   return (
@@ -157,28 +110,18 @@ const SidebarContent = ({
             {section.items.map((item) => {
               const isActive = pathname === item.href;
 
-              const badge = getItemBadge(
-                item,
-
-                inventoryUnitCount,
-
-                hydrated,
-
-                salesCount,
-
-                salesReady,
-
-                pendingOrders,
-
-                ordersReady,
-              );
+              const badge = item.badge;
 
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  prefetch={false}
-                  onClick={onClose}
+                  onPointerEnter={() => prefetchRoute(item.href)}
+                  onFocus={() => prefetchRoute(item.href)}
+                  onClick={() => {
+                    prefetchRoute(item.href);
+                    onClose();
+                  }}
                   data-active={isActive}
                   className="sidebar-nav-item w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-[13px] font-medium transition-colors duration-150"
                   style={{
