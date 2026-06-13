@@ -1,0 +1,420 @@
+import { prisma } from "../db.js";
+import { toInvoice } from "../invoices/mappers.js";
+import { createInvoiceForSale } from "../invoices/service.js";
+import { getStockStatus } from "../inventory/status.js";
+import {
+  closeUpiQrCode,
+  createUpiQrCode,
+  findCapturedPaymentForQr,
+  isRazorpayEnabled,
+} from "../payments/razorpay.js";
+import { buildUpiPaymentString } from "../payments/upi.js";
+import { getShopSettings } from "../settings/service.js";
+import type {
+  PaymentMode,
+  RecordCartSaleResult,
+  RecordSaleInput,
+  RecordSaleResult,
+  Sale,
+} from "../../types.js";
+import { cancelCartGroup, completeCartGroup } from "./cart.js";
+import { toSale } from "./mappers.js";
+
+const PAYMENT_MODES: PaymentMode[] = ["Cash", "UPI", "Card"];
+
+import { SaleError } from "./errors.js";
+
+export { SaleError } from "./errors.js";
+
+export const listSales = async (): Promise<Sale[]> => {
+  const sales = await prisma.sale.findMany({ orderBy: { soldAt: "desc" } });
+  return sales.map(toSale);
+};
+
+export const getSaleById = async (saleId: string): Promise<Sale | null> => {
+  const sale = await prisma.sale.findUnique({ where: { id: saleId } });
+  return sale ? toSale(sale) : null;
+};
+
+export const lookupUnitForSale = async (itemCode: string) => {
+  const unit = await prisma.inventoryUnit.findUnique({
+    where: { itemCode: itemCode.trim() },
+    include: { product: true, sale: true },
+  });
+
+  if (!unit) {
+    throw new SaleError("Item code not found.", 404);
+  }
+  if (unit.status !== "Available") {
+    throw new SaleError(`This item is ${unit.status} and cannot be sold.`, 400);
+  }
+  if (unit.sale) {
+    throw new SaleError("This item already has a sale record.", 400);
+  }
+
+  return {
+    itemCode: unit.itemCode,
+    productName: unit.product.name,
+    sku: unit.product.sku,
+    category: unit.product.category,
+    listPrice: unit.product.price,
+  };
+};
+
+const validateSaleInput = async (input: RecordSaleInput) => {
+  const itemCode = input.itemCode.trim();
+
+  if (!itemCode) throw new SaleError("Item code is required.");
+  if (!input.customerId) throw new SaleError("Customer is required.");
+  if (!input.dealPrice || input.dealPrice <= 0) {
+    throw new SaleError("Deal price must be greater than zero.");
+  }
+  if (!PAYMENT_MODES.includes(input.paymentMode)) {
+    throw new SaleError("Invalid payment mode.");
+  }
+
+  const customer = await prisma.customer.findUnique({
+    where: { id: input.customerId },
+  });
+  if (!customer) throw new SaleError("Customer not found.", 404);
+
+  const unit = await prisma.inventoryUnit.findUnique({
+    where: { itemCode },
+    include: { product: true, sale: true },
+  });
+
+  if (!unit) throw new SaleError("Item code not found.", 404);
+  if (unit.status !== "Available") {
+    throw new SaleError(`This item is ${unit.status} and cannot be sold.`, 400);
+  }
+  if (unit.sale)
+    throw new SaleError("This item already has a sale record.", 400);
+
+  return {
+    itemCode,
+    customer,
+    unit,
+    product: unit.product,
+    discount: Math.max(0, input.discount ?? 0),
+  };
+};
+
+const buildCompletedResult = async (
+  saleId: string,
+): Promise<RecordSaleResult> => {
+  const sale = await prisma.sale.findUnique({
+    where: { id: saleId },
+    include: { invoice: true },
+  });
+  if (!sale) throw new SaleError("Sale not found.", 404);
+
+  return {
+    sale: toSale(sale),
+    invoice: sale.invoice ? toInvoice(sale.invoice) : undefined,
+    requiresConfirmation: false,
+    autoCapture: isRazorpayEnabled(),
+  };
+};
+
+export const completeSale = async (
+  saleId: string,
+  paymentRef?: string,
+): Promise<RecordSaleResult> => {
+  const existing = await prisma.sale.findUnique({
+    where: { id: saleId },
+    include: { invoice: true },
+  });
+
+  if (!existing) throw new SaleError("Sale not found.", 404);
+  if (existing.paymentStatus === "Completed") {
+    return {
+      sale: toSale(existing),
+      invoice: existing.invoice ? toInvoice(existing.invoice) : undefined,
+      requiresConfirmation: false,
+      autoCapture: isRazorpayEnabled(),
+    };
+  }
+
+  if (existing.cartGroupId) {
+    const cartResult = await completeCartGroup(
+      existing.cartGroupId,
+      paymentRef,
+    );
+    return {
+      sale: cartResult.sales[0],
+      invoice: cartResult.invoices?.[0],
+      requiresConfirmation: false,
+      autoCapture: cartResult.autoCapture,
+    };
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const sale = await tx.sale.findUnique({
+      where: { id: saleId },
+      include: { unit: { include: { product: true } } },
+    });
+
+    if (!sale) throw new SaleError("Sale not found.", 404);
+    if (sale.paymentStatus === "Completed") {
+      throw new SaleError("This sale is already completed.", 400);
+    }
+
+    const updatedSale = await tx.sale.update({
+      where: { id: saleId },
+      data: {
+        paymentStatus: "Completed",
+        paymentRef: paymentRef?.trim() || sale.razorpayPaymentId || null,
+        razorpayPaymentId: paymentRef?.trim() || sale.razorpayPaymentId || null,
+        soldAt: new Date(),
+      },
+    });
+
+    await tx.inventoryUnit.update({
+      where: { id: sale.unitId },
+      data: { status: "Sold" },
+    });
+
+    const product = sale.unit.product;
+    const newStock = product.stock - 1;
+    await tx.product.update({
+      where: { id: product.id },
+      data: {
+        stock: newStock,
+        status: getStockStatus(newStock),
+      },
+    });
+
+    const invoice = await createInvoiceForSale(updatedSale, tx);
+    return { sale: updatedSale, invoice };
+  });
+
+  if (existing.razorpayQrId) {
+    await closeUpiQrCode(existing.razorpayQrId);
+  }
+
+  return {
+    sale: toSale(result.sale),
+    invoice: result.invoice,
+    requiresConfirmation: false,
+    autoCapture: isRazorpayEnabled(),
+  };
+};
+
+export const syncPendingSalePayment = async (
+  saleId: string,
+): Promise<RecordSaleResult> => {
+  const sale = await prisma.sale.findUnique({ where: { id: saleId } });
+  if (!sale) throw new SaleError("Sale not found.", 404);
+
+  if (sale.paymentStatus === "Completed") {
+    return buildCompletedResult(saleId);
+  }
+
+  if (!sale.razorpayQrId) {
+    return {
+      sale: toSale(sale),
+      requiresConfirmation: true,
+      autoCapture: false,
+    };
+  }
+
+  const payment = await findCapturedPaymentForQr(sale.razorpayQrId);
+  if (payment) {
+    await prisma.sale.update({
+      where: { id: saleId },
+      data: { razorpayPaymentId: payment.id },
+    });
+    return completeSale(saleId, payment.id);
+  }
+
+  return {
+    sale: toSale(sale),
+    requiresConfirmation: true,
+    autoCapture: true,
+  };
+};
+
+export const recordSale = async (
+  input: RecordSaleInput,
+  branchId: string,
+): Promise<RecordSaleResult> => {
+  const { itemCode, customer, unit, product, discount } =
+    await validateSaleInput(input);
+
+  if (input.paymentMode === "UPI") {
+    const useRazorpay = isRazorpayEnabled();
+
+    if (!useRazorpay) {
+      const settings = await getShopSettings();
+      if (!settings.upiVpa) {
+        throw new SaleError(
+          "UPI is not configured. Add Razorpay API keys in server .env for automatic payments, or set a UPI ID in Settings for manual mode.",
+          400,
+        );
+      }
+    }
+
+    const pendingSale = await prisma.$transaction(async (tx) => {
+      const created = await tx.sale.create({
+        data: {
+          branchId,
+          unitId: unit.id,
+          itemCode: unit.itemCode,
+          productId: product.id,
+          productName: product.name,
+          sku: product.sku,
+          category: product.category,
+          listPrice: product.price,
+          discount,
+          dealPrice: input.dealPrice,
+          paymentMode: "UPI",
+          paymentStatus: "Pending",
+          customerId: customer.id,
+          customerPhone: customer.mobile,
+          customerName: customer.name,
+        },
+      });
+
+      await tx.inventoryUnit.update({
+        where: { id: unit.id },
+        data: { status: "Reserved" },
+      });
+
+      return created;
+    });
+
+    if (useRazorpay) {
+      const qr = await createUpiQrCode(
+        pendingSale.id,
+        input.dealPrice,
+        `Sale ${itemCode}`,
+      );
+
+      const updated = await prisma.sale.update({
+        where: { id: pendingSale.id },
+        data: { razorpayQrId: qr.id },
+      });
+
+      return {
+        sale: toSale(updated),
+        requiresConfirmation: true,
+        autoCapture: true,
+        upiQrImageUrl: qr.image_url,
+      };
+    }
+
+    const settings = await getShopSettings();
+    const upiQrString = buildUpiPaymentString({
+      vpa: settings.upiVpa!,
+      payeeName: settings.businessName,
+      amount: input.dealPrice,
+      transactionNote: `Sale ${itemCode}`,
+    });
+
+    return {
+      sale: toSale(pendingSale),
+      requiresConfirmation: true,
+      autoCapture: false,
+      upiQrString,
+    };
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const created = await tx.sale.create({
+      data: {
+        branchId,
+        unitId: unit.id,
+        itemCode: unit.itemCode,
+        productId: product.id,
+        productName: product.name,
+        sku: product.sku,
+        category: product.category,
+        listPrice: product.price,
+        discount,
+        dealPrice: input.dealPrice,
+        paymentMode: input.paymentMode,
+        paymentStatus: "Completed",
+        customerId: customer.id,
+        customerPhone: customer.mobile,
+        customerName: customer.name,
+      },
+    });
+
+    await tx.inventoryUnit.update({
+      where: { id: unit.id },
+      data: { status: "Sold" },
+    });
+
+    const newStock = product.stock - 1;
+    await tx.product.update({
+      where: { id: product.id },
+      data: {
+        stock: newStock,
+        status: getStockStatus(newStock),
+      },
+    });
+
+    const invoice = await createInvoiceForSale(created, tx);
+    return { sale: created, invoice };
+  });
+
+  return {
+    sale: toSale(result.sale),
+    invoice: result.invoice,
+    requiresConfirmation: false,
+    autoCapture: false,
+  };
+};
+
+export const confirmSalePayment = async (
+  saleId: string,
+  paymentRef?: string,
+): Promise<RecordSaleResult | RecordCartSaleResult> => {
+  const sale = await prisma.sale.findUnique({ where: { id: saleId } });
+  if (!sale) throw new SaleError("Sale not found.", 404);
+  if (sale.cartGroupId) {
+    return completeCartGroup(sale.cartGroupId, paymentRef);
+  }
+  return completeSale(saleId, paymentRef);
+};
+
+export const cancelPendingSale = async (saleId: string): Promise<void> => {
+  const sale = await prisma.sale.findUnique({ where: { id: saleId } });
+  if (!sale) throw new SaleError("Sale not found.", 404);
+  if (sale.paymentStatus !== "Pending") {
+    throw new SaleError("Only pending UPI sales can be cancelled.", 400);
+  }
+
+  if (sale.cartGroupId) {
+    await cancelCartGroup(sale.cartGroupId);
+    return;
+  }
+
+  if (sale.razorpayQrId) {
+    await closeUpiQrCode(sale.razorpayQrId);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.inventoryUnit.update({
+      where: { id: sale.unitId },
+      data: { status: "Available" },
+    });
+
+    await tx.sale.delete({ where: { id: saleId } });
+  });
+};
+
+export const handleRazorpayWebhookSale = async (
+  saleId: string,
+  paymentId: string,
+): Promise<void> => {
+  const sale = await prisma.sale.findUnique({ where: { id: saleId } });
+  if (!sale || sale.paymentStatus === "Completed") return;
+
+  await prisma.sale.update({
+    where: { id: saleId },
+    data: { razorpayPaymentId: paymentId },
+  });
+
+  await completeSale(saleId, paymentId);
+};
