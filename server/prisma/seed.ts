@@ -1,5 +1,9 @@
 import { prisma } from "../src/lib/db.js";
 import { hashPassword } from "../src/lib/auth/password.js";
+import {
+  DEFAULT_BRANCH_ID,
+  SEED_BRANCHES,
+} from "../src/lib/branches/constants.js";
 
 async function main() {
   const hashedPassword = await hashPassword("admin123");
@@ -16,32 +20,55 @@ async function main() {
     },
   });
 
-  const branch = await prisma.branch.upsert({
+  const branches = await Promise.all(
+    SEED_BRANCHES.map((seedBranch) =>
+      prisma.branch.upsert({
+        where: { id: seedBranch.id },
+        update: {
+          name: seedBranch.name,
+          address: seedBranch.address,
+          phone: seedBranch.phone,
+          email: seedBranch.email,
+          manager: seedBranch.manager,
+          active: true,
+        },
+        create: {
+          id: seedBranch.id,
+          name: seedBranch.name,
+          address: seedBranch.address,
+          phone: seedBranch.phone,
+          email: seedBranch.email,
+          manager: seedBranch.manager,
+          active: true,
+        },
+      }),
+    ),
+  );
+
+  const headOffice = branches.find((b) => b.id === DEFAULT_BRANCH_ID)!;
+
+  // Retire the old single-branch seed id so only the new stores stay active.
+  await prisma.branch.updateMany({
     where: { id: "main" },
-    update: {},
-    create: {
-      id: "main",
-      name: "Main Branch",
-      address: "123 Jewelry Street, Mumbai",
-      phone: "+91-9876543210",
-      email: "main@shreehari.com",
-      manager: "Admin",
-      active: true,
-    },
+    data: { active: false },
   });
 
-  await prisma.userBranch.upsert({
-    where: { userId_branchId: { userId: adminUser.id, branchId: branch.id } },
-    update: {},
-    create: {
-      userId: adminUser.id,
-      branchId: branch.id,
-    },
-  });
+  for (const branch of branches) {
+    await prisma.userBranch.upsert({
+      where: {
+        userId_branchId: { userId: adminUser.id, branchId: branch.id },
+      },
+      update: {},
+      create: {
+        userId: adminUser.id,
+        branchId: branch.id,
+      },
+    });
+  }
 
   await prisma.user.update({
     where: { id: adminUser.id },
-    data: { defaultBranchId: branch.id },
+    data: { defaultBranchId: headOffice.id },
   });
 
   await prisma.shopSettings.upsert({
@@ -50,8 +77,8 @@ async function main() {
     create: {
       id: "default",
       businessName: "Shree Hari Jewels",
-      address: "123 Jewelry Street, Mumbai",
-      phone: "+91-9876543210",
+      address: headOffice.address,
+      phone: headOffice.phone,
       upiVpa: "shreehari@upi",
     },
   });
@@ -77,7 +104,7 @@ async function main() {
   if (!existingProduct) {
     await prisma.product.create({
       data: {
-        branchId: branch.id,
+        branchId: headOffice.id,
         sku: "RG-26-0001",
         name: "Classic Gold Ring",
         category: "Rings",
@@ -93,12 +120,12 @@ async function main() {
         units: {
           create: [
             {
-              branchId: branch.id,
+              branchId: headOffice.id,
               itemCode: "RG-26-0001-001",
               status: "Available",
             },
             {
-              branchId: branch.id,
+              branchId: headOffice.id,
               itemCode: "RG-26-0001-002",
               status: "Available",
             },
@@ -115,7 +142,7 @@ async function main() {
   if (!existingGoldLot) {
     await prisma.metalLot.create({
       data: {
-        branchId: branch.id,
+        branchId: headOffice.id,
         lotNumber: "GL-26-0001",
         metalType: "Gold",
         purity: "24K",
@@ -135,7 +162,7 @@ async function main() {
   if (!existingSilverLot) {
     await prisma.metalLot.create({
       data: {
-        branchId: branch.id,
+        branchId: headOffice.id,
         lotNumber: "SL-26-0001",
         metalType: "Silver",
         purity: "999",
@@ -155,7 +182,7 @@ async function main() {
   if (!existingDiamondLot) {
     await prisma.stoneLot.create({
       data: {
-        branchId: branch.id,
+        branchId: headOffice.id,
         certificateNumber: "DIA-SEED-001",
         stoneType: "Diamond",
         carat: 2.5,
@@ -175,7 +202,10 @@ async function main() {
   console.log(`\nDefault Admin Account:`);
   console.log(`📧 Email: ${adminUser.email}`);
   console.log(`🔑 Password: admin123`);
-  console.log(`\n🏪 Main Branch: ${branch.name} (ID: ${branch.id})`);
+  console.log(`\n🏪 Branches:`);
+  for (const branch of branches) {
+    console.log(`   • ${branch.name} (ID: ${branch.id})`);
+  }
   console.log(`\n👤 Sample Customer: ${customer.name} (${customer.mobile})`);
   console.log(`💍 Sample Product: RG-26-0001 — item codes RG-26-0001-001, RG-26-0001-002`);
 }

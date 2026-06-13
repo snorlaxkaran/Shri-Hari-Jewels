@@ -9,6 +9,7 @@ import {
   FileText,
   Settings,
   Briefcase,
+  Store,
 } from "lucide-react";
 import { createElement } from "react";
 
@@ -53,7 +54,10 @@ export const navSections: NavSection[] = [
   },
   {
     title: "System",
-    items: [{ label: "Settings", href: "/settings", icon: icon(Settings) }],
+    items: [
+      { label: "Branches", href: "/branches", icon: icon(Store) },
+      { label: "Settings", href: "/settings", icon: icon(Settings) },
+    ],
   },
 ];
 

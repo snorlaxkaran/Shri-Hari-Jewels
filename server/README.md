@@ -53,4 +53,11 @@ The repo includes a [`render.yaml`](../render.yaml) blueprint for one-click depl
 
 **Default login after seed:** `admin@shreehari.com` / `admin123`
 
+**Default branches after seed:**
+- Head Office (Admin) — Mumbai HQ
+- Jaipur Store
+- Delhi Store
+
+Admins can add more branches from **Branches** in the app sidebar.
+
 **Health check:** `GET /api/health`

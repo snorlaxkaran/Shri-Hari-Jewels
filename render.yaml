@@ -11,7 +11,7 @@ services:
     plan: free
     rootDir: server
     branch: main
-    buildCommand: npm install && npm run build && npm run db:push
+    buildCommand: npm install --include=dev && npm run build && npm run db:push
     startCommand: npm run start:prod
     healthCheckPath: /api/health
     envVars:
@@ -23,9 +23,3 @@ services:
         value: https://shri-hari-jewels.vercel.app
       - key: JWT_SECRET
         generateValue: true
-      - key: RAZORPAY_KEY_ID
-        sync: false
-      - key: RAZORPAY_KEY_SECRET
-        sync: false
-      - key: RAZORPAY_WEBHOOK_SECRET
-        sync: false

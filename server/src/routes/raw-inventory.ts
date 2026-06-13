@@ -28,6 +28,7 @@ import {
   requireRole,
   type AuthenticatedRequest,
 } from "../middleware/auth.js";
+import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
 import { routeParam } from "../lib/route-param.js";
 import type {
   AdjustMetalLotInput,
@@ -64,7 +65,7 @@ const getUserBranch = async (userId: string): Promise<string> => {
     return user.branches[0].branchId;
   }
 
-  return "main";
+  return DEFAULT_BRANCH_ID;
 };
 
 rawInventoryRouter.get(

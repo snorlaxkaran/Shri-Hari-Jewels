@@ -272,6 +272,26 @@ export type UpdateShopSettingsInput = {
   upiVpa?: string;
 };
 
+export type Branch = {
+  id: string;
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  manager?: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewBranchInput = {
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  manager?: string;
+};
+
 export type RecordSaleResult = {
   sale: Sale;
   invoice?: Invoice;

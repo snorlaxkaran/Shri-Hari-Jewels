@@ -11,7 +11,7 @@ export class BranchError extends Error {
 export const listBranches = async (): Promise<Branch[]> => {
   const branches = await prisma.branch.findMany({
     where: { active: true },
-    orderBy: { createdAt: "desc" },
+    orderBy: { name: "asc" },
   });
 
   return branches.map(formatBranch);

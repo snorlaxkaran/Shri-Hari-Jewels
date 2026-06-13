@@ -30,21 +30,6 @@ branchesRouter.get("/", requireRole(canManageBranches), async (_req, res) => {
   }
 });
 
-// Get branch detail
-branchesRouter.get("/:id", requireRole(canManageBranches), async (req, res) => {
-  try {
-    const branch = await getBranchDetail(routeParam(req.params.id));
-    if (!branch) {
-      res.status(404).json({ error: "Branch not found" });
-      return;
-    }
-    res.json(branch);
-  } catch (error) {
-    console.error("GET /api/branches/:id", error);
-    res.status(500).json({ error: "Failed to fetch branch" });
-  }
-});
-
 // Get my branches (for current user)
 branchesRouter.get("/user/me", async (req, res) => {
   try {
@@ -58,6 +43,21 @@ branchesRouter.get("/user/me", async (req, res) => {
   } catch (error) {
     console.error("GET /api/branches/user/me", error);
     res.status(500).json({ error: "Failed to fetch user branches" });
+  }
+});
+
+// Get branch detail
+branchesRouter.get("/:id", requireRole(canManageBranches), async (req, res) => {
+  try {
+    const branch = await getBranchDetail(routeParam(req.params.id));
+    if (!branch) {
+      res.status(404).json({ error: "Branch not found" });
+      return;
+    }
+    res.json(branch);
+  } catch (error) {
+    console.error("GET /api/branches/:id", error);
+    res.status(500).json({ error: "Failed to fetch branch" });
   }
 });
 
