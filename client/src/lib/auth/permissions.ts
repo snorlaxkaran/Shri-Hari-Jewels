@@ -19,7 +19,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/sales-analytics",
     "/invoices",
   ],
-  Karigar: ["/dashboard", "/orders"],
+  Karigar: ["/dashboard", "/orders", "/work-orders"],
   Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory"],
 };
 

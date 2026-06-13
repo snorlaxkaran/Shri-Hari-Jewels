@@ -8,6 +8,7 @@ import {
   BarChart2,
   FileText,
   Settings,
+  Briefcase,
 } from "lucide-react";
 import { createElement } from "react";
 
@@ -35,6 +36,7 @@ export const navSections: NavSection[] = [
       { label: "Raw Stock", href: "/raw-inventory", icon: icon(Gem) },
       { label: "Sales", href: "/sales", icon: icon(ShoppingCart) },
       { label: "Orders", href: "/orders", icon: icon(ShoppingBag) },
+      { label: "Work Orders", href: "/work-orders", icon: icon(Briefcase) },
       { label: "Customers", href: "/customers", icon: icon(Users) },
     ],
   },

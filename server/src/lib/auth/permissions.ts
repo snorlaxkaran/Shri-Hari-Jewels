@@ -73,6 +73,15 @@ export const canManageOrders = (role: UserRole): boolean =>
   role === "SalesManager" ||
   role === "Karigar";
 
+export const canViewWorkOrders = (role: UserRole): boolean =>
+  role === "Admin" || role === "ProductionManager" || role === "Karigar";
+
+export const canCreateWorkOrders = (role: UserRole): boolean =>
+  role === "Admin" || role === "ProductionManager";
+
+export const canUpdateWorkOrders = (role: UserRole): boolean =>
+  role === "Admin" || role === "ProductionManager" || role === "Karigar";
+
 export const canViewInvoices = (role: UserRole): boolean =>
   role === "Admin" || role === "SalesManager" || role === "Accountant";
 

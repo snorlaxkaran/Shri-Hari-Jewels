@@ -5,6 +5,7 @@ import { InventoryProvider } from "@/lib/inventory/inventory-context";
 import { OrdersProvider } from "@/lib/orders/orders-context";
 import { RawInventoryProvider } from "@/lib/raw-inventory/raw-inventory-context";
 import { SalesProvider } from "@/lib/sales/sales-context";
+import { WorkOrdersProvider } from "@/lib/work-orders/work-orders-context";
 
 export default function ErpProviders({
   children,
@@ -16,7 +17,9 @@ export default function ErpProviders({
       <RawInventoryProvider>
         <CustomersProvider>
           <OrdersProvider>
-            <SalesProvider>{children}</SalesProvider>
+            <WorkOrdersProvider>
+              <SalesProvider>{children}</SalesProvider>
+            </WorkOrdersProvider>
           </OrdersProvider>
         </CustomersProvider>
       </RawInventoryProvider>

@@ -170,6 +170,51 @@ export type UpdateOrderInput = {
   dueDate?: string;
 };
 
+export type WorkOrderStatus =
+  | "Open"
+  | "In Production"
+  | "QC"
+  | "Completed"
+  | "Cancelled";
+export type WorkOrderPriority = "Low" | "Normal" | "High";
+
+export type WorkOrder = {
+  id: string;
+  workOrderNo: string;
+  orderId?: string;
+  orderNo?: string;
+  assignedToId?: string;
+  assignedToName?: string;
+  title: string;
+  description: string;
+  status: WorkOrderStatus;
+  priority: WorkOrderPriority;
+  dueDate?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewWorkOrderInput = {
+  title: string;
+  description: string;
+  orderId?: string;
+  priority?: WorkOrderPriority;
+  dueDate?: string;
+  notes?: string;
+};
+
+export type UpdateWorkOrderInput = {
+  status?: WorkOrderStatus;
+  priority?: WorkOrderPriority;
+  title?: string;
+  description?: string;
+  orderId?: string | null;
+  assignedToId?: string | null;
+  dueDate?: string | null;
+  notes?: string | null;
+};
+
 export type SalePaymentStatus = "Pending" | "Completed";
 
 export type Sale = {

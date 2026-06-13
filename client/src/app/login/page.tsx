@@ -17,8 +17,8 @@ export default function LoginPage() {
   useEffect(() => {
     if (!loading && user) router.replace("/dashboard");
   }, [loading, user, router]);
-  const [email, setEmail] = useState("admin@shreehari.com");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -33,7 +33,9 @@ export default function LoginPage() {
     try {
       await login({ email, password });
     } catch (err) {
-      setError(getApiErrorMessage(err, "Login failed. Check your credentials."));
+      setError(
+        getApiErrorMessage(err, "Login failed. Check your credentials."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -59,7 +61,9 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="surface-card p-6 space-y-4">
           <div>
-            <label className={labelClass} style={labelStyle}>Email</label>
+            <label className={labelClass} style={labelStyle}>
+              Email
+            </label>
             <input
               type="email"
               value={email}
@@ -70,7 +74,9 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className={labelClass} style={labelStyle}>Password</label>
+            <label className={labelClass} style={labelStyle}>
+              Password
+            </label>
             <input
               type="password"
               value={password}
@@ -100,9 +106,7 @@ export default function LoginPage() {
           className="text-[11px] text-center mt-6 leading-relaxed"
           style={{ color: "var(--text-muted)" }}
         >
-          Demo: admin@shreehari.com / admin123
-          <br />
-          sales@shreehari.com / sales123 · karigar@shreehari.com / karigar123
+          Enter your account credentials to sign in.
         </p>
       </div>
     </div>

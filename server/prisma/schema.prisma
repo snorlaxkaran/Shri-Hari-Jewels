@@ -16,6 +16,8 @@ model User {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  assignedWorkOrders WorkOrder[]
 }
 
 model ShopSettings {
@@ -94,8 +96,31 @@ model Order {
   updatedAt      DateTime  @updatedAt
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  workOrders WorkOrder[]
 
   @@index([customerId])
+  @@index([status])
+}
+
+model WorkOrder {
+  id            String   @id @default(uuid())
+  workOrderNo   String   @unique
+  orderId       String?
+  assignedToId  String?
+  title         String
+  description   String
+  status        String   @default("Open")
+  priority      String   @default("Normal")
+  dueDate       DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  order      Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  assignedTo User?  @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([assignedToId])
   @@index([status])
 }
 
