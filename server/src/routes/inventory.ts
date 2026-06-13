@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { prisma } from "../lib/db.js";
 import {
   canDeleteProduct,
   canReadInventory,
@@ -25,19 +26,34 @@ export const inventoryRouter = Router();
 
 inventoryRouter.use(authenticate);
 
-inventoryRouter.get(
-  "/",
-  requireRole(canReadInventory),
-  async (_req, res) => {
-    try {
-      const items = await listProducts();
-      res.json(items);
-    } catch (error) {
-      console.error("GET /api/inventory", error);
-      res.status(500).json({ error: "Failed to fetch inventory" });
-    }
-  },
-);
+// Helper to get user's branch
+const getUserBranch = async (userId: string): Promise<string> => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { branches: { take: 1 } },
+  });
+
+  if (user?.defaultBranchId) {
+    return user.defaultBranchId;
+  }
+
+  if (user?.branches.length) {
+    return user.branches[0].branchId;
+  }
+
+  // Fallback to main branch
+  return "main";
+};
+
+inventoryRouter.get("/", requireRole(canReadInventory), async (_req, res) => {
+  try {
+    const items = await listProducts();
+    res.json(items);
+  } catch (error) {
+    console.error("GET /api/inventory", error);
+    res.status(500).json({ error: "Failed to fetch inventory" });
+  }
+});
 
 inventoryRouter.post(
   "/",
@@ -55,10 +71,15 @@ inventoryRouter.post(
         return;
       }
 
-      const product = await createProduct({
-        ...input,
-        images: input.images ?? [],
-      });
+      const branchId = await getUserBranch(req.user!.id);
+
+      const product = await createProduct(
+        {
+          ...input,
+          images: input.images ?? [],
+        },
+        branchId,
+      );
       res.status(201).json(product);
     } catch (error) {
       console.error("POST /api/inventory", error);
@@ -143,7 +164,10 @@ inventoryRouter.post(
         return;
       }
 
-      const product = await addQuantityToProduct(routeParam(req.params.id), quantity);
+      const product = await addQuantityToProduct(
+        routeParam(req.params.id),
+        quantity,
+      );
       if (!product) {
         res.status(404).json({ error: "Product not found" });
         return;

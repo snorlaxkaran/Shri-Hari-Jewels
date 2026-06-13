@@ -7,6 +7,28 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Branch {
+  id          String   @id @default(uuid())
+  name        String
+  address     String?
+  phone       String?
+  email       String?
+  manager     String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       UserBranch[]
+  products    Product[]
+  inventoryUnits InventoryUnit[]
+  orders      Order[]
+  workOrders  WorkOrder[]
+  sales       Sale[]
+  invoices    Invoice[]
+  metalLots   MetalLot[]
+  stoneLots   StoneLot[]
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -14,10 +36,26 @@ model User {
   password  String
   role      String
   active    Boolean  @default(true)
+  defaultBranchId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  branches   UserBranch[]
   assignedWorkOrders WorkOrder[]
+}
+
+model UserBranch {
+  id        String   @id @default(uuid())
+  userId    String
+  branchId  String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, branchId])
+  @@index([userId])
+  @@index([branchId])
 }
 
 model ShopSettings {
@@ -31,6 +69,7 @@ model ShopSettings {
 
 model Product {
   id            String   @id @default(uuid())
+  branchId      String
   sku           String   @unique
   name          String
   category      String
@@ -46,21 +85,27 @@ model Product {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
   units  InventoryUnit[]
   images ProductImage[]
+
+  @@index([branchId])
 }
 
 model InventoryUnit {
   id        String   @id @default(uuid())
+  branchId  String
   itemCode  String   @unique
   productId String
   status    String   @default("Available")
   createdAt DateTime @default(now())
 
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   sale    Sale?
 
   @@index([productId])
+  @@index([branchId])
 }
 
 model Customer {
@@ -84,6 +129,7 @@ model Customer {
 
 model Order {
   id             String    @id @default(uuid())
+  branchId       String
   orderNo        String    @unique
   customerId     String
   description    String
@@ -95,15 +141,18 @@ model Order {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   workOrders WorkOrder[]
 
   @@index([customerId])
+  @@index([branchId])
   @@index([status])
 }
 
 model WorkOrder {
   id            String   @id @default(uuid())
+  branchId      String
   workOrderNo   String   @unique
   orderId       String?
   assignedToId  String?
@@ -116,16 +165,19 @@ model WorkOrder {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  branch     Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
   order      Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
   assignedTo User?  @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@index([orderId])
   @@index([assignedToId])
+  @@index([branchId])
   @@index([status])
 }
 
 model Sale {
   id            String   @id @default(uuid())
+  branchId      String
   unitId        String   @unique
   itemCode      String
   productId     String
@@ -146,11 +198,13 @@ model Sale {
   customerName  String?
   soldAt        DateTime @default(now())
 
+  branch   Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
   unit     InventoryUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
   customer Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   invoice  Invoice?
 
   @@index([soldAt])
+  @@index([branchId])
   @@index([category])
   @@index([customerPhone])
   @@index([customerId])
@@ -161,6 +215,7 @@ model Sale {
 
 model Invoice {
   id             String   @id @default(uuid())
+  branchId       String
   invoiceNo      String   @unique
   saleId         String   @unique
   customerId     String?
@@ -177,10 +232,12 @@ model Invoice {
   status         String   @default("Paid")
   createdAt      DateTime @default(now())
 
+  branch   Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
   sale     Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
   customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
+  @@index([branchId])
 }
 
 model ProductImage {
@@ -197,6 +254,7 @@ model ProductImage {
 
 model MetalLot {
   id           String   @id @default(uuid())
+  branchId     String
   lotNumber    String   @unique
   metalType    String
   purity       String
@@ -209,12 +267,16 @@ model MetalLot {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([branchId])
   @@index([metalType])
   @@index([location])
 }
 
 model StoneLot {
   id                String   @id @default(uuid())
+  branchId          String
   certificateNumber String   @unique
   stoneType         String
   carat             Float
@@ -230,6 +292,9 @@ model StoneLot {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([branchId])
   @@index([stoneType])
   @@index([location])
   @@index([status])

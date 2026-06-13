@@ -94,5 +94,7 @@ export const canViewAnalytics = (role: UserRole): boolean =>
 
 export const canManageSettings = (role: UserRole): boolean => role === "Admin";
 
+export const canManageBranches = (role: UserRole): boolean => role === "Admin";
+
 export const isAuthenticatedRole = (role: string): role is UserRole =>
   ALL_ROLES.includes(role as UserRole);

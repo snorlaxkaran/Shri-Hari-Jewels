@@ -24,10 +24,12 @@ export const listProducts = async (): Promise<InventoryItem[]> => {
 
 export const createProduct = async (
   input: NewProductInput,
+  branchId: string,
 ): Promise<InventoryItem> => {
   const category = input.category as ProductCategory;
 
   const existing = await prisma.product.findMany({
+    where: { branchId },
     select: {
       sku: true,
       units: { select: { itemCode: true } },
@@ -44,6 +46,7 @@ export const createProduct = async (
 
   const product = await prisma.product.create({
     data: {
+      branchId,
       sku,
       name: input.name.trim(),
       category: input.category,
@@ -58,6 +61,7 @@ export const createProduct = async (
       imageColor: CATEGORY_COLORS[category] ?? "#a1a1aa",
       units: {
         create: unitCodes.map((itemCode) => ({
+          branchId,
           itemCode,
           status: "Available",
         })),
@@ -96,6 +100,7 @@ export const addQuantityToProduct = async (
   const updated = await prisma.$transaction(async (tx) => {
     await tx.inventoryUnit.createMany({
       data: newCodes.map((itemCode) => ({
+        branchId: product.branchId,
         itemCode,
         productId: product.id,
         status: "Available",

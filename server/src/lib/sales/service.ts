@@ -17,10 +17,7 @@ import type {
   RecordSaleResult,
   Sale,
 } from "../../types.js";
-import {
-  cancelCartGroup,
-  completeCartGroup,
-} from "./cart.js";
+import { cancelCartGroup, completeCartGroup } from "./cart.js";
 import { toSale } from "./mappers.js";
 
 const PAYMENT_MODES: PaymentMode[] = ["Cash", "UPI", "Card"];
@@ -90,7 +87,8 @@ const validateSaleInput = async (input: RecordSaleInput) => {
   if (unit.status !== "Available") {
     throw new SaleError(`This item is ${unit.status} and cannot be sold.`, 400);
   }
-  if (unit.sale) throw new SaleError("This item already has a sale record.", 400);
+  if (unit.sale)
+    throw new SaleError("This item already has a sale record.", 400);
 
   return {
     itemCode,
@@ -238,6 +236,7 @@ export const syncPendingSalePayment = async (
 
 export const recordSale = async (
   input: RecordSaleInput,
+  branchId: string,
 ): Promise<RecordSaleResult> => {
   const { itemCode, customer, unit, product, discount } =
     await validateSaleInput(input);
@@ -258,6 +257,7 @@ export const recordSale = async (
     const pendingSale = await prisma.$transaction(async (tx) => {
       const created = await tx.sale.create({
         data: {
+          branchId,
           unitId: unit.id,
           itemCode: unit.itemCode,
           productId: product.id,
@@ -322,6 +322,7 @@ export const recordSale = async (
   const result = await prisma.$transaction(async (tx) => {
     const created = await tx.sale.create({
       data: {
+        branchId,
         unitId: unit.id,
         itemCode: unit.itemCode,
         productId: product.id,

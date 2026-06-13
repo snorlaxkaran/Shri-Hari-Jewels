@@ -25,7 +25,9 @@ const PURITIES = ["24K", "22K", "18K", "14K", "925"] as const;
 type Actor = { id: string; name: string };
 
 export const listMetalLots = async (): Promise<MetalLot[]> => {
-  const rows = await prisma.metalLot.findMany({ orderBy: { createdAt: "desc" } });
+  const rows = await prisma.metalLot.findMany({
+    orderBy: { createdAt: "desc" },
+  });
   return rows.map(toMetalLot);
 };
 
@@ -38,6 +40,7 @@ export const getMetalLot = async (id: string): Promise<MetalLot> => {
 export const createMetalLot = async (
   input: NewMetalLotInput,
   actor: Actor,
+  branchId: string,
 ): Promise<MetalLot> => {
   if (!METAL_TYPES.includes(input.metalType)) {
     throw new RawInventoryError("Invalid metal type.");
@@ -52,7 +55,10 @@ export const createMetalLot = async (
     throw new RawInventoryError("Vendor is required.");
   }
 
-  const existing = await prisma.metalLot.findMany({ select: { lotNumber: true } });
+  const existing = await prisma.metalLot.findMany({
+    where: { branchId },
+    select: { lotNumber: true },
+  });
   const lotNumber = generateMetalLotNumber(
     input.metalType,
     existing.map((r) => r.lotNumber),
@@ -60,6 +66,7 @@ export const createMetalLot = async (
 
   const row = await prisma.metalLot.create({
     data: {
+      branchId,
       lotNumber,
       metalType: input.metalType,
       purity: input.purity,
@@ -149,7 +156,8 @@ export const transferMetalLot = async (
   if (!existing) throw new RawInventoryError("Metal lot not found.", 404);
 
   const toLocation = input.toLocation.trim();
-  if (!toLocation) throw new RawInventoryError("Destination location is required.");
+  if (!toLocation)
+    throw new RawInventoryError("Destination location is required.");
   if (toLocation === existing.location) {
     throw new RawInventoryError("Lot is already at that location.");
   }
@@ -210,39 +218,41 @@ export const adjustMetalLot = async (
   return toMetalLot(row);
 };
 
-export const getRawInventorySummary = async (): Promise<RawInventorySummary> => {
-  const [metalLots, stoneLots] = await Promise.all([
-    prisma.metalLot.findMany(),
-    prisma.stoneLot.findMany({ where: { status: "In Stock" } }),
-  ]);
+export const getRawInventorySummary =
+  async (): Promise<RawInventorySummary> => {
+    const [metalLots, stoneLots] = await Promise.all([
+      prisma.metalLot.findMany(),
+      prisma.stoneLot.findMany({ where: { status: "In Stock" } }),
+    ]);
 
-  const summary: RawInventorySummary = {
-    goldGrams: 0,
-    silverGrams: 0,
-    platinumGrams: 0,
-    diamondCarats: 0,
-    preciousCarats: 0,
-    semiPreciousCarats: 0,
-    metalValue: 0,
-    stoneValue: 0,
-  };
+    const summary: RawInventorySummary = {
+      goldGrams: 0,
+      silverGrams: 0,
+      platinumGrams: 0,
+      diamondCarats: 0,
+      preciousCarats: 0,
+      semiPreciousCarats: 0,
+      metalValue: 0,
+      stoneValue: 0,
+    };
 
-  for (const lot of metalLots) {
-    summary.metalValue += lot.weightGrams * lot.currentRate;
-    if (lot.metalType === "Gold") summary.goldGrams += lot.weightGrams;
-    if (lot.metalType === "Silver") summary.silverGrams += lot.weightGrams;
-    if (lot.metalType === "Platinum") summary.platinumGrams += lot.weightGrams;
-  }
-
-  for (const stone of stoneLots) {
-    const rate = stone.currentRate ?? 0;
-    summary.stoneValue += stone.carat * rate;
-    if (stone.stoneType === "Diamond") summary.diamondCarats += stone.carat;
-    if (stone.stoneType === "Precious") summary.preciousCarats += stone.carat;
-    if (stone.stoneType === "SemiPrecious") {
-      summary.semiPreciousCarats += stone.carat;
+    for (const lot of metalLots) {
+      summary.metalValue += lot.weightGrams * lot.currentRate;
+      if (lot.metalType === "Gold") summary.goldGrams += lot.weightGrams;
+      if (lot.metalType === "Silver") summary.silverGrams += lot.weightGrams;
+      if (lot.metalType === "Platinum")
+        summary.platinumGrams += lot.weightGrams;
     }
-  }
 
-  return summary;
-};
+    for (const stone of stoneLots) {
+      const rate = stone.currentRate ?? 0;
+      summary.stoneValue += stone.carat * rate;
+      if (stone.stoneType === "Diamond") summary.diamondCarats += stone.carat;
+      if (stone.stoneType === "Precious") summary.preciousCarats += stone.carat;
+      if (stone.stoneType === "SemiPrecious") {
+        summary.semiPreciousCarats += stone.carat;
+      }
+    }
+
+    return summary;
+  };

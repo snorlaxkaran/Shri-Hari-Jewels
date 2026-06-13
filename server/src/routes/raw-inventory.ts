@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { prisma } from "../lib/db.js";
 import {
   canReadRawInventory,
   canWriteRawInventory,
@@ -47,6 +48,24 @@ const actorFrom = (req: AuthenticatedRequest) => ({
   id: req.user!.id,
   name: req.user!.name,
 });
+
+// Helper to get user's branch
+const getUserBranch = async (userId: string): Promise<string> => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { branches: { take: 1 } },
+  });
+
+  if (user?.defaultBranchId) {
+    return user.defaultBranchId;
+  }
+
+  if (user?.branches.length) {
+    return user.branches[0].branchId;
+  }
+
+  return "main";
+};
 
 rawInventoryRouter.get(
   "/summary",
@@ -113,7 +132,12 @@ rawInventoryRouter.post(
   requireRole(canWriteRawInventory),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const lot = await createMetalLot(req.body as NewMetalLotInput, actorFrom(req));
+      const branchId = await getUserBranch(req.user!.id);
+      const lot = await createMetalLot(
+        req.body as NewMetalLotInput,
+        actorFrom(req),
+        branchId,
+      );
       res.status(201).json(lot);
     } catch (error) {
       if (error instanceof RawInventoryError) {
@@ -227,7 +251,12 @@ rawInventoryRouter.post(
   requireRole(canWriteRawInventory),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const lot = await createStoneLot(req.body as NewStoneLotInput, actorFrom(req));
+      const branchId = await getUserBranch(req.user!.id);
+      const lot = await createStoneLot(
+        req.body as NewStoneLotInput,
+        actorFrom(req),
+        branchId,
+      );
       res.status(201).json(lot);
     } catch (error) {
       if (error instanceof RawInventoryError) {

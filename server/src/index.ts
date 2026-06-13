@@ -2,6 +2,7 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import { authRouter } from "./routes/auth.js";
+import { branchesRouter } from "./routes/branches.js";
 import { customersRouter } from "./routes/customers.js";
 import { inventoryRouter } from "./routes/inventory.js";
 import { invoicesRouter } from "./routes/invoices.js";
@@ -43,6 +44,7 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/auth", authRouter);
 
+app.use("/api/branches", branchesRouter);
 app.use("/api/inventory", inventoryRouter);
 app.use("/api/raw-inventory", rawInventoryRouter);
 app.use("/api/customers", customersRouter);

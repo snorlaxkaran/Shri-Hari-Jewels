@@ -1,5 +1,10 @@
 import { prisma } from "../db.js";
-import type { NewOrderInput, Order, OrderStatus, UpdateOrderInput } from "../../types.js";
+import type {
+  NewOrderInput,
+  Order,
+  OrderStatus,
+  UpdateOrderInput,
+} from "../../types.js";
 import { generateOrderNo } from "./order-no.js";
 import { toOrder } from "./mappers.js";
 
@@ -33,7 +38,10 @@ export const listOrders = async (): Promise<Order[]> => {
   return orders.map(toOrder);
 };
 
-export const createOrder = async (input: NewOrderInput): Promise<Order> => {
+export const createOrder = async (
+  input: NewOrderInput,
+  branchId: string,
+): Promise<Order> => {
   if (!input.description?.trim()) {
     throw new OrderError("Order description is required.");
   }
@@ -43,11 +51,15 @@ export const createOrder = async (input: NewOrderInput): Promise<Order> => {
   });
   if (!customer) throw new OrderError("Customer not found.", 404);
 
-  const existing = await prisma.order.findMany({ select: { orderNo: true } });
+  const existing = await prisma.order.findMany({
+    where: { branchId },
+    select: { orderNo: true },
+  });
   const orderNo = generateOrderNo(existing.map((o) => o.orderNo));
 
   const order = await prisma.order.create({
     data: {
+      branchId,
       orderNo,
       customerId: input.customerId,
       description: input.description.trim(),

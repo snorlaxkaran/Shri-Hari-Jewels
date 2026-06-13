@@ -489,3 +489,32 @@ export type RawInventorySummary = {
   metalValue: number;
   stoneValue: number;
 };
+
+export type Branch = {
+  id: string;
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  manager?: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewBranchInput = {
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  manager?: string;
+};
+
+export type UpdateBranchInput = {
+  name?: string;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  manager?: string | null;
+  active?: boolean;
+};

@@ -17,7 +17,9 @@ const STONE_STATUSES = ["In Stock", "Reserved", "Issued"] as const;
 type Actor = { id: string; name: string };
 
 export const listStoneLots = async (): Promise<StoneLot[]> => {
-  const rows = await prisma.stoneLot.findMany({ orderBy: { createdAt: "desc" } });
+  const rows = await prisma.stoneLot.findMany({
+    orderBy: { createdAt: "desc" },
+  });
   return rows.map(toStoneLot);
 };
 
@@ -30,6 +32,7 @@ export const getStoneLot = async (id: string): Promise<StoneLot> => {
 export const createStoneLot = async (
   input: NewStoneLotInput,
   actor: Actor,
+  branchId: string,
 ): Promise<StoneLot> => {
   if (!STONE_TYPES.includes(input.stoneType)) {
     throw new RawInventoryError("Invalid stone type.");
@@ -42,6 +45,7 @@ export const createStoneLot = async (
   }
 
   const existingCerts = await prisma.stoneLot.findMany({
+    where: { branchId },
     select: { certificateNumber: true },
   });
   const certNumbers = existingCerts.map((r) => r.certificateNumber);
@@ -60,6 +64,7 @@ export const createStoneLot = async (
 
   const row = await prisma.stoneLot.create({
     data: {
+      branchId,
       certificateNumber,
       stoneType: input.stoneType,
       carat: input.carat,
@@ -155,7 +160,8 @@ export const transferStoneLot = async (
   if (!existing) throw new RawInventoryError("Stone lot not found.", 404);
 
   const toLocation = input.toLocation.trim();
-  if (!toLocation) throw new RawInventoryError("Destination location is required.");
+  if (!toLocation)
+    throw new RawInventoryError("Destination location is required.");
   if (toLocation === existing.location) {
     throw new RawInventoryError("Stone is already at that location.");
   }
