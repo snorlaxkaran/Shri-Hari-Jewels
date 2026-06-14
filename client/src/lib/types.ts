@@ -20,7 +20,11 @@ export type LoginInput = {
 
 export type MetalType = "Gold" | "Silver" | "Platinum" | "Rose Gold";
 export type Purity = "24K" | "22K" | "18K" | "14K" | "925";
-export type InventoryUnitStatus = "Available" | "Sold" | "Reserved";
+export type InventoryUnitStatus =
+  | "Available"
+  | "Sold"
+  | "Reserved"
+  | "Transferred";
 
 export type PaymentMode = "Cash" | "UPI" | "Card";
 export type PaymentStatus = "Paid" | "Partial" | "Unpaid";
@@ -45,6 +49,8 @@ export type InventoryUnit = {
   id: string;
   itemCode: string;
   sku: string;
+  branchId?: string;
+  branchName?: string;
   status: InventoryUnitStatus;
   createdAt: string;
 };

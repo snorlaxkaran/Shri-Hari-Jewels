@@ -22,6 +22,7 @@ const styles: Record<string, { bg: string; color: string }> = {
   Available: { bg: "#ecfdf5", color: "#059669" },
   Sold: { bg: "#f4f4f5", color: "#71717a" },
   Reserved: { bg: "#eff6ff", color: "#2563eb" },
+  Transferred: { bg: "#ede9fe", color: "#7c3aed" },
   Completed: { bg: "#ecfdf5", color: "#059669" },
   Create: { bg: "#ecfdf5", color: "#059669" },
   Update: { bg: "#eff6ff", color: "#2563eb" },

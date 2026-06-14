@@ -45,6 +45,16 @@ export default function ProductDetailPanel({
 
   const canWrite = user ? canWriteInventory(user.role) : false;
   const canDelete = user ? canDeleteProduct(user.role) : false;
+  const availableCount = product.units.filter(
+    (unit) => unit.status === "Available",
+  ).length;
+  const soldCount = product.units.filter((unit) => unit.status === "Sold").length;
+  const transferredCount = product.units.filter(
+    (unit) => unit.status === "Transferred",
+  ).length;
+  const reservedCount = product.units.filter(
+    (unit) => unit.status === "Reserved",
+  ).length;
 
   const handleRemoveUnit = async (unitId: string, itemCode: string) => {
     if (
@@ -157,7 +167,10 @@ export default function ProductDetailPanel({
                 ["Weight", `${product.weightGrams}g`],
                 ["Making Charges", formatCurrency(product.makingCharges)],
                 ["Price", formatCurrency(product.price)],
-                ["Stock", String(product.stock)],
+                ["Available", String(availableCount)],
+                ["Sold", String(soldCount)],
+                ["Transferred", String(transferredCount)],
+                ...(reservedCount ? [["Reserved", String(reservedCount)]] : []),
                 ...(product.stoneCarat ? [["Stone", `${product.stoneCarat} ct`]] : []),
               ].map(([label, value]) => (
                 <div key={label}>
@@ -172,7 +185,7 @@ export default function ProductDetailPanel({
                 Units ({product.units.length})
                 {canWrite && (
                   <span className="text-zinc-400 font-normal">
-                    {" "}— remove Available units to fix wrong quantity
+                    {" "}— transferred and sold items stay visible here
                   </span>
                 )}
               </p>
@@ -186,6 +199,11 @@ export default function ProductDetailPanel({
                       {unit.itemCode}
                     </span>
                     <div className="flex items-center gap-2">
+                      {unit.status === "Transferred" && unit.branchName && (
+                        <span className="text-[11px] text-zinc-500">
+                          to {unit.branchName}
+                        </span>
+                      )}
                       <StatusBadge status={unit.status} />
                       {canWrite && unit.status === "Available" && (
                         <button

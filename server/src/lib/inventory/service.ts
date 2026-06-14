@@ -8,21 +8,27 @@ import { CATEGORY_COLORS, type ProductCategory } from "./categories.js";
 import { toInventoryItem } from "./mappers.js";
 import { generateSku, generateUnitCodes } from "./sku.js";
 import { getStockStatus } from "./status.js";
+import { DEFAULT_BRANCH_ID } from "../branches/constants.js";
 
 const productInclude = {
-  units: { orderBy: { createdAt: "asc" as const } },
+  units: {
+    include: { branch: true },
+    orderBy: { createdAt: "asc" as const },
+  },
   images: { orderBy: { sortOrder: "asc" as const } },
 };
 
 export const listProducts = async (
   branchId?: string,
 ): Promise<InventoryItem[]> => {
+  const stockBranchId = branchId ?? DEFAULT_BRANCH_ID;
   const products = await prisma.product.findMany({
     where: branchId ? { units: { some: { branchId } } } : undefined,
     include: branchId
       ? {
           units: {
             where: { branchId },
+            include: { branch: true },
             orderBy: { createdAt: "asc" as const },
           },
           images: { orderBy: { sortOrder: "asc" as const } },
@@ -30,7 +36,9 @@ export const listProducts = async (
       : productInclude,
     orderBy: { createdAt: "desc" },
   });
-  return products.map(toInventoryItem).filter((item) => item.units.length > 0);
+  return products
+    .map((product) => toInventoryItem(product, { stockBranchId }))
+    .filter((item) => item.units.length > 0);
 };
 
 export const createProduct = async (
@@ -234,7 +242,7 @@ export const transferInventoryByItemCodes = async (
     orderBy: { createdAt: "desc" },
   });
 
-  return updatedProducts.map(toInventoryItem);
+  return updatedProducts.map((product) => toInventoryItem(product));
 };
 
 export const updateProduct = async (
