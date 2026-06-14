@@ -15,6 +15,9 @@ import type { AuthUser, LoginInput } from "@/lib/types";
 
 const TOKEN_KEY = "shj_auth_token";
 
+const getAuthStorage = () =>
+  typeof window !== "undefined" ? window.sessionStorage : null;
+
 // Decode JWT payload without a library (browser-safe, no network needed)
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
@@ -61,8 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const bootstrap = useCallback(() => {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+    const storage = getAuthStorage();
+    const token = storage?.getItem(TOKEN_KEY) ?? null;
+
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(TOKEN_KEY);
+    }
 
     if (!token) {
       setUser(null);
@@ -74,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const decoded = getUserFromToken(token);
     if (!decoded) {
       // Token missing or expired — clear it and send to login
-      localStorage.removeItem(TOKEN_KEY);
+      storage?.removeItem(TOKEN_KEY);
       clearAuthToken();
       setUser(null);
       setLoading(false);
@@ -93,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(
     async (input: LoginInput) => {
       const { token, user: loggedIn } = await loginApi(input);
-      localStorage.setItem(TOKEN_KEY, token);
+      getAuthStorage()?.setItem(TOKEN_KEY, token);
       setAuthToken(token);
       setUser(loggedIn);
       router.replace("/dashboard");
@@ -102,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
+    getAuthStorage()?.removeItem(TOKEN_KEY);
     clearAuthToken();
     setUser(null);
     router.replace("/login");

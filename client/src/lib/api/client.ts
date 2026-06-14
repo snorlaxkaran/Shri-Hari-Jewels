@@ -1,12 +1,19 @@
 import axios, { isAxiosError } from "axios";
 
+const PRODUCTION_API_BASE_URL = "https://shri-hari-jewels-api.onrender.com";
 const DEFAULT_API_BASE_URL =
   process.env.NODE_ENV === "production"
-    ? "https://shri-hari-jewels-api.onrender.com"
+    ? PRODUCTION_API_BASE_URL
     : "http://localhost:4000";
+const configuredApiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+const configuredApiIsLocal =
+  configuredApiBaseUrl?.includes("localhost") ||
+  configuredApiBaseUrl?.includes("127.0.0.1");
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_BASE_URL;
+  process.env.NODE_ENV === "production" && configuredApiIsLocal
+    ? PRODUCTION_API_BASE_URL
+    : configuredApiBaseUrl ?? DEFAULT_API_BASE_URL;
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -28,7 +35,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && typeof window !== "undefined") {
       const onLoginPage = window.location.pathname === "/login";
       if (!onLoginPage) {
-        localStorage.removeItem("shj_auth_token");
+        window.sessionStorage.removeItem("shj_auth_token");
+        window.localStorage.removeItem("shj_auth_token");
         clearAuthToken();
         window.location.href = "/login";
       }
