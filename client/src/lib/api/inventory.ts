@@ -1,6 +1,8 @@
 import type {
   InventoryItem,
   NewProductInput,
+  StockTransfer,
+  StockTransferDocumentType,
   UpdateProductInput,
 } from "@/lib/types";
 import { api } from "./client";
@@ -65,11 +67,21 @@ export const transferInventoryUnits = async (
 
 export const createStockTransfer = async (input: {
   toBranchId: string;
+  documentType: StockTransferDocumentType;
+  transferDate: string;
   itemCodes: string[];
-}): Promise<{ products: InventoryItem[] }> => {
-  const { data } = await api.post<{ products: InventoryItem[] }>(
+}): Promise<{ transfer: StockTransfer; products: InventoryItem[] }> => {
+  const { data } = await api.post<{
+    transfer: StockTransfer;
+    products: InventoryItem[];
+  }>(
     "/api/inventory/transfers",
     input,
   );
+  return data;
+};
+
+export const fetchStockTransfers = async (): Promise<StockTransfer[]> => {
+  const { data } = await api.get<StockTransfer[]>("/api/inventory/transfers");
   return data;
 };

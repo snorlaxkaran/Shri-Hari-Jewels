@@ -1,7 +1,14 @@
 import { prisma } from "../db.js";
 import type {
+  Branch,
+  StockTransfer as DbStockTransfer,
+  StockTransferItem as DbStockTransferItem,
+} from "@prisma/client";
+import type {
+  CreateStockTransferInput,
   InventoryItem,
   NewProductInput,
+  StockTransfer,
   UpdateProductInput,
 } from "../../types.js";
 import { CATEGORY_COLORS, type ProductCategory } from "./categories.js";
@@ -150,6 +157,68 @@ export class InventoryError extends Error {
   }
 }
 
+const TRANSFER_DOC_TYPES = ["Wholesale GST Invoice", "Delivery Challan"];
+
+type StockTransferWithRelations = DbStockTransfer & {
+  fromBranch: Branch;
+  toBranch: Branch;
+  items: DbStockTransferItem[];
+};
+
+const toStockTransfer = (
+  transfer: StockTransferWithRelations,
+): StockTransfer => ({
+  id: transfer.id,
+  transferNo: transfer.transferNo,
+  fromBranchId: transfer.fromBranchId,
+  fromBranchName: transfer.fromBranch.name,
+  toBranchId: transfer.toBranchId,
+  toBranchName: transfer.toBranch.name,
+  documentType: transfer.documentType as StockTransfer["documentType"],
+  transferDate: transfer.transferDate.toISOString(),
+  itemCount: transfer.itemCount,
+  totalValue: transfer.totalValue,
+  createdByName: transfer.createdByName,
+  createdAt: transfer.createdAt.toISOString(),
+  items: transfer.items.map((item) => ({
+    id: item.id,
+    itemCode: item.itemCode,
+    productId: item.productId,
+    productName: item.productName,
+    sku: item.sku,
+    metal: item.metal,
+    purity: item.purity,
+    price: item.price,
+  })),
+});
+
+const nextTransferNo = async (): Promise<string> => {
+  const year = new Date().getFullYear().toString().slice(-2);
+  const prefix = `TRF-${year}-`;
+  const latest = await prisma.stockTransfer.findFirst({
+    where: { transferNo: { startsWith: prefix } },
+    orderBy: { transferNo: "desc" },
+    select: { transferNo: true },
+  });
+  const lastNumber = latest
+    ? Number(latest.transferNo.replace(prefix, "")) || 0
+    : 0;
+  return `${prefix}${String(lastNumber + 1).padStart(4, "0")}`;
+};
+
+export const listStockTransfers = async (): Promise<StockTransfer[]> => {
+  const transfers = await prisma.stockTransfer.findMany({
+    include: {
+      fromBranch: true,
+      toBranch: true,
+      items: { orderBy: { itemCode: "asc" } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 25,
+  });
+  return transfers.map(toStockTransfer);
+};
+
 export const transferInventoryUnits = async (
   productId: string,
   unitIds: string[],
@@ -198,10 +267,21 @@ export const transferInventoryUnits = async (
   return updated ? toInventoryItem(updated) : null;
 };
 
-export const transferInventoryByItemCodes = async (
-  itemCodes: string[],
-  toBranchId: string,
-): Promise<InventoryItem[]> => {
+export const createStockTransfer = async (
+  input: CreateStockTransferInput,
+  createdBy: { id: string; name: string },
+): Promise<{ transfer: StockTransfer; products: InventoryItem[] }> => {
+  if (!TRANSFER_DOC_TYPES.includes(input.documentType)) {
+    throw new InventoryError("Select a valid transfer document type.");
+  }
+
+  const transferDate = new Date(input.transferDate);
+  if (Number.isNaN(transferDate.getTime())) {
+    throw new InventoryError("Select a valid transfer date.");
+  }
+
+  const itemCodes = input.itemCodes;
+  const toBranchId = input.toBranchId;
   const cleanCodes = [...new Set(itemCodes.map((code) => code.trim()).filter(Boolean))];
   if (cleanCodes.length === 0) {
     throw new InventoryError("Scan at least one item to transfer.");
@@ -230,9 +310,56 @@ export const transferInventoryByItemCodes = async (
     );
   }
 
-  await prisma.inventoryUnit.updateMany({
-    where: { itemCode: { in: cleanCodes } },
-    data: { branchId: toBranchId },
+  const notInAdminStock = units.find((unit) => unit.branchId !== DEFAULT_BRANCH_ID);
+  if (notInAdminStock) {
+    throw new InventoryError(
+      `${notInAdminStock.itemCode} is not available in admin stock.`,
+      400,
+    );
+  }
+
+  const transferNo = await nextTransferNo();
+  const totalValue = units.reduce((sum, unit) => sum + unit.product.price, 0);
+
+  const transfer = await prisma.$transaction(async (tx) => {
+    const created = await tx.stockTransfer.create({
+      data: {
+        transferNo,
+        fromBranchId: DEFAULT_BRANCH_ID,
+        toBranchId,
+        documentType: input.documentType,
+        transferDate,
+        itemCount: units.length,
+        totalValue,
+        createdById: createdBy.id,
+        createdByName: createdBy.name,
+        items: {
+          create: units.map((unit) => ({
+            itemCode: unit.itemCode,
+            productId: unit.productId,
+            productName: unit.product.name,
+            sku: unit.product.sku,
+            metal: unit.product.metal,
+            purity: unit.product.purity,
+            price: unit.product.price,
+          })),
+        },
+      },
+    });
+
+    await tx.inventoryUnit.updateMany({
+      where: { itemCode: { in: cleanCodes } },
+      data: { branchId: toBranchId },
+    });
+
+    return tx.stockTransfer.findUniqueOrThrow({
+      where: { id: created.id },
+      include: {
+        fromBranch: true,
+        toBranch: true,
+        items: { orderBy: { itemCode: "asc" } },
+      },
+    });
   });
 
   const productIds = [...new Set(units.map((unit) => unit.productId))];
@@ -242,7 +369,12 @@ export const transferInventoryByItemCodes = async (
     orderBy: { createdAt: "desc" },
   });
 
-  return updatedProducts.map((product) => toInventoryItem(product));
+  return {
+    transfer: toStockTransfer(transfer),
+    products: updatedProducts.map((product) =>
+      toInventoryItem(product, { stockBranchId: DEFAULT_BRANCH_ID }),
+    ),
+  };
 };
 
 export const updateProduct = async (

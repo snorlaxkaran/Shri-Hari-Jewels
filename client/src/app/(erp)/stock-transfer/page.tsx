@@ -5,13 +5,17 @@ import { ArrowRightLeft, Calendar, ScanLine, Trash2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import { fetchBranches } from "@/lib/api/branches";
-import { createStockTransfer } from "@/lib/api/inventory";
+import { createStockTransfer, fetchStockTransfers } from "@/lib/api/inventory";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { useInventory } from "@/lib/inventory/inventory-context";
-import type { Branch, InventoryItem, InventoryUnit } from "@/lib/types";
-import { formatCurrency } from "@/lib/format";
-
-type TransferDocType = "Wholesale GST Invoice" | "Delivery Challan";
+import type {
+  Branch,
+  InventoryItem,
+  InventoryUnit,
+  StockTransfer,
+  StockTransferDocumentType,
+} from "@/lib/types";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 type ScannedItem = {
   unit: InventoryUnit;
@@ -26,9 +30,10 @@ export default function StockTransferPage() {
   const [toBranchId, setToBranchId] = useState("");
   const [transferDate, setTransferDate] = useState(today());
   const [docType, setDocType] =
-    useState<TransferDocType>("Wholesale GST Invoice");
+    useState<StockTransferDocumentType>("Wholesale GST Invoice");
   const [barcode, setBarcode] = useState("");
   const [scanned, setScanned] = useState<ScannedItem[]>([]);
+  const [transfers, setTransfers] = useState<StockTransfer[]>([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [saving, setSaving] = useState(false);
@@ -41,6 +46,11 @@ export default function StockTransferPage() {
         ),
       )
       .catch((err) => setError(getApiErrorMessage(err, "Could not load stores.")));
+    fetchStockTransfers()
+      .then(setTransfers)
+      .catch((err) =>
+        setError(getApiErrorMessage(err, "Could not load transfer history.")),
+      );
   }, []);
 
   const allUnits = useMemo(
@@ -105,13 +115,16 @@ export default function StockTransferPage() {
 
     setSaving(true);
     try {
-      await createStockTransfer({
+      const result = await createStockTransfer({
         toBranchId,
+        documentType: docType,
+        transferDate,
         itemCodes: scanned.map((item) => item.unit.itemCode),
       });
       await refresh();
+      setTransfers((prev) => [result.transfer, ...prev]);
       setSuccess(
-        `${docType} saved for ${scanned.length} item${scanned.length === 1 ? "" : "s"}.`,
+        `${result.transfer.transferNo} saved for ${scanned.length} item${scanned.length === 1 ? "" : "s"}.`,
       );
       setScanned([]);
       setBarcode("");
@@ -320,6 +333,60 @@ export default function StockTransferPage() {
                           >
                             <Trash2 size={15} />
                           </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="surface-card overflow-hidden">
+            <div className="px-5 py-4 border-b border-zinc-200">
+              <h2 className="text-sm font-semibold text-zinc-900">
+                Recent Transfers
+              </h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead>
+                  <tr className="bg-zinc-50 text-zinc-500">
+                    <th className="text-left px-5 py-3 font-medium">No.</th>
+                    <th className="text-left px-5 py-3 font-medium">Date</th>
+                    <th className="text-left px-5 py-3 font-medium">Store</th>
+                    <th className="text-left px-5 py-3 font-medium">Type</th>
+                    <th className="text-left px-5 py-3 font-medium">Items</th>
+                    <th className="text-left px-5 py-3 font-medium">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transfers.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-5 py-8 text-center text-sm text-zinc-400"
+                      >
+                        No transfers saved yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    transfers.slice(0, 10).map((transfer) => (
+                      <tr
+                        key={transfer.id}
+                        className="border-t border-zinc-100 text-zinc-900"
+                      >
+                        <td className="px-5 py-3 font-mono text-xs">
+                          {transfer.transferNo}
+                        </td>
+                        <td className="px-5 py-3">
+                          {formatDate(transfer.transferDate)}
+                        </td>
+                        <td className="px-5 py-3">{transfer.toBranchName}</td>
+                        <td className="px-5 py-3">{transfer.documentType}</td>
+                        <td className="px-5 py-3">{transfer.itemCount}</td>
+                        <td className="px-5 py-3">
+                          {formatCurrency(transfer.totalValue)}
                         </td>
                       </tr>
                     ))

@@ -27,6 +27,8 @@ model Branch {
   invoices    Invoice[]
   metalLots   MetalLot[]
   stoneLots   StoneLot[]
+  stockTransfersFrom StockTransfer[] @relation("StockTransferFromBranch")
+  stockTransfersTo   StockTransfer[] @relation("StockTransferToBranch")
 }
 
 model User {
@@ -106,6 +108,47 @@ model InventoryUnit {
 
   @@index([productId])
   @@index([branchId])
+}
+
+model StockTransfer {
+  id           String   @id @default(uuid())
+  transferNo   String   @unique
+  fromBranchId String
+  toBranchId   String
+  documentType String
+  transferDate DateTime
+  itemCount    Int
+  totalValue   Float
+  createdById   String?
+  createdByName String
+  createdAt    DateTime @default(now())
+
+  fromBranch Branch @relation("StockTransferFromBranch", fields: [fromBranchId], references: [id], onDelete: Cascade)
+  toBranch   Branch @relation("StockTransferToBranch", fields: [toBranchId], references: [id], onDelete: Cascade)
+  items      StockTransferItem[]
+
+  @@index([fromBranchId])
+  @@index([toBranchId])
+  @@index([createdAt])
+  @@index([transferDate])
+}
+
+model StockTransferItem {
+  id         String @id @default(uuid())
+  transferId String
+  itemCode   String
+  productId  String
+  productName String
+  sku        String
+  metal      String
+  purity     String
+  price      Float
+
+  transfer StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+
+  @@index([transferId])
+  @@index([itemCode])
+  @@index([productId])
 }
 
 model Customer {

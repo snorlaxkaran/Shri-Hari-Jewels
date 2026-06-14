@@ -6,12 +6,13 @@ import {
 } from "../lib/auth/permissions.js";
 import {
   addQuantityToProduct,
+  createStockTransfer,
   createProduct,
   deleteInventoryUnit,
   deleteProduct,
   InventoryError,
+  listStockTransfers,
   listProducts,
-  transferInventoryByItemCodes,
   transferInventoryUnits,
   updateProduct,
 } from "../lib/inventory/service.js";
@@ -22,7 +23,11 @@ import {
 } from "../middleware/auth.js";
 import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
 import { routeParam } from "../lib/route-param.js";
-import type { NewProductInput, UpdateProductInput } from "../types.js";
+import type {
+  CreateStockTransferInput,
+  NewProductInput,
+  UpdateProductInput,
+} from "../types.js";
 
 export const inventoryRouter = Router();
 
@@ -75,16 +80,13 @@ inventoryRouter.post(
 inventoryRouter.post(
   "/transfers",
   requireRole((role) => role === "Admin"),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const itemCodes = Array.isArray(req.body.itemCodes)
-        ? req.body.itemCodes.map(String)
-        : [];
-      const toBranchId =
-        typeof req.body.toBranchId === "string" ? req.body.toBranchId : "";
-
-      const products = await transferInventoryByItemCodes(itemCodes, toBranchId);
-      res.status(201).json({ products });
+      const result = await createStockTransfer(
+        req.body as CreateStockTransferInput,
+        { id: req.user!.id, name: req.user!.name },
+      );
+      res.status(201).json(result);
     } catch (error) {
       if (error instanceof InventoryError) {
         res.status(error.statusCode).json({ error: error.message });
@@ -92,6 +94,20 @@ inventoryRouter.post(
       }
       console.error("POST /api/inventory/transfers", error);
       res.status(500).json({ error: "Failed to transfer stock" });
+    }
+  },
+);
+
+inventoryRouter.get(
+  "/transfers",
+  requireRole((role) => role === "Admin"),
+  async (_req, res) => {
+    try {
+      const transfers = await listStockTransfers();
+      res.json(transfers);
+    } catch (error) {
+      console.error("GET /api/inventory/transfers", error);
+      res.status(500).json({ error: "Failed to fetch stock transfers" });
     }
   },
 );

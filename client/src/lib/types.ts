@@ -74,6 +74,37 @@ export type InventoryItem = {
   createdAt: string;
 };
 
+export type StockTransferDocumentType =
+  | "Wholesale GST Invoice"
+  | "Delivery Challan";
+
+export type StockTransfer = {
+  id: string;
+  transferNo: string;
+  fromBranchId: string;
+  fromBranchName: string;
+  toBranchId: string;
+  toBranchName: string;
+  documentType: StockTransferDocumentType;
+  transferDate: string;
+  itemCount: number;
+  totalValue: number;
+  createdByName: string;
+  createdAt: string;
+  items: StockTransferItem[];
+};
+
+export type StockTransferItem = {
+  id: string;
+  itemCode: string;
+  productId: string;
+  productName: string;
+  sku: string;
+  metal: string;
+  purity: string;
+  price: number;
+};
+
 export type NewProductInput = {
   name: string;
   category: string;
