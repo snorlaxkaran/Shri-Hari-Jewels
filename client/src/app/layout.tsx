@@ -1,14 +1,6 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import DashboardWrapper from "./dashboardWrapper";
-
-const cormorant = Cormorant_Garamond({
-  variable: "--font-cormorant",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Shree Hari Jewels — ERP",
@@ -24,7 +16,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${cormorant.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
       <body className="min-h-full w-full overflow-x-hidden">
         {/*
