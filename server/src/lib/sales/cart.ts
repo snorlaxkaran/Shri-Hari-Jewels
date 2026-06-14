@@ -29,13 +29,16 @@ type ValidatedCartItem = {
   dealPrice: number;
 };
 
-const loadUnit = async (itemCode: string) => {
+const loadUnit = async (itemCode: string, branchId?: string) => {
   const unit = await prisma.inventoryUnit.findUnique({
     where: { itemCode: itemCode.trim() },
     include: { product: true, sale: true },
   });
 
   if (!unit) throw new SaleError(`Item code not found: ${itemCode}`, 404);
+  if (branchId && unit.branchId !== branchId) {
+    throw new SaleError(`${itemCode} is not assigned to your store.`, 403);
+  }
   if (unit.status !== "Available") {
     throw new SaleError(`${itemCode} is ${unit.status} and cannot be sold.`, 400);
   }
@@ -46,7 +49,10 @@ const loadUnit = async (itemCode: string) => {
   return unit;
 };
 
-const validateCartInput = async (input: RecordCartSaleInput) => {
+const validateCartInput = async (
+  input: RecordCartSaleInput,
+  branchId?: string,
+) => {
   if (!input.items?.length) {
     throw new SaleError("Add at least one item to the cart.");
   }
@@ -75,7 +81,7 @@ const validateCartInput = async (input: RecordCartSaleInput) => {
       throw new SaleError(`Invalid deal price for ${itemCode}.`);
     }
 
-    const unit = await loadUnit(itemCode);
+    const unit = await loadUnit(itemCode, branchId);
     validated.push({
       itemCode,
       unit,
@@ -216,8 +222,9 @@ export const cancelCartGroup = async (cartGroupId: string): Promise<void> => {
 
 export const recordCartSale = async (
   input: RecordCartSaleInput,
+  branchId?: string,
 ): Promise<RecordCartSaleResult> => {
-  const { customer, items } = await validateCartInput(input);
+  const { customer, items } = await validateCartInput(input, branchId);
   const total = items.reduce((sum, i) => sum + i.dealPrice, 0);
   const cartGroupId = items.length > 1 ? randomUUID() : undefined;
 

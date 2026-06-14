@@ -51,3 +51,25 @@ export const deleteInventoryUnit = async (
   );
   return data;
 };
+
+export const transferInventoryUnits = async (
+  productId: string,
+  input: { unitIds: string[]; toBranchId: string },
+): Promise<InventoryItem> => {
+  const { data } = await api.post<InventoryItem>(
+    `/api/inventory/${productId}/transfer`,
+    input,
+  );
+  return data;
+};
+
+export const createStockTransfer = async (input: {
+  toBranchId: string;
+  itemCodes: string[];
+}): Promise<{ products: InventoryItem[] }> => {
+  const { data } = await api.post<{ products: InventoryItem[] }>(
+    "/api/inventory/transfers",
+    input,
+  );
+  return data;
+};

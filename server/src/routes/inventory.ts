@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { prisma } from "../lib/db.js";
 import {
   canDeleteProduct,
   canReadInventory,
@@ -12,6 +11,8 @@ import {
   deleteProduct,
   InventoryError,
   listProducts,
+  transferInventoryByItemCodes,
+  transferInventoryUnits,
   updateProduct,
 } from "../lib/inventory/service.js";
 import {
@@ -19,7 +20,7 @@ import {
   requireRole,
   type AuthenticatedRequest,
 } from "../middleware/auth.js";
-import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
+import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
 import { routeParam } from "../lib/route-param.js";
 import type { NewProductInput, UpdateProductInput } from "../types.js";
 
@@ -27,28 +28,10 @@ export const inventoryRouter = Router();
 
 inventoryRouter.use(authenticate);
 
-// Helper to get user's branch
-const getUserBranch = async (userId: string): Promise<string> => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { branches: { take: 1 } },
-  });
-
-  if (user?.defaultBranchId) {
-    return user.defaultBranchId;
-  }
-
-  if (user?.branches.length) {
-    return user.branches[0].branchId;
-  }
-
-  // Fallback to Head Office
-  return DEFAULT_BRANCH_ID;
-};
-
-inventoryRouter.get("/", requireRole(canReadInventory), async (_req, res) => {
+inventoryRouter.get("/", requireRole(canReadInventory), async (req: AuthenticatedRequest, res) => {
   try {
-    const items = await listProducts();
+    const branchId = await getBranchScope(req.user!.id, req.user!.role);
+    const items = await listProducts(branchId);
     res.json(items);
   } catch (error) {
     console.error("GET /api/inventory", error);
@@ -85,6 +68,64 @@ inventoryRouter.post(
     } catch (error) {
       console.error("POST /api/inventory", error);
       res.status(500).json({ error: "Failed to create product" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/transfers",
+  requireRole((role) => role === "Admin"),
+  async (req, res) => {
+    try {
+      const itemCodes = Array.isArray(req.body.itemCodes)
+        ? req.body.itemCodes.map(String)
+        : [];
+      const toBranchId =
+        typeof req.body.toBranchId === "string" ? req.body.toBranchId : "";
+
+      const products = await transferInventoryByItemCodes(itemCodes, toBranchId);
+      res.status(201).json({ products });
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/inventory/transfers", error);
+      res.status(500).json({ error: "Failed to transfer stock" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/:id/transfer",
+  requireRole((role) => role === "Admin"),
+  async (req, res) => {
+    try {
+      const unitIds = Array.isArray(req.body.unitIds)
+        ? req.body.unitIds.map(String)
+        : [];
+      const toBranchId =
+        typeof req.body.toBranchId === "string" ? req.body.toBranchId : "";
+
+      const product = await transferInventoryUnits(
+        routeParam(req.params.id),
+        unitIds,
+        toBranchId,
+      );
+
+      if (!product) {
+        res.status(404).json({ error: "Product not found" });
+        return;
+      }
+
+      res.json(product);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/inventory/:id/transfer", error);
+      res.status(500).json({ error: "Failed to transfer units" });
     }
   },
 );

@@ -7,6 +7,7 @@ import {
 
 async function main() {
   const hashedPassword = await hashPassword("admin123");
+  const storePassword = await hashPassword("store123");
 
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@shreehari.com" },
@@ -46,6 +47,8 @@ async function main() {
   );
 
   const headOffice = branches.find((b) => b.id === DEFAULT_BRANCH_ID)!;
+  const jaipurStore = branches.find((b) => b.id === "jaipur")!;
+  const delhiStore = branches.find((b) => b.id === "delhi")!;
 
   // Retire the old single-branch seed id so only the new stores stay active.
   await prisma.branch.updateMany({
@@ -70,6 +73,51 @@ async function main() {
     where: { id: adminUser.id },
     data: { defaultBranchId: headOffice.id },
   });
+
+  const storeUsers = [
+    {
+      email: "jaipur@shreehari.com",
+      name: "Jaipur Store",
+      branch: jaipurStore,
+    },
+    {
+      email: "delhi@shreehari.com",
+      name: "Delhi Store",
+      branch: delhiStore,
+    },
+  ];
+
+  for (const storeUser of storeUsers) {
+    const user = await prisma.user.upsert({
+      where: { email: storeUser.email },
+      update: {
+        name: storeUser.name,
+        password: storePassword,
+        role: "Store",
+        active: true,
+        defaultBranchId: storeUser.branch.id,
+      },
+      create: {
+        email: storeUser.email,
+        name: storeUser.name,
+        password: storePassword,
+        role: "Store",
+        active: true,
+        defaultBranchId: storeUser.branch.id,
+      },
+    });
+
+    await prisma.userBranch.upsert({
+      where: {
+        userId_branchId: { userId: user.id, branchId: storeUser.branch.id },
+      },
+      update: {},
+      create: {
+        userId: user.id,
+        branchId: storeUser.branch.id,
+      },
+    });
+  }
 
   await prisma.shopSettings.upsert({
     where: { id: "default" },
@@ -202,6 +250,9 @@ async function main() {
   console.log(`\nDefault Admin Account:`);
   console.log(`Email: ${adminUser.email}`);
   console.log(`Password: admin123`);
+  console.log(`\nStore Accounts:`);
+  console.log(`Jaipur: jaipur@shreehari.com / store123`);
+  console.log(`Delhi: delhi@shreehari.com / store123`);
   console.log(`\nBranches:`);
   for (const branch of branches) {
     console.log(`   - ${branch.name} (ID: ${branch.id})`);

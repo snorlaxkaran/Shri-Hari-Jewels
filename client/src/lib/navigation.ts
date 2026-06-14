@@ -10,6 +10,7 @@ import {
   Settings,
   Briefcase,
   Store,
+  ArrowRightLeft,
 } from "lucide-react";
 import { createElement } from "react";
 
@@ -34,6 +35,7 @@ export const navSections: NavSection[] = [
     items: [
       { label: "Dashboard", href: "/dashboard", icon: icon(LayoutDashboard) },
       { label: "Products", href: "/inventory", icon: icon(Diamond) },
+      { label: "Stock Transfer", href: "/stock-transfer", icon: icon(ArrowRightLeft) },
       { label: "Raw Stock", href: "/raw-inventory", icon: icon(Gem) },
       { label: "Sales", href: "/sales", icon: icon(ShoppingCart) },
       { label: "Orders", href: "/orders", icon: icon(ShoppingBag) },

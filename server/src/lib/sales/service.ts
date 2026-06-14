@@ -26,8 +26,11 @@ import { SaleError } from "./errors.js";
 
 export { SaleError } from "./errors.js";
 
-export const listSales = async (): Promise<Sale[]> => {
-  const sales = await prisma.sale.findMany({ orderBy: { soldAt: "desc" } });
+export const listSales = async (branchId?: string): Promise<Sale[]> => {
+  const sales = await prisma.sale.findMany({
+    where: branchId ? { branchId } : undefined,
+    orderBy: { soldAt: "desc" },
+  });
   return sales.map(toSale);
 };
 
@@ -36,7 +39,7 @@ export const getSaleById = async (saleId: string): Promise<Sale | null> => {
   return sale ? toSale(sale) : null;
 };
 
-export const lookupUnitForSale = async (itemCode: string) => {
+export const lookupUnitForSale = async (itemCode: string, branchId?: string) => {
   const unit = await prisma.inventoryUnit.findUnique({
     where: { itemCode: itemCode.trim() },
     include: { product: true, sale: true },
@@ -44,6 +47,9 @@ export const lookupUnitForSale = async (itemCode: string) => {
 
   if (!unit) {
     throw new SaleError("Item code not found.", 404);
+  }
+  if (branchId && unit.branchId !== branchId) {
+    throw new SaleError("This item is not assigned to your store.", 403);
   }
   if (unit.status !== "Available") {
     throw new SaleError(`This item is ${unit.status} and cannot be sold.`, 400);
@@ -61,7 +67,7 @@ export const lookupUnitForSale = async (itemCode: string) => {
   };
 };
 
-const validateSaleInput = async (input: RecordSaleInput) => {
+const validateSaleInput = async (input: RecordSaleInput, branchId?: string) => {
   const itemCode = input.itemCode.trim();
 
   if (!itemCode) throw new SaleError("Item code is required.");
@@ -84,6 +90,9 @@ const validateSaleInput = async (input: RecordSaleInput) => {
   });
 
   if (!unit) throw new SaleError("Item code not found.", 404);
+  if (branchId && unit.branchId !== branchId) {
+    throw new SaleError("This item is not assigned to your store.", 403);
+  }
   if (unit.status !== "Available") {
     throw new SaleError(`This item is ${unit.status} and cannot be sold.`, 400);
   }
@@ -239,7 +248,7 @@ export const recordSale = async (
   branchId: string,
 ): Promise<RecordSaleResult> => {
   const { itemCode, customer, unit, product, discount } =
-    await validateSaleInput(input);
+    await validateSaleInput(input, branchId);
 
   if (input.paymentMode === "UPI") {
     const useRazorpay = isRazorpayEnabled();

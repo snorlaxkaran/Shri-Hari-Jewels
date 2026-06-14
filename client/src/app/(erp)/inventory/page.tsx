@@ -14,9 +14,10 @@ import {
   matchesProductMetalTab,
   type ProductMetalTab,
 } from "@/lib/inventory/metal-stats";
+import { downloadStockExcel } from "@/lib/inventory/export-stock";
 import type { InventoryItem } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
-import { Diamond, Gem, Plus, Search } from "lucide-react";
+import { Diamond, Download, Gem, Plus, Search } from "lucide-react";
 
 const InventoryTable = dynamic(
   () => import("@/app/(components)/inventory/InventoryTable"),
@@ -101,15 +102,27 @@ export default function InventoryPage() {
             : `${filtered.length} SKUs - ${metalStats.activeQty} active units`
         }
         action={
-          canAdd ? (
+          <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setModalOpen(true)}
-              className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
+              type="button"
+              onClick={() => downloadStockExcel(filtered)}
+              disabled={filtered.length === 0}
+              className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Plus size={16} />
-              Add Product
+              <Download size={16} />
+              Download Stock
             </button>
-          ) : undefined
+            {canAdd && (
+              <button
+                type="button"
+                onClick={() => setModalOpen(true)}
+                className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
+              >
+                <Plus size={16} />
+                Add Product
+              </button>
+            )}
+          </div>
         }
       />
 

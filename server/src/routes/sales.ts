@@ -17,7 +17,7 @@ import {
   type AuthenticatedRequest,
 } from "../middleware/auth.js";
 import { prisma } from "../lib/db.js";
-import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
+import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
 import { routeParam } from "../lib/route-param.js";
 import type { RecordCartSaleInput, RecordSaleInput } from "../types.js";
 
@@ -25,30 +25,13 @@ export const salesRouter = Router();
 
 salesRouter.use(authenticate);
 
-// Helper to get user's branch
-const getUserBranch = async (userId: string): Promise<string> => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { branches: { take: 1 } },
-  });
-
-  if (user?.defaultBranchId) {
-    return user.defaultBranchId;
-  }
-
-  if (user?.branches.length) {
-    return user.branches[0].branchId;
-  }
-
-  return DEFAULT_BRANCH_ID;
-};
-
 salesRouter.get(
   "/analytics",
   requireRole(canViewAnalytics),
-  async (_req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const analytics = await getSalesAnalytics();
+      const branchId = await getBranchScope(req.user!.id, req.user!.role);
+      const analytics = await getSalesAnalytics(branchId);
       res.json(analytics);
     } catch (error) {
       console.error("GET /api/sales/analytics", error);
@@ -57,9 +40,10 @@ salesRouter.get(
   },
 );
 
-salesRouter.get("/", requireRole(canRecordSales), async (_req, res) => {
+salesRouter.get("/", requireRole(canRecordSales), async (req: AuthenticatedRequest, res) => {
   try {
-    const sales = await listSales();
+    const branchId = await getBranchScope(req.user!.id, req.user!.role);
+    const sales = await listSales(branchId);
     res.json(sales);
   } catch (error) {
     console.error("GET /api/sales", error);
@@ -70,9 +54,13 @@ salesRouter.get("/", requireRole(canRecordSales), async (_req, res) => {
 salesRouter.get(
   "/lookup/:itemCode",
   requireRole(canRecordSales),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const unit = await lookupUnitForSale(routeParam(req.params.itemCode));
+      const branchId = await getBranchScope(req.user!.id, req.user!.role);
+      const unit = await lookupUnitForSale(
+        routeParam(req.params.itemCode),
+        branchId,
+      );
       res.json(unit);
     } catch (error) {
       if (error instanceof SaleError) {
@@ -104,9 +92,13 @@ salesRouter.post(
   },
 );
 
-salesRouter.post("/cart", requireRole(canRecordSales), async (req, res) => {
+salesRouter.post("/cart", requireRole(canRecordSales), async (req: AuthenticatedRequest, res) => {
   try {
-    const result = await recordCartSale(req.body as RecordCartSaleInput);
+    const branchId = await getBranchScope(req.user!.id, req.user!.role);
+    const result = await recordCartSale(
+      req.body as RecordCartSaleInput,
+      branchId,
+    );
     res.status(201).json(result);
   } catch (error) {
     if (error instanceof SaleError) {

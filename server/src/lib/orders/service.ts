@@ -100,10 +100,13 @@ export const updateOrder = async (
   return toOrder(order);
 };
 
-export const countPendingOrders = async (): Promise<number> => {
+export const countPendingOrders = async (
+  branchId?: string,
+): Promise<number> => {
   return prisma.order.count({
     where: {
       status: { notIn: ["Delivered", "Cancelled"] },
+      ...(branchId && { branchId }),
     },
   });
 };

@@ -4,6 +4,7 @@ export const USER_ROLES: UserRole[] = [
   "Admin",
   "ProductionManager",
   "SalesManager",
+  "Store",
   "Karigar",
   "Accountant",
 ];
@@ -30,6 +31,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/sales-analytics",
     "/invoices",
   ],
+  Store: ["/dashboard", "/inventory", "/sales", "/customers"],
   Karigar: ["/dashboard", "/orders", "/work-orders"],
   Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory"],
 };
@@ -46,6 +48,7 @@ export const canReadInventory = (role: UserRole): boolean =>
   role === "Admin" ||
   role === "ProductionManager" ||
   role === "SalesManager" ||
+  role === "Store" ||
   role === "Accountant";
 
 export const canWriteInventory = (role: UserRole): boolean =>
@@ -63,10 +66,10 @@ export const canWriteRawInventory = (role: UserRole): boolean =>
 export const canDeleteProduct = (role: UserRole): boolean => role === "Admin";
 
 export const canManageCustomers = (role: UserRole): boolean =>
-  role === "Admin" || role === "SalesManager";
+  role === "Admin" || role === "SalesManager" || role === "Store";
 
 export const canRecordSales = (role: UserRole): boolean =>
-  role === "Admin" || role === "SalesManager";
+  role === "Admin" || role === "SalesManager" || role === "Store";
 
 export const canManageOrders = (role: UserRole): boolean =>
   role === "Admin" ||
@@ -89,6 +92,7 @@ export const canViewInvoices = (role: UserRole): boolean =>
 export const canViewAnalytics = (role: UserRole): boolean =>
   role === "Admin" ||
   role === "SalesManager" ||
+  role === "Store" ||
   role === "Accountant" ||
   role === "ProductionManager" ||
   role === "Karigar";

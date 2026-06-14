@@ -20,6 +20,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/sales-analytics",
     "/invoices",
   ],
+  Store: ["/dashboard", "/inventory", "/sales", "/customers"],
   Karigar: ["/dashboard", "/orders", "/work-orders"],
   Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory"],
 };
@@ -36,6 +37,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   Admin: "Admin",
   ProductionManager: "Production Manager",
   SalesManager: "Sales Manager",
+  Store: "Store",
   Karigar: "Karigar",
   Accountant: "Accountant",
 };

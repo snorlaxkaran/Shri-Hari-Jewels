@@ -2,6 +2,7 @@ export type UserRole =
   | "Admin"
   | "ProductionManager"
   | "SalesManager"
+  | "Store"
   | "Karigar"
   | "Accountant";
 

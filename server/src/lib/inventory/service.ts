@@ -14,12 +14,23 @@ const productInclude = {
   images: { orderBy: { sortOrder: "asc" as const } },
 };
 
-export const listProducts = async (): Promise<InventoryItem[]> => {
+export const listProducts = async (
+  branchId?: string,
+): Promise<InventoryItem[]> => {
   const products = await prisma.product.findMany({
-    include: productInclude,
+    where: branchId ? { units: { some: { branchId } } } : undefined,
+    include: branchId
+      ? {
+          units: {
+            where: { branchId },
+            orderBy: { createdAt: "asc" as const },
+          },
+          images: { orderBy: { sortOrder: "asc" as const } },
+        }
+      : productInclude,
     orderBy: { createdAt: "desc" },
   });
-  return products.map(toInventoryItem);
+  return products.map(toInventoryItem).filter((item) => item.units.length > 0);
 };
 
 export const createProduct = async (
@@ -130,6 +141,101 @@ export class InventoryError extends Error {
     this.name = "InventoryError";
   }
 }
+
+export const transferInventoryUnits = async (
+  productId: string,
+  unitIds: string[],
+  toBranchId: string,
+): Promise<InventoryItem | null> => {
+  if (unitIds.length === 0) {
+    throw new InventoryError("Select at least one unit to transfer.");
+  }
+
+  const branch = await prisma.branch.findUnique({ where: { id: toBranchId } });
+  if (!branch || !branch.active) {
+    throw new InventoryError("Destination store is not active.", 404);
+  }
+
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    include: productInclude,
+  });
+  if (!product) return null;
+
+  const units = await prisma.inventoryUnit.findMany({
+    where: { id: { in: unitIds }, productId },
+  });
+
+  if (units.length !== unitIds.length) {
+    throw new InventoryError("Some selected units were not found.", 404);
+  }
+
+  const blocked = units.find((unit) => unit.status !== "Available");
+  if (blocked) {
+    throw new InventoryError(
+      `Cannot transfer ${blocked.itemCode} because it is ${blocked.status}.`,
+    );
+  }
+
+  await prisma.inventoryUnit.updateMany({
+    where: { id: { in: unitIds }, productId },
+    data: { branchId: toBranchId },
+  });
+
+  const updated = await prisma.product.findUnique({
+    where: { id: productId },
+    include: productInclude,
+  });
+
+  return updated ? toInventoryItem(updated) : null;
+};
+
+export const transferInventoryByItemCodes = async (
+  itemCodes: string[],
+  toBranchId: string,
+): Promise<InventoryItem[]> => {
+  const cleanCodes = [...new Set(itemCodes.map((code) => code.trim()).filter(Boolean))];
+  if (cleanCodes.length === 0) {
+    throw new InventoryError("Scan at least one item to transfer.");
+  }
+
+  const branch = await prisma.branch.findUnique({ where: { id: toBranchId } });
+  if (!branch || !branch.active) {
+    throw new InventoryError("Destination store is not active.", 404);
+  }
+
+  const units = await prisma.inventoryUnit.findMany({
+    where: { itemCode: { in: cleanCodes } },
+    include: { product: true },
+  });
+
+  if (units.length !== cleanCodes.length) {
+    const found = new Set(units.map((unit) => unit.itemCode));
+    const missing = cleanCodes.find((code) => !found.has(code));
+    throw new InventoryError(`Item code not found: ${missing}`, 404);
+  }
+
+  const blocked = units.find((unit) => unit.status !== "Available");
+  if (blocked) {
+    throw new InventoryError(
+      `Cannot transfer ${blocked.itemCode} because it is ${blocked.status}.`,
+    );
+  }
+
+  await prisma.inventoryUnit.updateMany({
+    where: { itemCode: { in: cleanCodes } },
+    data: { branchId: toBranchId },
+  });
+
+  const productIds = [...new Set(units.map((unit) => unit.productId))];
+  const updatedProducts = await prisma.product.findMany({
+    where: { id: { in: productIds } },
+    include: productInclude,
+    orderBy: { createdAt: "desc" },
+  });
+
+  return updatedProducts.map(toInventoryItem);
+};
 
 export const updateProduct = async (
   productId: string,

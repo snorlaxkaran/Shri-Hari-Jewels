@@ -19,6 +19,7 @@ import {
   deleteInventoryUnit as deleteInventoryUnitApi,
   deleteProduct as deleteProductApi,
   fetchInventory,
+  transferInventoryUnits as transferInventoryUnitsApi,
   updateProduct as updateProductApi,
 } from "@/lib/api/inventory";
 
@@ -36,6 +37,11 @@ type InventoryContextValue = {
   deleteProduct: (id: string) => Promise<void>;
   removeUnit: (unitId: string) => Promise<InventoryItem>;
   addQuantityToSku: (sku: string, quantity: number) => Promise<InventoryItem | null>;
+  transferUnits: (
+    productId: string,
+    unitIds: string[],
+    toBranchId: string,
+  ) => Promise<InventoryItem>;
 };
 
 const InventoryContext = createContext<InventoryContextValue | null>(null);
@@ -103,6 +109,18 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     [items],
   );
 
+  const transferUnits = useCallback(
+    async (productId: string, unitIds: string[], toBranchId: string) => {
+      const updated = await transferInventoryUnitsApi(productId, {
+        unitIds,
+        toBranchId,
+      });
+      setItems((prev) => prev.map((item) => (item.id === productId ? updated : item)));
+      return updated;
+    },
+    [],
+  );
+
   const value = useMemo(
     () => ({
       items,
@@ -115,6 +133,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       deleteProduct,
       removeUnit,
       addQuantityToSku,
+      transferUnits,
     }),
     [
       items,
@@ -127,6 +146,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       deleteProduct,
       removeUnit,
       addQuantityToSku,
+      transferUnits,
     ],
   );
 

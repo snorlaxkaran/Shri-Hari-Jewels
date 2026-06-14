@@ -6,7 +6,9 @@ type ProductWithRelations = Product & {
   images: ProductImage[];
 };
 
-export const toInventoryItem = (product: ProductWithRelations): InventoryItem => ({
+export const toInventoryItem = (
+  product: ProductWithRelations,
+): InventoryItem => ({
   id: product.id,
   sku: product.sku,
   name: product.name,
@@ -16,9 +18,13 @@ export const toInventoryItem = (product: ProductWithRelations): InventoryItem =>
   weightGrams: product.weightGrams,
   makingCharges: product.makingCharges,
   stoneCarat: product.stoneCarat ?? undefined,
-  stock: product.stock,
+  stock: product.units.filter((unit) => unit.status === "Available").length,
   price: product.price,
-  status: product.status as InventoryItem["status"],
+  status: product.units.some((unit) => unit.status === "Available")
+    ? product.units.filter((unit) => unit.status === "Available").length <= 2
+      ? "Low Stock"
+      : "In Stock"
+    : "Out of Stock",
   imageColor: product.imageColor,
   createdAt: product.createdAt.toISOString(),
   images: product.images

@@ -114,19 +114,33 @@ const uniqueCustomerIdsInRange = (
       .map((s) => s.customerId as string),
   ).size;
 
-export const getSalesAnalytics = async (): Promise<SalesAnalytics> => {
+export const getSalesAnalytics = async (
+  branchId?: string,
+): Promise<SalesAnalytics> => {
   const [sales, products, customerCount, pendingOrders, rawSummary, activeWorkOrders] =
     await Promise.all([
     prisma.sale.findMany({
-      where: { paymentStatus: "Completed" },
+      where: { paymentStatus: "Completed", ...(branchId && { branchId }) },
       orderBy: { soldAt: "desc" },
     }),
-    prisma.product.findMany({ select: { stock: true, price: true, status: true } }),
+    prisma.product.findMany({
+      where: branchId ? { units: { some: { branchId } } } : undefined,
+      select: {
+        price: true,
+        units: {
+          where: branchId ? { branchId } : undefined,
+          select: { status: true },
+        },
+      },
+    }),
     prisma.customer.count(),
-    countPendingOrders(),
+    countPendingOrders(branchId),
     getRawInventorySummary(),
     prisma.workOrder.count({
-      where: { status: { in: ["Open", "In Production", "QC"] } },
+      where: {
+        status: { in: ["Open", "In Production", "QC"] },
+        ...(branchId && { branchId }),
+      },
     }),
   ]);
 
@@ -154,10 +168,17 @@ export const getSalesAnalytics = async (): Promise<SalesAnalytics> => {
   const thisMonthRevenue = monthlySales;
   const lastMonthRevenue = lastMonthSales.reduce((sum, s) => sum + s.dealPrice, 0);
 
-  const inventoryCount = products.reduce((sum, p) => sum + p.stock, 0);
-  const inventoryValue = products.reduce((sum, p) => sum + p.stock * p.price, 0);
+  const productStocks = products.map((product) => ({
+    stock: product.units.filter((unit) => unit.status === "Available").length,
+    price: product.price,
+  }));
+  const inventoryCount = productStocks.reduce((sum, p) => sum + p.stock, 0);
+  const inventoryValue = productStocks.reduce((sum, p) => sum + p.stock * p.price, 0);
   const lowStockCount = products.filter(
-    (p) => getStockStatus(p.stock) === "Low Stock",
+    (p) =>
+      getStockStatus(
+        p.units.filter((unit) => unit.status === "Available").length,
+      ) === "Low Stock",
   ).length;
 
   const uniqueSaleCustomers = new Set(
