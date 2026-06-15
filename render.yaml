@@ -18,7 +18,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        value: file:./dev.db
+        # IMPORTANT: set this in Render dashboard to your hosted Postgres URL.
+        # Example: postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public
+        value: ""
       - key: CLIENT_URL
         value: https://shri-hari-jewels.vercel.app
       - key: JWT_SECRET
