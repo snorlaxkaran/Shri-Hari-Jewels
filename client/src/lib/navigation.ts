@@ -11,6 +11,7 @@ import {
   Briefcase,
   Store,
   ArrowRightLeft,
+  List,
 } from "lucide-react";
 import { createElement } from "react";
 
@@ -35,7 +36,8 @@ export const navSections: NavSection[] = [
     items: [
       { label: "Dashboard", href: "/dashboard", icon: icon(LayoutDashboard) },
       { label: "Products", href: "/inventory", icon: icon(Diamond) },
-      { label: "Stock Transfer", href: "/stock-transfer", icon: icon(ArrowRightLeft) },
+      { label: "Scan Transfer", href: "/stock-transfer", icon: icon(ArrowRightLeft) },
+      { label: "Sent to Stores", href: "/stock-transfer/sent", icon: icon(List) },
       { label: "Raw Stock", href: "/raw-inventory", icon: icon(Gem) },
       { label: "Sales", href: "/sales", icon: icon(ShoppingCart) },
       { label: "Orders", href: "/orders", icon: icon(ShoppingBag) },
@@ -74,6 +76,8 @@ export const filterNavSections = (
     .filter((section) => section.items.length > 0);
 
 export const getPageTitle = (pathname: string): string => {
+  if (pathname.startsWith("/stock-transfer/sent")) return "Sent to Stores";
+  if (pathname === "/stock-transfer") return "Scan Transfer";
   for (const section of navSections) {
     const match = section.items.find((item) => item.href === pathname);
     if (match) return match.label;

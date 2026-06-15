@@ -1,21 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { ArrowRightLeft, Calendar, ScanLine, Trash2 } from "lucide-react";
+import Link from "next/link";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
+import TransferTabs from "@/app/(components)/stock-transfer/TransferTabs";
 import { fetchBranches } from "@/lib/api/branches";
-import { createStockTransfer, fetchStockTransfers } from "@/lib/api/inventory";
+import { createStockTransfer } from "@/lib/api/inventory";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import type {
   Branch,
   InventoryItem,
   InventoryUnit,
-  StockTransfer,
   StockTransferDocumentType,
 } from "@/lib/types";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 
 type ScannedItem = {
   unit: InventoryUnit;
@@ -24,7 +25,7 @@ type ScannedItem = {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export default function StockTransferPage() {
+export default function StockTransferScanPage() {
   const { items, hydrated, loading, refresh } = useInventory();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [toBranchId, setToBranchId] = useState("");
@@ -33,9 +34,8 @@ export default function StockTransferPage() {
     useState<StockTransferDocumentType>("Wholesale GST Invoice");
   const [barcode, setBarcode] = useState("");
   const [scanned, setScanned] = useState<ScannedItem[]>([]);
-  const [transfers, setTransfers] = useState<StockTransfer[]>([]);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [success, setSuccess] = useState<React.ReactNode>("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -46,11 +46,6 @@ export default function StockTransferPage() {
         ),
       )
       .catch((err) => setError(getApiErrorMessage(err, "Could not load stores.")));
-    fetchStockTransfers()
-      .then(setTransfers)
-      .catch((err) =>
-        setError(getApiErrorMessage(err, "Could not load transfer history.")),
-      );
   }, []);
 
   const allUnits = useMemo(
@@ -121,10 +116,18 @@ export default function StockTransferPage() {
         transferDate,
         itemCodes: scanned.map((item) => item.unit.itemCode),
       });
-      await refresh();
-      setTransfers((prev) => [result.transfer, ...prev]);
+      await refresh({ silent: true });
       setSuccess(
-        `${result.transfer.transferNo} saved for ${scanned.length} item${scanned.length === 1 ? "" : "s"}.`,
+        <>
+          {result.transfer.transferNo} saved for {scanned.length} item
+          {scanned.length === 1 ? "" : "s"}.{" "}
+          <Link
+            href="/stock-transfer/sent"
+            className="font-medium underline underline-offset-2"
+          >
+            View sent list
+          </Link>
+        </>,
       );
       setScanned([]);
       setBarcode("");
@@ -142,9 +145,11 @@ export default function StockTransferPage() {
   return (
     <div>
       <PageHeader
-        title="Stock Transfer"
-        subtitle="Create wholesale GST invoices or delivery challans by scanning item tags"
+        title="Scan & Send"
+        subtitle="Scan item tags and send stock from admin to a store"
       />
+
+      <TransferTabs />
 
       {error && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">
@@ -219,7 +224,7 @@ export default function StockTransferPage() {
           </div>
 
           <div className="pt-2 border-t border-zinc-100">
-            <p className="text-xs text-zinc-500">Items</p>
+            <p className="text-xs text-zinc-500">Items to send</p>
             <p className="text-2xl font-semibold text-zinc-900">
               {scanned.length}
             </p>
@@ -279,7 +284,7 @@ export default function StockTransferPage() {
                 className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
               >
                 <ArrowRightLeft size={16} />
-                {saving ? "Saving..." : "Save Transfer"}
+                {saving ? "Saving..." : "Send to Store"}
               </button>
             </div>
 
@@ -302,7 +307,7 @@ export default function StockTransferPage() {
                         colSpan={6}
                         className="px-5 py-10 text-center text-sm text-zinc-400"
                       >
-                        Scan barcode tags to add items.
+                        Scan barcode tags to add items for transfer.
                       </td>
                     </tr>
                   ) : (
@@ -333,60 +338,6 @@ export default function StockTransferPage() {
                           >
                             <Trash2 size={15} />
                           </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="surface-card overflow-hidden">
-            <div className="px-5 py-4 border-b border-zinc-200">
-              <h2 className="text-sm font-semibold text-zinc-900">
-                Recent Transfers
-              </h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-sm">
-                <thead>
-                  <tr className="bg-zinc-50 text-zinc-500">
-                    <th className="text-left px-5 py-3 font-medium">No.</th>
-                    <th className="text-left px-5 py-3 font-medium">Date</th>
-                    <th className="text-left px-5 py-3 font-medium">Store</th>
-                    <th className="text-left px-5 py-3 font-medium">Type</th>
-                    <th className="text-left px-5 py-3 font-medium">Items</th>
-                    <th className="text-left px-5 py-3 font-medium">Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transfers.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="px-5 py-8 text-center text-sm text-zinc-400"
-                      >
-                        No transfers saved yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    transfers.slice(0, 10).map((transfer) => (
-                      <tr
-                        key={transfer.id}
-                        className="border-t border-zinc-100 text-zinc-900"
-                      >
-                        <td className="px-5 py-3 font-mono text-xs">
-                          {transfer.transferNo}
-                        </td>
-                        <td className="px-5 py-3">
-                          {formatDate(transfer.transferDate)}
-                        </td>
-                        <td className="px-5 py-3">{transfer.toBranchName}</td>
-                        <td className="px-5 py-3">{transfer.documentType}</td>
-                        <td className="px-5 py-3">{transfer.itemCount}</td>
-                        <td className="px-5 py-3">
-                          {formatCurrency(transfer.totalValue)}
                         </td>
                       </tr>
                     ))

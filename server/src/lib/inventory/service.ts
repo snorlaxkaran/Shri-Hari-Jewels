@@ -217,7 +217,7 @@ export const listStockTransfers = async (): Promise<StockTransfer[]> => {
       items: { orderBy: { itemCode: "asc" } },
     },
     orderBy: { createdAt: "desc" },
-    take: 25,
+    take: 500,
   });
   return transfers.map(toStockTransfer);
 };
