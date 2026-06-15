@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatCard from "@/app/(components)/StatCard";
@@ -51,6 +51,12 @@ export default function InventoryPage() {
     null,
   );
   const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    if (!selectedProduct) return;
+    const updated = items.find((item) => item.id === selectedProduct.id);
+    if (updated) setSelectedProduct(updated);
+  }, [items, selectedProduct?.id]);
 
   const categories = ["All", ...PRODUCT_CATEGORIES];
 

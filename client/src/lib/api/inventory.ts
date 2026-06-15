@@ -8,7 +8,10 @@ import type {
 import { api } from "./client";
 
 export const fetchInventory = async (): Promise<InventoryItem[]> => {
-  const { data } = await api.get<InventoryItem[]>("/api/inventory");
+  const { data } = await api.get<InventoryItem[]>("/api/inventory", {
+    params: { _t: Date.now() },
+    headers: { "Cache-Control": "no-cache" },
+  });
   return data;
 };
 

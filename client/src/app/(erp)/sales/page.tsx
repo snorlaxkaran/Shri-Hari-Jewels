@@ -36,7 +36,8 @@ const PAYMENT_MODES: PaymentMode[] = ["Cash", "UPI", "Card"];
 
 export default function SalesPage() {
   const { customers, refresh: refreshCustomers } = useCustomers();
-  const { refresh: refreshInventory } = useInventory();
+  const { refresh: refreshInventory, markUnitsSold, markUnitsReserved, markUnitsAvailable } =
+    useInventory();
   const {
     analytics,
     hydrated,
@@ -114,8 +115,12 @@ export default function SalesPage() {
     }
   };
 
-  const finishCartSale = async (result: RecordCartSaleResult) => {
-    await refreshInventory();
+  const finishCartSale = async (
+    result: RecordCartSaleResult,
+    soldItemCodes: string[],
+  ) => {
+    markUnitsSold(soldItemCodes);
+    await refreshInventory({ silent: true });
     await refreshCustomers();
     await refreshSales();
     setUpiModalOpen(false);
@@ -145,20 +150,26 @@ export default function SalesPage() {
   ): Promise<boolean> => {
     if ("sales" in result && Array.isArray(result.sales)) {
       if (result.sales.every((s) => s.paymentStatus === "Completed")) {
-        await finishCartSale(result);
+        await finishCartSale(
+          result,
+          result.sales.map((sale) => sale.itemCode),
+        );
         return true;
       }
       return false;
     }
 
     if ("sale" in result && result.sale.paymentStatus === "Completed") {
-      await finishCartSale({
-        sales: [result.sale],
-        invoices: result.invoice ? [result.invoice] : [],
-        total: result.sale.dealPrice,
-        requiresConfirmation: false,
-        autoCapture: result.autoCapture,
-      });
+      await finishCartSale(
+        {
+          sales: [result.sale],
+          invoices: result.invoice ? [result.invoice] : [],
+          total: result.sale.dealPrice,
+          requiresConfirmation: false,
+          autoCapture: result.autoCapture,
+        },
+        [result.sale.itemCode],
+      );
       return true;
     }
 
@@ -180,6 +191,7 @@ export default function SalesPage() {
     }
 
     setSubmitting(true);
+    const cartItemCodes = cart.map((item) => item.itemCode);
     try {
       const result = await recordCartSale({
         customerId,
@@ -206,12 +218,13 @@ export default function SalesPage() {
         setUpiQrImageUrl(result.upiQrImageUrl ?? "");
         setUpiAutoCapture(result.autoCapture);
         setUpiModalOpen(true);
+        markUnitsReserved(cartItemCodes);
         setCart([]);
         setCustomerId("");
         return;
       }
 
-      await finishCartSale(result);
+      await finishCartSale(result, cartItemCodes);
     } catch (err) {
       setFormError(getApiErrorMessage(err));
     } finally {
@@ -244,7 +257,12 @@ export default function SalesPage() {
   const handleUpiCancel = async () => {
     if (!pendingPrimarySaleId) return;
     await cancelPendingSale(pendingPrimarySaleId);
-    await refreshInventory();
+    if (pendingItemSummary) {
+      markUnitsAvailable(
+        pendingItemSummary.split(",").map((code) => code.trim()).filter(Boolean),
+      );
+    }
+    await refreshInventory({ silent: true });
     await refreshSales();
     setUpiModalOpen(false);
     setPendingSale(null);

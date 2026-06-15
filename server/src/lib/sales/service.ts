@@ -1,6 +1,7 @@
 import { prisma } from "../db.js";
 import { toInvoice } from "../invoices/mappers.js";
 import { createInvoiceForSale } from "../invoices/service.js";
+import { reconcileInventoryWithSales } from "../inventory/reconcile.js";
 import { getStockStatus } from "../inventory/status.js";
 import {
   closeUpiQrCode,
@@ -40,6 +41,8 @@ export const getSaleById = async (saleId: string): Promise<Sale | null> => {
 };
 
 export const lookupUnitForSale = async (itemCode: string, branchId?: string) => {
+  await reconcileInventoryWithSales();
+
   const unit = await prisma.inventoryUnit.findUnique({
     where: { itemCode: itemCode.trim() },
     include: { product: true, sale: true },

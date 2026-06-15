@@ -10,6 +10,7 @@ import {
 } from "react";
 import type {
   InventoryItem,
+  InventoryUnitStatus,
   NewProductInput,
   UpdateProductInput,
 } from "@/lib/types";
@@ -25,12 +26,52 @@ import {
 
 const AUTO_REFRESH_MS = 60_000; // keep stock fresh across tabs/devices
 
+const deriveProductStock = (units: InventoryItem["units"]) =>
+  units.filter((unit) => unit.status === "Available").length;
+
+const deriveProductStatus = (
+  stock: number,
+): InventoryItem["status"] => {
+  if (stock <= 0) return "Out of Stock";
+  if (stock <= 2) return "Low Stock";
+  return "In Stock";
+};
+
+const patchUnitsStatus = (
+  items: InventoryItem[],
+  itemCodes: string[],
+  status: InventoryUnitStatus,
+): InventoryItem[] => {
+  const codes = new Set(itemCodes.map((code) => code.trim()).filter(Boolean));
+  if (codes.size === 0) return items;
+
+  return items.map((item) => {
+    const hasMatch = item.units.some((unit) => codes.has(unit.itemCode));
+    if (!hasMatch) return item;
+
+    const units = item.units.map((unit) =>
+      codes.has(unit.itemCode) ? { ...unit, status } : unit,
+    );
+    const stock = deriveProductStock(units);
+
+    return {
+      ...item,
+      units,
+      stock,
+      status: deriveProductStatus(stock),
+    };
+  });
+};
+
 type InventoryContextValue = {
   items: InventoryItem[];
   hydrated: boolean;
   loading: boolean;
   error: string | null;
-  refresh: () => Promise<void>;
+  refresh: (options?: { silent?: boolean }) => Promise<void>;
+  markUnitsSold: (itemCodes: string[]) => void;
+  markUnitsReserved: (itemCodes: string[]) => void;
+  markUnitsAvailable: (itemCodes: string[]) => void;
   addProduct: (input: NewProductInput) => Promise<InventoryItem>;
   updateProduct: (
     id: string,
@@ -54,8 +95,11 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent && hydrated;
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const data = await fetchInventory();
@@ -63,25 +107,29 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     } catch {
       setError("Could not connect to the server. Is the backend running?");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
       setHydrated(true);
     }
-  }, []);
+  }, [hydrated]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
   useEffect(() => {
-    // If stock changes from another device/session, this keeps UI accurate.
-    const onFocus = () => refresh();
+    const onFocus = () => refresh({ silent: true });
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") refresh();
+      if (document.visibilityState === "visible") refresh({ silent: true });
     };
 
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibilityChange);
-    const interval = window.setInterval(() => refresh(), AUTO_REFRESH_MS);
+    const interval = window.setInterval(
+      () => refresh({ silent: true }),
+      AUTO_REFRESH_MS,
+    );
 
     return () => {
       window.removeEventListener("focus", onFocus);
@@ -89,6 +137,18 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       window.clearInterval(interval);
     };
   }, [refresh]);
+
+  const markUnitsSold = useCallback((itemCodes: string[]) => {
+    setItems((prev) => patchUnitsStatus(prev, itemCodes, "Sold"));
+  }, []);
+
+  const markUnitsReserved = useCallback((itemCodes: string[]) => {
+    setItems((prev) => patchUnitsStatus(prev, itemCodes, "Reserved"));
+  }, []);
+
+  const markUnitsAvailable = useCallback((itemCodes: string[]) => {
+    setItems((prev) => patchUnitsStatus(prev, itemCodes, "Available"));
+  }, []);
 
   const addProduct = useCallback(async (input: NewProductInput) => {
     const product = await createProduct(input);
@@ -148,6 +208,9 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       loading,
       error,
       refresh,
+      markUnitsSold,
+      markUnitsReserved,
+      markUnitsAvailable,
       addProduct,
       updateProduct,
       deleteProduct,
@@ -161,6 +224,9 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       loading,
       error,
       refresh,
+      markUnitsSold,
+      markUnitsReserved,
+      markUnitsAvailable,
       addProduct,
       updateProduct,
       deleteProduct,

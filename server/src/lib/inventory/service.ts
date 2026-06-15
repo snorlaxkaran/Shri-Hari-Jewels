@@ -14,6 +14,7 @@ import type {
 import { CATEGORY_COLORS, type ProductCategory } from "./categories.js";
 import { toInventoryItem } from "./mappers.js";
 import { generateSku, generateUnitCodes } from "./sku.js";
+import { reconcileInventoryWithSales } from "./reconcile.js";
 import { getStockStatus } from "./status.js";
 import { DEFAULT_BRANCH_ID } from "../branches/constants.js";
 
@@ -28,6 +29,8 @@ const productInclude = {
 export const listProducts = async (
   branchId?: string,
 ): Promise<InventoryItem[]> => {
+  await reconcileInventoryWithSales();
+
   const stockBranchId = branchId ?? DEFAULT_BRANCH_ID;
   const products = await prisma.product.findMany({
     where: branchId ? { units: { some: { branchId } } } : undefined,

@@ -35,6 +35,7 @@ inventoryRouter.use(authenticate);
 
 inventoryRouter.get("/", requireRole(canReadInventory), async (req: AuthenticatedRequest, res) => {
   try {
+    res.set("Cache-Control", "no-store");
     const branchId = await getBranchScope(req.user!.id, req.user!.role);
     const items = await listProducts(branchId);
     res.json(items);
