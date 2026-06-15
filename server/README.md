@@ -24,14 +24,34 @@ npm run dev            # http://localhost:4000
 
 ## Database
 
-- **SQLite** file: `prisma/dev.db` (local, gitignored)
-- View data: `npm run db:studio`
+- **Local dev:** SQLite file `prisma/dev.db` (gitignored) — fine for development only
+- **Production:** Prisma Postgres (or any managed Postgres). **Never use SQLite on Render** — sales are lost when the server restarts after ~15 minutes idle.
+
+View data: `npm run db:studio`
+
+### Production setup (Prisma Postgres)
+
+1. Create a database in [Prisma Data Platform](https://console.prisma.io)
+2. Copy the **Postgres connection string** (`postgresql://...` or `prisma+postgres://...`)
+3. In **Render** → `shri-hari-jewels-api` → **Environment** → set `DATABASE_URL` to that string
+4. Redeploy, then run once locally (or via Render shell):
+
+   ```bash
+   cd server
+   DATABASE_URL="your-postgres-url" npm run db:push
+   DATABASE_URL="your-postgres-url" npm run db:seed
+   ```
+
+5. Verify persistence: open `https://your-api.onrender.com/api/health`  
+   You should see `"database": { "kind": "postgresql", "persistent": true, ... }`
+
+If you sell an item and `completedSales` / `soldUnits` go back to 0 after a few hours, `DATABASE_URL` is wrong or still pointing at SQLite.
 
 ## Environment
 
 | Variable       | Default                 | Description       |
 | -------------- | ----------------------- | ----------------- |
-| `DATABASE_URL` | `file:./dev.db`         | SQLite connection |
+| `DATABASE_URL` | `postgresql://...` (prod) / `file:./dev.db` (local) | Database connection |
 | `PORT`         | `4000`                  | API port          |
 | `CLIENT_URL`   | `http://localhost:3000` | CORS origin       |
 | `JWT_SECRET`   | (dev fallback)          | **Required in production** |

@@ -17,10 +17,10 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Set DATABASE_URL manually in Render dashboard (Prisma Postgres URL).
+      # Do NOT use file:./dev.db — SQLite data is wiped when Render restarts.
       - key: DATABASE_URL
-        # IMPORTANT: set this in Render dashboard to your hosted Postgres URL.
-        # Example: postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public
-        value: ""
+        sync: false
       - key: CLIENT_URL
         value: https://shri-hari-jewels.vercel.app
       - key: JWT_SECRET

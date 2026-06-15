@@ -1,6 +1,8 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
+import { assertProductionDatabase } from "./lib/db-config.js";
+import { getHealthPayload } from "./lib/health.js";
 import { authRouter } from "./routes/auth.js";
 import { branchesRouter } from "./routes/branches.js";
 import { customersRouter } from "./routes/customers.js";
@@ -16,6 +18,8 @@ import { workOrdersRouter } from "./routes/work-orders.js";
 const app = express();
 const port = Number(process.env.PORT) || 4000;
 const clientUrl = process.env.CLIENT_URL ?? "http://localhost:3000";
+
+assertProductionDatabase();
 
 const allowedOrigins = new Set(
   clientUrl
@@ -57,14 +61,9 @@ app.use(
 
 app.use(express.json({ limit: "10mb" }));
 
-app.get("/api/health", (_req, res) => {
-  res.json({
-    status: "ok",
-    service: "shri-hari-jewels-api",
-    upiAutoCapture: Boolean(
-      process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET,
-    ),
-  });
+app.get("/api/health", async (_req, res) => {
+  const payload = await getHealthPayload();
+  res.status(payload.database.persistent ? 200 : 503).json(payload);
 });
 
 app.use("/api/auth", authRouter);
