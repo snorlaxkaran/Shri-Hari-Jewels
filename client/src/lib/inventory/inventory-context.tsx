@@ -23,6 +23,8 @@ import {
   updateProduct as updateProductApi,
 } from "@/lib/api/inventory";
 
+const AUTO_REFRESH_MS = 60_000; // keep stock fresh across tabs/devices
+
 type InventoryContextValue = {
   items: InventoryItem[];
   hydrated: boolean;
@@ -68,6 +70,24 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    // If stock changes from another device/session, this keeps UI accurate.
+    const onFocus = () => refresh();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    const interval = window.setInterval(() => refresh(), AUTO_REFRESH_MS);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.clearInterval(interval);
+    };
   }, [refresh]);
 
   const addProduct = useCallback(async (input: NewProductInput) => {
