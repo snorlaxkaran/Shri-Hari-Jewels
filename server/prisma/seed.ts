@@ -5,7 +5,7 @@ import {
   SEED_BRANCHES,
 } from "../src/lib/branches/constants.js";
 
-async function main() {
+async function seedDatabase() {
   const hashedPassword = await hashPassword("admin123");
   const storePassword = await hashPassword("store123");
 
@@ -261,11 +261,17 @@ async function main() {
   console.log(`Sample Product: RG-26-0001 - item codes RG-26-0001-001, RG-26-0001-002`);
 }
 
-main()
-  .catch((e) => {
-    console.error("Seed failed:", e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+export { seedDatabase };
+
+const isDirectRun = process.argv[1]?.replace(/\\/g, "/").endsWith("prisma/seed.ts");
+
+if (isDirectRun) {
+  seedDatabase()
+    .catch((e) => {
+      console.error("Seed failed:", e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}
