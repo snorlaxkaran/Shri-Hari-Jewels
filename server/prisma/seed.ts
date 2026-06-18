@@ -241,7 +241,7 @@ async function seedDatabase() {
         currentRate: 92000,
         vendor: "Sample Diamond Dealer",
         location: "Safe 1",
-        status: "In Stock",
+        status: "InStock",
       },
     });
   }
@@ -258,12 +258,16 @@ async function seedDatabase() {
     console.log(`   - ${branch.name} (ID: ${branch.id})`);
   }
   console.log(`\nSample Customer: ${customer.name} (${customer.mobile})`);
-  console.log(`Sample Product: RG-26-0001 - item codes RG-26-0001-001, RG-26-0001-002`);
+  console.log(
+    `Sample Product: RG-26-0001 - item codes RG-26-0001-001, RG-26-0001-002`,
+  );
 }
 
 export { seedDatabase };
 
-const isDirectRun = process.argv[1]?.replace(/\\/g, "/").endsWith("prisma/seed.ts");
+const isDirectRun = process.argv[1]
+  ?.replace(/\\/g, "/")
+  .endsWith("prisma/seed.ts");
 
 if (isDirectRun) {
   seedDatabase()
