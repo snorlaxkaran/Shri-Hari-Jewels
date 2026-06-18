@@ -8,6 +8,7 @@ import {
   createProductionRun,
   deleteProductionRun,
   exportProductionRunCsv,
+  getFinishedGoodsDefaults,
   getProductionRun,
   listProductionRuns,
   ProductionRunError,
@@ -49,6 +50,24 @@ productionRunsRouter.get(
     } catch (error) {
       console.error("GET /api/production-runs", error);
       res.status(500).json({ error: "Failed to fetch production runs" });
+    }
+  },
+);
+
+productionRunsRouter.get(
+  "/:id/finished-goods-defaults",
+  requireRole(canManageProductionRuns),
+  async (req, res) => {
+    try {
+      const defaults = await getFinishedGoodsDefaults(routeParam(req.params.id));
+      res.json(defaults);
+    } catch (error) {
+      if (error instanceof ProductionRunError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("GET /api/production-runs/:id/finished-goods-defaults", error);
+      res.status(500).json({ error: "Failed to load finished goods defaults" });
     }
   },
 );

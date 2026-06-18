@@ -86,12 +86,14 @@ model Product {
   stock         Int
   status        String
   imageColor    String   @default("#a1a1aa")
+  productionRunId String? @unique
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
   units  InventoryUnit[]
   images ProductImage[]
+  productionRun ProductionRun? @relation("ProductionRunFinishedGoods")
 
   @@index([branchId])
 }
@@ -232,12 +234,14 @@ model ProductionRun {
   designId    String
   setsOrdered Int
   status      String   @default("Open")
+  finishedGoodsProductId String? @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   branch Branch              @relation(fields: [branchId], references: [id], onDelete: Cascade)
   design Design              @relation(fields: [designId], references: [id], onDelete: Restrict)
   items  ProductionRunItem[]
+  finishedGoodsProduct Product? @relation("ProductionRunFinishedGoods", fields: [finishedGoodsProductId], references: [id], onDelete: SetNull)
 
   @@index([branchId])
   @@index([designId])

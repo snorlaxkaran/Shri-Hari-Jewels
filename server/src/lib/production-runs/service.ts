@@ -1,5 +1,6 @@
 import { prisma } from "../db.js";
 import type {
+  FinishedGoodsDefaults,
   NewProductionRunInput,
   ProductionRun,
   ProductionRunItem,
@@ -12,6 +13,10 @@ import {
   deductPendingRawMaterialForRunInTx,
   deductRawMaterialForItemInTx,
 } from "./raw-material.js";
+import {
+  buildFinishedGoodsDefaults,
+  createFinishedGoodsInTx,
+} from "./finished-goods.js";
 import { ProductionRunError } from "./errors.js";
 
 export { ProductionRunError } from "./errors.js";
@@ -70,6 +75,7 @@ const toProductionRun = (run: {
   designId: string;
   setsOrdered: number;
   status: string;
+  finishedGoodsProductId?: string | null;
   createdAt: Date;
   updatedAt: Date;
   design?: { code: string; name: string | null; category: string | null };
@@ -90,6 +96,7 @@ const toProductionRun = (run: {
     items,
     castingsReceived,
     castingsTotal: items.length,
+    finishedGoodsProductId: run.finishedGoodsProductId ?? undefined,
     createdAt: run.createdAt.toISOString(),
     updatedAt: run.updatedAt.toISOString(),
   };
@@ -159,6 +166,61 @@ export const createProductionRun = async (
   return toProductionRun(run);
 };
 
+export const getFinishedGoodsDefaults = async (
+  id: string,
+): Promise<FinishedGoodsDefaults> => {
+  const run = await prisma.productionRun.findUnique({
+    where: { id },
+    include: {
+      design: { select: { code: true, name: true, category: true } },
+      items: { select: { czWeight: true } },
+    },
+  });
+  if (!run) throw new ProductionRunError("Production run not found.", 404);
+
+  const defaults = buildFinishedGoodsDefaults(run);
+
+  return {
+    ...defaults,
+    metal: "Gold",
+    purity: "22K",
+    weightGrams: 0,
+    makingCharges: 0,
+    price: 0,
+    images: [],
+    runNo: run.runNo,
+    designCode: run.design.code,
+  };
+};
+
+const validateFinishedGoodsInput = (input: {
+  name?: string;
+  category?: string;
+  metal?: string;
+  purity?: string;
+  weightGrams?: number;
+  makingCharges?: number;
+  price?: number;
+}) => {
+  if (!input.name?.trim()) {
+    throw new ProductionRunError("Product name is required.");
+  }
+  if (!input.category?.trim()) {
+    throw new ProductionRunError("Product category is required.");
+  }
+  if (!input.metal) throw new ProductionRunError("Metal type is required.");
+  if (!input.purity) throw new ProductionRunError("Purity is required.");
+  if (!input.weightGrams || input.weightGrams <= 0) {
+    throw new ProductionRunError("Weight must be greater than zero.");
+  }
+  if (input.makingCharges === undefined || input.makingCharges < 0) {
+    throw new ProductionRunError("Making charges cannot be negative.");
+  }
+  if (!input.price || input.price <= 0) {
+    throw new ProductionRunError("Price must be greater than zero.");
+  }
+};
+
 export const updateProductionRun = async (
   id: string,
   input: UpdateProductionRunInput,
@@ -184,6 +246,15 @@ export const updateProductionRun = async (
 
   const completingRun =
     input.status === "Completed" && existing.status !== "Completed";
+
+  if (completingRun && input.createFinishedGoods) {
+    if (!input.finishedGoods) {
+      throw new ProductionRunError(
+        "Finished goods details are required when creating inventory on completion.",
+      );
+    }
+    validateFinishedGoodsInput(input.finishedGoods);
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.productionRun.update({
@@ -218,6 +289,20 @@ export const updateProductionRun = async (
         },
         actor,
       );
+
+      if (input.createFinishedGoods && input.finishedGoods) {
+        await createFinishedGoodsInTx(
+          tx,
+          {
+            id: runWithItems.id,
+            runNo: runWithItems.runNo,
+            branchId: runWithItems.branchId,
+            setsOrdered: runWithItems.setsOrdered,
+            finishedGoodsProductId: runWithItems.finishedGoodsProductId,
+          },
+          input.finishedGoods,
+        );
+      }
     }
   });
 

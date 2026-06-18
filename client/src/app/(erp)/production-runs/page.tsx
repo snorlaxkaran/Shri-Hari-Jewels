@@ -19,9 +19,11 @@ import {
 } from "@/lib/auth/permissions";
 import { useDesigns } from "@/lib/designs/designs-context";
 import { useProductionRuns } from "@/lib/production-runs/production-runs-context";
-import { exportProductionRunCsv } from "@/lib/api/production-runs";
+import { exportProductionRunCsv, fetchFinishedGoodsDefaults } from "@/lib/api/production-runs";
 import { fetchMetalLots, fetchStoneLots } from "@/lib/api/raw-inventory";
 import type {
+  FinishedGoodsDefaults,
+  FinishedGoodsInput,
   MetalLot,
   ProductionRun,
   ProductionRunItem,
@@ -33,6 +35,11 @@ import { getApiErrorMessage } from "@/lib/api/client";
 
 const AddProductionRunModal = dynamic(
   () => import("@/app/(components)/AddProductionRunModal"),
+  { ssr: false },
+);
+
+const CompleteProductionRunModal = dynamic(
+  () => import("@/app/(components)/CompleteProductionRunModal"),
   { ssr: false },
 );
 
@@ -368,7 +375,11 @@ function ProductionRunCard({
   stoneLots: StoneLot[];
   onPatchRun: (
     id: string,
-    input: { status?: ProductionRunStatus },
+    input: {
+      status?: ProductionRunStatus;
+      createFinishedGoods?: boolean;
+      finishedGoods?: FinishedGoodsInput;
+    },
   ) => Promise<void>;
   onPatchItem: (
     runId: string,
@@ -380,13 +391,43 @@ function ProductionRunCard({
   const [expanded, setExpanded] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [completeDefaults, setCompleteDefaults] =
+    useState<FinishedGoodsDefaults | null>(null);
+  const [loadingDefaults, setLoadingDefaults] = useState(false);
 
   const handleStatusChange = async (status: ProductionRunStatus) => {
+    if (status === run.status) return;
+
+    if (status === "Completed" && !run.finishedGoodsProductId) {
+      setLoadingDefaults(true);
+      setError("");
+      try {
+        const defaults = await fetchFinishedGoodsDefaults(run.id);
+        setCompleteDefaults(defaults);
+        setCompleteOpen(true);
+      } catch (err) {
+        setError(getApiErrorMessage(err, "Failed to load completion form."));
+      } finally {
+        setLoadingDefaults(false);
+      }
+      return;
+    }
+
     try {
       await onPatchRun(run.id, { status });
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to update status."));
     }
+  };
+
+  const handleCompleteWithGoods = async (finishedGoods: FinishedGoodsInput) => {
+    await onPatchRun(run.id, {
+      status: "Completed",
+      createFinishedGoods: true,
+      finishedGoods,
+    });
+    setCompleteOpen(false);
   };
 
   const handleExport = async () => {
@@ -447,8 +488,9 @@ function ProductionRunCard({
           <select
             value={run.status}
             onChange={(e) =>
-              handleStatusChange(e.target.value as ProductionRunStatus)
+              void handleStatusChange(e.target.value as ProductionRunStatus)
             }
+            disabled={loadingDefaults}
             className="input-field text-xs py-1 px-2"
           >
             {statuses
@@ -462,6 +504,12 @@ function ProductionRunCard({
         ) : (
           <span className="text-xs px-2 py-1 rounded-full bg-zinc-100 text-zinc-600">
             {run.status}
+          </span>
+        )}
+
+        {run.finishedGoodsProductId && (
+          <span className="text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
+            In inventory
           </span>
         )}
 
@@ -537,6 +585,17 @@ function ProductionRunCard({
           </div>
         </div>
       )}
+
+      <CompleteProductionRunModal
+        open={completeOpen}
+        runId={run.id}
+        defaults={completeDefaults}
+        onClose={() => {
+          setCompleteOpen(false);
+          setCompleteDefaults(null);
+        }}
+        onConfirm={handleCompleteWithGoods}
+      />
     </div>
   );
 }

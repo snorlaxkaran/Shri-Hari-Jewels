@@ -432,8 +432,27 @@ export type ProductionRun = {
   items: ProductionRunItem[];
   castingsReceived: number;
   castingsTotal: number;
+  finishedGoodsProductId?: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type FinishedGoodsInput = {
+  name: string;
+  category: string;
+  metal: MetalType;
+  purity: Purity;
+  weightGrams: number;
+  makingCharges: number;
+  stoneCarat?: number;
+  price: number;
+  images?: ProductImage[];
+};
+
+export type FinishedGoodsDefaults = FinishedGoodsInput & {
+  quantity: number;
+  runNo: string;
+  designCode: string;
 };
 
 export type NewProductionRunInput = {
@@ -444,6 +463,8 @@ export type NewProductionRunInput = {
 export type UpdateProductionRunInput = {
   status?: ProductionRunStatus;
   setsOrdered?: number;
+  createFinishedGoods?: boolean;
+  finishedGoods?: FinishedGoodsInput;
 };
 
 export type UpdateProductionRunItemInput = {

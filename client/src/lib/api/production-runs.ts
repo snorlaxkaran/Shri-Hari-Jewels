@@ -32,6 +32,13 @@ export const updateProductionRun = async (
   return data;
 };
 
+export const fetchFinishedGoodsDefaults = async (
+  runId: string,
+): Promise<import("@/lib/types").FinishedGoodsDefaults> => {
+  const { data } = await api.get(`/api/production-runs/${runId}/finished-goods-defaults`);
+  return data;
+};
+
 export const updateProductionRunItem = async (
   runId: string,
   itemId: string,
