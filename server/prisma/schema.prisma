@@ -256,6 +256,10 @@ model ProductionRunItem {
   czStones        Int?
   czWeight        Float?
   castingReceived Boolean   @default(false)
+  metalLotId      String?
+  stoneLotId      String?
+  metalWeightGrams Float?
+  rawMaterialDeducted Boolean @default(false)
   sortOrder       Int       @default(0)
 
   productionRun ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: Cascade)

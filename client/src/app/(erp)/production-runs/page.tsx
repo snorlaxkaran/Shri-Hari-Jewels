@@ -20,10 +20,13 @@ import {
 import { useDesigns } from "@/lib/designs/designs-context";
 import { useProductionRuns } from "@/lib/production-runs/production-runs-context";
 import { exportProductionRunCsv } from "@/lib/api/production-runs";
+import { fetchMetalLots, fetchStoneLots } from "@/lib/api/raw-inventory";
 import type {
+  MetalLot,
   ProductionRun,
   ProductionRunItem,
   ProductionRunStatus,
+  StoneLot,
   UpdateProductionRunItemInput,
 } from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/api/client";
@@ -70,11 +73,15 @@ function RunItemRow({
   run,
   item,
   canEditItems,
+  metalLots,
+  stoneLots,
   onPatchItem,
 }: {
   run: ProductionRun;
   item: ProductionRunItem;
   canEditItems: boolean;
+  metalLots: MetalLot[];
+  stoneLots: StoneLot[];
   onPatchItem: (
     runId: string,
     itemId: string,
@@ -88,8 +95,13 @@ function RunItemRow({
     waxCount: item.waxCount !== undefined ? String(item.waxCount) : "",
     czStones: item.czStones !== undefined ? String(item.czStones) : "",
     czWeight: item.czWeight !== undefined ? String(item.czWeight) : "",
+    metalWeightGrams:
+      item.metalWeightGrams !== undefined ? String(item.metalWeightGrams) : "",
+    metalLotId: item.metalLotId ?? "",
+    stoneLotId: item.stoneLotId ?? "",
     castingReceived: item.castingReceived,
   });
+  const [rowError, setRowError] = useState("");
 
   useEffect(() => {
     setDraft({
@@ -99,6 +111,10 @@ function RunItemRow({
       waxCount: item.waxCount !== undefined ? String(item.waxCount) : "",
       czStones: item.czStones !== undefined ? String(item.czStones) : "",
       czWeight: item.czWeight !== undefined ? String(item.czWeight) : "",
+      metalWeightGrams:
+        item.metalWeightGrams !== undefined ? String(item.metalWeightGrams) : "",
+      metalLotId: item.metalLotId ?? "",
+      stoneLotId: item.stoneLotId ?? "",
       castingReceived: item.castingReceived,
     });
   }, [item]);
@@ -107,11 +123,45 @@ function RunItemRow({
     field: keyof UpdateProductionRunItemInput,
     value: UpdateProductionRunItemInput[keyof UpdateProductionRunItemInput],
   ) => {
+    setRowError("");
     try {
       await onPatchItem(run.id, item.id, { [field]: value });
-    } catch {
-      // parent shows errors
+    } catch (err) {
+      setRowError(getApiErrorMessage(err, "Failed to save item."));
     }
+  };
+
+  const needsMetalLot = item.elementType === "Casting";
+  const needsStoneLot =
+    item.elementType === "Stone" || item.elementType === "Motif";
+
+  const canMarkCastingReceived = () => {
+    if (item.rawMaterialDeducted) return true;
+    if (needsMetalLot) {
+      return (
+        draft.metalLotId !== "" &&
+        draft.metalWeightGrams !== "" &&
+        parseFloat(draft.metalWeightGrams) > 0
+      );
+    }
+    if (needsStoneLot && (parseFloat(draft.czWeight) || 0) > 0) {
+      return draft.stoneLotId !== "";
+    }
+    return true;
+  };
+
+  const handleCastingReceivedChange = async (checked: boolean) => {
+    if (checked && !canMarkCastingReceived()) {
+      setRowError(
+        needsMetalLot
+          ? "Select a metal lot and enter weight (g) before marking casting received."
+          : "Select a stone lot and enter CZ weight (ct) before marking casting received.",
+      );
+      return;
+    }
+
+    setDraft((d) => ({ ...d, castingReceived: checked }));
+    await saveField("castingReceived", checked);
   };
 
   const handleDateBlur = () => {
@@ -146,7 +196,29 @@ function RunItemRow({
     void saveField(field, parsed);
   };
 
+  const handleMetalWeightBlur = () => {
+    const raw = draft.metalWeightGrams;
+    const current =
+      item.metalWeightGrams !== undefined ? String(item.metalWeightGrams) : "";
+    if (raw === current) return;
+    const parsed = raw === "" ? null : parseFloat(raw);
+    if (raw !== "" && (parsed === null || Number.isNaN(parsed))) {
+      setDraft((d) => ({ ...d, metalWeightGrams: current }));
+      return;
+    }
+    void saveField("metalWeightGrams", parsed);
+  };
+
+  const handleLotChange = (
+    field: "metalLotId" | "stoneLotId",
+    value: string,
+  ) => {
+    setDraft((d) => ({ ...d, [field]: value }));
+    void saveField(field, value || null);
+  };
+
   return (
+    <>
     <tr className="border-t border-zinc-100">
       <td className="px-3 py-2 font-medium text-zinc-900">
         {item.elementName}
@@ -207,19 +279,75 @@ function RunItemRow({
         />
       </td>
       <td className="px-3 py-2 text-center">
+        {needsMetalLot && canEditItems && (
+          <div className="space-y-1 mb-2 text-left">
+            <select
+              value={draft.metalLotId}
+              onChange={(e) => handleLotChange("metalLotId", e.target.value)}
+              disabled={item.rawMaterialDeducted}
+              className={inputClass}
+            >
+              <option value="">Metal lot…</option>
+              {metalLots.map((lot) => (
+                <option key={lot.id} value={lot.id}>
+                  {lot.lotNumber} ({lot.weightGrams}g)
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              placeholder="Metal wt (g)"
+              value={draft.metalWeightGrams}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, metalWeightGrams: e.target.value }))
+              }
+              onBlur={handleMetalWeightBlur}
+              disabled={item.rawMaterialDeducted}
+              className={inputClass}
+            />
+          </div>
+        )}
+        {needsStoneLot && canEditItems && (
+          <div className="mb-2 text-left">
+            <select
+              value={draft.stoneLotId}
+              onChange={(e) => handleLotChange("stoneLotId", e.target.value)}
+              disabled={item.rawMaterialDeducted}
+              className={inputClass}
+            >
+              <option value="">Stone lot…</option>
+              {stoneLots
+                .filter((lot) => lot.status === "In Stock")
+                .map((lot) => (
+                  <option key={lot.id} value={lot.id}>
+                    {lot.certificateNumber} ({lot.carat}ct)
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
         <input
           type="checkbox"
           checked={draft.castingReceived}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            setDraft((d) => ({ ...d, castingReceived: checked }));
-            void saveField("castingReceived", checked);
-          }}
-          disabled={!canEditItems}
+          onChange={(e) => void handleCastingReceivedChange(e.target.checked)}
+          disabled={!canEditItems || item.rawMaterialDeducted}
           className="h-4 w-4 rounded border-zinc-300"
         />
+        {item.rawMaterialDeducted && (
+          <p className="text-[10px] text-emerald-600 mt-1">Stock deducted</p>
+        )}
       </td>
     </tr>
+    {rowError && (
+      <tr>
+        <td colSpan={9} className="px-3 pb-2 text-xs text-red-500">
+          {rowError}
+        </td>
+      </tr>
+    )}
+    </>
   );
 }
 
@@ -227,6 +355,8 @@ function ProductionRunCard({
   run,
   canManage,
   canEditItems,
+  metalLots,
+  stoneLots,
   onPatchRun,
   onPatchItem,
   onRemoveRun,
@@ -234,6 +364,8 @@ function ProductionRunCard({
   run: ProductionRun;
   canManage: boolean;
   canEditItems: boolean;
+  metalLots: MetalLot[];
+  stoneLots: StoneLot[];
   onPatchRun: (
     id: string,
     input: { status?: ProductionRunStatus },
@@ -395,6 +527,8 @@ function ProductionRunCard({
                     run={run}
                     item={item}
                     canEditItems={canEditItems}
+                    metalLots={metalLots}
+                    stoneLots={stoneLots}
                     onPatchItem={onPatchItem}
                   />
                 ))}
@@ -426,6 +560,20 @@ export default function ProductionRunsPage() {
     ProductionRunStatus | "All"
   >("All");
   const [modalOpen, setModalOpen] = useState(false);
+  const [metalLots, setMetalLots] = useState<MetalLot[]>([]);
+  const [stoneLots, setStoneLots] = useState<StoneLot[]>([]);
+
+  useEffect(() => {
+    if (!canEditItems) return;
+    void Promise.all([fetchMetalLots(), fetchStoneLots()])
+      .then(([metal, stone]) => {
+        setMetalLots(metal);
+        setStoneLots(stone);
+      })
+      .catch(() => {
+        // Lot lists are optional until user edits items
+      });
+  }, [canEditItems]);
 
   const filtered = useMemo(
     () =>
@@ -490,6 +638,8 @@ export default function ProductionRunsPage() {
               run={run}
               canManage={canManage}
               canEditItems={canEditItems}
+              metalLots={metalLots}
+              stoneLots={stoneLots}
               onPatchRun={async (id, input) => {
                 await patchProductionRun(id, input);
               }}

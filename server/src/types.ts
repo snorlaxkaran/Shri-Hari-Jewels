@@ -642,6 +642,10 @@ export type ProductionRunItem = {
   czStones?: number;
   czWeight?: number;
   castingReceived: boolean;
+  metalLotId?: string;
+  stoneLotId?: string;
+  metalWeightGrams?: number;
+  rawMaterialDeducted: boolean;
   sortOrder: number;
 };
 
@@ -677,4 +681,7 @@ export type UpdateProductionRunItemInput = {
   czStones?: number | null;
   czWeight?: number | null;
   castingReceived?: boolean;
+  metalLotId?: string | null;
+  stoneLotId?: string | null;
+  metalWeightGrams?: number | null;
 };

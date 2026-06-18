@@ -8,6 +8,13 @@ import type {
   UpdateProductionRunItemInput,
 } from "../../types.js";
 import { generateProductionRunNo } from "./run-no.js";
+import {
+  deductPendingRawMaterialForRunInTx,
+  deductRawMaterialForItemInTx,
+} from "./raw-material.js";
+import { ProductionRunError } from "./errors.js";
+
+export { ProductionRunError } from "./errors.js";
 
 export const PRODUCTION_RUN_STATUSES: ProductionRunStatus[] = [
   "Open",
@@ -15,16 +22,6 @@ export const PRODUCTION_RUN_STATUSES: ProductionRunStatus[] = [
   "Completed",
   "Cancelled",
 ];
-
-export class ProductionRunError extends Error {
-  constructor(
-    message: string,
-    readonly statusCode: number = 400,
-  ) {
-    super(message);
-    this.name = "ProductionRunError";
-  }
-}
 
 const runInclude = {
   design: { select: { code: true, name: true, category: true } },
@@ -43,6 +40,10 @@ const toProductionRunItem = (item: {
   czStones: number | null;
   czWeight: number | null;
   castingReceived: boolean;
+  metalLotId: string | null;
+  stoneLotId: string | null;
+  metalWeightGrams: number | null;
+  rawMaterialDeducted: boolean;
   sortOrder: number;
 }): ProductionRunItem => ({
   id: item.id,
@@ -56,6 +57,10 @@ const toProductionRunItem = (item: {
   czStones: item.czStones ?? undefined,
   czWeight: item.czWeight ?? undefined,
   castingReceived: item.castingReceived,
+  metalLotId: item.metalLotId ?? undefined,
+  stoneLotId: item.stoneLotId ?? undefined,
+  metalWeightGrams: item.metalWeightGrams ?? undefined,
+  rawMaterialDeducted: item.rawMaterialDeducted,
   sortOrder: item.sortOrder,
 });
 
@@ -157,6 +162,7 @@ export const createProductionRun = async (
 export const updateProductionRun = async (
   id: string,
   input: UpdateProductionRunInput,
+  actor: { id: string; name: string },
 ): Promise<ProductionRun> => {
   const existing = await prisma.productionRun.findUnique({
     where: { id },
@@ -176,6 +182,9 @@ export const updateProductionRun = async (
     input.setsOrdered !== undefined &&
     input.setsOrdered !== existing.setsOrdered;
 
+  const completingRun =
+    input.status === "Completed" && existing.status !== "Completed";
+
   await prisma.$transaction(async (tx) => {
     await tx.productionRun.update({
       where: { id },
@@ -193,6 +202,23 @@ export const updateProductionRun = async (
         });
       }
     }
+
+    if (completingRun) {
+      const runWithItems = await tx.productionRun.findUniqueOrThrow({
+        where: { id },
+        include: { items: true },
+      });
+      await deductPendingRawMaterialForRunInTx(
+        tx,
+        {
+          id: runWithItems.id,
+          runNo: runWithItems.runNo,
+          branchId: runWithItems.branchId,
+          items: runWithItems.items,
+        },
+        actor,
+      );
+    }
   });
 
   return getProductionRun(id);
@@ -202,26 +228,63 @@ export const updateProductionRunItem = async (
   runId: string,
   itemId: string,
   input: UpdateProductionRunItemInput,
+  actor: { id: string; name: string },
 ): Promise<ProductionRun> => {
-  const item = await prisma.productionRunItem.findFirst({
-    where: { id: itemId, productionRunId: runId },
+  const run = await prisma.productionRun.findUnique({
+    where: { id: runId },
+    include: { items: true },
   });
+  if (!run) throw new ProductionRunError("Production run not found.", 404);
+
+  const item = run.items.find((row) => row.id === itemId);
   if (!item) throw new ProductionRunError("Production run item not found.", 404);
 
-  await prisma.productionRunItem.update({
-    where: { id: itemId },
-    data: {
-      productionDate:
-        input.productionDate === undefined
-          ? undefined
-          : input.productionDate
-            ? new Date(input.productionDate)
-            : null,
-      waxCount: input.waxCount === undefined ? undefined : input.waxCount,
-      czStones: input.czStones === undefined ? undefined : input.czStones,
-      czWeight: input.czWeight === undefined ? undefined : input.czWeight,
-      castingReceived: input.castingReceived,
-    },
+  if (item.rawMaterialDeducted && input.castingReceived === false) {
+    throw new ProductionRunError(
+      "Cannot unmark casting received after raw material has been deducted.",
+    );
+  }
+
+  const markingCastingReceived =
+    input.castingReceived === true && !item.castingReceived;
+
+  await prisma.$transaction(async (tx) => {
+    const updatedItem = await tx.productionRunItem.update({
+      where: { id: itemId },
+      data: {
+        productionDate:
+          input.productionDate === undefined
+            ? undefined
+            : input.productionDate
+              ? new Date(input.productionDate)
+              : null,
+        waxCount: input.waxCount === undefined ? undefined : input.waxCount,
+        czStones: input.czStones === undefined ? undefined : input.czStones,
+        czWeight: input.czWeight === undefined ? undefined : input.czWeight,
+        castingReceived: input.castingReceived,
+        metalLotId:
+          input.metalLotId === undefined ? undefined : input.metalLotId,
+        stoneLotId:
+          input.stoneLotId === undefined ? undefined : input.stoneLotId,
+        metalWeightGrams:
+          input.metalWeightGrams === undefined
+            ? undefined
+            : input.metalWeightGrams,
+      },
+    });
+
+    if (markingCastingReceived && !updatedItem.rawMaterialDeducted) {
+      await deductRawMaterialForItemInTx(
+        tx,
+        updatedItem,
+        {
+          id: run.id,
+          runNo: run.runNo,
+          branchId: run.branchId,
+        },
+        actor,
+      );
+    }
   });
 
   return getProductionRun(runId);

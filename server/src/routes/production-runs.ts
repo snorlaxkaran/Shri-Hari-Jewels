@@ -121,11 +121,12 @@ productionRunsRouter.post(
 productionRunsRouter.patch(
   "/:id",
   requireRole(canManageProductionRuns),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
       const run = await updateProductionRun(
         routeParam(req.params.id),
         req.body as UpdateProductionRunInput,
+        { id: req.user!.id, name: req.user!.name },
       );
       res.json(run);
     } catch (error) {
@@ -142,12 +143,13 @@ productionRunsRouter.patch(
 productionRunsRouter.patch(
   "/:id/items/:itemId",
   requireRole(canUpdateProductionRunItems),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
       const run = await updateProductionRunItem(
         routeParam(req.params.id),
         routeParam(req.params.itemId),
         req.body as UpdateProductionRunItemInput,
+        { id: req.user!.id, name: req.user!.name },
       );
       res.json(run);
     } catch (error) {
