@@ -20,6 +20,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/orders",
     "/work-orders",
     "/designs",
+    "/motifs",
     "/production-runs",
     "/sales-analytics",
   ],
@@ -33,10 +34,11 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/sales-analytics",
     "/invoices",
     "/designs",
+    "/motifs",
     "/production-runs",
   ],
   Store: ["/dashboard", "/inventory", "/sales", "/customers"],
-  Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/production-runs"],
+  Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs"],
   Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory"],
 };
 
@@ -113,6 +115,10 @@ export const canViewDesigns = (role: UserRole): boolean =>
 
 export const canManageDesigns = (role: UserRole): boolean =>
   role === "Admin" || role === "ProductionManager";
+
+export const canViewMotifs = (role: UserRole): boolean => canViewDesigns(role);
+
+export const canManageMotifs = (role: UserRole): boolean => canManageDesigns(role);
 
 export const canViewProductionRuns = (role: UserRole): boolean =>
   role === "Admin" ||

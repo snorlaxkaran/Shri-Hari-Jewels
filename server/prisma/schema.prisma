@@ -79,6 +79,7 @@ model Branch {
   workOrders      WorkOrder[]
   designs         Design[]
   productionRuns  ProductionRun[]
+  motifs          Motif[]
   sales       Sale[]
   invoices    Invoice[]
   metalLots   MetalLot[]
@@ -284,6 +285,30 @@ model DesignElement {
   design Design @relation(fields: [designId], references: [id], onDelete: Cascade)
 
   @@index([designId])
+}
+
+model Motif {
+  id          String   @id @default(uuid())
+  branchId    String
+  name        String
+  description String?
+  weightGrams Float?
+  metal       String
+  stone1      String?
+  stone2      String?
+  stone3      String?
+  subCategory String
+  price       Decimal? @db.Decimal(12, 2)
+  imageUrl    String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([branchId])
+  @@index([subCategory])
+  @@index([metal])
+  @@index([name])
 }
 
 model ProductionRun {

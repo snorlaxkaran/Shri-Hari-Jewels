@@ -407,6 +407,65 @@ export type UpdateDesignElementInput = {
   sortOrder?: number;
 };
 
+export type MotifMetal = "Silver" | "Gold" | "Platinum";
+
+export type MotifStoneType =
+  | "Glass"
+  | "Enamel"
+  | "Pearl"
+  | "Zircon"
+  | "Turquoise"
+  | "Black Onyx"
+  | "Emerald";
+
+export type MotifSubCategory =
+  | "Contemporary"
+  | "Traditional"
+  | "Tribal"
+  | "Bridal";
+
+export type Motif = {
+  id: string;
+  name: string;
+  description?: string;
+  weightGrams?: number;
+  metal: MotifMetal;
+  stone1?: MotifStoneType;
+  stone2?: MotifStoneType;
+  stone3?: MotifStoneType;
+  subCategory: MotifSubCategory;
+  price?: number;
+  imageUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewMotifInput = {
+  name: string;
+  description?: string;
+  weightGrams?: number;
+  metal: MotifMetal;
+  stone1?: MotifStoneType | null;
+  stone2?: MotifStoneType | null;
+  stone3?: MotifStoneType | null;
+  subCategory: MotifSubCategory;
+  price?: number;
+  imageUrl?: string;
+};
+
+export type UpdateMotifInput = {
+  name?: string;
+  description?: string | null;
+  weightGrams?: number | null;
+  metal?: MotifMetal;
+  stone1?: MotifStoneType | null;
+  stone2?: MotifStoneType | null;
+  stone3?: MotifStoneType | null;
+  subCategory?: MotifSubCategory;
+  price?: number | null;
+  imageUrl?: string | null;
+};
+
 export type ProductionRunStatus =
   | "Open"
   | "In Progress"

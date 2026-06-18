@@ -15,6 +15,7 @@ import { rawInventoryRouter } from "./routes/raw-inventory.js";
 import { settingsRouter } from "./routes/settings.js";
 import { workOrdersRouter } from "./routes/work-orders.js";
 import { designsRouter } from "./routes/designs.js";
+import { motifsRouter } from "./routes/motifs.js";
 import { productionRunsRouter } from "./routes/production-runs.js";
 import { startScheduledJobs } from "./jobs/scheduler.js";
 
@@ -78,6 +79,7 @@ app.use("/api/customers", customersRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/work-orders", workOrdersRouter);
 app.use("/api/designs", designsRouter);
+app.use("/api/motifs", motifsRouter);
 app.use("/api/production-runs", productionRunsRouter);
 app.use("/api/sales", salesRouter);
 app.use("/api/invoices", invoicesRouter);
