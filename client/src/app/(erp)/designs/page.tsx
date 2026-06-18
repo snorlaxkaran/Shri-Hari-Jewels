@@ -6,6 +6,7 @@ import { Trash2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import MotifCard from "@/app/(components)/designs/MotifCard";
+import AddMotifCard from "@/app/(components)/designs/AddMotifCard";
 import SkuSearchDropdown from "@/app/(components)/designs/SkuSearchDropdown";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canManageDesigns } from "@/lib/auth/permissions";
@@ -22,6 +23,11 @@ import { getApiErrorMessage } from "@/lib/api/client";
 
 const AddDesignModal = dynamic(
   () => import("@/app/(components)/AddDesignModal"),
+  { ssr: false },
+);
+
+const AddMotifModal = dynamic(
+  () => import("@/app/(components)/designs/AddMotifModal"),
   { ssr: false },
 );
 
@@ -102,6 +108,7 @@ export default function DesignsPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [motifModalOpen, setMotifModalOpen] = useState(false);
   const [activeMotifKeys, setActiveMotifKeys] = useState<Set<string>>(new Set());
   const [extraMotifKeys, setExtraMotifKeys] = useState<Set<string>>(new Set());
   const [stonePick, setStonePick] = useState<Record<string, string>>({});
@@ -361,6 +368,26 @@ export default function DesignsPage() {
     setModalOpen(false);
   };
 
+  const handleAddMotif = async (input: {
+    name: string;
+    type: DesignElementType;
+    unitValue?: number;
+    weightGramsPerPc?: number;
+  }) => {
+    if (!selectedDesign) return;
+    await addElement(selectedDesign.id, {
+      name: input.name,
+      type: input.type,
+      qtyPerSet: 1,
+      unitValue: input.unitValue,
+      weightGramsPerPc: input.weightGramsPerPc,
+    });
+    const key = elementKey(input.type, input.name);
+    if (input.type === "Motif") {
+      setActiveMotifKeys((prev) => new Set(prev).add(key));
+    }
+  };
+
   if (!hydrated || loading) {
     return <PageSkeleton />;
   }
@@ -411,27 +438,29 @@ export default function DesignsPage() {
             <h2 className="text-sm font-semibold text-zinc-700 mb-3">
               Motifs for {selectedDesign.code}
             </h2>
-            {originalMotifs.length === 0 ? (
-              <p className="text-sm text-zinc-400">
-                No motifs on this SKU yet. Add from the library below.
+            <div className="flex flex-wrap gap-4">
+              {originalMotifs.map((motif) => {
+                const key = elementKey(motif.type, motif.name);
+                return (
+                  <MotifCard
+                    key={motif.id}
+                    name={motif.name}
+                    type="Motif"
+                    price={motif.unitValue}
+                    selected={activeMotifKeys.has(key)}
+                    onClick={() => toggleMotif(key, true)}
+                    disabled={!canManage}
+                  />
+                );
+              })}
+              {canManage && (
+                <AddMotifCard onClick={() => setMotifModalOpen(true)} />
+              )}
+            </div>
+            {originalMotifs.length === 0 && !canManage && (
+              <p className="text-sm text-zinc-400 mt-2">
+                No motifs on this SKU yet.
               </p>
-            ) : (
-              <div className="flex flex-wrap gap-4">
-                {originalMotifs.map((motif) => {
-                  const key = elementKey(motif.type, motif.name);
-                  return (
-                    <MotifCard
-                      key={motif.id}
-                      name={motif.name}
-                      type="Motif"
-                      price={motif.unitValue}
-                      selected={activeMotifKeys.has(key)}
-                      onClick={() => toggleMotif(key, true)}
-                      disabled={!canManage}
-                    />
-                  );
-                })}
-              </div>
             )}
           </section>
 
@@ -721,6 +750,15 @@ export default function DesignsPage() {
           open={modalOpen}
           onClose={() => setModalOpen(false)}
           onSubmit={handleCreateDesign}
+        />
+      )}
+
+      {motifModalOpen && selectedDesign && (
+        <AddMotifModal
+          open={motifModalOpen}
+          skuCode={selectedDesign.code}
+          onClose={() => setMotifModalOpen(false)}
+          onSubmit={handleAddMotif}
         />
       )}
     </div>
