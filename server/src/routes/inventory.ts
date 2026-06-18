@@ -37,9 +37,12 @@ inventoryRouter.use(authenticate);
 inventoryRouter.post(
   "/repair",
   requireRole((role) => role === "Admin"),
-  async (_req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const report = await repairInventory();
+      const report = await repairInventory({
+        id: req.user!.id,
+        name: req.user!.name,
+      });
       res.json(report);
     } catch (error) {
       console.error("POST /api/inventory/repair", error);
