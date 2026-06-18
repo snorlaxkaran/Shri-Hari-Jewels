@@ -1,7 +1,9 @@
+import { InventoryUnitStatus, SalePaymentStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import { toInvoice } from "../invoices/mappers.js";
 import { createInvoiceForSale } from "../invoices/service.js";
 import { syncProductStockInTx } from "../inventory/stock-sync.js";
+import { recordSaleAuditInTx } from "./audit.js";
 import {
   closeUpiQrCode,
   createUpiQrCode,
@@ -178,14 +180,32 @@ export const completeSale = async (
       },
     });
 
+    const unit = sale.unit;
+    const previousStatus = unit.status;
+
     await tx.inventoryUnit.update({
       where: { id: sale.unitId },
-      data: { status: "Sold" },
+      data: { status: InventoryUnitStatus.Sold },
     });
 
-    await syncProductStockInTx(tx, sale.unit.productId);
+    await syncProductStockInTx(tx, sale.unit.productId, {
+      reason: "sale_completed",
+      performedByName: "System",
+      unitId: sale.unitId,
+      itemCode: sale.itemCode,
+      previousUnitStatus: previousStatus,
+      newUnitStatus: InventoryUnitStatus.Sold,
+    });
 
     const invoice = await createInvoiceForSale(updatedSale, tx);
+    await recordSaleAuditInTx(tx, {
+      saleId: updatedSale.id,
+      invoiceId: invoice.id,
+      action: "Completed",
+      newValue: { paymentStatus: SalePaymentStatus.Completed },
+      reason: "sale_completed",
+      performedByName: "System",
+    });
     return { sale: updatedSale, invoice };
   });
 
@@ -278,10 +298,17 @@ export const recordSale = async (
 
       await tx.inventoryUnit.update({
         where: { id: unit.id },
-        data: { status: "Reserved" },
+        data: { status: InventoryUnitStatus.Reserved },
       });
 
-      await syncProductStockInTx(tx, product.id);
+      await syncProductStockInTx(tx, product.id, {
+        reason: "upi_sale_pending",
+        performedByName: "System",
+        unitId: unit.id,
+        itemCode: unit.itemCode,
+        previousUnitStatus: InventoryUnitStatus.Available,
+        newUnitStatus: InventoryUnitStatus.Reserved,
+      });
 
       return created;
     });
@@ -345,12 +372,27 @@ export const recordSale = async (
 
     await tx.inventoryUnit.update({
       where: { id: unit.id },
-      data: { status: "Sold" },
+      data: { status: InventoryUnitStatus.Sold },
     });
 
-    await syncProductStockInTx(tx, product.id);
+    await syncProductStockInTx(tx, product.id, {
+      reason: "sale_recorded",
+      performedByName: "System",
+      unitId: unit.id,
+      itemCode: unit.itemCode,
+      previousUnitStatus: InventoryUnitStatus.Available,
+      newUnitStatus: InventoryUnitStatus.Sold,
+    });
 
     const invoice = await createInvoiceForSale(created, tx);
+    await recordSaleAuditInTx(tx, {
+      saleId: created.id,
+      invoiceId: invoice.id,
+      action: "Recorded",
+      newValue: { paymentStatus: SalePaymentStatus.Completed },
+      reason: "immediate_sale",
+      performedByName: "System",
+    });
     return { sale: created, invoice };
   });
 
