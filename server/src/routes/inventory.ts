@@ -13,6 +13,7 @@ import {
   InventoryError,
   listStockTransfers,
   listProducts,
+  repairInventory,
   transferInventoryUnits,
   updateProduct,
 } from "../lib/inventory/service.js";
@@ -32,6 +33,20 @@ import type {
 export const inventoryRouter = Router();
 
 inventoryRouter.use(authenticate);
+
+inventoryRouter.post(
+  "/repair",
+  requireRole((role) => role === "Admin"),
+  async (_req, res) => {
+    try {
+      const report = await repairInventory();
+      res.json(report);
+    } catch (error) {
+      console.error("POST /api/inventory/repair", error);
+      res.status(500).json({ error: "Failed to repair inventory" });
+    }
+  },
+);
 
 inventoryRouter.get("/", requireRole(canReadInventory), async (req: AuthenticatedRequest, res) => {
   try {

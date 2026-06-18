@@ -1,8 +1,7 @@
 import { prisma } from "../db.js";
 import { toInvoice } from "../invoices/mappers.js";
 import { createInvoiceForSale } from "../invoices/service.js";
-import { reconcileInventoryWithSales } from "../inventory/reconcile.js";
-import { getStockStatus } from "../inventory/status.js";
+import { syncProductStockInTx } from "../inventory/stock-sync.js";
 import {
   closeUpiQrCode,
   createUpiQrCode,
@@ -41,8 +40,6 @@ export const getSaleById = async (saleId: string): Promise<Sale | null> => {
 };
 
 export const lookupUnitForSale = async (itemCode: string, branchId?: string) => {
-  await reconcileInventoryWithSales();
-
   const unit = await prisma.inventoryUnit.findUnique({
     where: { itemCode: itemCode.trim() },
     include: { product: true, sale: true },
@@ -186,15 +183,7 @@ export const completeSale = async (
       data: { status: "Sold" },
     });
 
-    const product = sale.unit.product;
-    const newStock = product.stock - 1;
-    await tx.product.update({
-      where: { id: product.id },
-      data: {
-        stock: newStock,
-        status: getStockStatus(newStock),
-      },
-    });
+    await syncProductStockInTx(tx, sale.unit.productId);
 
     const invoice = await createInvoiceForSale(updatedSale, tx);
     return { sale: updatedSale, invoice };
@@ -292,6 +281,8 @@ export const recordSale = async (
         data: { status: "Reserved" },
       });
 
+      await syncProductStockInTx(tx, product.id);
+
       return created;
     });
 
@@ -357,14 +348,7 @@ export const recordSale = async (
       data: { status: "Sold" },
     });
 
-    const newStock = product.stock - 1;
-    await tx.product.update({
-      where: { id: product.id },
-      data: {
-        stock: newStock,
-        status: getStockStatus(newStock),
-      },
-    });
+    await syncProductStockInTx(tx, product.id);
 
     const invoice = await createInvoiceForSale(created, tx);
     return { sale: created, invoice };
@@ -411,6 +395,8 @@ export const cancelPendingSale = async (saleId: string): Promise<void> => {
       where: { id: sale.unitId },
       data: { status: "Available" },
     });
+
+    await syncProductStockInTx(tx, sale.productId);
 
     await tx.sale.delete({ where: { id: saleId } });
   });

@@ -16,6 +16,7 @@ import { toInventoryItem } from "./mappers.js";
 import { generateSku, generateUnitCodes } from "./sku.js";
 import { reconcileInventoryWithSales } from "./reconcile.js";
 import { getStockStatus } from "./status.js";
+import { syncProductStockInTx } from "./stock-sync.js";
 import { DEFAULT_BRANCH_ID } from "../branches/constants.js";
 
 const productInclude = {
@@ -29,8 +30,6 @@ const productInclude = {
 export const listProducts = async (
   branchId?: string,
 ): Promise<InventoryItem[]> => {
-  await reconcileInventoryWithSales();
-
   const stockBranchId = branchId ?? DEFAULT_BRANCH_ID;
   const products = await prisma.product.findMany({
     where: branchId ? { units: { some: { branchId } } } : undefined,
@@ -136,13 +135,10 @@ export const addQuantityToProduct = async (
       })),
     });
 
-    const stock = product.stock + quantity;
-    return tx.product.update({
+    await syncProductStockInTx(tx, productId);
+
+    return tx.product.findUniqueOrThrow({
       where: { id: productId },
-      data: {
-        stock,
-        status: getStockStatus(stock),
-      },
       include: productInclude,
     });
   });
@@ -482,17 +478,15 @@ export const deleteInventoryUnit = async (
 
   const updated = await prisma.$transaction(async (tx) => {
     await tx.inventoryUnit.delete({ where: { id: unitId } });
+    await syncProductStockInTx(tx, unit.productId);
 
-    const stock = Math.max(0, unit.product.stock - 1);
-    return tx.product.update({
+    return tx.product.findUniqueOrThrow({
       where: { id: unit.productId },
-      data: {
-        stock,
-        status: getStockStatus(stock),
-      },
       include: productInclude,
     });
   });
 
   return toInventoryItem(updated);
 };
+
+export const repairInventory = async () => reconcileInventoryWithSales();

@@ -2,8 +2,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "../db.js";
 import { toInvoice } from "../invoices/mappers.js";
 import { createInvoiceForSale } from "../invoices/service.js";
-import { getStockStatus } from "../inventory/status.js";
-import { reconcileInventoryWithSales } from "../inventory/reconcile.js";
+import { syncProductStockInTx } from "../inventory/stock-sync.js";
 import {
   closeUpiQrCode,
   createUpiQrCode,
@@ -31,8 +30,6 @@ type ValidatedCartItem = {
 };
 
 const loadUnit = async (itemCode: string, branchId?: string) => {
-  await reconcileInventoryWithSales();
-
   const unit = await prisma.inventoryUnit.findUnique({
     where: { itemCode: itemCode.trim() },
     include: { product: true, sale: true },
@@ -130,15 +127,7 @@ const completeOneSaleInTx = async (
     data: { status: "Sold" },
   });
 
-  const product = sale.unit.product;
-  const newStock = product.stock - 1;
-  await tx.product.update({
-    where: { id: product.id },
-    data: {
-      stock: newStock,
-      status: getStockStatus(newStock),
-    },
-  });
+  await syncProductStockInTx(tx, sale.unit.productId);
 
   const invoice = await createInvoiceForSale(updatedSale, tx);
   return { sale: updatedSale, invoice };
@@ -213,12 +202,17 @@ export const cancelCartGroup = async (cartGroupId: string): Promise<void> => {
   if (qrId) await closeUpiQrCode(qrId);
 
   await prisma.$transaction(async (tx) => {
+    const productIds = new Set<string>();
     for (const sale of pending) {
       await tx.inventoryUnit.update({
         where: { id: sale.unitId },
         data: { status: "Available" },
       });
+      productIds.add(sale.productId);
       await tx.sale.delete({ where: { id: sale.id } });
+    }
+    for (const productId of productIds) {
+      await syncProductStockInTx(tx, productId);
     }
   });
 };
@@ -270,6 +264,7 @@ export const recordCartSale = async (
           where: { id: item.unit.id },
           data: { status: "Reserved" },
         });
+        await syncProductStockInTx(tx, item.product.id);
         created.push(sale);
       }
       return created;
@@ -322,7 +317,6 @@ export const recordCartSale = async (
 
   const results = await prisma.$transaction(async (tx) => {
     const completed = [];
-    const stockByProduct = new Map<string, number>();
 
     for (const item of items) {
       const created = await tx.sale.create({
@@ -351,17 +345,7 @@ export const recordCartSale = async (
         data: { status: "Sold" },
       });
 
-      const currentStock =
-        stockByProduct.get(item.product.id) ?? item.product.stock;
-      const newStock = currentStock - 1;
-      stockByProduct.set(item.product.id, newStock);
-      await tx.product.update({
-        where: { id: item.product.id },
-        data: {
-          stock: newStock,
-          status: getStockStatus(newStock),
-        },
-      });
+      await syncProductStockInTx(tx, item.product.id);
 
       const invoice = await createInvoiceForSale(created, tx);
       completed.push({ sale: created, invoice });
