@@ -585,6 +585,8 @@ export type DesignElement = {
   name: string;
   type: DesignElementType;
   qtyPerSet: number;
+  unitValue?: number;
+  weightGramsPerPc?: number;
   sortOrder: number;
 };
 
@@ -593,6 +595,9 @@ export type Design = {
   code: string;
   name?: string;
   category?: DesignCategory;
+  metal?: MetalType;
+  purity?: Purity;
+  makingChargesPerSet?: number;
   elements: DesignElement[];
   createdAt: string;
   updatedAt: string;
@@ -602,6 +607,8 @@ export type NewDesignElementInput = {
   name: string;
   type: DesignElementType;
   qtyPerSet: number;
+  unitValue?: number;
+  weightGramsPerPc?: number;
   sortOrder?: number;
 };
 
@@ -615,12 +622,17 @@ export type NewDesignInput = {
 export type UpdateDesignInput = {
   name?: string | null;
   category?: DesignCategory | null;
+  metal?: MetalType | null;
+  purity?: Purity | null;
+  makingChargesPerSet?: number | null;
 };
 
 export type UpdateDesignElementInput = {
   name?: string;
   type?: DesignElementType;
   qtyPerSet?: number;
+  unitValue?: number | null;
+  weightGramsPerPc?: number | null;
   sortOrder?: number;
 };
 
@@ -637,6 +649,8 @@ export type ProductionRunItem = {
   elementType: string;
   qtyPerSet: number;
   totalQty: number;
+  unitValue?: number;
+  weightGramsPerPc?: number;
   productionDate?: string;
   waxCount?: number;
   czStones?: number;
@@ -694,6 +708,24 @@ export type FinishedGoodsDefaults = FinishedGoodsInput & {
   quantity: number;
   runNo: string;
   designCode: string;
+  priceBreakdown?: JewelryPriceBreakdown;
+};
+
+export type JewelryPriceBreakdown = {
+  metalValue: number;
+  componentValue: number;
+  makingCharges: number;
+  totalPrice: number;
+  weightGrams: number;
+  stoneCarat: number;
+  metalRatePerGram: number;
+  components: Array<{
+    name: string;
+    type: string;
+    qtyPerSet: number;
+    unitValue: number;
+    lineValue: number;
+  }>;
 };
 
 export type UpdateProductionRunItemInput = {

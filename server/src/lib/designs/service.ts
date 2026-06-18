@@ -1,4 +1,5 @@
 import { prisma } from "../db.js";
+import { moneyToNumber } from "../money.js";
 import type {
   Design,
   DesignCategory,
@@ -46,6 +47,8 @@ const toDesignElement = (element: {
   name: string;
   type: string;
   qtyPerSet: number;
+  unitValue: { toString(): string } | null;
+  weightGramsPerPc: number | null;
   sortOrder: number;
 }): DesignElement => ({
   id: element.id,
@@ -53,6 +56,11 @@ const toDesignElement = (element: {
   name: element.name,
   type: element.type as DesignElementType,
   qtyPerSet: element.qtyPerSet,
+  unitValue:
+    element.unitValue != null
+      ? moneyToNumber(String(element.unitValue))
+      : undefined,
+  weightGramsPerPc: element.weightGramsPerPc ?? undefined,
   sortOrder: element.sortOrder,
 });
 
@@ -61,6 +69,9 @@ const toDesign = (design: {
   code: string;
   name: string | null;
   category: string | null;
+  metal: string | null;
+  purity: string | null;
+  makingChargesPerSet: { toString(): string } | null;
   createdAt: Date;
   updatedAt: Date;
   elements?: Array<{
@@ -69,6 +80,8 @@ const toDesign = (design: {
     name: string;
     type: string;
     qtyPerSet: number;
+    unitValue: { toString(): string } | null;
+    weightGramsPerPc: number | null;
     sortOrder: number;
   }>;
 }): Design => ({
@@ -76,6 +89,12 @@ const toDesign = (design: {
   code: design.code,
   name: design.name ?? undefined,
   category: (design.category as DesignCategory) ?? undefined,
+  metal: (design.metal as Design["metal"]) ?? undefined,
+  purity: (design.purity as Design["purity"]) ?? undefined,
+  makingChargesPerSet:
+    design.makingChargesPerSet != null
+      ? moneyToNumber(String(design.makingChargesPerSet))
+      : undefined,
   elements: (design.elements ?? []).map(toDesignElement),
   createdAt: design.createdAt.toISOString(),
   updatedAt: design.updatedAt.toISOString(),
@@ -105,7 +124,7 @@ export const createDesign = async (
 
   const elements = input.elements ?? [];
   for (const el of elements) {
-    validateElementInput(el.name, el.type, el.qtyPerSet);
+    validateElementInput(el.name, el.type, el.qtyPerSet, el.unitValue, el.weightGramsPerPc);
   }
 
   const design = await prisma.design.create({
@@ -119,6 +138,8 @@ export const createDesign = async (
           name: el.name.trim(),
           type: el.type,
           qtyPerSet: el.qtyPerSet,
+          unitValue: el.unitValue,
+          weightGramsPerPc: el.weightGramsPerPc,
           sortOrder: el.sortOrder ?? index,
         })),
       },
@@ -146,6 +167,12 @@ export const updateDesign = async (
       name: input.name === undefined ? undefined : input.name?.trim() || null,
       category:
         input.category === undefined ? undefined : input.category || null,
+      metal: input.metal === undefined ? undefined : input.metal || null,
+      purity: input.purity === undefined ? undefined : input.purity || null,
+      makingChargesPerSet:
+        input.makingChargesPerSet === undefined
+          ? undefined
+          : input.makingChargesPerSet,
     },
     include: designInclude,
   });
@@ -175,7 +202,13 @@ export const addDesignElement = async (
   const design = await prisma.design.findUnique({ where: { id: designId } });
   if (!design) throw new DesignError("Design not found.", 404);
 
-  validateElementInput(input.name, input.type, input.qtyPerSet);
+  validateElementInput(
+    input.name,
+    input.type,
+    input.qtyPerSet,
+    input.unitValue,
+    input.weightGramsPerPc,
+  );
 
   const maxSort = await prisma.designElement.aggregate({
     where: { designId },
@@ -188,6 +221,8 @@ export const addDesignElement = async (
       name: input.name.trim(),
       type: input.type,
       qtyPerSet: input.qtyPerSet,
+      unitValue: input.unitValue,
+      weightGramsPerPc: input.weightGramsPerPc,
       sortOrder: input.sortOrder ?? (maxSort._max.sortOrder ?? -1) + 1,
     },
   });
@@ -216,6 +251,16 @@ export const updateDesignElement = async (
   if (input.qtyPerSet !== undefined && input.qtyPerSet < 1) {
     throw new DesignError("Quantity per set must be at least 1.");
   }
+  if (input.unitValue !== undefined && input.unitValue !== null && input.unitValue < 0) {
+    throw new DesignError("Unit value cannot be negative.");
+  }
+  if (
+    input.weightGramsPerPc !== undefined &&
+    input.weightGramsPerPc !== null &&
+    input.weightGramsPerPc < 0
+  ) {
+    throw new DesignError("Weight per piece cannot be negative.");
+  }
 
   await prisma.designElement.update({
     where: { id: elementId },
@@ -223,6 +268,12 @@ export const updateDesignElement = async (
       name: input.name?.trim(),
       type: input.type,
       qtyPerSet: input.qtyPerSet,
+      unitValue:
+        input.unitValue === undefined ? undefined : input.unitValue,
+      weightGramsPerPc:
+        input.weightGramsPerPc === undefined
+          ? undefined
+          : input.weightGramsPerPc,
       sortOrder: input.sortOrder,
     },
   });
@@ -258,6 +309,8 @@ const validateElementInput = (
   name: string | undefined,
   type: DesignElementType | undefined,
   qtyPerSet: number | undefined,
+  unitValue?: number | null,
+  weightGramsPerPc?: number | null,
 ) => {
   if (!name?.trim()) throw new DesignError("Element name is required.");
   if (!type || !DESIGN_ELEMENT_TYPES.includes(type)) {
@@ -265,5 +318,11 @@ const validateElementInput = (
   }
   if (qtyPerSet === undefined || qtyPerSet < 1) {
     throw new DesignError("Quantity per set must be at least 1.");
+  }
+  if (unitValue != null && unitValue < 0) {
+    throw new DesignError("Unit value cannot be negative.");
+  }
+  if (weightGramsPerPc != null && weightGramsPerPc < 0) {
+    throw new DesignError("Weight per piece cannot be negative.");
   }
 };

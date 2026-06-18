@@ -9,6 +9,7 @@ import type {
   Purity,
 } from "@/lib/types";
 import { PRODUCT_CATEGORIES, type ProductCategory } from "@/lib/inventory/categories";
+import { formatCurrency } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api/client";
 
 type CompleteProductionRunModalProps = {
@@ -48,16 +49,18 @@ export default function CompleteProductionRunModal({
     setCategory(defaults.category as ProductCategory);
     setMetal(defaults.metal);
     setPurity(defaults.purity);
-    setWeightGrams(defaults.weightGrams ? String(defaults.weightGrams) : "");
+    setWeightGrams(defaults.weightGrams ? String(defaults.weightGrams) : "0");
     setMakingCharges(String(defaults.makingCharges ?? 0));
     setStoneCarat(
       defaults.stoneCarat !== undefined ? String(defaults.stoneCarat) : "",
     );
-    setPrice(defaults.price ? String(defaults.price) : "");
+    setPrice(defaults.price ? String(defaults.price) : "0");
     setError("");
   }, [defaults, runId]);
 
   if (!open || !defaults) return null;
+
+  const breakdown = defaults.priceBreakdown;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,8 +75,8 @@ export default function CompleteProductionRunModal({
       setError("Product name is required.");
       return;
     }
-    if (!weight || weight <= 0) {
-      setError("Weight must be greater than zero.");
+    if (Number.isNaN(weight) || weight < 0) {
+      setError("Weight cannot be negative.");
       return;
     }
     if (Number.isNaN(charges) || charges < 0) {
@@ -81,7 +84,7 @@ export default function CompleteProductionRunModal({
       return;
     }
     if (!listPrice || listPrice <= 0) {
-      setError("Price must be greater than zero.");
+      setError("Price must be greater than zero. Add BOM values on the design page.");
       return;
     }
 
@@ -113,7 +116,7 @@ export default function CompleteProductionRunModal({
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200">
           <div>
             <h2 className="text-base font-semibold text-zinc-900">
-              Complete run & create inventory
+              Complete run & add to inventory
             </h2>
             <p className="text-xs text-zinc-500 mt-0.5">
               {defaults.runNo} · {defaults.designCode} · {defaults.quantity} set
@@ -129,6 +132,34 @@ export default function CompleteProductionRunModal({
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-3">
+          {breakdown && (
+            <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 p-3 space-y-2">
+              <p className="text-xs font-medium text-emerald-800">
+                Auto-calculated from design BOM & metal rates
+              </p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-emerald-900">
+                <span>Metal ({breakdown.weightGrams}g × {formatCurrency(breakdown.metalRatePerGram)}/g)</span>
+                <span className="text-right">{formatCurrency(breakdown.metalValue)}</span>
+                {breakdown.components.map((component) => (
+                  <div key={component.name} className="contents">
+                    <span>
+                      {component.name} ({component.qtyPerSet} × {formatCurrency(component.unitValue)})
+                    </span>
+                    <span className="text-right">
+                      {formatCurrency(component.lineValue)}
+                    </span>
+                  </div>
+                ))}
+                <span>Making charges</span>
+                <span className="text-right">{formatCurrency(breakdown.makingCharges)}</span>
+                <span className="font-semibold pt-1 border-t border-emerald-200">List price</span>
+                <span className="font-semibold text-right pt-1 border-t border-emerald-200">
+                  {formatCurrency(breakdown.totalPrice)}
+                </span>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className={labelClass}>Product name *</label>
             <input
@@ -183,7 +214,7 @@ export default function CompleteProductionRunModal({
               </select>
             </div>
             <div>
-              <label className={labelClass}>Weight (g) *</label>
+              <label className={labelClass}>Weight (g)</label>
               <input
                 type="number"
                 min={0}
@@ -226,6 +257,9 @@ export default function CompleteProductionRunModal({
               onChange={(e) => setPrice(e.target.value)}
               className={fieldClass}
             />
+            <p className="text-[11px] text-zinc-400 mt-1">
+              Pre-filled from BOM. You can override if needed.
+            </p>
           </div>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex gap-3 pt-2">

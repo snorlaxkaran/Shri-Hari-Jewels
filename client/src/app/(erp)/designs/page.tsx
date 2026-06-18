@@ -14,6 +14,8 @@ import type {
   Design,
   DesignCategory,
   DesignElementType,
+  MetalType,
+  Purity,
 } from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/api/client";
 
@@ -34,6 +36,9 @@ const CATEGORIES: DesignCategory[] = [
 
 const ELEMENT_TYPES: DesignElementType[] = ["Motif", "Stone", "Casting"];
 
+const METALS: MetalType[] = ["Gold", "Silver", "Platinum", "Rose Gold"];
+const PURITIES: Purity[] = ["24K", "22K", "18K", "14K", "925"];
+
 const inputClass = "input-field w-full px-2 py-1 text-xs";
 
 function DesignCard({
@@ -49,12 +54,24 @@ function DesignCard({
   canManage: boolean;
   onPatchDesign: (
     id: string,
-    input: { name?: string | null; category?: DesignCategory | null },
+    input: {
+      name?: string | null;
+      category?: DesignCategory | null;
+      metal?: MetalType | null;
+      purity?: Purity | null;
+      makingChargesPerSet?: number | null;
+    },
   ) => Promise<void>;
   onRemoveDesign: (id: string) => Promise<void>;
   onAddElement: (
     designId: string,
-    input: { name: string; type: DesignElementType; qtyPerSet: number },
+    input: {
+      name: string;
+      type: DesignElementType;
+      qtyPerSet: number;
+      unitValue?: number;
+      weightGramsPerPc?: number;
+    },
   ) => Promise<void>;
   onPatchElement: (
     designId: string,
@@ -63,6 +80,8 @@ function DesignCard({
       name?: string;
       type?: DesignElementType;
       qtyPerSet?: number;
+      unitValue?: number | null;
+      weightGramsPerPc?: number | null;
     },
   ) => Promise<void>;
   onRemoveElement: (designId: string, elementId: string) => Promise<void>;
@@ -72,12 +91,28 @@ function DesignCard({
   const [category, setCategory] = useState<DesignCategory | "">(
     design.category ?? "",
   );
+  const [metal, setMetal] = useState<MetalType | "">(design.metal ?? "");
+  const [purity, setPurity] = useState<Purity | "">(design.purity ?? "");
+  const [makingChargesPerSet, setMakingChargesPerSet] = useState(
+    design.makingChargesPerSet != null ? String(design.makingChargesPerSet) : "",
+  );
   const [newElementName, setNewElementName] = useState("");
   const [newElementType, setNewElementType] =
     useState<DesignElementType>("Motif");
   const [newElementQty, setNewElementQty] = useState("1");
+  const [newElementValue, setNewElementValue] = useState("");
+  const [newElementWeight, setNewElementWeight] = useState("");
   const [elementDrafts, setElementDrafts] = useState<
-    Record<string, { name: string; type: DesignElementType; qtyPerSet: string }>
+    Record<
+      string,
+      {
+        name: string;
+        type: DesignElementType;
+        qtyPerSet: string;
+        unitValue: string;
+        weightGramsPerPc: string;
+      }
+    >
   >({});
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -87,6 +122,12 @@ function DesignCard({
       name: element.name,
       type: element.type,
       qtyPerSet: String(element.qtyPerSet),
+      unitValue:
+        element.unitValue != null ? String(element.unitValue) : "",
+      weightGramsPerPc:
+        element.weightGramsPerPc != null
+          ? String(element.weightGramsPerPc)
+          : "",
     };
 
   const handleNameBlur = async () => {
@@ -112,9 +153,59 @@ function DesignCard({
     }
   };
 
+  const handleMetalChange = async (value: MetalType | "") => {
+    if (!canManage) return;
+    setMetal(value);
+    try {
+      await onPatchDesign(design.id, { metal: value || null });
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to update design."));
+      setMetal(design.metal ?? "");
+    }
+  };
+
+  const handlePurityChange = async (value: Purity | "") => {
+    if (!canManage) return;
+    setPurity(value);
+    try {
+      await onPatchDesign(design.id, { purity: value || null });
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to update design."));
+      setPurity(design.purity ?? "");
+    }
+  };
+
+  const handleMakingChargesBlur = async () => {
+    if (!canManage) return;
+    const parsed =
+      makingChargesPerSet.trim() === ""
+        ? null
+        : parseFloat(makingChargesPerSet);
+    const current = design.makingChargesPerSet ?? null;
+    if (parsed === current) return;
+    if (parsed != null && (Number.isNaN(parsed) || parsed < 0)) {
+      setMakingChargesPerSet(
+        design.makingChargesPerSet != null
+          ? String(design.makingChargesPerSet)
+          : "",
+      );
+      return;
+    }
+    try {
+      await onPatchDesign(design.id, { makingChargesPerSet: parsed });
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to update design."));
+      setMakingChargesPerSet(
+        design.makingChargesPerSet != null
+          ? String(design.makingChargesPerSet)
+          : "",
+      );
+    }
+  };
+
   const handleElementBlur = async (
     elementId: string,
-    field: "name" | "type" | "qtyPerSet",
+    field: "name" | "type" | "qtyPerSet" | "unitValue" | "weightGramsPerPc",
   ) => {
     if (!canManage) return;
     const element = design.elements.find((e) => e.id === elementId);
@@ -127,6 +218,8 @@ function DesignCard({
       name?: string;
       type?: DesignElementType;
       qtyPerSet?: number;
+      unitValue?: number | null;
+      weightGramsPerPc?: number | null;
     } = {};
 
     if (field === "name" && draft.name.trim() !== element.name) {
@@ -147,6 +240,46 @@ function DesignCard({
         return;
       }
       updates.qtyPerSet = qty;
+    }
+    if (field === "unitValue") {
+      const parsed =
+        draft.unitValue.trim() === "" ? null : parseFloat(draft.unitValue);
+      const current = element.unitValue ?? null;
+      if (parsed === current) return;
+      if (parsed != null && (Number.isNaN(parsed) || parsed < 0)) {
+        setElementDrafts((prev) => ({
+          ...prev,
+          [elementId]: {
+            ...draft,
+            unitValue:
+              element.unitValue != null ? String(element.unitValue) : "",
+          },
+        }));
+        return;
+      }
+      updates.unitValue = parsed;
+    }
+    if (field === "weightGramsPerPc") {
+      const parsed =
+        draft.weightGramsPerPc.trim() === ""
+          ? null
+          : parseFloat(draft.weightGramsPerPc);
+      const current = element.weightGramsPerPc ?? null;
+      if (parsed === current) return;
+      if (parsed != null && (Number.isNaN(parsed) || parsed < 0)) {
+        setElementDrafts((prev) => ({
+          ...prev,
+          [elementId]: {
+            ...draft,
+            weightGramsPerPc:
+              element.weightGramsPerPc != null
+                ? String(element.weightGramsPerPc)
+                : "",
+          },
+        }));
+        return;
+      }
+      updates.weightGramsPerPc = parsed;
     }
 
     if (Object.keys(updates).length === 0) return;
@@ -176,14 +309,24 @@ function DesignCard({
     }
     setError("");
     try {
+      const unitValue = newElementValue.trim()
+        ? parseFloat(newElementValue)
+        : undefined;
+      const weightGramsPerPc = newElementWeight.trim()
+        ? parseFloat(newElementWeight)
+        : undefined;
       await onAddElement(design.id, {
         name: newElementName.trim(),
         type: newElementType,
         qtyPerSet: qty,
+        unitValue,
+        weightGramsPerPc,
       });
       setNewElementName("");
       setNewElementType("Motif");
       setNewElementQty("1");
+      setNewElementValue("");
+      setNewElementWeight("");
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to add element."));
     }
@@ -253,7 +396,7 @@ function DesignCard({
 
       {expanded && (
         <div className="border-t border-zinc-100 px-5 py-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="text-xs text-zinc-500 font-medium block mb-1">
                 Name
@@ -287,6 +430,62 @@ function DesignCard({
                 ))}
               </select>
             </div>
+            <div>
+              <label className="text-xs text-zinc-500 font-medium block mb-1">
+                Metal
+              </label>
+              <select
+                value={metal}
+                onChange={(e) =>
+                  handleMetalChange(e.target.value as MetalType | "")
+                }
+                disabled={!canManage}
+                className={inputClass}
+              >
+                <option value="">Default (Gold)</option>
+                {METALS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-zinc-500 font-medium block mb-1">
+                Purity
+              </label>
+              <select
+                value={purity}
+                onChange={(e) =>
+                  handlePurityChange(e.target.value as Purity | "")
+                }
+                disabled={!canManage}
+                className={inputClass}
+              >
+                <option value="">Default (22K)</option>
+                {PURITIES.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="max-w-xs">
+            <label className="text-xs text-zinc-500 font-medium block mb-1">
+              Making charges per set (INR)
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={makingChargesPerSet}
+              onChange={(e) => setMakingChargesPerSet(e.target.value)}
+              onBlur={handleMakingChargesBlur}
+              disabled={!canManage}
+              className={inputClass}
+              placeholder="0"
+            />
           </div>
 
           {error && (
@@ -299,8 +498,14 @@ function DesignCard({
                 <tr className="bg-zinc-50 text-zinc-500">
                   <th className="text-left px-3 py-2 font-medium">Element</th>
                   <th className="text-left px-3 py-2 font-medium w-28">Type</th>
-                  <th className="text-left px-3 py-2 font-medium w-24">
+                  <th className="text-left px-3 py-2 font-medium w-20">
                     Qty/Set
+                  </th>
+                  <th className="text-left px-3 py-2 font-medium w-24">
+                    Value/pc
+                  </th>
+                  <th className="text-left px-3 py-2 font-medium w-24">
+                    Wt/pc (g)
                   </th>
                   {canManage && (
                     <th className="text-left px-3 py-2 font-medium w-12" />
@@ -378,6 +583,53 @@ function DesignCard({
                           className={inputClass}
                         />
                       </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={draft.unitValue}
+                          onChange={(e) =>
+                            setElementDrafts((prev) => ({
+                              ...prev,
+                              [element.id]: {
+                                ...draft,
+                                unitValue: e.target.value,
+                              },
+                            }))
+                          }
+                          onBlur={() =>
+                            handleElementBlur(element.id, "unitValue")
+                          }
+                          disabled={!canManage}
+                          className={inputClass}
+                          placeholder="Motif/Stone"
+                          title="Unit value in INR (motifs & stones)"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={draft.weightGramsPerPc}
+                          onChange={(e) =>
+                            setElementDrafts((prev) => ({
+                              ...prev,
+                              [element.id]: {
+                                ...draft,
+                                weightGramsPerPc: e.target.value,
+                              },
+                            }))
+                          }
+                          onBlur={() =>
+                            handleElementBlur(element.id, "weightGramsPerPc")
+                          }
+                          disabled={!canManage}
+                          className={inputClass}
+                          placeholder="Casting"
+                          title="Weight per piece in grams (casting)"
+                        />
+                      </td>
                       {canManage && (
                         <td className="px-3 py-2">
                           <button
@@ -394,7 +646,7 @@ function DesignCard({
                 {design.elements.length === 0 && (
                   <tr>
                     <td
-                      colSpan={canManage ? 4 : 3}
+                      colSpan={canManage ? 6 : 5}
                       className="px-3 py-4 text-center text-zinc-400 text-xs"
                     >
                       No elements yet. Add components to the bill of materials.
@@ -433,8 +685,25 @@ function DesignCard({
                 min={1}
                 value={newElementQty}
                 onChange={(e) => setNewElementQty(e.target.value)}
-                className={`${inputClass} w-20`}
+                className={`${inputClass} w-16`}
                 placeholder="Qty"
+              />
+              <input
+                type="number"
+                min={0}
+                value={newElementValue}
+                onChange={(e) => setNewElementValue(e.target.value)}
+                className={`${inputClass} w-24`}
+                placeholder="₹/pc"
+              />
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={newElementWeight}
+                onChange={(e) => setNewElementWeight(e.target.value)}
+                className={`${inputClass} w-24`}
+                placeholder="g/pc"
               />
               <button
                 onClick={handleAddElement}

@@ -1,5 +1,6 @@
 import { ProductionRunStatusEnum } from "@prisma/client";
 import { prisma } from "../db.js";
+import { moneyToNumber } from "../money.js";
 import type {
   FinishedGoodsDefaults,
   NewProductionRunInput,
@@ -15,7 +16,7 @@ import {
   deductRawMaterialForItemInTx,
 } from "./raw-material.js";
 import {
-  buildFinishedGoodsDefaults,
+  buildFinishedGoodsFromRun,
   createFinishedGoodsInTx,
 } from "./finished-goods.js";
 import { ProductionRunError } from "./errors.js";
@@ -49,6 +50,8 @@ const toProductionRunItem = (item: {
   elementType: string;
   qtyPerSet: number;
   totalQty: number;
+  unitValue: { toString(): string } | null;
+  weightGramsPerPc: number | null;
   productionDate: Date | null;
   waxCount: number | null;
   czStones: number | null;
@@ -66,6 +69,11 @@ const toProductionRunItem = (item: {
   elementType: item.elementType,
   qtyPerSet: item.qtyPerSet,
   totalQty: item.totalQty,
+  unitValue:
+    item.unitValue != null
+      ? moneyToNumber(String(item.unitValue))
+      : undefined,
+  weightGramsPerPc: item.weightGramsPerPc ?? undefined,
   productionDate: item.productionDate?.toISOString(),
   waxCount: item.waxCount ?? undefined,
   czStones: item.czStones ?? undefined,
@@ -165,6 +173,8 @@ export const createProductionRun = async (
           elementType: el.type,
           qtyPerSet: el.qtyPerSet,
           totalQty: el.qtyPerSet * input.setsOrdered,
+          unitValue: el.unitValue,
+          weightGramsPerPc: el.weightGramsPerPc,
           sortOrder: index,
         })),
       },
@@ -181,24 +191,59 @@ export const getFinishedGoodsDefaults = async (
   const run = await prisma.productionRun.findUnique({
     where: { id },
     include: {
-      design: { select: { code: true, name: true, category: true } },
-      items: { select: { czWeight: true } },
+      design: {
+        select: {
+          code: true,
+          name: true,
+          category: true,
+          metal: true,
+          purity: true,
+          makingChargesPerSet: true,
+        },
+      },
+      items: {
+        orderBy: { sortOrder: "asc" },
+        select: {
+          elementName: true,
+          elementType: true,
+          qtyPerSet: true,
+          unitValue: true,
+          weightGramsPerPc: true,
+          metalWeightGrams: true,
+          metalLotId: true,
+          czWeight: true,
+        },
+      },
     },
   });
   if (!run) throw new ProductionRunError("Production run not found.", 404);
 
-  const defaults = buildFinishedGoodsDefaults(run);
+  const metalLots = await prisma.metalLot.findMany({
+    where: { branchId: run.branchId },
+    select: {
+      id: true,
+      metalType: true,
+      purity: true,
+      currentRate: true,
+    },
+  });
+
+  const calculated = buildFinishedGoodsFromRun(run, metalLots);
 
   return {
-    ...defaults,
-    metal: "Gold",
-    purity: "22K",
-    weightGrams: 0,
-    makingCharges: 0,
-    price: 0,
+    name: calculated.name,
+    category: calculated.category,
+    metal: calculated.metal,
+    purity: calculated.purity,
+    weightGrams: calculated.weightGrams,
+    makingCharges: calculated.makingCharges,
+    stoneCarat: calculated.stoneCarat,
+    price: calculated.price,
     images: [],
+    quantity: calculated.quantity,
     runNo: run.runNo,
     designCode: run.design.code,
+    priceBreakdown: calculated.priceBreakdown,
   };
 };
 
@@ -219,8 +264,8 @@ const validateFinishedGoodsInput = (input: {
   }
   if (!input.metal) throw new ProductionRunError("Metal type is required.");
   if (!input.purity) throw new ProductionRunError("Purity is required.");
-  if (!input.weightGrams || input.weightGrams <= 0) {
-    throw new ProductionRunError("Weight must be greater than zero.");
+  if (input.weightGrams === undefined || input.weightGrams < 0) {
+    throw new ProductionRunError("Weight cannot be negative.");
   }
   if (input.makingCharges === undefined || input.makingCharges < 0) {
     throw new ProductionRunError("Making charges cannot be negative.");

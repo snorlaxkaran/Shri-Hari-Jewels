@@ -3,7 +3,17 @@ import { CATEGORY_COLORS, type ProductCategory } from "../inventory/categories.j
 import { generateSku, generateUnitCodes } from "../inventory/sku.js";
 import { getStockStatus } from "../inventory/status.js";
 import { syncProductStockInTx } from "../inventory/stock-sync.js";
-import type { FinishedGoodsInput } from "../../types.js";
+import { moneyToNumber } from "../money.js";
+import {
+  calculateJewelryPrice,
+  mapMetalLotsForPricing,
+} from "../pricing/jewelry-price.js";
+import type {
+  FinishedGoodsInput,
+  JewelryPriceBreakdown,
+  MetalType,
+  Purity,
+} from "../../types.js";
 import { ProductionRunError } from "./errors.js";
 
 type TransactionClient = Prisma.TransactionClient;
@@ -25,30 +35,93 @@ export const mapDesignCategoryToProduct = (
   return DESIGN_TO_PRODUCT_CATEGORY[designCategory] ?? "Others";
 };
 
-export const buildFinishedGoodsDefaults = (run: {
-  runNo: string;
+type RunForPricing = {
   setsOrdered: number;
   design: {
     code: string;
     name: string | null;
     category: string | null;
+    metal: string | null;
+    purity: string | null;
+    makingChargesPerSet: { toString(): string } | null;
   };
-  items: Array<{ czWeight: number | null }>;
-}): Omit<FinishedGoodsInput, "metal" | "purity" | "weightGrams" | "makingCharges" | "price"> & {
+  items: Array<{
+    elementName: string;
+    elementType: string;
+    qtyPerSet: number;
+    unitValue: { toString(): string } | null;
+    weightGramsPerPc: number | null;
+    metalWeightGrams: number | null;
+    metalLotId: string | null;
+    czWeight: number | null;
+  }>;
+};
+
+export const buildFinishedGoodsFromRun = (
+  run: RunForPricing,
+  metalLots: Array<{
+    id: string;
+    metalType: string;
+    purity: string;
+    currentRate: { toString(): string } | number;
+  }>,
+): {
+  name: string;
+  category: ProductCategory;
   quantity: number;
+  metal: MetalType;
+  purity: Purity;
+  weightGrams: number;
+  makingCharges: number;
+  stoneCarat?: number;
+  price: number;
+  priceBreakdown: JewelryPriceBreakdown;
 } => {
-  const stoneCarat = run.items.reduce(
-    (sum, item) => sum + (item.czWeight ?? 0),
-    0,
-  );
+  const metal = (run.design.metal as MetalType) || "Gold";
+  const purity = (run.design.purity as Purity) || "22K";
+  const makingChargesPerSet =
+    run.design.makingChargesPerSet != null
+      ? moneyToNumber(String(run.design.makingChargesPerSet))
+      : 0;
+
+  const pricingItems = run.items.map((item) => ({
+    elementName: item.elementName,
+    elementType: item.elementType,
+    qtyPerSet: item.qtyPerSet,
+    unitValue:
+      item.unitValue != null
+        ? moneyToNumber(String(item.unitValue))
+        : undefined,
+    weightGramsPerPc: item.weightGramsPerPc ?? undefined,
+    metalWeightGrams: item.metalWeightGrams ?? undefined,
+    metalLotId: item.metalLotId ?? undefined,
+    czWeight: item.czWeight ?? undefined,
+  }));
+
+  const priceBreakdown = calculateJewelryPrice({
+    items: pricingItems,
+    metal,
+    purity,
+    makingChargesPerSet,
+    metalLots: mapMetalLotsForPricing(metalLots),
+  });
 
   return {
     name: run.design.name?.trim() || run.design.code,
     category: mapDesignCategoryToProduct(run.design.category),
     quantity: run.setsOrdered,
-    stoneCarat: stoneCarat > 0 ? stoneCarat : undefined,
+    metal,
+    purity,
+    weightGrams: priceBreakdown.weightGrams,
+    makingCharges: priceBreakdown.makingCharges,
+    stoneCarat:
+      priceBreakdown.stoneCarat > 0 ? priceBreakdown.stoneCarat : undefined,
+    price: priceBreakdown.totalPrice,
+    priceBreakdown,
   };
 };
+
+export const buildFinishedGoodsDefaults = buildFinishedGoodsFromRun;
 
 export const createFinishedGoodsInTx = async (
   tx: TransactionClient,

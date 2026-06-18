@@ -252,13 +252,16 @@ model Order {
 }
 
 model Design {
-  id        String   @id @default(uuid())
-  branchId  String
-  code      String   @unique
-  name      String?
-  category  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  branchId            String
+  code                String   @unique
+  name                String?
+  category            String?
+  metal               String?
+  purity              String?
+  makingChargesPerSet Decimal? @db.Decimal(12, 2)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   branch         Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
   elements       DesignElement[]
@@ -269,12 +272,14 @@ model Design {
 }
 
 model DesignElement {
-  id        String @id @default(uuid())
-  designId  String
-  name      String
-  type      String
-  qtyPerSet Int
-  sortOrder Int    @default(0)
+  id               String   @id @default(uuid())
+  designId         String
+  name             String
+  type             String
+  qtyPerSet        Int
+  unitValue        Decimal? @db.Decimal(12, 2)
+  weightGramsPerPc Float?
+  sortOrder        Int      @default(0)
 
   design Design @relation(fields: [designId], references: [id], onDelete: Cascade)
 
@@ -303,22 +308,24 @@ model ProductionRun {
 }
 
 model ProductionRunItem {
-  id              String    @id @default(uuid())
-  productionRunId String
-  elementName     String
-  elementType     String
-  qtyPerSet       Int
-  totalQty        Int
-  productionDate  DateTime?
-  waxCount        Int?
-  czStones        Int?
-  czWeight        Float?
-  castingReceived Boolean   @default(false)
-  metalLotId      String?
-  stoneLotId      String?
-  metalWeightGrams Float?
-  rawMaterialDeducted Boolean @default(false)
-  sortOrder       Int       @default(0)
+  id                  String    @id @default(uuid())
+  productionRunId     String
+  elementName         String
+  elementType         String
+  qtyPerSet           Int
+  totalQty            Int
+  unitValue           Decimal?  @db.Decimal(12, 2)
+  weightGramsPerPc    Float?
+  productionDate      DateTime?
+  waxCount            Int?
+  czStones            Int?
+  czWeight            Float?
+  castingReceived     Boolean   @default(false)
+  metalLotId          String?
+  stoneLotId          String?
+  metalWeightGrams    Float?
+  rawMaterialDeducted Boolean   @default(false)
+  sortOrder           Int       @default(0)
 
   productionRun ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: Cascade)
 
