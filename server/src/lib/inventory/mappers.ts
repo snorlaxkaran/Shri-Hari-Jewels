@@ -1,5 +1,6 @@
 import type { Branch, Product, InventoryUnit, ProductImage } from "@prisma/client";
 import type { InventoryItem } from "../../types.js";
+import { moneyToNumber } from "../money.js";
 
 type ProductWithRelations = Product & {
   units: Array<InventoryUnit & { branch?: Branch }>;
@@ -21,14 +22,14 @@ export const toInventoryItem = (
   metal: product.metal as InventoryItem["metal"],
   purity: product.purity as InventoryItem["purity"],
   weightGrams: product.weightGrams,
-  makingCharges: product.makingCharges,
+  makingCharges: moneyToNumber(product.makingCharges),
   stoneCarat: product.stoneCarat ?? undefined,
   stock: product.units.filter(
     (unit) =>
       unit.status === "Available" &&
       (!options.stockBranchId || unit.branchId === options.stockBranchId),
   ).length,
-  price: product.price,
+  price: moneyToNumber(product.price),
   status: product.units.some(
     (unit) =>
       unit.status === "Available" &&

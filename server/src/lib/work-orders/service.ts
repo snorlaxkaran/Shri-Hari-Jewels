@@ -1,3 +1,4 @@
+import { WorkOrderStatus as DbWorkOrderStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import type {
   NewWorkOrderInput,
@@ -15,6 +16,14 @@ const WORK_ORDER_STATUSES: WorkOrderStatus[] = [
   "Completed",
   "Cancelled",
 ];
+
+const toDbWorkOrderStatus = (
+  status?: WorkOrderStatus,
+): DbWorkOrderStatus | undefined => {
+  if (!status) return undefined;
+  if (status === "In Production") return DbWorkOrderStatus.InProduction;
+  return status as DbWorkOrderStatus;
+};
 
 export class WorkOrderError extends Error {
   constructor(
@@ -116,7 +125,7 @@ export const updateWorkOrder = async (
   const workOrder = await prisma.workOrder.update({
     where: { id },
     data: {
-      status: input.status,
+      status: toDbWorkOrderStatus(input.status),
       priority: input.priority,
       title: input.title?.trim(),
       description: input.description?.trim(),

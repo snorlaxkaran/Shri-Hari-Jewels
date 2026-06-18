@@ -1,5 +1,6 @@
 import type { Sale as PrismaSale } from "@prisma/client";
 import type { PaymentMode, Sale } from "../../types.js";
+import { moneyToNumber } from "../money.js";
 
 export const toSale = (sale: PrismaSale): Sale => ({
   id: sale.id,
@@ -8,9 +9,9 @@ export const toSale = (sale: PrismaSale): Sale => ({
   productName: sale.productName,
   sku: sale.sku,
   category: sale.category,
-  listPrice: sale.listPrice,
-  discount: sale.discount,
-  dealPrice: sale.dealPrice,
+  listPrice: moneyToNumber(sale.listPrice),
+  discount: moneyToNumber(sale.discount),
+  dealPrice: moneyToNumber(sale.dealPrice),
   paymentMode: sale.paymentMode as PaymentMode,
   paymentStatus: sale.paymentStatus as Sale["paymentStatus"],
   paymentRef: sale.paymentRef ?? undefined,

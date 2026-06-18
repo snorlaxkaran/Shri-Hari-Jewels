@@ -7,6 +7,60 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ProductStockStatus {
+  InStock    @map("In Stock")
+  LowStock   @map("Low Stock")
+  OutOfStock @map("Out of Stock")
+}
+
+enum InventoryUnitStatus {
+  Available
+  Reserved
+  Sold
+}
+
+enum SalePaymentStatus {
+  Pending
+  Completed
+}
+
+enum OrderStatus {
+  Pending
+  Designing
+  Production
+  QC
+  Ready
+  Delivered
+  Cancelled
+}
+
+enum OrderPaymentStatus {
+  Unpaid
+  Partial
+  Paid
+}
+
+enum WorkOrderStatus {
+  Open
+  InProduction @map("In Production")
+  QC
+  Completed
+  Cancelled
+}
+
+enum ProductionRunStatusEnum {
+  Open
+  InProgress @map("In Progress")
+  Completed
+  Cancelled
+}
+
+enum StoneLotStatus {
+  InStock  @map("In Stock")
+  Reserved
+  Issued
+}
+
 model Branch {
   id          String   @id @default(uuid())
   name        String
@@ -80,11 +134,11 @@ model Product {
   metal         String
   purity        String
   weightGrams   Float
-  makingCharges Float
+  makingCharges Decimal @db.Decimal(12, 2)
   stoneCarat    Float?
-  price         Float
+  price         Decimal @db.Decimal(12, 2)
   stock         Int
-  status        String
+  status        ProductStockStatus
   imageColor    String   @default("#a1a1aa")
   productionRunId String? @unique
   createdAt     DateTime @default(now())
@@ -103,7 +157,7 @@ model InventoryUnit {
   branchId  String
   itemCode  String   @unique
   productId String
-  status    String   @default("Available")
+  status    InventoryUnitStatus @default(Available)
   createdAt DateTime @default(now())
 
   branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
@@ -122,7 +176,7 @@ model StockTransfer {
   documentType String
   transferDate DateTime
   itemCount    Int
-  totalValue   Float
+  totalValue   Decimal @db.Decimal(12, 2)
   createdById   String?
   createdByName String
   createdAt    DateTime @default(now())
@@ -146,7 +200,7 @@ model StockTransferItem {
   sku        String
   metal      String
   purity     String
-  price      Float
+  price      Decimal @db.Decimal(12, 2)
 
   transfer StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
 
@@ -180,9 +234,9 @@ model Order {
   orderNo        String    @unique
   customerId     String
   description    String
-  estimatedTotal Float?
-  status         String    @default("Pending")
-  paymentStatus  String    @default("Unpaid")
+  estimatedTotal Decimal? @db.Decimal(12, 2)
+  status         OrderStatus        @default(Pending)
+  paymentStatus  OrderPaymentStatus @default(Unpaid)
   notes          String?
   dueDate        DateTime?
   createdAt      DateTime  @default(now())
@@ -233,7 +287,7 @@ model ProductionRun {
   runNo       String   @unique
   designId    String
   setsOrdered Int
-  status      String   @default("Open")
+  status      ProductionRunStatusEnum @default(Open)
   finishedGoodsProductId String? @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -279,7 +333,7 @@ model WorkOrder {
   assignedToId  String?
   title         String
   description   String
-  status        String   @default("Open")
+  status        WorkOrderStatus @default(Open)
   priority      String   @default("Normal")
   dueDate       DateTime?
   notes         String?
@@ -305,11 +359,11 @@ model Sale {
   productName   String
   sku           String
   category      String
-  listPrice     Float
-  discount      Float    @default(0)
-  dealPrice     Float
+  listPrice     Decimal @db.Decimal(12, 2)
+  discount      Decimal @default(0) @db.Decimal(12, 2)
+  dealPrice     Decimal @db.Decimal(12, 2)
   paymentMode   String   @default("Cash")
-  paymentStatus     String   @default("Completed")
+  paymentStatus     SalePaymentStatus @default(Completed)
   paymentRef        String?
   razorpayQrId      String?
   razorpayPaymentId String?
@@ -345,9 +399,9 @@ model Invoice {
   itemCode       String
   productName    String
   sku            String
-  listPrice      Float
-  discount       Float    @default(0)
-  total          Float
+  listPrice      Decimal @db.Decimal(12, 2)
+  discount       Decimal @default(0) @db.Decimal(12, 2)
+  total          Decimal @db.Decimal(12, 2)
   paymentMode    String
   paymentRef     String?
   status         String   @default("Paid")
@@ -380,8 +434,8 @@ model MetalLot {
   metalType    String
   purity       String
   weightGrams  Float
-  purchaseRate Float
-  currentRate  Float
+  purchaseRate Decimal @db.Decimal(12, 2)
+  currentRate  Decimal @db.Decimal(12, 2)
   vendor       String
   location     String   @default("Main Vault")
   notes        String?
@@ -405,10 +459,10 @@ model StoneLot {
   clarity           String?
   cut               String?
   vendor            String
-  purchaseRate      Float?
-  currentRate       Float?
+  purchaseRate      Decimal? @db.Decimal(12, 2)
+  currentRate       Decimal? @db.Decimal(12, 2)
   location          String   @default("Main Vault")
-  status            String   @default("In Stock")
+  status            StoneLotStatus @default(InStock)
   notes             String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -438,5 +492,55 @@ model RawStockAuditLog {
   createdAt       DateTime @default(now())
 
   @@index([stockType, stockId])
+  @@index([createdAt])
+}
+
+model InventoryAuditLog {
+  id              String   @id @default(uuid())
+  entityType      String
+  entityId        String
+  productId       String?
+  itemCode        String?
+  action          String
+  previousValue   String?
+  newValue        String?
+  reason          String?
+  performedById   String?
+  performedByName String
+  createdAt       DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([productId])
+  @@index([createdAt])
+}
+
+model SaleAuditLog {
+  id              String   @id @default(uuid())
+  saleId          String?
+  invoiceId       String?
+  action          String
+  previousValue   String?
+  newValue        String?
+  reason          String?
+  performedById   String?
+  performedByName String
+  createdAt       DateTime @default(now())
+
+  @@index([saleId])
+  @@index([invoiceId])
+  @@index([createdAt])
+}
+
+model IntegrityMismatchLog {
+  id         String   @id @default(uuid())
+  category   String
+  entityType String
+  entityId   String?
+  message    String
+  expected   String?
+  actual     String?
+  createdAt  DateTime @default(now())
+
+  @@index([category])
   @@index([createdAt])
 }

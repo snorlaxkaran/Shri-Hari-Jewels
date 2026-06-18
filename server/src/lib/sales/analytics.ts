@@ -1,4 +1,10 @@
 import type { Sale } from "@prisma/client";
+import {
+  InventoryUnitStatus,
+  ProductStockStatus,
+  SalePaymentStatus,
+  WorkOrderStatus,
+} from "@prisma/client";
 import type {
   CategoryBreakdown,
   DashboardStats,
@@ -8,6 +14,7 @@ import type {
 } from "../../types.js";
 import { CATEGORY_COLORS } from "../inventory/categories.js";
 import { getStockStatus } from "../inventory/status.js";
+import { moneyToNumber, multiplyMoney, sumMoney } from "../money.js";
 import { countPendingOrders } from "../orders/service.js";
 import { getRawInventorySummary } from "../raw-inventory/metal-service.js";
 import { prisma } from "../db.js";
@@ -49,7 +56,9 @@ const buildMonthlySeries = (sales: Sale[]): SalesDataPoint[] => {
     const monthSales = sales.filter((s) => monthKey(s.soldAt) === key);
     months.push({
       month: MONTH_LABELS[d.getMonth()],
-      revenue: monthSales.reduce((sum, s) => sum + s.dealPrice, 0),
+      revenue: moneyToNumber(
+        sumMoney(monthSales.map((s) => s.dealPrice)),
+      ),
       orders: monthSales.length,
     });
   }
@@ -60,7 +69,11 @@ const buildMonthlySeries = (sales: Sale[]): SalesDataPoint[] => {
 const buildCategoryBreakdown = (sales: Sale[]): CategoryBreakdown[] => {
   const totals = new Map<string, number>();
   for (const sale of sales) {
-    totals.set(sale.category, (totals.get(sale.category) ?? 0) + sale.dealPrice);
+    totals.set(
+      sale.category,
+      (totals.get(sale.category) ?? 0) +
+        moneyToNumber(sale.dealPrice),
+    );
   }
 
   const grandTotal = [...totals.values()].reduce((sum, v) => sum + v, 0);
@@ -86,13 +99,13 @@ const buildTopProducts = (sales: Sale[]): TopProduct[] => {
     const existing = map.get(sale.productId);
     if (existing) {
       existing.unitsSold += 1;
-      existing.revenue += sale.dealPrice;
+      existing.revenue += moneyToNumber(sale.dealPrice);
     } else {
       map.set(sale.productId, {
         productName: sale.productName,
         sku: sale.sku,
         unitsSold: 1,
-        revenue: sale.dealPrice,
+        revenue: moneyToNumber(sale.dealPrice),
       });
     }
   }
@@ -120,7 +133,7 @@ export const getSalesAnalytics = async (
   const [sales, products, customerCount, pendingOrders, rawSummary, activeWorkOrders] =
     await Promise.all([
     prisma.sale.findMany({
-      where: { paymentStatus: "Completed", ...(branchId && { branchId }) },
+      where: { paymentStatus: SalePaymentStatus.Completed, ...(branchId && { branchId }) },
       orderBy: { soldAt: "desc" },
     }),
     prisma.product.findMany({
@@ -138,7 +151,9 @@ export const getSalesAnalytics = async (
     getRawInventorySummary(),
     prisma.workOrder.count({
       where: {
-        status: { in: ["Open", "In Production", "QC"] },
+        status: {
+          in: [WorkOrderStatus.Open, WorkOrderStatus.InProduction, WorkOrderStatus.QC],
+        },
         ...(branchId && { branchId }),
       },
     }),
@@ -163,22 +178,34 @@ export const getSalesAnalytics = async (
     (s) => s.soldAt >= lastMonthStart && s.soldAt < thisMonthStart,
   );
 
-  const todaySales = todaySalesList.reduce((sum, s) => sum + s.dealPrice, 0);
-  const monthlySales = thisMonthSales.reduce((sum, s) => sum + s.dealPrice, 0);
+  const todaySales = moneyToNumber(
+    sumMoney(todaySalesList.map((s) => s.dealPrice)),
+  );
+  const monthlySales = moneyToNumber(
+    sumMoney(thisMonthSales.map((s) => s.dealPrice)),
+  );
   const thisMonthRevenue = monthlySales;
-  const lastMonthRevenue = lastMonthSales.reduce((sum, s) => sum + s.dealPrice, 0);
+  const lastMonthRevenue = moneyToNumber(
+    sumMoney(lastMonthSales.map((s) => s.dealPrice)),
+  );
 
   const productStocks = products.map((product) => ({
-    stock: product.units.filter((unit) => unit.status === "Available").length,
-    price: product.price,
+    stock: product.units.filter(
+      (unit) => unit.status === InventoryUnitStatus.Available,
+    ).length,
+    price: moneyToNumber(product.price),
   }));
   const inventoryCount = productStocks.reduce((sum, p) => sum + p.stock, 0);
-  const inventoryValue = productStocks.reduce((sum, p) => sum + p.stock * p.price, 0);
+  const inventoryValue = productStocks.reduce(
+    (sum, p) => sum + moneyToNumber(multiplyMoney(p.stock, p.price)),
+    0,
+  );
   const lowStockCount = products.filter(
     (p) =>
       getStockStatus(
-        p.units.filter((unit) => unit.status === "Available").length,
-      ) === "Low Stock",
+        p.units.filter((unit) => unit.status === InventoryUnitStatus.Available)
+          .length,
+      ) === ProductStockStatus.LowStock,
   ).length;
 
   const uniqueSaleCustomers = new Set(
@@ -186,7 +213,7 @@ export const getSalesAnalytics = async (
   ).size;
 
   const stats: DashboardStats = {
-    totalRevenue: sales.reduce((sum, s) => sum + s.dealPrice, 0),
+    totalRevenue: moneyToNumber(sumMoney(sales.map((s) => s.dealPrice))),
     revenueChange: percentChange(thisMonthRevenue, lastMonthRevenue),
     totalSales: sales.length,
     salesChange: percentChange(thisMonthSales.length, lastMonthSales.length),

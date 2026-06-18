@@ -1,3 +1,4 @@
+import { ProductionRunStatusEnum } from "@prisma/client";
 import { prisma } from "../db.js";
 import type {
   FinishedGoodsDefaults,
@@ -27,6 +28,14 @@ export const PRODUCTION_RUN_STATUSES: ProductionRunStatus[] = [
   "Completed",
   "Cancelled",
 ];
+
+const toDbRunStatus = (
+  status?: ProductionRunStatus,
+): ProductionRunStatusEnum | undefined => {
+  if (!status) return undefined;
+  if (status === "In Progress") return ProductionRunStatusEnum.InProgress;
+  return status as ProductionRunStatusEnum;
+};
 
 const runInclude = {
   design: { select: { code: true, name: true, category: true } },
@@ -245,7 +254,8 @@ export const updateProductionRun = async (
     input.setsOrdered !== existing.setsOrdered;
 
   const completingRun =
-    input.status === "Completed" && existing.status !== "Completed";
+    input.status === "Completed" &&
+    existing.status !== ProductionRunStatusEnum.Completed;
 
   if (completingRun && input.createFinishedGoods) {
     if (!input.finishedGoods) {
@@ -260,7 +270,7 @@ export const updateProductionRun = async (
     await tx.productionRun.update({
       where: { id },
       data: {
-        status: input.status,
+        status: toDbRunStatus(input.status),
         setsOrdered: input.setsOrdered,
       },
     });

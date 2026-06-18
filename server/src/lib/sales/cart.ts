@@ -10,6 +10,7 @@ import {
 } from "../payments/razorpay.js";
 import { buildUpiPaymentString } from "../payments/upi.js";
 import { getShopSettings } from "../settings/service.js";
+import { moneyToNumber, sumMoney } from "../money.js";
 import type {
   CartSaleItemInput,
   PaymentMode,
@@ -156,7 +157,7 @@ export const completeCartGroup = async (
       invoices: withInvoices
         .map((s) => (s.invoice ? toInvoice(s.invoice) : null))
         .filter((i): i is NonNullable<typeof i> => i !== null),
-      total: withInvoices.reduce((sum, s) => sum + s.dealPrice, 0),
+      total: moneyToNumber(sumMoney(withInvoices.map((s) => s.dealPrice))),
       primarySaleId: groupSales[0].id,
       requiresConfirmation: false,
       autoCapture: isRazorpayEnabled(),
@@ -182,7 +183,7 @@ export const completeCartGroup = async (
   return {
     sales,
     invoices,
-    total: sales.reduce((sum, s) => sum + s.dealPrice, 0),
+    total: moneyToNumber(sumMoney(sales.map((s) => s.dealPrice))),
     primarySaleId: groupSales[0].id,
     requiresConfirmation: false,
     autoCapture: isRazorpayEnabled(),
@@ -381,7 +382,7 @@ export const syncPendingCartPayment = async (
     if (!qrId) {
       return {
         sales: groupSales.map(toSale),
-        total: groupSales.reduce((sum, s) => sum + s.dealPrice, 0),
+        total: moneyToNumber(sumMoney(groupSales.map((s) => s.dealPrice))),
         primarySaleId: saleId,
         requiresConfirmation: true,
         autoCapture: false,
@@ -400,7 +401,7 @@ export const syncPendingCartPayment = async (
 
     return {
       sales: groupSales.map(toSale),
-      total: groupSales.reduce((sum, s) => sum + s.dealPrice, 0),
+      total: moneyToNumber(sumMoney(groupSales.map((s) => s.dealPrice))),
       primarySaleId: saleId,
       requiresConfirmation: true,
       autoCapture: true,

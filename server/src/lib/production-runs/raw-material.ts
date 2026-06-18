@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { StoneLotStatus } from "@prisma/client";
 import { ProductionRunError } from "./errors.js";
 
 type TransactionClient = Prisma.TransactionClient;
@@ -160,7 +161,7 @@ export const deductRawMaterialForItemInTx = async (
         "Selected stone lot belongs to a different branch.",
       );
     }
-    if (lot.status !== "In Stock") {
+    if (lot.status !== StoneLotStatus.InStock) {
       throw new ProductionRunError(
         `Stone lot ${lot.certificateNumber} is ${lot.status} and cannot be consumed.`,
       );

@@ -1,5 +1,6 @@
 import type { Invoice as PrismaInvoice } from "@prisma/client";
 import type { Invoice } from "../../types.js";
+import { moneyToNumber } from "../money.js";
 
 export const toInvoice = (invoice: PrismaInvoice): Invoice => ({
   id: invoice.id,
@@ -11,9 +12,9 @@ export const toInvoice = (invoice: PrismaInvoice): Invoice => ({
   itemCode: invoice.itemCode,
   productName: invoice.productName,
   sku: invoice.sku,
-  listPrice: invoice.listPrice,
-  discount: invoice.discount,
-  total: invoice.total,
+  listPrice: moneyToNumber(invoice.listPrice),
+  discount: moneyToNumber(invoice.discount),
+  total: moneyToNumber(invoice.total),
   paymentMode: invoice.paymentMode as Invoice["paymentMode"],
   paymentRef: invoice.paymentRef ?? undefined,
   status: invoice.status as Invoice["status"],

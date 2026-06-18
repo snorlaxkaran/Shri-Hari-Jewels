@@ -1,4 +1,6 @@
+import { StoneLotStatus } from "@prisma/client";
 import { prisma } from "../db.js";
+import { moneyToNumber, multiplyMoney } from "../money.js";
 import type {
   AdjustMetalLotInput,
   MetalLot,
@@ -222,7 +224,7 @@ export const getRawInventorySummary =
   async (): Promise<RawInventorySummary> => {
     const [metalLots, stoneLots] = await Promise.all([
       prisma.metalLot.findMany(),
-      prisma.stoneLot.findMany({ where: { status: "In Stock" } }),
+      prisma.stoneLot.findMany({ where: { status: StoneLotStatus.InStock } }),
     ]);
 
     const summary: RawInventorySummary = {
@@ -237,7 +239,9 @@ export const getRawInventorySummary =
     };
 
     for (const lot of metalLots) {
-      summary.metalValue += lot.weightGrams * lot.currentRate;
+      summary.metalValue += moneyToNumber(
+        multiplyMoney(lot.weightGrams, lot.currentRate),
+      );
       if (lot.metalType === "Gold") summary.goldGrams += lot.weightGrams;
       if (lot.metalType === "Silver") summary.silverGrams += lot.weightGrams;
       if (lot.metalType === "Platinum")
@@ -245,8 +249,8 @@ export const getRawInventorySummary =
     }
 
     for (const stone of stoneLots) {
-      const rate = stone.currentRate ?? 0;
-      summary.stoneValue += stone.carat * rate;
+      const rate = stone.currentRate != null ? moneyToNumber(stone.currentRate) : 0;
+      summary.stoneValue += moneyToNumber(multiplyMoney(stone.carat, rate));
       if (stone.stoneType === "Diamond") summary.diamondCarats += stone.carat;
       if (stone.stoneType === "Precious") summary.preciousCarats += stone.carat;
       if (stone.stoneType === "SemiPrecious") {

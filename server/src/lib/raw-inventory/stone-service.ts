@@ -1,3 +1,4 @@
+import { StoneLotStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import type {
   AdjustStoneLotInput,
@@ -12,7 +13,11 @@ import { toStoneLot } from "./mappers.js";
 import { RawInventoryError } from "./metal-service.js";
 
 const STONE_TYPES = ["Diamond", "Precious", "SemiPrecious"] as const;
-const STONE_STATUSES = ["In Stock", "Reserved", "Issued"] as const;
+const STONE_STATUSES: Array<StoneLot["status"]> = [
+  "In Stock",
+  "Reserved",
+  "Issued",
+];
 
 type Actor = { id: string; name: string };
 
@@ -108,6 +113,15 @@ export const updateStoneLot = async (
     throw new RawInventoryError("Invalid stone status.");
   }
 
+  const statusValue =
+    input.status === "In Stock"
+      ? StoneLotStatus.InStock
+      : input.status === "Reserved"
+        ? StoneLotStatus.Reserved
+        : input.status === "Issued"
+          ? StoneLotStatus.Issued
+          : undefined;
+
   const row = await prisma.stoneLot.update({
     where: { id },
     data: {
@@ -118,7 +132,7 @@ export const updateStoneLot = async (
       purchaseRate: input.purchaseRate === null ? null : input.purchaseRate,
       currentRate: input.currentRate === null ? null : input.currentRate,
       location: input.location?.trim(),
-      status: input.status,
+      status: statusValue,
       notes: input.notes === null ? null : input.notes?.trim(),
     },
   });

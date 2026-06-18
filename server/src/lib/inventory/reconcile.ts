@@ -1,3 +1,4 @@
+import { InventoryUnitStatus, SalePaymentStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import { getStockStatus } from "./status.js";
 
@@ -18,18 +19,18 @@ export const reconcileInventoryWithSales =
   async (): Promise<InventoryRepairReport> => {
     const soldResult = await prisma.inventoryUnit.updateMany({
       where: {
-        sale: { paymentStatus: "Completed" },
-        status: { not: "Sold" },
+        sale: { paymentStatus: SalePaymentStatus.Completed },
+        status: { not: InventoryUnitStatus.Sold },
       },
-      data: { status: "Sold" },
+      data: { status: InventoryUnitStatus.Sold },
     });
 
     const reservedResult = await prisma.inventoryUnit.updateMany({
       where: {
-        sale: { paymentStatus: "Pending" },
-        status: { notIn: ["Reserved", "Sold"] },
+        sale: { paymentStatus: SalePaymentStatus.Pending },
+        status: { notIn: [InventoryUnitStatus.Reserved, InventoryUnitStatus.Sold] },
       },
-      data: { status: "Reserved" },
+      data: { status: InventoryUnitStatus.Reserved },
     });
 
     const products = await prisma.product.findMany({
@@ -44,7 +45,7 @@ export const reconcileInventoryWithSales =
 
     for (const product of products) {
       const available = product.units.filter(
-        (u) => u.status === "Available",
+        (u) => u.status === InventoryUnitStatus.Available,
       ).length;
       if (product.stock === available) continue;
 

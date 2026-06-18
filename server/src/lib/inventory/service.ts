@@ -17,7 +17,9 @@ import { generateSku, generateUnitCodes } from "./sku.js";
 import { reconcileInventoryWithSales } from "./reconcile.js";
 import { getStockStatus } from "./status.js";
 import { syncProductStockInTx } from "./stock-sync.js";
+import { recordInventoryAudit } from "./audit.js";
 import { DEFAULT_BRANCH_ID } from "../branches/constants.js";
+import { moneyToNumber, sumMoney } from "../money.js";
 
 const productInclude = {
   units: {
@@ -176,7 +178,7 @@ const toStockTransfer = (
   documentType: transfer.documentType as StockTransfer["documentType"],
   transferDate: transfer.transferDate.toISOString(),
   itemCount: transfer.itemCount,
-  totalValue: transfer.totalValue,
+  totalValue: moneyToNumber(transfer.totalValue),
   createdByName: transfer.createdByName,
   createdAt: transfer.createdAt.toISOString(),
   items: transfer.items.map((item) => ({
@@ -187,7 +189,7 @@ const toStockTransfer = (
     sku: item.sku,
     metal: item.metal,
     purity: item.purity,
-    price: item.price,
+    price: moneyToNumber(item.price),
   })),
 });
 
@@ -318,7 +320,9 @@ export const createStockTransfer = async (
   }
 
   const transferNo = await nextTransferNo();
-  const totalValue = units.reduce((sum, unit) => sum + unit.product.price, 0);
+  const totalValue = moneyToNumber(
+    sumMoney(units.map((unit) => unit.product.price)),
+  );
 
   const transfer = await prisma.$transaction(async (tx) => {
     const created = await tx.stockTransfer.create({
@@ -489,4 +493,19 @@ export const deleteInventoryUnit = async (
   return toInventoryItem(updated);
 };
 
-export const repairInventory = async () => reconcileInventoryWithSales();
+export const repairInventory = async (actor?: {
+  id: string;
+  name: string;
+}) => {
+  const report = await reconcileInventoryWithSales();
+  await recordInventoryAudit({
+    entityType: "Product",
+    entityId: "all",
+    action: "Reconciliation",
+    newValue: report,
+    reason: "admin_repair",
+    performedById: actor?.id,
+    performedByName: actor?.name ?? "System",
+  });
+  return report;
+};
