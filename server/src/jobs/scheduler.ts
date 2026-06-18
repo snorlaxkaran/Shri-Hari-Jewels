@@ -1,7 +1,9 @@
 import cron from "node-cron";
 import { expireStaleReservations } from "../lib/sales/expire-reservations.js";
+import { runIntegrityReport } from "../lib/integrity/report.js";
 
 let expiryJobRunning = false;
+let integrityJobRunning = false;
 
 export const startScheduledJobs = (): void => {
   if (process.env.DISABLE_SCHEDULED_JOBS === "true") {
@@ -27,5 +29,20 @@ export const startScheduledJobs = (): void => {
     }
   });
 
-  console.log(`[jobs] Reservation expiry scheduled (${expiryCron})`);
+  const integrityCron = process.env.INTEGRITY_REPORT_CRON ?? "0 2 * * *";
+  cron.schedule(integrityCron, async () => {
+    if (integrityJobRunning) return;
+    integrityJobRunning = true;
+    try {
+      await runIntegrityReport();
+    } catch (error) {
+      console.error("[integrity-report] Job failed:", error);
+    } finally {
+      integrityJobRunning = false;
+    }
+  });
+
+  console.log(
+    `[jobs] Reservation expiry (${expiryCron}); integrity report (${integrityCron})`,
+  );
 };
