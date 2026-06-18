@@ -62,8 +62,8 @@ export default function MotifsPage() {
     setError(null);
     try {
       setMotifs(await fetchMotifs());
-    } catch {
-      setError("Could not load motifs. Is the backend running?");
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not load motifs."));
     } finally {
       setLoading(false);
     }

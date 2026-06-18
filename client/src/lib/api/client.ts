@@ -52,8 +52,11 @@ export const getApiErrorMessage = (
   if (isAxiosError(error)) {
     const message = error.response?.data?.error;
     if (typeof message === "string") return message;
+    if (error.response?.status === 404) {
+      return "API route not found. Restart or redeploy the backend server (Render → Manual Deploy).";
+    }
     if (!error.response) {
-      return "Could not connect to the server. Is the backend running?";
+      return "Could not connect to the server. Start the backend locally (cd server && npm run dev) or check NEXT_PUBLIC_API_URL.";
     }
   }
   if (error instanceof Error && error.message) return error.message;

@@ -67,7 +67,12 @@ app.use(express.json({ limit: "10mb" }));
 
 app.get("/api/health", async (_req, res) => {
   const payload = await getHealthPayload();
-  res.status(payload.database.persistent ? 200 : 503).json(payload);
+  res.status(payload.database.persistent ? 200 : 503).json({
+    ...payload,
+    features: {
+      motifs: true,
+    },
+  });
 });
 
 app.use("/api/auth", authRouter);
