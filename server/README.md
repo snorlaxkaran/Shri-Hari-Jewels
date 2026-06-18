@@ -2,16 +2,33 @@
 
 Express + Prisma + SQLite backend for the jewelry ERP.
 
-## Setup
+## Motifs API (404 fix)
+
+If **Motif Library** shows "Could not load motifs" or Excel import returns **404**, the live API on Render has not been redeployed with the latest code.
+
+1. Open [Render Dashboard](https://dashboard.render.com) → **shri-hari-jewels-api**
+2. Click **Manual Deploy** → **Deploy latest commit**
+3. Wait for the build to finish (watch logs for `db:push` success)
+4. Verify: open `https://shri-hari-jewels-api.onrender.com/api/health` — you should see `"features": { "motifs": true }`
+5. Hard-refresh the app and open **Motifs** again
+
+### Local development (both frontend + backend)
 
 ```bash
+# Terminal 1 — API (requires DATABASE_URL in server/.env)
 cd server
-npm install
-cp .env.example .env   # if .env doesn't exist
-npm run db:push        # create/update tables
-npm run db:seed        # create default admin and sample data
-npm run dev            # http://localhost:4000
+cp .env.example .env   # paste your Postgres URL from Render → Environment
+npm run db:push
+npm run dev
+
+# Terminal 2 — Frontend
+cd client
+cp .env.local.example .env.local
+npm run dev
 ```
+
+Login at http://localhost:3000 — Motifs will call http://localhost:4000/api/motifs.
+
 
 ## API Endpoints
 

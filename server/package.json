@@ -19,7 +19,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.0",
+    "@prisma/client": "^6.19.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
@@ -34,7 +34,7 @@
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.4.1",
     "pdfkit": "^0.19.1",
-    "prisma": "^6.19.0",
+    "prisma": "^6.19.3",
     "razorpay": "^2.9.6",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
