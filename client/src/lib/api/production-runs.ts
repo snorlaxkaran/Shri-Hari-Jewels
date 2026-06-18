@@ -1,0 +1,65 @@
+import type {
+  NewProductionRunInput,
+  ProductionRun,
+  UpdateProductionRunInput,
+  UpdateProductionRunItemInput,
+} from "@/lib/types";
+import { api } from "./client";
+
+export const fetchProductionRuns = async (): Promise<ProductionRun[]> => {
+  const { data } = await api.get<ProductionRun[]>("/api/production-runs");
+  return data;
+};
+
+export const createProductionRun = async (
+  input: NewProductionRunInput,
+): Promise<ProductionRun> => {
+  const { data } = await api.post<ProductionRun>(
+    "/api/production-runs",
+    input,
+  );
+  return data;
+};
+
+export const updateProductionRun = async (
+  id: string,
+  input: UpdateProductionRunInput,
+): Promise<ProductionRun> => {
+  const { data } = await api.patch<ProductionRun>(
+    `/api/production-runs/${id}`,
+    input,
+  );
+  return data;
+};
+
+export const updateProductionRunItem = async (
+  runId: string,
+  itemId: string,
+  input: UpdateProductionRunItemInput,
+): Promise<ProductionRun> => {
+  const { data } = await api.patch<ProductionRun>(
+    `/api/production-runs/${runId}/items/${itemId}`,
+    input,
+  );
+  return data;
+};
+
+export const deleteProductionRun = async (id: string): Promise<void> => {
+  await api.delete(`/api/production-runs/${id}`);
+};
+
+export const exportProductionRunCsv = async (
+  id: string,
+  runNo: string,
+): Promise<void> => {
+  const { data } = await api.get<string>(`/api/production-runs/${id}/export`, {
+    responseType: "text",
+  });
+  const blob = new Blob([data], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${runNo}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+};

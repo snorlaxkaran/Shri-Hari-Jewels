@@ -19,6 +19,8 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/raw-inventory",
     "/orders",
     "/work-orders",
+    "/designs",
+    "/production-runs",
     "/sales-analytics",
   ],
   SalesManager: [
@@ -30,9 +32,11 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/customers",
     "/sales-analytics",
     "/invoices",
+    "/designs",
+    "/production-runs",
   ],
   Store: ["/dashboard", "/inventory", "/sales", "/customers"],
-  Karigar: ["/dashboard", "/orders", "/work-orders"],
+  Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/production-runs"],
   Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory"],
 };
 
@@ -100,6 +104,27 @@ export const canViewAnalytics = (role: UserRole): boolean =>
 export const canManageSettings = (role: UserRole): boolean => role === "Admin";
 
 export const canManageBranches = (role: UserRole): boolean => role === "Admin";
+
+export const canViewDesigns = (role: UserRole): boolean =>
+  role === "Admin" ||
+  role === "ProductionManager" ||
+  role === "Karigar" ||
+  role === "SalesManager";
+
+export const canManageDesigns = (role: UserRole): boolean =>
+  role === "Admin" || role === "ProductionManager";
+
+export const canViewProductionRuns = (role: UserRole): boolean =>
+  role === "Admin" ||
+  role === "ProductionManager" ||
+  role === "Karigar" ||
+  role === "SalesManager";
+
+export const canManageProductionRuns = (role: UserRole): boolean =>
+  role === "Admin" || role === "ProductionManager";
+
+export const canUpdateProductionRunItems = (role: UserRole): boolean =>
+  role === "Admin" || role === "ProductionManager";
 
 export const isAuthenticatedRole = (role: string): role is UserRole =>
   ALL_ROLES.includes(role as UserRole);

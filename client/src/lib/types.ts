@@ -339,6 +339,117 @@ export type UpdateBranchInput = {
   active?: boolean;
 };
 
+export type DesignCategory =
+  | "Necklace"
+  | "Earring"
+  | "Ring"
+  | "Bracelet"
+  | "Pendant"
+  | "Bangle"
+  | "Other";
+
+export type DesignElementType = "Motif" | "Stone" | "Casting";
+
+export type DesignElement = {
+  id: string;
+  designId: string;
+  name: string;
+  type: DesignElementType;
+  qtyPerSet: number;
+  sortOrder: number;
+};
+
+export type Design = {
+  id: string;
+  code: string;
+  name?: string;
+  category?: DesignCategory;
+  elements: DesignElement[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewDesignElementInput = {
+  name: string;
+  type: DesignElementType;
+  qtyPerSet: number;
+  sortOrder?: number;
+};
+
+export type NewDesignInput = {
+  code: string;
+  name?: string;
+  category?: DesignCategory;
+  elements?: NewDesignElementInput[];
+};
+
+export type UpdateDesignInput = {
+  name?: string | null;
+  category?: DesignCategory | null;
+};
+
+export type UpdateDesignElementInput = {
+  name?: string;
+  type?: DesignElementType;
+  qtyPerSet?: number;
+  sortOrder?: number;
+};
+
+export type ProductionRunStatus =
+  | "Open"
+  | "In Progress"
+  | "Completed"
+  | "Cancelled";
+
+export type ProductionRunItem = {
+  id: string;
+  productionRunId: string;
+  elementName: string;
+  elementType: string;
+  qtyPerSet: number;
+  totalQty: number;
+  productionDate?: string;
+  waxCount?: number;
+  czStones?: number;
+  czWeight?: number;
+  castingReceived: boolean;
+  sortOrder: number;
+};
+
+export type ProductionRun = {
+  id: string;
+  runNo: string;
+  designId: string;
+  designCode: string;
+  designName?: string;
+  designCategory?: string;
+  setsOrdered: number;
+  status: ProductionRunStatus;
+  items: ProductionRunItem[];
+  castingsReceived: number;
+  castingsTotal: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewProductionRunInput = {
+  designId: string;
+  setsOrdered: number;
+};
+
+export type UpdateProductionRunInput = {
+  status?: ProductionRunStatus;
+  setsOrdered?: number;
+};
+
+export type UpdateProductionRunItemInput = {
+  productionDate?: string | null;
+  waxCount?: number | null;
+  czStones?: number | null;
+  czWeight?: number | null;
+  castingReceived?: boolean;
+};
+
 export type RecordSaleResult = {
   sale: Sale;
   invoice?: Invoice;

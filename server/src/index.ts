@@ -14,6 +14,8 @@ import { salesRouter } from "./routes/sales.js";
 import { rawInventoryRouter } from "./routes/raw-inventory.js";
 import { settingsRouter } from "./routes/settings.js";
 import { workOrdersRouter } from "./routes/work-orders.js";
+import { designsRouter } from "./routes/designs.js";
+import { productionRunsRouter } from "./routes/production-runs.js";
 
 const app = express();
 const port = Number(process.env.PORT) || 4000;
@@ -74,6 +76,8 @@ app.use("/api/raw-inventory", rawInventoryRouter);
 app.use("/api/customers", customersRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/work-orders", workOrdersRouter);
+app.use("/api/designs", designsRouter);
+app.use("/api/production-runs", productionRunsRouter);
 app.use("/api/sales", salesRouter);
 app.use("/api/invoices", invoicesRouter);
 app.use("/api/settings", settingsRouter);

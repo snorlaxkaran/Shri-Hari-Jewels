@@ -12,6 +12,8 @@ import {
   Store,
   ArrowRightLeft,
   List,
+  Palette,
+  Factory,
 } from "lucide-react";
 import { createElement } from "react";
 
@@ -42,6 +44,8 @@ export const navSections: NavSection[] = [
       { label: "Sales", href: "/sales", icon: icon(ShoppingCart) },
       { label: "Orders", href: "/orders", icon: icon(ShoppingBag) },
       { label: "Work Orders", href: "/work-orders", icon: icon(Briefcase) },
+      { label: "Designs", href: "/designs", icon: icon(Palette) },
+      { label: "Production Runs", href: "/production-runs", icon: icon(Factory) },
       { label: "Customers", href: "/customers", icon: icon(Users) },
     ],
   },

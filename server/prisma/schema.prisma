@@ -22,7 +22,9 @@ model Branch {
   products    Product[]
   inventoryUnits InventoryUnit[]
   orders      Order[]
-  workOrders  WorkOrder[]
+  workOrders      WorkOrder[]
+  designs         Design[]
+  productionRuns  ProductionRun[]
   sales       Sale[]
   invoices    Invoice[]
   metalLots   MetalLot[]
@@ -191,6 +193,74 @@ model Order {
   @@index([customerId])
   @@index([branchId])
   @@index([status])
+}
+
+model Design {
+  id        String   @id @default(uuid())
+  branchId  String
+  code      String   @unique
+  name      String?
+  category  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branch         Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  elements       DesignElement[]
+  productionRuns ProductionRun[]
+
+  @@index([branchId])
+  @@index([category])
+}
+
+model DesignElement {
+  id        String @id @default(uuid())
+  designId  String
+  name      String
+  type      String
+  qtyPerSet Int
+  sortOrder Int    @default(0)
+
+  design Design @relation(fields: [designId], references: [id], onDelete: Cascade)
+
+  @@index([designId])
+}
+
+model ProductionRun {
+  id          String   @id @default(uuid())
+  branchId    String
+  runNo       String   @unique
+  designId    String
+  setsOrdered Int
+  status      String   @default("Open")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  branch Branch              @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  design Design              @relation(fields: [designId], references: [id], onDelete: Restrict)
+  items  ProductionRunItem[]
+
+  @@index([branchId])
+  @@index([designId])
+  @@index([status])
+}
+
+model ProductionRunItem {
+  id              String    @id @default(uuid())
+  productionRunId String
+  elementName     String
+  elementType     String
+  qtyPerSet       Int
+  totalQty        Int
+  productionDate  DateTime?
+  waxCount        Int?
+  czStones        Int?
+  czWeight        Float?
+  castingReceived Boolean   @default(false)
+  sortOrder       Int       @default(0)
+
+  productionRun ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: Cascade)
+
+  @@index([productionRunId])
 }
 
 model WorkOrder {
