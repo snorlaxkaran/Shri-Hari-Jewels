@@ -16,6 +16,7 @@ import { settingsRouter } from "./routes/settings.js";
 import { workOrdersRouter } from "./routes/work-orders.js";
 import { designsRouter } from "./routes/designs.js";
 import { productionRunsRouter } from "./routes/production-runs.js";
+import { startScheduledJobs } from "./jobs/scheduler.js";
 
 const app = express();
 const port = Number(process.env.PORT) || 4000;
@@ -84,4 +85,5 @@ app.use("/api/settings", settingsRouter);
 
 app.listen(port, () => {
   console.log(`API running at http://localhost:${port}`);
+  startScheduledJobs();
 });
