@@ -1,20 +1,21 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
+import MotifCard from "@/app/(components)/designs/MotifCard";
+import SkuSearchDropdown from "@/app/(components)/designs/SkuSearchDropdown";
 import { useAuth } from "@/lib/auth/auth-context";
-import {
-  canManageDesigns,
-} from "@/lib/auth/permissions";
+import { canManageDesigns } from "@/lib/auth/permissions";
 import { useDesigns } from "@/lib/designs/designs-context";
 import type {
   Design,
   DesignCategory,
   DesignElementType,
   MetalType,
+  NewDesignElementInput,
   Purity,
 } from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/api/client";
@@ -34,690 +35,54 @@ const CATEGORIES: DesignCategory[] = [
   "Other",
 ];
 
-const ELEMENT_TYPES: DesignElementType[] = ["Motif", "Stone", "Casting"];
-
 const METALS: MetalType[] = ["Gold", "Silver", "Platinum", "Rose Gold"];
 const PURITIES: Purity[] = ["24K", "22K", "18K", "14K", "925"];
 
-const inputClass = "input-field w-full px-2 py-1 text-xs";
+const inputClass = "input-field w-full px-3 py-2 text-sm";
 
-function DesignCard({
-  design,
-  canManage,
-  onPatchDesign,
-  onRemoveDesign,
-  onAddElement,
-  onPatchElement,
-  onRemoveElement,
-}: {
-  design: Design;
-  canManage: boolean;
-  onPatchDesign: (
-    id: string,
-    input: {
-      name?: string | null;
-      category?: DesignCategory | null;
-      metal?: MetalType | null;
-      purity?: Purity | null;
-      makingChargesPerSet?: number | null;
-    },
-  ) => Promise<void>;
-  onRemoveDesign: (id: string) => Promise<void>;
-  onAddElement: (
-    designId: string,
-    input: {
-      name: string;
-      type: DesignElementType;
-      qtyPerSet: number;
-      unitValue?: number;
-      weightGramsPerPc?: number;
-    },
-  ) => Promise<void>;
-  onPatchElement: (
-    designId: string,
-    elementId: string,
-    input: {
-      name?: string;
-      type?: DesignElementType;
-      qtyPerSet?: number;
-      unitValue?: number | null;
-      weightGramsPerPc?: number | null;
-    },
-  ) => Promise<void>;
-  onRemoveElement: (designId: string, elementId: string) => Promise<void>;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [name, setName] = useState(design.name ?? "");
-  const [category, setCategory] = useState<DesignCategory | "">(
-    design.category ?? "",
-  );
-  const [metal, setMetal] = useState<MetalType | "">(design.metal ?? "");
-  const [purity, setPurity] = useState<Purity | "">(design.purity ?? "");
-  const [makingChargesPerSet, setMakingChargesPerSet] = useState(
-    design.makingChargesPerSet != null ? String(design.makingChargesPerSet) : "",
-  );
-  const [newElementName, setNewElementName] = useState("");
-  const [newElementType, setNewElementType] =
-    useState<DesignElementType>("Motif");
-  const [newElementQty, setNewElementQty] = useState("1");
-  const [newElementValue, setNewElementValue] = useState("");
-  const [newElementWeight, setNewElementWeight] = useState("");
-  const [elementDrafts, setElementDrafts] = useState<
-    Record<
-      string,
-      {
-        name: string;
-        type: DesignElementType;
-        qtyPerSet: string;
-        unitValue: string;
-        weightGramsPerPc: string;
+type LibraryElement = {
+  key: string;
+  name: string;
+  type: DesignElementType;
+  unitValue?: number;
+  weightGramsPerPc?: number;
+};
+
+function elementKey(type: DesignElementType, name: string) {
+  return `${type}::${name}`;
+}
+
+function buildLibrary(designs: Design[]): LibraryElement[] {
+  const map = new Map<string, LibraryElement>();
+  for (const design of designs) {
+    for (const el of design.elements) {
+      const key = elementKey(el.type, el.name);
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          name: el.name,
+          type: el.type,
+          unitValue: el.unitValue,
+          weightGramsPerPc: el.weightGramsPerPc,
+        });
       }
-    >
-  >({});
-  const [error, setError] = useState("");
-  const [deleting, setDeleting] = useState(false);
-
-  const getElementDraft = (elementId: string, element: Design["elements"][0]) =>
-    elementDrafts[elementId] ?? {
-      name: element.name,
-      type: element.type,
-      qtyPerSet: String(element.qtyPerSet),
-      unitValue:
-        element.unitValue != null ? String(element.unitValue) : "",
-      weightGramsPerPc:
-        element.weightGramsPerPc != null
-          ? String(element.weightGramsPerPc)
-          : "",
-    };
-
-  const handleNameBlur = async () => {
-    if (!canManage) return;
-    const trimmed = name.trim();
-    if (trimmed === (design.name ?? "")) return;
-    try {
-      await onPatchDesign(design.id, { name: trimmed || null });
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to update design."));
-      setName(design.name ?? "");
     }
-  };
+  }
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
 
-  const handleCategoryChange = async (value: DesignCategory | "") => {
-    if (!canManage) return;
-    setCategory(value);
-    try {
-      await onPatchDesign(design.id, { category: value || null });
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to update design."));
-      setCategory(design.category ?? "");
+function estimatePrice(
+  elements: LibraryElement[],
+  makingCharges?: number,
+): number {
+  const component = elements.reduce((sum, el) => {
+    if (el.type === "Casting") {
+      const wt = el.weightGramsPerPc ?? 0;
+      return sum + wt * 5000;
     }
-  };
-
-  const handleMetalChange = async (value: MetalType | "") => {
-    if (!canManage) return;
-    setMetal(value);
-    try {
-      await onPatchDesign(design.id, { metal: value || null });
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to update design."));
-      setMetal(design.metal ?? "");
-    }
-  };
-
-  const handlePurityChange = async (value: Purity | "") => {
-    if (!canManage) return;
-    setPurity(value);
-    try {
-      await onPatchDesign(design.id, { purity: value || null });
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to update design."));
-      setPurity(design.purity ?? "");
-    }
-  };
-
-  const handleMakingChargesBlur = async () => {
-    if (!canManage) return;
-    const parsed =
-      makingChargesPerSet.trim() === ""
-        ? null
-        : parseFloat(makingChargesPerSet);
-    const current = design.makingChargesPerSet ?? null;
-    if (parsed === current) return;
-    if (parsed != null && (Number.isNaN(parsed) || parsed < 0)) {
-      setMakingChargesPerSet(
-        design.makingChargesPerSet != null
-          ? String(design.makingChargesPerSet)
-          : "",
-      );
-      return;
-    }
-    try {
-      await onPatchDesign(design.id, { makingChargesPerSet: parsed });
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to update design."));
-      setMakingChargesPerSet(
-        design.makingChargesPerSet != null
-          ? String(design.makingChargesPerSet)
-          : "",
-      );
-    }
-  };
-
-  const handleElementBlur = async (
-    elementId: string,
-    field: "name" | "type" | "qtyPerSet" | "unitValue" | "weightGramsPerPc",
-  ) => {
-    if (!canManage) return;
-    const element = design.elements.find((e) => e.id === elementId);
-    if (!element) return;
-
-    const draft = getElementDraft(elementId, element);
-    const qty = parseInt(draft.qtyPerSet, 10);
-
-    const updates: {
-      name?: string;
-      type?: DesignElementType;
-      qtyPerSet?: number;
-      unitValue?: number | null;
-      weightGramsPerPc?: number | null;
-    } = {};
-
-    if (field === "name" && draft.name.trim() !== element.name) {
-      updates.name = draft.name.trim();
-    }
-    if (field === "type" && draft.type !== element.type) {
-      updates.type = draft.type;
-    }
-    if (field === "qtyPerSet" && qty !== element.qtyPerSet) {
-      if (!qty || qty < 1) {
-        setElementDrafts((prev) => ({
-          ...prev,
-          [elementId]: {
-            ...draft,
-            qtyPerSet: String(element.qtyPerSet),
-          },
-        }));
-        return;
-      }
-      updates.qtyPerSet = qty;
-    }
-    if (field === "unitValue") {
-      const parsed =
-        draft.unitValue.trim() === "" ? null : parseFloat(draft.unitValue);
-      const current = element.unitValue ?? null;
-      if (parsed === current) return;
-      if (parsed != null && (Number.isNaN(parsed) || parsed < 0)) {
-        setElementDrafts((prev) => ({
-          ...prev,
-          [elementId]: {
-            ...draft,
-            unitValue:
-              element.unitValue != null ? String(element.unitValue) : "",
-          },
-        }));
-        return;
-      }
-      updates.unitValue = parsed;
-    }
-    if (field === "weightGramsPerPc") {
-      const parsed =
-        draft.weightGramsPerPc.trim() === ""
-          ? null
-          : parseFloat(draft.weightGramsPerPc);
-      const current = element.weightGramsPerPc ?? null;
-      if (parsed === current) return;
-      if (parsed != null && (Number.isNaN(parsed) || parsed < 0)) {
-        setElementDrafts((prev) => ({
-          ...prev,
-          [elementId]: {
-            ...draft,
-            weightGramsPerPc:
-              element.weightGramsPerPc != null
-                ? String(element.weightGramsPerPc)
-                : "",
-          },
-        }));
-        return;
-      }
-      updates.weightGramsPerPc = parsed;
-    }
-
-    if (Object.keys(updates).length === 0) return;
-
-    try {
-      await onPatchElement(design.id, elementId, updates);
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to update element."));
-      setElementDrafts((prev) => {
-        const next = { ...prev };
-        delete next[elementId];
-        return next;
-      });
-    }
-  };
-
-  const handleAddElement = async () => {
-    if (!canManage) return;
-    const qty = parseInt(newElementQty, 10);
-    if (!newElementName.trim()) {
-      setError("Element name is required.");
-      return;
-    }
-    if (!qty || qty < 1) {
-      setError("Quantity per set must be at least 1.");
-      return;
-    }
-    setError("");
-    try {
-      const unitValue = newElementValue.trim()
-        ? parseFloat(newElementValue)
-        : undefined;
-      const weightGramsPerPc = newElementWeight.trim()
-        ? parseFloat(newElementWeight)
-        : undefined;
-      await onAddElement(design.id, {
-        name: newElementName.trim(),
-        type: newElementType,
-        qtyPerSet: qty,
-        unitValue,
-        weightGramsPerPc,
-      });
-      setNewElementName("");
-      setNewElementType("Motif");
-      setNewElementQty("1");
-      setNewElementValue("");
-      setNewElementWeight("");
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to add element."));
-    }
-  };
-
-  const handleDeleteDesign = async () => {
-    if (!canManage) return;
-    if (
-      !window.confirm(
-        `Delete design ${design.code}? This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
-    setDeleting(true);
-    try {
-      await onRemoveDesign(design.id);
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to delete design."));
-      setDeleting(false);
-    }
-  };
-
-  const handleDeleteElement = async (elementId: string) => {
-    if (!canManage) return;
-    try {
-      await onRemoveElement(design.id, elementId);
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to delete element."));
-    }
-  };
-
-  return (
-    <div className="surface-card overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-4">
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="p-1 rounded text-zinc-400 hover:text-zinc-600"
-        >
-          {expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-zinc-900">{design.code}</span>
-            {design.category && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600">
-                {design.category}
-              </span>
-            )}
-            <span className="text-xs text-zinc-400">
-              {design.elements.length} element
-              {design.elements.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-        </div>
-        {canManage && (
-          <button
-            onClick={handleDeleteDesign}
-            disabled={deleting}
-            className="p-2 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50"
-            title="Delete design"
-          >
-            <Trash2 size={16} />
-          </button>
-        )}
-      </div>
-
-      {expanded && (
-        <div className="border-t border-zinc-100 px-5 py-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div>
-              <label className="text-xs text-zinc-500 font-medium block mb-1">
-                Name
-              </label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onBlur={handleNameBlur}
-                disabled={!canManage}
-                className={inputClass}
-                placeholder="Optional name"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-zinc-500 font-medium block mb-1">
-                Category
-              </label>
-              <select
-                value={category}
-                onChange={(e) =>
-                  handleCategoryChange(e.target.value as DesignCategory | "")
-                }
-                disabled={!canManage}
-                className={inputClass}
-              >
-                <option value="">None</option>
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-zinc-500 font-medium block mb-1">
-                Metal
-              </label>
-              <select
-                value={metal}
-                onChange={(e) =>
-                  handleMetalChange(e.target.value as MetalType | "")
-                }
-                disabled={!canManage}
-                className={inputClass}
-              >
-                <option value="">Default (Gold)</option>
-                {METALS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-zinc-500 font-medium block mb-1">
-                Purity
-              </label>
-              <select
-                value={purity}
-                onChange={(e) =>
-                  handlePurityChange(e.target.value as Purity | "")
-                }
-                disabled={!canManage}
-                className={inputClass}
-              >
-                <option value="">Default (22K)</option>
-                {PURITIES.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="max-w-xs">
-            <label className="text-xs text-zinc-500 font-medium block mb-1">
-              Making charges per set (INR)
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={makingChargesPerSet}
-              onChange={(e) => setMakingChargesPerSet(e.target.value)}
-              onBlur={handleMakingChargesBlur}
-              disabled={!canManage}
-              className={inputClass}
-              placeholder="0"
-            />
-          </div>
-
-          {error && (
-            <p className="text-xs text-red-500">{error}</p>
-          )}
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-zinc-50 text-zinc-500">
-                  <th className="text-left px-3 py-2 font-medium">Element</th>
-                  <th className="text-left px-3 py-2 font-medium w-28">Type</th>
-                  <th className="text-left px-3 py-2 font-medium w-20">
-                    Qty/Set
-                  </th>
-                  <th className="text-left px-3 py-2 font-medium w-24">
-                    Value/pc
-                  </th>
-                  <th className="text-left px-3 py-2 font-medium w-24">
-                    Wt/pc (g)
-                  </th>
-                  {canManage && (
-                    <th className="text-left px-3 py-2 font-medium w-12" />
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {design.elements.map((element) => {
-                  const draft = getElementDraft(element.id, element);
-                  return (
-                    <tr
-                      key={element.id}
-                      className="border-t border-zinc-100"
-                    >
-                      <td className="px-3 py-2">
-                        <input
-                          value={draft.name}
-                          onChange={(e) =>
-                            setElementDrafts((prev) => ({
-                              ...prev,
-                              [element.id]: {
-                                ...draft,
-                                name: e.target.value,
-                              },
-                            }))
-                          }
-                          onBlur={() => handleElementBlur(element.id, "name")}
-                          disabled={!canManage}
-                          className={inputClass}
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <select
-                          value={draft.type}
-                          onChange={(e) => {
-                            const type = e.target.value as DesignElementType;
-                            setElementDrafts((prev) => ({
-                              ...prev,
-                              [element.id]: { ...draft, type },
-                            }));
-                            if (canManage) {
-                              void onPatchElement(design.id, element.id, {
-                                type,
-                              });
-                            }
-                          }}
-                          disabled={!canManage}
-                          className={inputClass}
-                        >
-                          {ELEMENT_TYPES.map((t) => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          type="number"
-                          min={1}
-                          value={draft.qtyPerSet}
-                          onChange={(e) =>
-                            setElementDrafts((prev) => ({
-                              ...prev,
-                              [element.id]: {
-                                ...draft,
-                                qtyPerSet: e.target.value,
-                              },
-                            }))
-                          }
-                          onBlur={() =>
-                            handleElementBlur(element.id, "qtyPerSet")
-                          }
-                          disabled={!canManage}
-                          className={inputClass}
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          type="number"
-                          min={0}
-                          value={draft.unitValue}
-                          onChange={(e) =>
-                            setElementDrafts((prev) => ({
-                              ...prev,
-                              [element.id]: {
-                                ...draft,
-                                unitValue: e.target.value,
-                              },
-                            }))
-                          }
-                          onBlur={() =>
-                            handleElementBlur(element.id, "unitValue")
-                          }
-                          disabled={!canManage}
-                          className={inputClass}
-                          placeholder="Motif/Stone"
-                          title="Unit value in INR (motifs & stones)"
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          value={draft.weightGramsPerPc}
-                          onChange={(e) =>
-                            setElementDrafts((prev) => ({
-                              ...prev,
-                              [element.id]: {
-                                ...draft,
-                                weightGramsPerPc: e.target.value,
-                              },
-                            }))
-                          }
-                          onBlur={() =>
-                            handleElementBlur(element.id, "weightGramsPerPc")
-                          }
-                          disabled={!canManage}
-                          className={inputClass}
-                          placeholder="Casting"
-                          title="Weight per piece in grams (casting)"
-                        />
-                      </td>
-                      {canManage && (
-                        <td className="px-3 py-2">
-                          <button
-                            onClick={() => handleDeleteElement(element.id)}
-                            className="p-1 rounded text-zinc-400 hover:text-red-500"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-                {design.elements.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={canManage ? 6 : 5}
-                      className="px-3 py-4 text-center text-zinc-400 text-xs"
-                    >
-                      No elements yet. Add components to the bill of materials.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {canManage && (
-            <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-zinc-100">
-              <div className="flex-1 min-w-[140px]">
-                <input
-                  value={newElementName}
-                  onChange={(e) => setNewElementName(e.target.value)}
-                  className={inputClass}
-                  placeholder="Element name"
-                />
-              </div>
-              <select
-                value={newElementType}
-                onChange={(e) =>
-                  setNewElementType(e.target.value as DesignElementType)
-                }
-                className={`${inputClass} w-28`}
-              >
-                {ELEMENT_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                min={1}
-                value={newElementQty}
-                onChange={(e) => setNewElementQty(e.target.value)}
-                className={`${inputClass} w-16`}
-                placeholder="Qty"
-              />
-              <input
-                type="number"
-                min={0}
-                value={newElementValue}
-                onChange={(e) => setNewElementValue(e.target.value)}
-                className={`${inputClass} w-24`}
-                placeholder="₹/pc"
-              />
-              <input
-                type="number"
-                min={0}
-                step={0.01}
-                value={newElementWeight}
-                onChange={(e) => setNewElementWeight(e.target.value)}
-                className={`${inputClass} w-24`}
-                placeholder="g/pc"
-              />
-              <button
-                onClick={handleAddElement}
-                className="btn-secondary px-3 py-1.5 text-xs flex items-center gap-1"
-              >
-                <Plus size={14} />
-                Add Element
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+    return sum + (el.unitValue ?? 0);
+  }, 0);
+  return component + (makingCharges ?? 0);
 }
 
 export default function DesignsPage() {
@@ -732,22 +97,269 @@ export default function DesignsPage() {
     patchDesign,
     removeDesign,
     addElement,
-    patchElement,
     removeElement,
   } = useDesigns();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [search, setSearch] = useState("");
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return designs;
-    return designs.filter(
-      (d) =>
-        d.code.toLowerCase().includes(q) ||
-        d.name?.toLowerCase().includes(q) ||
-        d.category?.toLowerCase().includes(q),
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [activeMotifKeys, setActiveMotifKeys] = useState<Set<string>>(new Set());
+  const [extraMotifKeys, setExtraMotifKeys] = useState<Set<string>>(new Set());
+  const [stonePick, setStonePick] = useState<Record<string, string>>({});
+  const [castingPick, setCastingPick] = useState<Record<string, string>>({});
+  const [category, setCategory] = useState<DesignCategory | "">("");
+  const [metal, setMetal] = useState<MetalType | "">("");
+  const [purity, setPurity] = useState<Purity | "">("");
+  const [makingCharges, setMakingCharges] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const library = useMemo(() => buildLibrary(designs), [designs]);
+
+  const selectedDesign = useMemo(
+    () => designs.find((d) => d.id === selectedId) ?? null,
+    [designs, selectedId],
+  );
+
+  const syncFromDesign = useCallback((design: Design) => {
+    const motifs = design.elements.filter((e) => e.type === "Motif");
+    setActiveMotifKeys(
+      new Set(motifs.map((m) => elementKey(m.type, m.name))),
     );
-  }, [designs, search]);
+    setExtraMotifKeys(new Set());
+
+    const stones: Record<string, string> = {};
+    design.elements
+      .filter((e) => e.type === "Stone")
+      .forEach((e) => {
+        stones[e.id] = elementKey(e.type, e.name);
+      });
+    setStonePick(stones);
+
+    const castings: Record<string, string> = {};
+    design.elements
+      .filter((e) => e.type === "Casting")
+      .forEach((e) => {
+        castings[e.id] = elementKey(e.type, e.name);
+      });
+    setCastingPick(castings);
+
+    setCategory(design.category ?? "");
+    setMetal(design.metal ?? "");
+    setPurity(design.purity ?? "");
+    setMakingCharges(
+      design.makingChargesPerSet != null
+        ? String(design.makingChargesPerSet)
+        : "",
+    );
+    setSaveError("");
+  }, []);
+
+  useEffect(() => {
+    if (selectedDesign) syncFromDesign(selectedDesign);
+  }, [selectedDesign, syncFromDesign]);
+
+  const originalMotifs = useMemo(() => {
+    if (!selectedDesign) return [];
+    return selectedDesign.elements.filter((e) => e.type === "Motif");
+  }, [selectedDesign]);
+
+  const libraryMotifs = useMemo(() => {
+    const inDesign = new Set(
+      originalMotifs.map((m) => elementKey(m.type, m.name)),
+    );
+    return library.filter((el) => el.type === "Motif" && !inDesign.has(el.key));
+  }, [library, originalMotifs]);
+
+  const stoneElements = useMemo(() => {
+    if (!selectedDesign) return [];
+    return selectedDesign.elements.filter((e) => e.type === "Stone");
+  }, [selectedDesign]);
+
+  const castingElements = useMemo(() => {
+    if (!selectedDesign) return [];
+    return selectedDesign.elements.filter((e) => e.type === "Casting");
+  }, [selectedDesign]);
+
+  const stoneOptions = useMemo(
+    () => library.filter((el) => el.type === "Stone"),
+    [library],
+  );
+
+  const castingOptions = useMemo(
+    () => library.filter((el) => el.type === "Casting"),
+    [library],
+  );
+
+  const previewElements = useMemo((): LibraryElement[] => {
+    const items: LibraryElement[] = [];
+
+    for (const key of activeMotifKeys) {
+      const el = library.find((l) => l.key === key);
+      if (el) items.push(el);
+    }
+    for (const key of extraMotifKeys) {
+      const el = library.find((l) => l.key === key);
+      if (el) items.push(el);
+    }
+    for (const key of Object.values(stonePick)) {
+      const el = library.find((l) => l.key === key);
+      if (el) items.push(el);
+    }
+    for (const key of Object.values(castingPick)) {
+      const el = library.find((l) => l.key === key);
+      if (el) items.push(el);
+    }
+    return items;
+  }, [
+    library,
+    activeMotifKeys,
+    extraMotifKeys,
+    stonePick,
+    castingPick,
+  ]);
+
+  const parsedMaking = makingCharges.trim()
+    ? parseFloat(makingCharges)
+    : undefined;
+  const estimatedPrice = estimatePrice(
+    previewElements,
+    parsedMaking,
+  );
+
+  const handleSelectDesign = (design: Design) => {
+    setSelectedId(design.id);
+  };
+
+  const toggleMotif = (key: string, isOriginal: boolean) => {
+    if (!canManage) return;
+    if (isOriginal) {
+      setActiveMotifKeys((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      });
+    } else {
+      setExtraMotifKeys((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      });
+    }
+  };
+
+  const buildTargetElements = (): NewDesignElementInput[] => {
+    const result: NewDesignElementInput[] = [];
+
+    for (const key of activeMotifKeys) {
+      const el = library.find((l) => l.key === key);
+      if (el) {
+        result.push({
+          name: el.name,
+          type: "Motif",
+          qtyPerSet: 1,
+          unitValue: el.unitValue,
+        });
+      }
+    }
+    for (const key of extraMotifKeys) {
+      const el = library.find((l) => l.key === key);
+      if (el) {
+        result.push({
+          name: el.name,
+          type: "Motif",
+          qtyPerSet: 1,
+          unitValue: el.unitValue,
+        });
+      }
+    }
+    for (const key of Object.values(stonePick)) {
+      const el = library.find((l) => l.key === key);
+      if (el) {
+        result.push({
+          name: el.name,
+          type: "Stone",
+          qtyPerSet: 1,
+          unitValue: el.unitValue,
+        });
+      }
+    }
+    for (const key of Object.values(castingPick)) {
+      const el = library.find((l) => l.key === key);
+      if (el) {
+        result.push({
+          name: el.name,
+          type: "Casting",
+          qtyPerSet: 1,
+          weightGramsPerPc: el.weightGramsPerPc,
+        });
+      }
+    }
+    return result;
+  };
+
+  const handleSaveJewelry = async () => {
+    if (!selectedDesign || !canManage) return;
+    setSaving(true);
+    setSaveError("");
+
+    try {
+      const making =
+        makingCharges.trim() === ""
+          ? null
+          : parseFloat(makingCharges);
+      if (making != null && (Number.isNaN(making) || making < 0)) {
+        setSaveError("Invalid making charges.");
+        setSaving(false);
+        return;
+      }
+
+      await patchDesign(selectedDesign.id, {
+        category: category || null,
+        metal: metal || null,
+        purity: purity || null,
+        makingChargesPerSet: making,
+      });
+
+      const target = buildTargetElements();
+      const current = selectedDesign.elements;
+
+      const targetKeys = new Set(
+        target.map((t) => elementKey(t.type, t.name)),
+      );
+      const currentKeys = new Map(
+        current.map((e) => [elementKey(e.type, e.name), e]),
+      );
+
+      for (const [key, el] of currentKeys) {
+        if (!targetKeys.has(key)) {
+          await removeElement(selectedDesign.id, el.id);
+        }
+      }
+
+      for (const t of target) {
+        const key = elementKey(t.type, t.name);
+        if (!currentKeys.has(key)) {
+          await addElement(selectedDesign.id, t);
+        }
+      }
+    } catch (err) {
+      setSaveError(getApiErrorMessage(err, "Failed to save jewelry."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCreateDesign = async (input: {
+    code: string;
+    name?: string;
+    category?: DesignCategory;
+  }) => {
+    const design = await addDesign(input);
+    setSelectedId(design.id);
+    setModalOpen(false);
+  };
 
   if (!hydrated || loading) {
     return <PageSkeleton />;
@@ -756,29 +368,9 @@ export default function DesignsPage() {
   return (
     <div>
       <PageHeader
-        title="Design Library"
-        subtitle="Jewellery patterns and bill of materials"
-        action={
-          canManage ? (
-            <button
-              onClick={() => setModalOpen(true)}
-              className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
-            >
-              <Plus size={16} />
-              New Design
-            </button>
-          ) : undefined
-        }
+        title="Design Builder"
+        subtitle="Select a SKU, customize motifs & components, build jewellery"
       />
-
-      <div className="mb-4">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="input-field w-full max-w-sm px-3 py-2 text-sm"
-          placeholder="Search by code, name, or category…"
-        />
-      </div>
 
       {error && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">
@@ -786,36 +378,341 @@ export default function DesignsPage() {
         </div>
       )}
 
-      {filtered.length === 0 ? (
-        <div className="surface-card px-5 py-8 text-center">
-          <p className="text-sm text-zinc-400">
+      <div className="mb-8">
+        <SkuSearchDropdown
+          designs={designs}
+          selectedId={selectedId}
+          onSelect={handleSelectDesign}
+          onCreateNew={() => setModalOpen(true)}
+          disabled={!canManage && designs.length === 0}
+        />
+      </div>
+
+      {!selectedDesign ? (
+        <div className="surface-card px-5 py-12 text-center rounded-xl">
+          <p className="text-sm text-zinc-500">
             {designs.length === 0
-              ? "No designs yet. Create your first jewellery pattern."
-              : "No designs match your search."}
+              ? "No SKUs yet. Create your first design pattern."
+              : "Select a SKU above to load motifs and start building."}
           </p>
+          {canManage && designs.length === 0 && (
+            <button
+              onClick={() => setModalOpen(true)}
+              className="btn-primary mt-4 px-4 py-2 text-sm"
+            >
+              Create first SKU
+            </button>
+          )}
         </div>
       ) : (
-        <div className="space-y-3">
-          {filtered.map((design) => (
-            <DesignCard
-              key={design.id}
-              design={design}
-              canManage={canManage}
-              onPatchDesign={async (id, input) => {
-                await patchDesign(id, input);
-              }}
-              onRemoveDesign={removeDesign}
-              onAddElement={async (designId, input) => {
-                await addElement(designId, input);
-              }}
-              onPatchElement={async (designId, elementId, input) => {
-                await patchElement(designId, elementId, input);
-              }}
-              onRemoveElement={async (designId, elementId) => {
-                await removeElement(designId, elementId);
-              }}
-            />
-          ))}
+        <div className="space-y-8">
+          {/* Original motifs */}
+          <section>
+            <h2 className="text-sm font-semibold text-zinc-700 mb-3">
+              Motifs for {selectedDesign.code}
+            </h2>
+            {originalMotifs.length === 0 ? (
+              <p className="text-sm text-zinc-400">
+                No motifs on this SKU yet. Add from the library below.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-4">
+                {originalMotifs.map((motif) => {
+                  const key = elementKey(motif.type, motif.name);
+                  return (
+                    <MotifCard
+                      key={motif.id}
+                      name={motif.name}
+                      type="Motif"
+                      price={motif.unitValue}
+                      selected={activeMotifKeys.has(key)}
+                      onClick={() => toggleMotif(key, true)}
+                      disabled={!canManage}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* Extra motifs from library */}
+          {libraryMotifs.length > 0 && (
+            <section>
+              <h2 className="text-sm font-semibold text-zinc-700 mb-3">
+                Add motifs from library
+              </h2>
+              <div className="flex flex-wrap gap-4">
+                {libraryMotifs.map((motif) => (
+                  <MotifCard
+                    key={motif.key}
+                    name={motif.name}
+                    type="Motif"
+                    price={motif.unitValue}
+                    selected={extraMotifKeys.has(motif.key)}
+                    onClick={() => toggleMotif(motif.key, false)}
+                    disabled={!canManage}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Stones & Casting dropdowns */}
+          {(stoneElements.length > 0 ||
+            castingElements.length > 0 ||
+            stoneOptions.length > 0 ||
+            castingOptions.length > 0) && (
+            <section className="surface-card rounded-xl p-5 space-y-4">
+              <h2 className="text-sm font-semibold text-zinc-700">
+                Stones & casting
+              </h2>
+
+              {stoneElements.map((stone) => (
+                <div key={stone.id} className="grid sm:grid-cols-2 gap-2 items-center">
+                  <label className="text-sm text-zinc-600">Stone</label>
+                  <select
+                    value={stonePick[stone.id] ?? elementKey(stone.type, stone.name)}
+                    onChange={(e) =>
+                      setStonePick((prev) => ({
+                        ...prev,
+                        [stone.id]: e.target.value,
+                      }))
+                    }
+                    disabled={!canManage}
+                    className={inputClass}
+                  >
+                    {stoneOptions.map((opt) => (
+                      <option key={opt.key} value={opt.key}>
+                        {opt.name}
+                        {opt.unitValue != null
+                          ? ` — ₹${opt.unitValue.toLocaleString("en-IN")}`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+
+              {stoneElements.length === 0 && stoneOptions.length > 0 && canManage && (
+                <div className="grid sm:grid-cols-2 gap-2 items-center">
+                  <label className="text-sm text-zinc-600">Add stone</label>
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      const id = `new-stone-${Date.now()}`;
+                      setStonePick((prev) => ({
+                        ...prev,
+                        [id]: e.target.value,
+                      }));
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="">Choose a stone…</option>
+                    {stoneOptions.map((opt) => (
+                      <option key={opt.key} value={opt.key}>
+                        {opt.name}
+                        {opt.unitValue != null
+                          ? ` — ₹${opt.unitValue.toLocaleString("en-IN")}`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {castingElements.map((casting) => (
+                <div key={casting.id} className="grid sm:grid-cols-2 gap-2 items-center">
+                  <label className="text-sm text-zinc-600">Casting</label>
+                  <select
+                    value={
+                      castingPick[casting.id] ??
+                      elementKey(casting.type, casting.name)
+                    }
+                    onChange={(e) =>
+                      setCastingPick((prev) => ({
+                        ...prev,
+                        [casting.id]: e.target.value,
+                      }))
+                    }
+                    disabled={!canManage}
+                    className={inputClass}
+                  >
+                    {castingOptions.map((opt) => (
+                      <option key={opt.key} value={opt.key}>
+                        {opt.name}
+                        {opt.weightGramsPerPc != null
+                          ? ` — ${opt.weightGramsPerPc}g`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+
+              {castingElements.length === 0 &&
+                castingOptions.length > 0 &&
+                canManage && (
+                  <div className="grid sm:grid-cols-2 gap-2 items-center">
+                    <label className="text-sm text-zinc-600">Add casting</label>
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        if (!e.target.value) return;
+                        const id = `new-casting-${Date.now()}`;
+                        setCastingPick((prev) => ({
+                          ...prev,
+                          [id]: e.target.value,
+                        }));
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="">Choose casting…</option>
+                      {castingOptions.map((opt) => (
+                        <option key={opt.key} value={opt.key}>
+                          {opt.name}
+                          {opt.weightGramsPerPc != null
+                            ? ` — ${opt.weightGramsPerPc}g`
+                            : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+            </section>
+          )}
+
+          {/* Metal & pricing */}
+          <section className="surface-card rounded-xl p-5 space-y-4">
+            <h2 className="text-sm font-semibold text-zinc-700">
+              Metal & pricing
+            </h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="text-xs text-zinc-500 font-medium block mb-1">
+                  Category
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) =>
+                    setCategory(e.target.value as DesignCategory | "")
+                  }
+                  disabled={!canManage}
+                  className={inputClass}
+                >
+                  <option value="">None</option>
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500 font-medium block mb-1">
+                  Metal
+                </label>
+                <select
+                  value={metal}
+                  onChange={(e) =>
+                    setMetal(e.target.value as MetalType | "")
+                  }
+                  disabled={!canManage}
+                  className={inputClass}
+                >
+                  <option value="">Gold</option>
+                  {METALS.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500 font-medium block mb-1">
+                  Purity
+                </label>
+                <select
+                  value={purity}
+                  onChange={(e) =>
+                    setPurity(e.target.value as Purity | "")
+                  }
+                  disabled={!canManage}
+                  className={inputClass}
+                >
+                  <option value="">22K</option>
+                  {PURITIES.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500 font-medium block mb-1">
+                  Making charges (₹)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={makingCharges}
+                  onChange={(e) => setMakingCharges(e.target.value)}
+                  disabled={!canManage}
+                  className={inputClass}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-zinc-100">
+              <div>
+                <p className="text-xs text-zinc-500">Estimated price</p>
+                <p className="text-2xl font-semibold text-zinc-900">
+                  ₹{estimatedPrice.toLocaleString("en-IN")}
+                </p>
+                <p className="text-xs text-zinc-400 mt-1">
+                  {previewElements.length} component
+                  {previewElements.length !== 1 ? "s" : ""} selected
+                </p>
+              </div>
+
+              {canManage && (
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Delete SKU ${selectedDesign.code}? This cannot be undone.`,
+                        )
+                      ) {
+                        void (async () => {
+                          try {
+                            await removeDesign(selectedDesign.id);
+                            setSelectedId(null);
+                          } catch (err) {
+                            setSaveError(
+                              getApiErrorMessage(err, "Failed to delete SKU."),
+                            );
+                          }
+                        })();
+                      }
+                    }}
+                    className="btn-secondary px-4 py-2 text-sm flex items-center gap-2 text-red-600"
+                  >
+                    <Trash2 size={16} />
+                    Delete SKU
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveJewelry}
+                    disabled={saving}
+                    className="btn-primary px-6 py-2 text-sm"
+                  >
+                    {saving ? "Saving…" : "Save jewellery"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {saveError && (
+              <p className="text-xs text-red-500">{saveError}</p>
+            )}
+          </section>
         </div>
       )}
 
@@ -823,9 +720,7 @@ export default function DesignsPage() {
         <AddDesignModal
           open={modalOpen}
           onClose={() => setModalOpen(false)}
-          onSubmit={async (input) => {
-            await addDesign(input);
-          }}
+          onSubmit={handleCreateDesign}
         />
       )}
     </div>
