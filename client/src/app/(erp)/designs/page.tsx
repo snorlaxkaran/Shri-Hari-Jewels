@@ -54,6 +54,7 @@ type LibraryElement = {
   type: DesignElementType;
   unitValue?: number;
   weightGramsPerPc?: number;
+  qtyPerSet?: number;
 };
 
 function elementKey(type: DesignElementType, name: string) {
@@ -84,11 +85,12 @@ function estimatePrice(
   makingCharges?: number,
 ): number {
   const component = elements.reduce((sum, el) => {
+    const qty = el.qtyPerSet ?? 1;
     if (el.type === "Casting") {
       const wt = el.weightGramsPerPc ?? 0;
-      return sum + wt * 5000;
+      return sum + wt * 5000 * qty;
     }
-    return sum + (el.unitValue ?? 0);
+    return sum + (el.unitValue ?? 0) * qty;
   }, 0);
   return component + (makingCharges ?? 0);
 }
@@ -106,6 +108,7 @@ export default function DesignsPage() {
     removeDesign,
     addElement,
     removeElement,
+    patchElement,
   } = useDesigns();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -115,7 +118,7 @@ export default function DesignsPage() {
   const [motifsLoading, setMotifsLoading] = useState(true);
   const [motifsError, setMotifsError] = useState<string | null>(null);
   const [motifSearch, setMotifSearch] = useState("");
-  const [activeMotifKeys, setActiveMotifKeys] = useState<Set<string>>(new Set());
+  const [motifQuantities, setMotifQuantities] = useState<Record<string, number>>({});
   const [stonePick, setStonePick] = useState<Record<string, string>>({});
   const [castingPick, setCastingPick] = useState<Record<string, string>>({});
   const [category, setCategory] = useState<DesignCategory | "">("");
@@ -163,7 +166,15 @@ export default function DesignsPage() {
     );
   }, [motifs, motifSearch]);
 
-  const selectedMotifKeys = activeMotifKeys;
+  const selectedMotifCount = useMemo(
+    () => Object.values(motifQuantities).filter((q) => q > 0).length,
+    [motifQuantities],
+  );
+
+  const totalMotifPieces = useMemo(
+    () => Object.values(motifQuantities).reduce((sum, q) => sum + q, 0),
+    [motifQuantities],
+  );
 
   const selectedDesign = useMemo(
     () => designs.find((d) => d.id === selectedId) ?? null,
@@ -171,10 +182,13 @@ export default function DesignsPage() {
   );
 
   const syncFromDesign = useCallback((design: Design) => {
-    const motifsOnDesign = design.elements.filter((e) => e.type === "Motif");
-    setActiveMotifKeys(
-      new Set(motifsOnDesign.map((m) => elementKey(m.type, m.name))),
-    );
+    const quantities: Record<string, number> = {};
+    design.elements
+      .filter((e) => e.type === "Motif")
+      .forEach((m) => {
+        quantities[elementKey(m.type, m.name)] = m.qtyPerSet;
+      });
+    setMotifQuantities(quantities);
 
     const stones: Record<string, string> = {};
     design.elements
@@ -230,7 +244,8 @@ export default function DesignsPage() {
   const previewElements = useMemo((): LibraryElement[] => {
     const items: LibraryElement[] = [];
 
-    for (const key of selectedMotifKeys) {
+    for (const [key, qty] of Object.entries(motifQuantities)) {
+      if (qty < 1) continue;
       const motif = motifByKey.get(key);
       if (motif) {
         items.push({
@@ -238,28 +253,35 @@ export default function DesignsPage() {
           name: motif.name,
           type: "Motif",
           unitValue: motif.price,
+          qtyPerSet: qty,
         });
         continue;
       }
       const el = library.find((l) => l.key === key);
-      if (el) items.push(el);
+      if (el) items.push({ ...el, qtyPerSet: qty });
     }
     for (const key of Object.values(stonePick)) {
       const el = library.find((l) => l.key === key);
-      if (el) items.push(el);
+      if (el) items.push({ ...el, qtyPerSet: 1 });
     }
     for (const key of Object.values(castingPick)) {
       const el = library.find((l) => l.key === key);
-      if (el) items.push(el);
+      if (el) items.push({ ...el, qtyPerSet: 1 });
     }
     return items;
   }, [
     library,
-    selectedMotifKeys,
+    motifQuantities,
     motifByKey,
     stonePick,
     castingPick,
   ]);
+
+  const totalComponentPieces = useMemo(
+    () =>
+      previewElements.reduce((sum, el) => sum + (el.qtyPerSet ?? 1), 0),
+    [previewElements],
+  );
 
   const parsedMaking = makingCharges.trim()
     ? parseFloat(makingCharges)
@@ -273,12 +295,13 @@ export default function DesignsPage() {
     setSelectedId(design.id);
   };
 
-  const toggleMotif = (key: string) => {
+  const setMotifQuantity = (key: string, qty: number) => {
     if (!canManage) return;
-    setActiveMotifKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+    const nextQty = Math.max(0, Math.floor(qty));
+    setMotifQuantities((prev) => {
+      const next = { ...prev };
+      if (nextQty === 0) delete next[key];
+      else next[key] = nextQty;
       return next;
     });
   };
@@ -286,13 +309,14 @@ export default function DesignsPage() {
   const buildTargetElements = (): NewDesignElementInput[] => {
     const result: NewDesignElementInput[] = [];
 
-    for (const key of selectedMotifKeys) {
+    for (const [key, qty] of Object.entries(motifQuantities)) {
+      if (qty < 1) continue;
       const motif = motifByKey.get(key);
       if (motif) {
         result.push({
           name: motif.name,
           type: "Motif",
-          qtyPerSet: 1,
+          qtyPerSet: qty,
           unitValue: motif.price,
         });
         continue;
@@ -302,7 +326,7 @@ export default function DesignsPage() {
         result.push({
           name: el.name,
           type: "Motif",
-          qtyPerSet: 1,
+          qtyPerSet: qty,
           unitValue: el.unitValue,
         });
       }
@@ -373,8 +397,17 @@ export default function DesignsPage() {
 
       for (const t of target) {
         const key = elementKey(t.type, t.name);
-        if (!currentKeys.has(key)) {
+        const existing = currentKeys.get(key);
+        if (!existing) {
           await addElement(selectedDesign.id, t);
+        } else if (
+          existing.qtyPerSet !== t.qtyPerSet ||
+          existing.unitValue !== t.unitValue
+        ) {
+          await patchElement(selectedDesign.id, existing.id, {
+            qtyPerSet: t.qtyPerSet,
+            unitValue: t.unitValue,
+          });
         }
       }
     } catch (err) {
@@ -410,7 +443,10 @@ export default function DesignsPage() {
     });
     const key = elementKey(input.type, input.name);
     if (input.type === "Motif") {
-      setActiveMotifKeys((prev) => new Set(prev).add(key));
+      setMotifQuantities((prev) => ({
+        ...prev,
+        [key]: prev[key] ? prev[key] + 1 : 1,
+      }));
     }
   };
 
@@ -474,8 +510,8 @@ export default function DesignsPage() {
                 </h2>
                 <p className="text-xs text-zinc-500 mt-0.5">
                   Select motifs for {selectedDesign.code}
-                  {selectedMotifKeys.size > 0 &&
-                    ` · ${selectedMotifKeys.size} selected`}
+                  {totalMotifPieces > 0 &&
+                    ` · ${totalMotifPieces} piece${totalMotifPieces !== 1 ? "s" : ""} across ${selectedMotifCount} motif${selectedMotifCount !== 1 ? "s" : ""}`}
                 </p>
               </div>
               <input
@@ -517,8 +553,8 @@ export default function DesignsPage() {
                       price={motif.price}
                       imageUrl={motif.imageUrl}
                       subtitle={`${motif.metal} · ${motif.subCategory}`}
-                      selected={selectedMotifKeys.has(key)}
-                      onClick={() => toggleMotif(key)}
+                      quantity={motifQuantities[key] ?? 0}
+                      onQuantityChange={(qty) => setMotifQuantity(key, qty)}
                       disabled={!canManage}
                     />
                   );
@@ -738,8 +774,10 @@ export default function DesignsPage() {
                   ₹{estimatedPrice.toLocaleString("en-IN")}
                 </p>
                 <p className="text-xs text-zinc-400 mt-1">
+                  {totalComponentPieces} piece
+                  {totalComponentPieces !== 1 ? "s" : ""} across{" "}
                   {previewElements.length} component
-                  {previewElements.length !== 1 ? "s" : ""} selected
+                  {previewElements.length !== 1 ? "s" : ""}
                 </p>
               </div>
 
