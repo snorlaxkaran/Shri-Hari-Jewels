@@ -14,6 +14,10 @@ import type {
   MetalType,
   Purity,
 } from "../../types.js";
+import {
+  isValidDesignMetal,
+  isValidDesignPurity,
+} from "../designs/validation.js";
 import { ProductionRunError } from "./errors.js";
 
 type TransactionClient = Prisma.TransactionClient;
@@ -77,8 +81,18 @@ export const buildFinishedGoodsFromRun = (
   price: number;
   priceBreakdown: JewelryPriceBreakdown;
 } => {
-  const metal = (run.design.metal as MetalType) || "Gold";
-  const purity = (run.design.purity as Purity) || "22K";
+  if (!run.design.metal || !isValidDesignMetal(run.design.metal)) {
+    throw new ProductionRunError(
+      "Design metal is not set. Update the design before completing this run.",
+    );
+  }
+  if (!run.design.purity || !isValidDesignPurity(run.design.purity)) {
+    throw new ProductionRunError(
+      "Design purity is not set. Update the design before completing this run.",
+    );
+  }
+  const metal = run.design.metal;
+  const purity = run.design.purity;
   const makingChargesPerSet =
     run.design.makingChargesPerSet != null
       ? moneyToNumber(String(run.design.makingChargesPerSet))

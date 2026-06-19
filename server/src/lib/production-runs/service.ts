@@ -10,6 +10,10 @@ import type {
   UpdateProductionRunInput,
   UpdateProductionRunItemInput,
 } from "../../types.js";
+import {
+  isValidDesignMetal,
+  isValidDesignPurity,
+} from "../designs/validation.js";
 import { generateProductionRunNo } from "./run-no.js";
 import {
   deductPendingRawMaterialForRunInTx,
@@ -155,6 +159,16 @@ export const createProductionRun = async (
   if (design.elements.length === 0) {
     throw new ProductionRunError(
       "Design has no elements. Add a bill of materials first.",
+    );
+  }
+  if (!design.metal || !isValidDesignMetal(design.metal)) {
+    throw new ProductionRunError(
+      "Design metal must be set before starting a production run.",
+    );
+  }
+  if (!design.purity || !isValidDesignPurity(design.purity)) {
+    throw new ProductionRunError(
+      "Design purity must be set before starting a production run.",
     );
   }
 

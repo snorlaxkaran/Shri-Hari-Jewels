@@ -10,6 +10,10 @@ import type {
   UpdateDesignElementInput,
   UpdateDesignInput,
 } from "../../types.js";
+import {
+  isValidDesignMetal,
+  isValidDesignPurity,
+} from "./validation.js";
 
 export const DESIGN_CATEGORIES: DesignCategory[] = [
   "Necklace",
@@ -161,6 +165,24 @@ export const updateDesign = async (
     throw new DesignError("Invalid design category.");
   }
 
+  if (input.metal !== undefined && input.metal !== null && !isValidDesignMetal(input.metal)) {
+    throw new DesignError("Invalid metal type.");
+  }
+  if (
+    input.purity !== undefined &&
+    input.purity !== null &&
+    !isValidDesignPurity(input.purity)
+  ) {
+    throw new DesignError("Invalid purity.");
+  }
+  if (
+    input.makingChargesPerSet !== undefined &&
+    input.makingChargesPerSet !== null &&
+    input.makingChargesPerSet < 0
+  ) {
+    throw new DesignError("Making charges cannot be negative.");
+  }
+
   const design = await prisma.design.update({
     where: { id },
     data: {
@@ -294,6 +316,13 @@ export const deleteDesignElement = async (
     where: { id: elementId, designId },
   });
   if (!element) throw new DesignError("Design element not found.", 404);
+
+  const elementCount = await prisma.designElement.count({ where: { designId } });
+  if (elementCount <= 1) {
+    throw new DesignError(
+      "Design must have at least one element. Add a motif or component before removing the last one.",
+    );
+  }
 
   await prisma.designElement.delete({ where: { id: elementId } });
 

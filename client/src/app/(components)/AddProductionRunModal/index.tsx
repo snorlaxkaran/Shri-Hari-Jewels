@@ -10,6 +10,7 @@ type AddProductionRunModalProps = {
   onClose: () => void;
   designs: Design[];
   onSubmit: (input: NewProductionRunInput) => Promise<void>;
+  initialDesignId?: string;
 };
 
 const fieldClass = "input-field w-full px-3 py-2 text-sm";
@@ -20,6 +21,7 @@ export default function AddProductionRunModal({
   onClose,
   designs,
   onSubmit,
+  initialDesignId,
 }: AddProductionRunModalProps) {
   const [designId, setDesignId] = useState("");
   const [setsOrdered, setSetsOrdered] = useState("1");
@@ -30,12 +32,15 @@ export default function AddProductionRunModal({
 
   useEffect(() => {
     if (!open) return;
+    if (initialDesignId) {
+      setDesignId(initialDesignId);
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !submitting) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, submitting]);
+  }, [open, onClose, submitting, initialDesignId]);
 
   const reset = () => {
     setDesignId("");

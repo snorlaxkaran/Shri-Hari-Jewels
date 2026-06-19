@@ -19,8 +19,10 @@ import type {
   MetalType,
   Motif,
   NewDesignElementInput,
+  NewProductionRunInput,
   Purity,
 } from "@/lib/types";
+import { createProductionRun } from "@/lib/api/production-runs";
 import { getApiErrorMessage } from "@/lib/api/client";
 
 const AddDesignModal = dynamic(
@@ -30,6 +32,11 @@ const AddDesignModal = dynamic(
 
 const AddMotifModal = dynamic(
   () => import("@/app/(components)/designs/AddMotifModal"),
+  { ssr: false },
+);
+
+const AddProductionRunModal = dynamic(
+  () => import("@/app/(components)/AddProductionRunModal"),
   { ssr: false },
 );
 
@@ -127,6 +134,8 @@ export default function DesignsPage() {
   const [makingCharges, setMakingCharges] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [productionRunModalOpen, setProductionRunModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const library = useMemo(() => buildLibrary(designs), [designs]);
 
@@ -356,10 +365,16 @@ export default function DesignsPage() {
     return result;
   };
 
-  const handleSaveJewelry = async () => {
-    if (!selectedDesign || !canManage) return;
-    setSaving(true);
+  const handleSaveJewelry = async (): Promise<boolean> => {
+    if (!selectedDesign || !canManage) return false;
     setSaveError("");
+
+    if (buildTargetElements().length === 0) {
+      setSaveError("Add at least one motif or component before saving.");
+      return false;
+    }
+
+    setSaving(true);
 
     try {
       const making =
@@ -368,8 +383,7 @@ export default function DesignsPage() {
           : parseFloat(makingCharges);
       if (making != null && (Number.isNaN(making) || making < 0)) {
         setSaveError("Invalid making charges.");
-        setSaving(false);
-        return;
+        return false;
       }
 
       await patchDesign(selectedDesign.id, {
@@ -410,11 +424,35 @@ export default function DesignsPage() {
           });
         }
       }
+      return true;
     } catch (err) {
       setSaveError(getApiErrorMessage(err, "Failed to save jewelry."));
+      return false;
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSendToProduction = async () => {
+    if (!selectedDesign || !canManage) return;
+    if (!metal) {
+      setSaveError("Select a metal before sending to production.");
+      return;
+    }
+    if (!purity) {
+      setSaveError("Select a purity before sending to production.");
+      return;
+    }
+    const saved = await handleSaveJewelry();
+    if (saved) {
+      setProductionRunModalOpen(true);
+    }
+  };
+
+  const handleCreateProductionRun = async (input: NewProductionRunInput) => {
+    const run = await createProductionRun(input);
+    setSuccessMessage(`Production run ${run.runNo} created`);
+    setTimeout(() => setSuccessMessage(""), 4000);
   };
 
   const handleCreateDesign = async (input: {
@@ -470,6 +508,12 @@ export default function DesignsPage() {
       {motifsError && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-amber-200 bg-amber-50 text-amber-800">
           {motifsError}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-emerald-200 bg-emerald-50 text-emerald-700">
+          {successMessage}
         </div>
       )}
 
@@ -727,7 +771,7 @@ export default function DesignsPage() {
                   disabled={!canManage}
                   className={inputClass}
                 >
-                  <option value="">Gold</option>
+                  <option value="">Select metal…</option>
                   {METALS.map((m) => (
                     <option key={m} value={m}>{m}</option>
                   ))}
@@ -745,7 +789,7 @@ export default function DesignsPage() {
                   disabled={!canManage}
                   className={inputClass}
                 >
-                  <option value="">22K</option>
+                  <option value="">Select purity…</option>
                   {PURITIES.map((p) => (
                     <option key={p} value={p}>{p}</option>
                   ))}
@@ -810,12 +854,22 @@ export default function DesignsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={handleSaveJewelry}
+                    onClick={() => void handleSaveJewelry()}
                     disabled={saving}
                     className="btn-primary px-6 py-2 text-sm"
                   >
                     {saving ? "Saving…" : "Save jewellery"}
                   </button>
+                  {buildTargetElements().length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => void handleSendToProduction()}
+                      disabled={saving}
+                      className="btn-secondary px-6 py-2 text-sm"
+                    >
+                      {saving ? "Saving…" : "Send to Production →"}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -842,6 +896,16 @@ export default function DesignsPage() {
           onClose={() => setMotifModalOpen(false)}
           onSubmit={handleAddMotif}
           onMotifCreated={loadMotifs}
+        />
+      )}
+
+      {productionRunModalOpen && selectedDesign && (
+        <AddProductionRunModal
+          open={productionRunModalOpen}
+          onClose={() => setProductionRunModalOpen(false)}
+          designs={designs}
+          initialDesignId={selectedDesign.id}
+          onSubmit={handleCreateProductionRun}
         />
       )}
     </div>
