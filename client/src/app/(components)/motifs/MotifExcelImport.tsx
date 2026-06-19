@@ -29,6 +29,7 @@ const toMotifInput = (
   description: row.description.trim() || undefined,
   weightGrams: row.weightGrams,
   metal: row.metal.trim() as MotifMetal,
+  purity: row.purity.trim() as NewMotifInput["purity"],
   stone1: (row.stone1.trim() || undefined) as MotifStoneType | undefined,
   stone2: (row.stone2.trim() || undefined) as MotifStoneType | undefined,
   stone3: (row.stone3.trim() || undefined) as MotifStoneType | undefined,
@@ -178,6 +179,7 @@ export default function MotifExcelImport({
 
       <div className="text-[11px] text-zinc-500 space-y-1">
         <p>Valid metals: {MOTIF_METALS.join(", ")}</p>
+        <p>Valid purities: Gold/Platinum → 24K–14K; Silver → 925</p>
         <p>Valid stones: {MOTIF_STONE_TYPES.join(", ")} (leave blank if none)</p>
         <p>Valid subcategories: {MOTIF_SUB_CATEGORIES.join(", ")}</p>
       </div>

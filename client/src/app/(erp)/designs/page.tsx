@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { canManageDesigns } from "@/lib/auth/permissions";
 import { useDesigns } from "@/lib/designs/designs-context";
 import { fetchMotifs } from "@/lib/api/motifs";
+import { designMetalToMotifMetal } from "@/lib/motifs/constants";
 import type {
   Design,
   DesignCategory,
@@ -155,25 +156,32 @@ export default function DesignsPage() {
     void loadMotifs();
   }, [loadMotifs]);
 
-  const motifByKey = useMemo(() => {
+  const motifById = useMemo(() => {
     const map = new Map<string, Motif>();
     for (const motif of motifs) {
-      map.set(elementKey("Motif", motif.name), motif);
+      map.set(motif.id, motif);
     }
     return map;
   }, [motifs]);
 
+  const motifMetalFilter = designMetalToMotifMetal(metal);
+
   const filteredMotifs = useMemo(() => {
+    if (!metal || !purity) return [];
     const q = motifSearch.trim().toLowerCase();
-    if (!q) return motifs;
-    return motifs.filter(
-      (m) =>
+    return motifs.filter((m) => {
+      if (motifMetalFilter && m.metal !== motifMetalFilter) return false;
+      if (m.purity !== purity) return false;
+      if (!q) return true;
+      return (
         m.name.toLowerCase().includes(q) ||
         m.metal.toLowerCase().includes(q) ||
+        m.purity.toLowerCase().includes(q) ||
         m.subCategory.toLowerCase().includes(q) ||
-        m.description?.toLowerCase().includes(q),
-    );
-  }, [motifs, motifSearch]);
+        m.description?.toLowerCase().includes(q)
+      );
+    });
+  }, [motifs, motifSearch, metal, purity, motifMetalFilter]);
 
   const selectedMotifCount = useMemo(
     () => Object.values(motifQuantities).filter((q) => q > 0).length,
@@ -190,14 +198,24 @@ export default function DesignsPage() {
     [designs, selectedId],
   );
 
-  const syncFromDesign = useCallback((design: Design) => {
-    const quantities: Record<string, number> = {};
-    design.elements
-      .filter((e) => e.type === "Motif")
-      .forEach((m) => {
-        quantities[elementKey(m.type, m.name)] = m.qtyPerSet;
-      });
-    setMotifQuantities(quantities);
+  const syncFromDesign = useCallback(
+    (design: Design) => {
+      const quantities: Record<string, number> = {};
+      const filterMetal = designMetalToMotifMetal(design.metal ?? "");
+      design.elements
+        .filter((e) => e.type === "Motif")
+        .forEach((m) => {
+          const match = motifs.find(
+            (motif) =>
+              motif.name === m.name &&
+              (!filterMetal || motif.metal === filterMetal) &&
+              (!design.purity || motif.purity === design.purity),
+          );
+          if (match) {
+            quantities[match.id] = m.qtyPerSet;
+          }
+        });
+      setMotifQuantities(quantities);
 
     const stones: Record<string, string> = {};
     design.elements
@@ -224,7 +242,7 @@ export default function DesignsPage() {
         : "",
     );
     setSaveError("");
-  }, []);
+  }, [motifs]);
 
   useEffect(() => {
     if (selectedDesign) syncFromDesign(selectedDesign);
@@ -253,20 +271,21 @@ export default function DesignsPage() {
   const previewElements = useMemo((): LibraryElement[] => {
     const items: LibraryElement[] = [];
 
-    for (const [key, qty] of Object.entries(motifQuantities)) {
+    for (const [motifId, qty] of Object.entries(motifQuantities)) {
       if (qty < 1) continue;
-      const motif = motifByKey.get(key);
+      const motif = motifById.get(motifId);
       if (motif) {
         items.push({
-          key,
+          key: motifId,
           name: motif.name,
           type: "Motif",
           unitValue: motif.price,
+          weightGramsPerPc: motif.weightGrams,
           qtyPerSet: qty,
         });
         continue;
       }
-      const el = library.find((l) => l.key === key);
+      const el = library.find((l) => l.key === motifId);
       if (el) items.push({ ...el, qtyPerSet: qty });
     }
     for (const key of Object.values(stonePick)) {
@@ -281,7 +300,7 @@ export default function DesignsPage() {
   }, [
     library,
     motifQuantities,
-    motifByKey,
+    motifById,
     stonePick,
     castingPick,
   ]);
@@ -304,13 +323,23 @@ export default function DesignsPage() {
     setSelectedId(design.id);
   };
 
-  const setMotifQuantity = (key: string, qty: number) => {
+  const calculatedDesignWeight = useMemo(
+    () =>
+      previewElements.reduce(
+        (sum, el) =>
+          sum + (el.weightGramsPerPc ?? 0) * (el.qtyPerSet ?? 1),
+        0,
+      ),
+    [previewElements],
+  );
+
+  const setMotifQuantity = (motifId: string, qty: number) => {
     if (!canManage) return;
     const nextQty = Math.max(0, Math.floor(qty));
     setMotifQuantities((prev) => {
       const next = { ...prev };
-      if (nextQty === 0) delete next[key];
-      else next[key] = nextQty;
+      if (nextQty === 0) delete next[motifId];
+      else next[motifId] = nextQty;
       return next;
     });
   };
@@ -318,25 +347,27 @@ export default function DesignsPage() {
   const buildTargetElements = (): NewDesignElementInput[] => {
     const result: NewDesignElementInput[] = [];
 
-    for (const [key, qty] of Object.entries(motifQuantities)) {
+    for (const [motifId, qty] of Object.entries(motifQuantities)) {
       if (qty < 1) continue;
-      const motif = motifByKey.get(key);
+      const motif = motifById.get(motifId);
       if (motif) {
         result.push({
           name: motif.name,
           type: "Motif",
           qtyPerSet: qty,
           unitValue: motif.price,
+          weightGramsPerPc: motif.weightGrams,
         });
         continue;
       }
-      const el = library.find((l) => l.key === key);
+      const el = library.find((l) => l.key === motifId);
       if (el) {
         result.push({
           name: el.name,
           type: "Motif",
           qtyPerSet: qty,
           unitValue: el.unitValue,
+          weightGramsPerPc: el.weightGramsPerPc,
         });
       }
     }
@@ -416,11 +447,13 @@ export default function DesignsPage() {
           await addElement(selectedDesign.id, t);
         } else if (
           existing.qtyPerSet !== t.qtyPerSet ||
-          existing.unitValue !== t.unitValue
+          existing.unitValue !== t.unitValue ||
+          existing.weightGramsPerPc !== t.weightGramsPerPc
         ) {
           await patchElement(selectedDesign.id, existing.id, {
             qtyPerSet: t.qtyPerSet,
             unitValue: t.unitValue,
+            weightGramsPerPc: t.weightGramsPerPc,
           });
         }
       }
@@ -470,6 +503,7 @@ export default function DesignsPage() {
     type: DesignElementType;
     unitValue?: number;
     weightGramsPerPc?: number;
+    libraryMotifId?: string;
   }) => {
     if (!selectedDesign) return;
     await addElement(selectedDesign.id, {
@@ -479,12 +513,14 @@ export default function DesignsPage() {
       unitValue: input.unitValue,
       weightGramsPerPc: input.weightGramsPerPc,
     });
-    const key = elementKey(input.type, input.name);
-    if (input.type === "Motif") {
+    if (input.type === "Motif" && input.libraryMotifId) {
       setMotifQuantities((prev) => ({
         ...prev,
-        [key]: prev[key] ? prev[key] + 1 : 1,
+        [input.libraryMotifId!]: prev[input.libraryMotifId!]
+          ? prev[input.libraryMotifId!] + 1
+          : 1,
       }));
+      void loadMotifs();
     }
   };
 
@@ -563,46 +599,50 @@ export default function DesignsPage() {
                 onChange={(e) => setMotifSearch(e.target.value)}
                 className="input-field w-full max-w-xs px-3 py-2 text-sm"
                 placeholder="Search motifs…"
+                disabled={!metal || !purity}
               />
             </div>
 
-            {motifsLoading ? (
+            {!metal || !purity ? (
+              <div className="surface-card rounded-xl px-5 py-8 text-center">
+                <p className="text-sm text-zinc-500">
+                  Select metal and purity in Metal & pricing below to browse matching motifs.
+                </p>
+              </div>
+            ) : motifsLoading ? (
               <p className="text-sm text-zinc-400">Loading motifs…</p>
             ) : filteredMotifs.length === 0 ? (
               <div className="surface-card rounded-xl px-5 py-8 text-center">
                 <p className="text-sm text-zinc-500">
                   {motifs.length === 0
                     ? "No motifs in the library yet. Create one to get started."
-                    : "No motifs match your search."}
+                    : `No ${metal} ${purity} motifs match your search.`}
                 </p>
-                {canManage && motifs.length === 0 && (
+                {canManage && (
                   <button
                     type="button"
                     onClick={() => setMotifModalOpen(true)}
                     className="btn-primary mt-4 px-4 py-2 text-sm"
                   >
-                    Create first motif
+                    Add motif for {metal} {purity}
                   </button>
                 )}
               </div>
             ) : (
               <div className="flex flex-wrap gap-4">
-                {filteredMotifs.map((motif) => {
-                  const key = elementKey("Motif", motif.name);
-                  return (
-                    <MotifCard
-                      key={motif.id}
-                      name={motif.name}
-                      type="Motif"
-                      price={motif.price}
-                      imageUrl={motif.imageUrl}
-                      subtitle={`${motif.metal} · ${motif.subCategory}`}
-                      quantity={motifQuantities[key] ?? 0}
-                      onQuantityChange={(qty) => setMotifQuantity(key, qty)}
-                      disabled={!canManage}
-                    />
-                  );
-                })}
+                {filteredMotifs.map((motif) => (
+                  <MotifCard
+                    key={motif.id}
+                    name={motif.name}
+                    type="Motif"
+                    price={motif.price}
+                    imageUrl={motif.imageUrl}
+                    subtitle={`${motif.metal} ${motif.purity} · ${motif.subCategory}${motif.weightGrams != null ? ` · ${motif.weightGrams}g` : ""}`}
+                    quantity={motifQuantities[motif.id] ?? 0}
+                    onQuantityChange={(qty) => setMotifQuantity(motif.id, qty)}
+                    disabled={!canManage}
+                  />
+                ))}
                 {canManage && (
                   <AddMotifCard onClick={() => setMotifModalOpen(true)} />
                 )}
@@ -813,6 +853,15 @@ export default function DesignsPage() {
 
             <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-zinc-100">
               <div>
+                <p className="text-xs text-zinc-500">Calculated weight</p>
+                <p className="text-lg font-semibold text-zinc-900">
+                  {calculatedDesignWeight.toFixed(2)}g
+                </p>
+                <p className="text-[11px] text-zinc-400">
+                  Auto-sum of motif & casting weights
+                </p>
+              </div>
+              <div>
                 <p className="text-xs text-zinc-500">Estimated price</p>
                 <p className="text-2xl font-semibold text-zinc-900">
                   ₹{estimatedPrice.toLocaleString("en-IN")}
@@ -893,6 +942,8 @@ export default function DesignsPage() {
         <AddMotifModal
           open={motifModalOpen}
           skuCode={selectedDesign.code}
+          designMetal={metal}
+          designPurity={purity}
           onClose={() => setMotifModalOpen(false)}
           onSubmit={handleAddMotif}
           onMotifCreated={loadMotifs}

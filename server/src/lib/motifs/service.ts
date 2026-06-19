@@ -1,11 +1,15 @@
 import { prisma } from "../db.js";
 import { moneyToNumber } from "../money.js";
+import {
+  isValidMotifPurityForMetal,
+} from "../designs/validation.js";
 import type {
   Motif,
   MotifMetal,
   MotifStoneType,
   MotifSubCategory,
   NewMotifInput,
+  Purity,
   UpdateMotifInput,
 } from "../../types.js";
 
@@ -44,6 +48,7 @@ const toMotif = (row: {
   description: string | null;
   weightGrams: number | null;
   metal: string;
+  purity: string;
   stone1: string | null;
   stone2: string | null;
   stone3: string | null;
@@ -58,6 +63,7 @@ const toMotif = (row: {
   description: row.description ?? undefined,
   weightGrams: row.weightGrams ?? undefined,
   metal: row.metal as MotifMetal,
+  purity: row.purity as Purity,
   stone1: (row.stone1 as MotifStoneType) ?? undefined,
   stone2: (row.stone2 as MotifStoneType) ?? undefined,
   stone3: (row.stone3 as MotifStoneType) ?? undefined,
@@ -68,6 +74,14 @@ const toMotif = (row: {
   updatedAt: row.updatedAt.toISOString(),
 });
 
+const validateMotifPurity = (metal: MotifMetal, purity: Purity) => {
+  if (!isValidMotifPurityForMetal(metal, purity)) {
+    throw new MotifError(
+      `Invalid purity "${purity}" for ${metal}. Silver requires 925; Gold and Platinum use 24K–14K.`,
+    );
+  }
+};
+
 const validateMotifInput = (input: NewMotifInput) => {
   const name = input.name?.trim();
   if (!name) throw new MotifError("Motif name is required.");
@@ -75,6 +89,10 @@ const validateMotifInput = (input: NewMotifInput) => {
   if (!MOTIF_METALS.includes(input.metal)) {
     throw new MotifError("Invalid motif metal.");
   }
+  if (!input.purity) {
+    throw new MotifError("Purity is required.");
+  }
+  validateMotifPurity(input.metal, input.purity);
   if (!MOTIF_SUB_CATEGORIES.includes(input.subCategory)) {
     throw new MotifError("Invalid sub category.");
   }
@@ -111,6 +129,21 @@ export const createMotif = async (
   branchId: string,
 ): Promise<Motif> => {
   const validated = validateMotifInput(input);
+
+  const duplicate = await prisma.motif.findFirst({
+    where: {
+      branchId,
+      name: validated.name,
+      metal: validated.metal,
+      purity: validated.purity,
+    },
+  });
+  if (duplicate) {
+    throw new MotifError(
+      `A motif named "${validated.name}" already exists for ${validated.metal} ${validated.purity}.`,
+    );
+  }
+
   const row = await prisma.motif.create({
     data: {
       branchId,
@@ -118,6 +151,7 @@ export const createMotif = async (
       description: validated.description,
       weightGrams: validated.weightGrams,
       metal: validated.metal,
+      purity: validated.purity,
       stone1: validated.stone1 ?? null,
       stone2: validated.stone2 ?? null,
       stone3: validated.stone3 ?? null,
@@ -159,8 +193,14 @@ export const updateMotif = async (
   const existing = await prisma.motif.findUnique({ where: { id } });
   if (!existing) throw new MotifError("Motif not found.", 404);
 
+  const metal = (input.metal ?? existing.metal) as MotifMetal;
+  const purity = (input.purity ?? existing.purity) as Purity;
+
   if (input.metal && !MOTIF_METALS.includes(input.metal)) {
     throw new MotifError("Invalid motif metal.");
+  }
+  if (input.purity || input.metal) {
+    validateMotifPurity(metal, purity);
   }
   if (input.subCategory && !MOTIF_SUB_CATEGORIES.includes(input.subCategory)) {
     throw new MotifError("Invalid sub category.");
@@ -171,6 +211,24 @@ export const updateMotif = async (
     }
   }
 
+  const name = input.name?.trim() ?? existing.name;
+  if (input.name !== undefined || input.metal !== undefined || input.purity !== undefined) {
+    const duplicate = await prisma.motif.findFirst({
+      where: {
+        branchId: existing.branchId,
+        name,
+        metal,
+        purity,
+        NOT: { id },
+      },
+    });
+    if (duplicate) {
+      throw new MotifError(
+        `A motif named "${name}" already exists for ${metal} ${purity}.`,
+      );
+    }
+  }
+
   const row = await prisma.motif.update({
     where: { id },
     data: {
@@ -178,6 +236,7 @@ export const updateMotif = async (
       description: input.description,
       weightGrams: input.weightGrams,
       metal: input.metal,
+      purity: input.purity,
       stone1: input.stone1,
       stone2: input.stone2,
       stone3: input.stone3,

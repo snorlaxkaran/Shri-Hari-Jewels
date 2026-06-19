@@ -24,6 +24,10 @@ import {
   createFinishedGoodsInTx,
 } from "./finished-goods.js";
 import { ProductionRunError } from "./errors.js";
+import {
+  expectedElementWeight,
+  requireWeightOverrideNote,
+} from "../weight-reconciliation.js";
 
 export { ProductionRunError } from "./errors.js";
 
@@ -323,6 +327,64 @@ export const updateProductionRun = async (
       );
     }
     validateFinishedGoodsInput(input.finishedGoods);
+
+    const runForPricing = await prisma.productionRun.findUnique({
+      where: { id },
+      include: {
+        design: {
+          select: {
+            code: true,
+            name: true,
+            category: true,
+            metal: true,
+            purity: true,
+            makingChargesPerSet: true,
+          },
+        },
+        items: {
+          orderBy: { sortOrder: "asc" },
+          select: {
+            elementName: true,
+            elementType: true,
+            qtyPerSet: true,
+            unitValue: true,
+            weightGramsPerPc: true,
+            metalWeightGrams: true,
+            metalLotId: true,
+            czWeight: true,
+          },
+        },
+      },
+    });
+    if (!runForPricing) {
+      throw new ProductionRunError("Production run not found.", 404);
+    }
+    const metalLots = await prisma.metalLot.findMany({
+      where: { branchId: runForPricing.branchId },
+      select: {
+        id: true,
+        metalType: true,
+        purity: true,
+        currentRate: true,
+      },
+    });
+    const expectedFinishedGoods = buildFinishedGoodsFromRun(
+      runForPricing,
+      metalLots,
+    );
+
+    try {
+      requireWeightOverrideNote(
+        input.finishedGoods.weightGrams,
+        expectedFinishedGoods.weightGrams,
+        input.finishedGoods.weightOverrideNote,
+        "SKU weight",
+      );
+    } catch (error) {
+      throw new ProductionRunError(
+        error instanceof Error ? error.message : "Invalid SKU weight.",
+      );
+    }
   }
 
   await prisma.$transaction(async (tx) => {
@@ -392,6 +454,29 @@ export const updateProductionRunItem = async (
 
   const item = run.items.find((row) => row.id === itemId);
   if (!item) throw new ProductionRunError("Production run item not found.", 404);
+
+  if (
+    item.elementType === "Casting" &&
+    input.metalWeightGrams !== undefined &&
+    input.metalWeightGrams !== null
+  ) {
+    const expected = expectedElementWeight(
+      item.weightGramsPerPc,
+      item.qtyPerSet,
+    );
+    try {
+      requireWeightOverrideNote(
+        input.metalWeightGrams,
+        expected,
+        input.metalWeightOverrideNote,
+        `Casting weight for "${item.elementName}"`,
+      );
+    } catch (error) {
+      throw new ProductionRunError(
+        error instanceof Error ? error.message : "Invalid casting weight.",
+      );
+    }
+  }
 
   if (item.rawMaterialDeducted && input.castingReceived === false) {
     throw new ProductionRunError(

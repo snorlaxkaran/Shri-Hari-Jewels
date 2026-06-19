@@ -17,8 +17,10 @@ import {
 } from "@/lib/api/motifs";
 import {
   MOTIF_METALS,
+  MOTIF_PURITIES,
   MOTIF_STONE_TYPES,
   MOTIF_SUB_CATEGORIES,
+  puritiesForMotifMetal,
 } from "@/lib/motifs/constants";
 import type {
   Motif,
@@ -26,6 +28,7 @@ import type {
   MotifStoneType,
   MotifSubCategory,
   NewMotifInput,
+  Purity,
 } from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/api/client";
 
@@ -46,6 +49,7 @@ export default function MotifsPage() {
   const [description, setDescription] = useState("");
   const [weightGrams, setWeightGrams] = useState("");
   const [metal, setMetal] = useState<MotifMetal>("Gold");
+  const [purity, setPurity] = useState<Purity>("22K");
   const [stone1, setStone1] = useState(emptyStone);
   const [stone2, setStone2] = useState(emptyStone);
   const [stone3, setStone3] = useState(emptyStone);
@@ -56,6 +60,8 @@ export default function MotifsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [search, setSearch] = useState("");
+  const [filterMetal, setFilterMetal] = useState<MotifMetal | "">("");
+  const [filterPurity, setFilterPurity] = useState<Purity | "">("");
 
   const loadMotifs = useCallback(async () => {
     setLoading(true);
@@ -75,21 +81,26 @@ export default function MotifsPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return motifs;
-    return motifs.filter(
-      (m) =>
+    return motifs.filter((m) => {
+      if (filterMetal && m.metal !== filterMetal) return false;
+      if (filterPurity && m.purity !== filterPurity) return false;
+      if (!q) return true;
+      return (
         m.name.toLowerCase().includes(q) ||
         m.metal.toLowerCase().includes(q) ||
+        m.purity.toLowerCase().includes(q) ||
         m.subCategory.toLowerCase().includes(q) ||
-        m.description?.toLowerCase().includes(q),
-    );
-  }, [motifs, search]);
+        m.description?.toLowerCase().includes(q)
+      );
+    });
+  }, [motifs, search, filterMetal, filterPurity]);
 
   const resetForm = () => {
     setName("");
     setDescription("");
     setWeightGrams("");
     setMetal("Gold");
+    setPurity("22K");
     setStone1(emptyStone);
     setStone2(emptyStone);
     setStone3(emptyStone);
@@ -104,6 +115,7 @@ export default function MotifsPage() {
     description: description.trim() || undefined,
     weightGrams: weightGrams.trim() ? parseFloat(weightGrams) : undefined,
     metal,
+    purity,
     stone1: (stone1 || undefined) as MotifStoneType | undefined,
     stone2: (stone2 || undefined) as MotifStoneType | undefined,
     stone3: (stone3 || undefined) as MotifStoneType | undefined,
@@ -111,6 +123,8 @@ export default function MotifsPage() {
     price: price.trim() ? parseFloat(price) : undefined,
     imageUrl,
   });
+
+  const availablePurities = puritiesForMotifMetal(metal);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -242,17 +256,37 @@ export default function MotifsPage() {
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-3 gap-4">
             <div>
               <label className={labelClass}>Motif metal</label>
               <select
                 value={metal}
-                onChange={(e) => setMetal(e.target.value as MotifMetal)}
+                onChange={(e) => {
+                  const next = e.target.value as MotifMetal;
+                  setMetal(next);
+                  const options = puritiesForMotifMetal(next);
+                  if (!options.includes(purity as (typeof options)[number])) {
+                    setPurity(options[0]);
+                  }
+                }}
                 className={fieldClass}
                 disabled={!canManage}
               >
                 {MOTIF_METALS.map((m) => (
                   <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Purity *</label>
+              <select
+                value={purity}
+                onChange={(e) => setPurity(e.target.value as Purity)}
+                className={fieldClass}
+                disabled={!canManage}
+              >
+                {availablePurities.map((p) => (
+                  <option key={p} value={p}>{p}</option>
                 ))}
               </select>
             </div>
@@ -331,12 +365,38 @@ export default function MotifsPage() {
           <h2 className="text-base font-semibold text-zinc-900">
             All motifs ({filtered.length})
           </h2>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input-field w-full max-w-xs px-3 py-2 text-sm"
-            placeholder="Search motifs…"
-          />
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={filterMetal}
+              onChange={(e) => {
+                setFilterMetal(e.target.value as MotifMetal | "");
+                setFilterPurity("");
+              }}
+              className="input-field px-3 py-2 text-sm"
+            >
+              <option value="">All metals</option>
+              {MOTIF_METALS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+            <select
+              value={filterPurity}
+              onChange={(e) => setFilterPurity(e.target.value as Purity | "")}
+              className="input-field px-3 py-2 text-sm"
+              disabled={!filterMetal}
+            >
+              <option value="">All purities</option>
+              {(filterMetal ? puritiesForMotifMetal(filterMetal) : MOTIF_PURITIES).map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input-field w-full max-w-xs px-3 py-2 text-sm"
+              placeholder="Search motifs…"
+            />
+          </div>
         </div>
 
         {filtered.length === 0 ? (
@@ -371,7 +431,7 @@ export default function MotifsPage() {
                         {motif.name}
                       </h3>
                       <p className="text-xs text-zinc-500">
-                        {motif.metal} · {motif.subCategory}
+                        {motif.metal} {motif.purity} · {motif.subCategory}
                       </p>
                     </div>
                     {canManage && (

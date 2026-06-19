@@ -659,6 +659,7 @@ export type Motif = {
   description?: string;
   weightGrams?: number;
   metal: MotifMetal;
+  purity: Purity;
   stone1?: MotifStoneType;
   stone2?: MotifStoneType;
   stone3?: MotifStoneType;
@@ -674,6 +675,7 @@ export type NewMotifInput = {
   description?: string;
   weightGrams?: number;
   metal: MotifMetal;
+  purity: Purity;
   stone1?: MotifStoneType | null;
   stone2?: MotifStoneType | null;
   stone3?: MotifStoneType | null;
@@ -687,6 +689,7 @@ export type UpdateMotifInput = {
   description?: string | null;
   weightGrams?: number | null;
   metal?: MotifMetal;
+  purity?: Purity;
   stone1?: MotifStoneType | null;
   stone2?: MotifStoneType | null;
   stone3?: MotifStoneType | null;
@@ -761,6 +764,7 @@ export type FinishedGoodsInput = {
   stoneCarat?: number;
   price: number;
   images?: ProductImage[];
+  weightOverrideNote?: string;
 };
 
 export type FinishedGoodsDefaults = FinishedGoodsInput & {
@@ -796,4 +800,5 @@ export type UpdateProductionRunItemInput = {
   metalLotId?: string | null;
   stoneLotId?: string | null;
   metalWeightGrams?: number | null;
+  metalWeightOverrideNote?: string;
 };

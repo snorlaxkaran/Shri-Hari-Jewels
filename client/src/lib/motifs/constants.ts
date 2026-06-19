@@ -1,5 +1,7 @@
 export const MOTIF_METALS = ["Silver", "Gold", "Platinum"] as const;
 
+export const MOTIF_PURITIES = ["24K", "22K", "18K", "14K", "925"] as const;
+
 export const MOTIF_STONE_TYPES = [
   "Glass",
   "Enamel",
@@ -19,6 +21,7 @@ export const MOTIF_SUB_CATEGORIES = [
 
 export const MOTIF_EXCEL_HEADERS = [
   "Motif Metal",
+  "Purity",
   "Motif Name",
   "Desc",
   "Price",
@@ -32,6 +35,7 @@ export const MOTIF_EXCEL_HEADERS = [
 
 export type MotifExcelRow = {
   metal: string;
+  purity: string;
   name: string;
   description: string;
   price: number | undefined;
@@ -48,6 +52,7 @@ const normalizeHeader = (value: string) =>
 
 const headerAliases: Record<string, keyof MotifExcelRow | "skip"> = {
   "motif metal": "metal",
+  purity: "purity",
   "motif name": "name",
   desc: "description",
   description: "description",
@@ -63,6 +68,20 @@ const headerAliases: Record<string, keyof MotifExcelRow | "skip"> = {
   image: "imageFile",
 };
 
+export const isValidMotifPurityForMetal = (
+  metal: string,
+  purity: string,
+): boolean => {
+  if (!MOTIF_PURITIES.includes(purity as (typeof MOTIF_PURITIES)[number])) {
+    return false;
+  }
+  if (metal === "Silver") return purity === "925";
+  if (metal === "Gold" || metal === "Platinum") {
+    return purity !== "925";
+  }
+  return false;
+};
+
 export const mapExcelRows = (
   rows: Record<string, unknown>[],
 ): { rows: MotifExcelRow[]; errors: string[] } => {
@@ -72,6 +91,7 @@ export const mapExcelRows = (
   rows.forEach((raw, index) => {
     const row: Partial<MotifExcelRow> = {
       metal: "",
+      purity: "",
       name: "",
       description: "",
       stone1: "",
@@ -119,6 +139,15 @@ export const validateMotifExcelRow = (
   if (!MOTIF_METALS.includes(row.metal as (typeof MOTIF_METALS)[number])) {
     issues.push(`Row ${rowNumber}: invalid Motif Metal "${row.metal}".`);
   }
+  if (!row.purity.trim()) {
+    issues.push(`Row ${rowNumber}: Purity is required.`);
+  } else if (
+    !isValidMotifPurityForMetal(row.metal, row.purity.trim())
+  ) {
+    issues.push(
+      `Row ${rowNumber}: invalid Purity "${row.purity}" for metal "${row.metal}".`,
+    );
+  }
   if (
     !MOTIF_SUB_CATEGORIES.includes(
       row.subCategory as (typeof MOTIF_SUB_CATEGORIES)[number],
@@ -135,4 +164,21 @@ export const validateMotifExcelRow = (
     }
   }
   return issues;
+};
+
+/** Map design metal to motif library metal for filtering. */
+export const designMetalToMotifMetal = (
+  metal: string,
+): (typeof MOTIF_METALS)[number] | null => {
+  if (metal === "Gold" || metal === "Rose Gold") return "Gold";
+  if (metal === "Silver") return "Silver";
+  if (metal === "Platinum") return "Platinum";
+  return null;
+};
+
+export const puritiesForMotifMetal = (
+  metal: (typeof MOTIF_METALS)[number],
+): (typeof MOTIF_PURITIES)[number][] => {
+  if (metal === "Silver") return ["925"];
+  return ["24K", "22K", "18K", "14K"];
 };

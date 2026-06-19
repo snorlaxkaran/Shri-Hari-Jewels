@@ -294,6 +294,7 @@ model Motif {
   description String?
   weightGrams Float?
   metal       String
+  purity      String
   stone1      String?
   stone2      String?
   stone3      String?
@@ -305,9 +306,11 @@ model Motif {
 
   branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
+  @@unique([branchId, name, metal, purity])
   @@index([branchId])
   @@index([subCategory])
   @@index([metal])
+  @@index([purity])
   @@index([name])
 }
 

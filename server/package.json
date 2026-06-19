@@ -11,6 +11,7 @@
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:backfill-motif-purity": "tsx scripts/backfill-motif-purity.ts",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-if-empty": "tsx prisma/seed-if-empty.ts"

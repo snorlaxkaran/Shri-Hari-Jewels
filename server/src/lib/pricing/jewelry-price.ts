@@ -71,22 +71,21 @@ export const resolveMetalRatePerGram = (
 };
 
 export const calculateTotalMetalWeight = (items: PricingItem[]): number => {
-  const castingItems = items.filter((item) => item.elementType === "Casting");
-  if (castingItems.length === 0) return 0;
-
-  const actualWeight = castingItems.reduce(
-    (sum, item) => sum + (item.metalWeightGrams ?? 0),
-    0,
+  const weightItems = items.filter(
+    (item) => item.elementType === "Casting" || item.elementType === "Motif",
   );
-  if (actualWeight > 0) return roundMoney(actualWeight);
+  if (weightItems.length === 0) return 0;
 
-  return roundMoney(
-    castingItems.reduce(
-      (sum, item) =>
-        sum + (item.weightGramsPerPc ?? 0) * item.qtyPerSet,
-      0,
-    ),
-  );
+  let total = 0;
+  for (const item of weightItems) {
+    if (item.elementType === "Casting" && (item.metalWeightGrams ?? 0) > 0) {
+      total += item.metalWeightGrams ?? 0;
+      continue;
+    }
+    total += (item.weightGramsPerPc ?? 0) * item.qtyPerSet;
+  }
+
+  return roundMoney(total);
 };
 
 export const calculateJewelryPrice = (input: {

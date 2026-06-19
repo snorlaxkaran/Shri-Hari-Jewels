@@ -20,6 +20,11 @@ import { fetchMetalLots, fetchStoneLots } from "@/lib/api/raw-inventory";
 import { PRODUCT_CATEGORIES, type ProductCategory } from "@/lib/inventory/categories";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api/client";
+import {
+  expectedElementWeight,
+  weightMismatchMessage,
+  weightsMatch,
+} from "@/lib/weight-reconciliation";
 import type {
   FinishedGoodsDefaults,
   FinishedGoodsInput,
@@ -130,6 +135,23 @@ function RunItemCard({
     castingReceived: item.castingReceived,
   });
   const [rowError, setRowError] = useState("");
+  const [metalWeightOverrideNote, setMetalWeightOverrideNote] = useState("");
+
+  const needsMetalLot = item.elementType === "Casting";
+  const needsStoneLot =
+    item.elementType === "Stone" || item.elementType === "Motif";
+
+  const expectedCastingWeight = expectedElementWeight(
+    item.weightGramsPerPc,
+    item.qtyPerSet,
+  );
+  const parsedMetalWeight =
+    draft.metalWeightGrams === "" ? null : parseFloat(draft.metalWeightGrams);
+  const castingWeightMismatch =
+    needsMetalLot &&
+    parsedMetalWeight !== null &&
+    !Number.isNaN(parsedMetalWeight) &&
+    !weightsMatch(parsedMetalWeight, expectedCastingWeight);
 
   useEffect(() => {
     setDraft({
@@ -150,18 +172,15 @@ function RunItemCard({
   const saveField = async (
     field: keyof UpdateProductionRunItemInput,
     value: UpdateProductionRunItemInput[keyof UpdateProductionRunItemInput],
+    extra?: Pick<UpdateProductionRunItemInput, "metalWeightOverrideNote">,
   ) => {
     setRowError("");
     try {
-      await onPatchItem(run.id, item.id, { [field]: value });
+      await onPatchItem(run.id, item.id, { [field]: value, ...extra });
     } catch (err) {
       setRowError(getApiErrorMessage(err, "Failed to save item."));
     }
   };
-
-  const needsMetalLot = item.elementType === "Casting";
-  const needsStoneLot =
-    item.elementType === "Stone" || item.elementType === "Motif";
 
   const handleCastingReceivedChange = async (checked: boolean) => {
     if (checked) {
@@ -218,7 +237,26 @@ function RunItemCard({
       setDraft((d) => ({ ...d, metalWeightGrams: current }));
       return;
     }
-    void saveField("metalWeightGrams", parsed);
+
+    if (
+      parsed !== null &&
+      !weightsMatch(parsed, expectedCastingWeight) &&
+      !metalWeightOverrideNote.trim()
+    ) {
+      setRowError(
+        weightMismatchMessage(
+          parsed,
+          expectedCastingWeight,
+          `Casting weight for "${item.elementName}"`,
+        ),
+      );
+      return;
+    }
+
+    setRowError("");
+    void saveField("metalWeightGrams", parsed, {
+      metalWeightOverrideNote: metalWeightOverrideNote.trim() || undefined,
+    });
   };
 
   const handleLotChange = (
@@ -326,7 +364,14 @@ function RunItemCard({
             </select>
           </div>
           <div>
-            <label className={labelClass}>Metal weight (g)</label>
+            <label className={labelClass}>
+              Metal weight (g)
+              {expectedCastingWeight > 0 && (
+                <span className="text-zinc-400 font-normal ml-1">
+                  — design: {expectedCastingWeight.toFixed(2)}g
+                </span>
+              )}
+            </label>
             <input
               type="number"
               min={0}
@@ -339,6 +384,21 @@ function RunItemCard({
               disabled={item.rawMaterialDeducted}
               className={inputClass}
             />
+            {castingWeightMismatch && (
+              <div className="mt-2 space-y-1">
+                <p className="text-xs text-amber-700">
+                  Weight differs from design ({expectedCastingWeight.toFixed(2)}g).
+                  Explain before saving.
+                </p>
+                <textarea
+                  value={metalWeightOverrideNote}
+                  onChange={(e) => setMetalWeightOverrideNote(e.target.value)}
+                  className={`${inputClass} min-h-[60px] text-xs`}
+                  placeholder="Reason for weight difference…"
+                  disabled={item.rawMaterialDeducted}
+                />
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -408,6 +468,7 @@ function CreateSkuSection({
   const [makingCharges, setMakingCharges] = useState("");
   const [stoneCarat, setStoneCarat] = useState("");
   const [price, setPrice] = useState("");
+  const [weightOverrideNote, setWeightOverrideNote] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -423,11 +484,17 @@ function CreateSkuSection({
       defaults.stoneCarat !== undefined ? String(defaults.stoneCarat) : "",
     );
     setPrice(defaults.price !== undefined ? String(defaults.price) : "0");
+    setWeightOverrideNote("");
     setError("");
   }, [defaults, runId]);
 
   const breakdown = defaults?.priceBreakdown;
   const weightNum = parseFloat(weightGrams);
+  const expectedSkuWeight = defaults?.weightGrams ?? 0;
+  const skuWeightMismatch =
+    defaults !== null &&
+    !Number.isNaN(weightNum) &&
+    !weightsMatch(weightNum, expectedSkuWeight);
   const showWeightWarning =
     defaults !== null && !Number.isNaN(weightNum) && weightNum === 0;
 
@@ -446,6 +513,16 @@ function CreateSkuSection({
     }
     if (Number.isNaN(weight) || weight < 0) {
       setError("Weight cannot be negative.");
+      return;
+    }
+    if (
+      defaults &&
+      !weightsMatch(weight, defaults.weightGrams) &&
+      !weightOverrideNote.trim()
+    ) {
+      setError(
+        weightMismatchMessage(weight, defaults.weightGrams, "SKU weight"),
+      );
       return;
     }
     if (Number.isNaN(charges) || charges < 0) {
@@ -473,6 +550,7 @@ function CreateSkuSection({
         stoneCarat: carat,
         price: listPrice,
         images: [],
+        weightOverrideNote: weightOverrideNote.trim() || undefined,
       });
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to create SKU."));
@@ -603,7 +681,14 @@ function CreateSkuSection({
             </select>
           </div>
           <div>
-            <label className={labelClass}>Weight (g)</label>
+            <label className={labelClass}>
+              Weight (g)
+              {expectedSkuWeight > 0 && (
+                <span className="text-zinc-400 font-normal ml-1">
+                  — from run: {expectedSkuWeight.toFixed(2)}g
+                </span>
+              )}
+            </label>
             <input
               type="number"
               min={0}
@@ -617,6 +702,19 @@ function CreateSkuSection({
                 No metal weight recorded on casting items yet. Enter weight on
                 items above or set it manually here.
               </p>
+            )}
+            {skuWeightMismatch && (
+              <div className="mt-2 space-y-1">
+                <p className="text-xs text-amber-700">
+                  Weight differs from validated run total. Explain to continue.
+                </p>
+                <textarea
+                  value={weightOverrideNote}
+                  onChange={(e) => setWeightOverrideNote(e.target.value)}
+                  className={`${inputClass} min-h-[60px] text-xs`}
+                  placeholder="Reason for weight difference…"
+                />
+              </div>
             )}
           </div>
         </div>
