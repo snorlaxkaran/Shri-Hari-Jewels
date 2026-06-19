@@ -11,6 +11,11 @@ export const fetchProductionRuns = async (): Promise<ProductionRun[]> => {
   return data;
 };
 
+export const fetchProductionRun = async (id: string): Promise<ProductionRun> => {
+  const { data } = await api.get<ProductionRun>(`/api/production-runs/${id}`);
+  return data;
+};
+
 export const createProductionRun = async (
   input: NewProductionRunInput,
 ): Promise<ProductionRun> => {
