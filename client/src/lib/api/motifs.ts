@@ -11,7 +11,9 @@ export const fetchMotifs = async (): Promise<Motif[]> => {
 };
 
 export const createMotif = async (input: NewMotifInput): Promise<Motif> => {
-  const { data } = await api.post<Motif>("/api/motifs", input);
+  const { data } = await api.post<Motif>("/api/motifs", input, {
+    timeout: 60000,
+  });
   return data;
 };
 
@@ -29,7 +31,9 @@ export const updateMotif = async (
   id: string,
   input: UpdateMotifInput,
 ): Promise<Motif> => {
-  const { data } = await api.patch<Motif>(`/api/motifs/${id}`, input);
+  const { data } = await api.patch<Motif>(`/api/motifs/${id}`, input, {
+    timeout: 60000,
+  });
   return data;
 };
 

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import MotifImageUpload from "@/app/(components)/motifs/MotifImageUpload";
+import { createMotif } from "@/lib/api/motifs";
 import type { DesignElementType } from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/api/client";
 
@@ -17,6 +19,7 @@ type AddMotifModalProps = {
   skuCode?: string;
   onClose: () => void;
   onSubmit: (input: AddMotifInput) => Promise<void>;
+  onMotifCreated?: () => void;
 };
 
 const fieldClass = "input-field w-full px-3 py-2 text-sm";
@@ -27,11 +30,13 @@ export default function AddMotifModal({
   skuCode,
   onClose,
   onSubmit,
+  onMotifCreated,
 }: AddMotifModalProps) {
   const [name, setName] = useState("");
   const [type, setType] = useState<DesignElementType>("Motif");
   const [price, setPrice] = useState("");
   const [weight, setWeight] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | undefined>();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -49,6 +54,7 @@ export default function AddMotifModal({
     setType("Motif");
     setPrice("");
     setWeight("");
+    setImageUrl(undefined);
     setError("");
   };
 
@@ -88,6 +94,17 @@ export default function AddMotifModal({
 
     setSubmitting(true);
     try {
+      if (type === "Motif") {
+        await createMotif({
+          name: trimmed,
+          metal: "Gold",
+          subCategory: "Contemporary",
+          price: unitValue,
+          imageUrl,
+        });
+        onMotifCreated?.();
+      }
+
       await onSubmit({
         name: trimmed,
         type,
@@ -180,6 +197,9 @@ export default function AddMotifModal({
                 placeholder="Optional"
               />
             </div>
+          )}
+          {type === "Motif" && (
+            <MotifImageUpload imageUrl={imageUrl} onChange={setImageUrl} />
           )}
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex gap-3">

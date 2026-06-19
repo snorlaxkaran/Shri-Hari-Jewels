@@ -11,11 +11,13 @@ import SkuSearchDropdown from "@/app/(components)/designs/SkuSearchDropdown";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canManageDesigns } from "@/lib/auth/permissions";
 import { useDesigns } from "@/lib/designs/designs-context";
+import { fetchMotifs } from "@/lib/api/motifs";
 import type {
   Design,
   DesignCategory,
   DesignElementType,
   MetalType,
+  Motif,
   NewDesignElementInput,
   Purity,
 } from "@/lib/types";
@@ -109,8 +111,11 @@ export default function DesignsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [motifModalOpen, setMotifModalOpen] = useState(false);
+  const [motifs, setMotifs] = useState<Motif[]>([]);
+  const [motifsLoading, setMotifsLoading] = useState(true);
+  const [motifsError, setMotifsError] = useState<string | null>(null);
+  const [motifSearch, setMotifSearch] = useState("");
   const [activeMotifKeys, setActiveMotifKeys] = useState<Set<string>>(new Set());
-  const [extraMotifKeys, setExtraMotifKeys] = useState<Set<string>>(new Set());
   const [stonePick, setStonePick] = useState<Record<string, string>>({});
   const [castingPick, setCastingPick] = useState<Record<string, string>>({});
   const [category, setCategory] = useState<DesignCategory | "">("");
@@ -122,17 +127,54 @@ export default function DesignsPage() {
 
   const library = useMemo(() => buildLibrary(designs), [designs]);
 
+  const loadMotifs = useCallback(async () => {
+    setMotifsLoading(true);
+    setMotifsError(null);
+    try {
+      setMotifs(await fetchMotifs());
+    } catch (err) {
+      setMotifsError(getApiErrorMessage(err, "Could not load motif library."));
+    } finally {
+      setMotifsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadMotifs();
+  }, [loadMotifs]);
+
+  const motifByKey = useMemo(() => {
+    const map = new Map<string, Motif>();
+    for (const motif of motifs) {
+      map.set(elementKey("Motif", motif.name), motif);
+    }
+    return map;
+  }, [motifs]);
+
+  const filteredMotifs = useMemo(() => {
+    const q = motifSearch.trim().toLowerCase();
+    if (!q) return motifs;
+    return motifs.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.metal.toLowerCase().includes(q) ||
+        m.subCategory.toLowerCase().includes(q) ||
+        m.description?.toLowerCase().includes(q),
+    );
+  }, [motifs, motifSearch]);
+
+  const selectedMotifKeys = activeMotifKeys;
+
   const selectedDesign = useMemo(
     () => designs.find((d) => d.id === selectedId) ?? null,
     [designs, selectedId],
   );
 
   const syncFromDesign = useCallback((design: Design) => {
-    const motifs = design.elements.filter((e) => e.type === "Motif");
+    const motifsOnDesign = design.elements.filter((e) => e.type === "Motif");
     setActiveMotifKeys(
-      new Set(motifs.map((m) => elementKey(m.type, m.name))),
+      new Set(motifsOnDesign.map((m) => elementKey(m.type, m.name))),
     );
-    setExtraMotifKeys(new Set());
 
     const stones: Record<string, string> = {};
     design.elements
@@ -165,18 +207,6 @@ export default function DesignsPage() {
     if (selectedDesign) syncFromDesign(selectedDesign);
   }, [selectedDesign, syncFromDesign]);
 
-  const originalMotifs = useMemo(() => {
-    if (!selectedDesign) return [];
-    return selectedDesign.elements.filter((e) => e.type === "Motif");
-  }, [selectedDesign]);
-
-  const libraryMotifs = useMemo(() => {
-    const inDesign = new Set(
-      originalMotifs.map((m) => elementKey(m.type, m.name)),
-    );
-    return library.filter((el) => el.type === "Motif" && !inDesign.has(el.key));
-  }, [library, originalMotifs]);
-
   const stoneElements = useMemo(() => {
     if (!selectedDesign) return [];
     return selectedDesign.elements.filter((e) => e.type === "Stone");
@@ -200,11 +230,17 @@ export default function DesignsPage() {
   const previewElements = useMemo((): LibraryElement[] => {
     const items: LibraryElement[] = [];
 
-    for (const key of activeMotifKeys) {
-      const el = library.find((l) => l.key === key);
-      if (el) items.push(el);
-    }
-    for (const key of extraMotifKeys) {
+    for (const key of selectedMotifKeys) {
+      const motif = motifByKey.get(key);
+      if (motif) {
+        items.push({
+          key,
+          name: motif.name,
+          type: "Motif",
+          unitValue: motif.price,
+        });
+        continue;
+      }
       const el = library.find((l) => l.key === key);
       if (el) items.push(el);
     }
@@ -219,8 +255,8 @@ export default function DesignsPage() {
     return items;
   }, [
     library,
-    activeMotifKeys,
-    extraMotifKeys,
+    selectedMotifKeys,
+    motifByKey,
     stonePick,
     castingPick,
   ]);
@@ -237,40 +273,30 @@ export default function DesignsPage() {
     setSelectedId(design.id);
   };
 
-  const toggleMotif = (key: string, isOriginal: boolean) => {
+  const toggleMotif = (key: string) => {
     if (!canManage) return;
-    if (isOriginal) {
-      setActiveMotifKeys((prev) => {
-        const next = new Set(prev);
-        if (next.has(key)) next.delete(key);
-        else next.add(key);
-        return next;
-      });
-    } else {
-      setExtraMotifKeys((prev) => {
-        const next = new Set(prev);
-        if (next.has(key)) next.delete(key);
-        else next.add(key);
-        return next;
-      });
-    }
+    setActiveMotifKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
   const buildTargetElements = (): NewDesignElementInput[] => {
     const result: NewDesignElementInput[] = [];
 
-    for (const key of activeMotifKeys) {
-      const el = library.find((l) => l.key === key);
-      if (el) {
+    for (const key of selectedMotifKeys) {
+      const motif = motifByKey.get(key);
+      if (motif) {
         result.push({
-          name: el.name,
+          name: motif.name,
           type: "Motif",
           qtyPerSet: 1,
-          unitValue: el.unitValue,
+          unitValue: motif.price,
         });
+        continue;
       }
-    }
-    for (const key of extraMotifKeys) {
       const el = library.find((l) => l.key === key);
       if (el) {
         result.push({
@@ -405,6 +431,12 @@ export default function DesignsPage() {
         </div>
       )}
 
+      {motifsError && (
+        <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-amber-200 bg-amber-50 text-amber-800">
+          {motifsError}
+        </div>
+      )}
+
       <div className="mb-8">
         <SkuSearchDropdown
           designs={designs}
@@ -433,58 +465,70 @@ export default function DesignsPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          {/* Original motifs */}
+          {/* Motif library */}
           <section>
-            <h2 className="text-sm font-semibold text-zinc-700 mb-3">
-              Motifs for {selectedDesign.code}
-            </h2>
-            <div className="flex flex-wrap gap-4">
-              {originalMotifs.map((motif) => {
-                const key = elementKey(motif.type, motif.name);
-                return (
-                  <MotifCard
-                    key={motif.id}
-                    name={motif.name}
-                    type="Motif"
-                    price={motif.unitValue}
-                    selected={activeMotifKeys.has(key)}
-                    onClick={() => toggleMotif(key, true)}
-                    disabled={!canManage}
-                  />
-                );
-              })}
-              {canManage && (
-                <AddMotifCard onClick={() => setMotifModalOpen(true)} />
-              )}
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-700">
+                  Motif library
+                </h2>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Select motifs for {selectedDesign.code}
+                  {selectedMotifKeys.size > 0 &&
+                    ` · ${selectedMotifKeys.size} selected`}
+                </p>
+              </div>
+              <input
+                value={motifSearch}
+                onChange={(e) => setMotifSearch(e.target.value)}
+                className="input-field w-full max-w-xs px-3 py-2 text-sm"
+                placeholder="Search motifs…"
+              />
             </div>
-            {originalMotifs.length === 0 && !canManage && (
-              <p className="text-sm text-zinc-400 mt-2">
-                No motifs on this SKU yet.
-              </p>
+
+            {motifsLoading ? (
+              <p className="text-sm text-zinc-400">Loading motifs…</p>
+            ) : filteredMotifs.length === 0 ? (
+              <div className="surface-card rounded-xl px-5 py-8 text-center">
+                <p className="text-sm text-zinc-500">
+                  {motifs.length === 0
+                    ? "No motifs in the library yet. Create one to get started."
+                    : "No motifs match your search."}
+                </p>
+                {canManage && motifs.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setMotifModalOpen(true)}
+                    className="btn-primary mt-4 px-4 py-2 text-sm"
+                  >
+                    Create first motif
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-4">
+                {filteredMotifs.map((motif) => {
+                  const key = elementKey("Motif", motif.name);
+                  return (
+                    <MotifCard
+                      key={motif.id}
+                      name={motif.name}
+                      type="Motif"
+                      price={motif.price}
+                      imageUrl={motif.imageUrl}
+                      subtitle={`${motif.metal} · ${motif.subCategory}`}
+                      selected={selectedMotifKeys.has(key)}
+                      onClick={() => toggleMotif(key)}
+                      disabled={!canManage}
+                    />
+                  );
+                })}
+                {canManage && (
+                  <AddMotifCard onClick={() => setMotifModalOpen(true)} />
+                )}
+              </div>
             )}
           </section>
-
-          {/* Extra motifs from library */}
-          {libraryMotifs.length > 0 && (
-            <section>
-              <h2 className="text-sm font-semibold text-zinc-700 mb-3">
-                Add motifs from library
-              </h2>
-              <div className="flex flex-wrap gap-4">
-                {libraryMotifs.map((motif) => (
-                  <MotifCard
-                    key={motif.key}
-                    name={motif.name}
-                    type="Motif"
-                    price={motif.unitValue}
-                    selected={extraMotifKeys.has(motif.key)}
-                    onClick={() => toggleMotif(motif.key, false)}
-                    disabled={!canManage}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
 
           {/* Stones & Casting dropdowns */}
           {(stoneElements.length > 0 ||
@@ -759,6 +803,7 @@ export default function DesignsPage() {
           skuCode={selectedDesign.code}
           onClose={() => setMotifModalOpen(false)}
           onSubmit={handleAddMotif}
+          onMotifCreated={loadMotifs}
         />
       )}
     </div>
