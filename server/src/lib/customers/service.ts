@@ -7,6 +7,7 @@ import type {
 } from "../../types.js";
 import { toSale } from "../sales/mappers.js";
 import { toCustomer } from "./mappers.js";
+import { validateCustomerFinancialFields } from "./validation.js";
 
 export class CustomerError extends Error {
   constructor(
@@ -19,6 +20,22 @@ export class CustomerError extends Error {
 }
 
 const customerInclude = { sales: true };
+
+const trimOrNull = (value: string | null | undefined): string | null => {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const validateFinancialFields = (input: NewCustomerInput | UpdateCustomerInput) => {
+  try {
+    return validateCustomerFinancialFields(input);
+  } catch (error) {
+    throw new CustomerError(
+      error instanceof Error ? error.message : "Invalid customer financial details.",
+    );
+  }
+};
 
 export const listCustomers = async (): Promise<Customer[]> => {
   const customers = await prisma.customer.findMany({
@@ -68,17 +85,32 @@ export const createCustomer = async (
     throw new CustomerError("A customer with this mobile number already exists.");
   }
 
+  const financial = validateFinancialFields(input);
+
   const customer = await prisma.customer.create({
     data: {
       name,
       mobile,
-      email: input.email?.trim() || null,
-      address: input.address?.trim() || null,
-      city: input.city?.trim() || null,
+      email: trimOrNull(input.email),
+      address: trimOrNull(input.address),
+      city: trimOrNull(input.city),
+      billingAddressLine1: financial.billingAddressLine1,
+      billingAddressLine2: financial.billingAddressLine2,
+      billingCity: financial.billingCity,
+      billingState: financial.billingState,
+      billingPincode: financial.billingPincode,
+      billingCountry: financial.billingCountry,
+      panNumber: financial.panNumber,
+      gstNumber: financial.gstNumber,
+      gstRegisteredName: financial.gstRegisteredName,
+      bankAccountName: financial.bankAccountName,
+      bankAccountNumber: financial.bankAccountNumber,
+      bankIfsc: financial.bankIfsc,
+      bankName: financial.bankName,
       birthday: input.birthday ? new Date(input.birthday) : null,
       anniversary: input.anniversary ? new Date(input.anniversary) : null,
-      ringSize: input.ringSize?.trim() || null,
-      preferences: input.preferences?.trim() || null,
+      ringSize: trimOrNull(input.ringSize),
+      preferences: trimOrNull(input.preferences),
     },
     include: customerInclude,
   });
@@ -96,7 +128,9 @@ export const searchCustomers = async (query: string): Promise<Customer[]> => {
         { name: { contains: q } },
         { mobile: { contains: q } },
         { city: { contains: q } },
+        { billingCity: { contains: q } },
         { email: { contains: q } },
+        { gstNumber: { contains: q, mode: "insensitive" } },
       ],
     },
     include: customerInclude,
@@ -131,18 +165,69 @@ export const updateCustomer = async (
     throw new CustomerError("Customer name is required.");
   }
 
+  const hasFinancialUpdate =
+    input.panNumber !== undefined ||
+    input.gstNumber !== undefined ||
+    input.gstRegisteredName !== undefined ||
+    input.billingAddressLine1 !== undefined ||
+    input.billingAddressLine2 !== undefined ||
+    input.billingCity !== undefined ||
+    input.billingState !== undefined ||
+    input.billingPincode !== undefined ||
+    input.billingCountry !== undefined ||
+    input.bankAccountName !== undefined ||
+    input.bankAccountNumber !== undefined ||
+    input.bankIfsc !== undefined ||
+    input.bankName !== undefined;
+
+  const financial = hasFinancialUpdate
+    ? validateFinancialFields({
+        panNumber: input.panNumber ?? existing.panNumber,
+        gstNumber: input.gstNumber ?? existing.gstNumber,
+        gstRegisteredName: input.gstRegisteredName ?? existing.gstRegisteredName,
+        billingAddressLine1:
+          input.billingAddressLine1 ?? existing.billingAddressLine1,
+        billingAddressLine2:
+          input.billingAddressLine2 ?? existing.billingAddressLine2,
+        billingCity: input.billingCity ?? existing.billingCity,
+        billingState: input.billingState ?? existing.billingState,
+        billingPincode: input.billingPincode ?? existing.billingPincode,
+        billingCountry: input.billingCountry ?? existing.billingCountry,
+        bankAccountName: input.bankAccountName ?? existing.bankAccountName,
+        bankAccountNumber:
+          input.bankAccountNumber ?? existing.bankAccountNumber,
+        bankIfsc: input.bankIfsc ?? existing.bankIfsc,
+        bankName: input.bankName ?? existing.bankName,
+      })
+    : null;
+
   const customer = await prisma.customer.update({
     where: { id },
     data: {
       ...(input.name !== undefined && { name: input.name.trim() }),
       ...(input.mobile !== undefined && { mobile: input.mobile.trim() }),
       ...(input.email !== undefined && {
-        email: input.email?.trim() || null,
+        email: trimOrNull(input.email),
       }),
       ...(input.address !== undefined && {
-        address: input.address?.trim() || null,
+        address: trimOrNull(input.address),
       }),
-      ...(input.city !== undefined && { city: input.city?.trim() || null }),
+      ...(input.city !== undefined && { city: trimOrNull(input.city) }),
+      ...(financial && {
+        billingAddressLine1: financial.billingAddressLine1,
+        billingAddressLine2: financial.billingAddressLine2,
+        billingCity: financial.billingCity,
+        billingState: financial.billingState,
+        billingPincode: financial.billingPincode,
+        billingCountry: financial.billingCountry,
+        panNumber: financial.panNumber,
+        gstNumber: financial.gstNumber,
+        gstRegisteredName: financial.gstRegisteredName,
+        bankAccountName: financial.bankAccountName,
+        bankAccountNumber: financial.bankAccountNumber,
+        bankIfsc: financial.bankIfsc,
+        bankName: financial.bankName,
+      }),
       ...(input.birthday !== undefined && {
         birthday: input.birthday ? new Date(input.birthday) : null,
       }),
@@ -150,10 +235,10 @@ export const updateCustomer = async (
         anniversary: input.anniversary ? new Date(input.anniversary) : null,
       }),
       ...(input.ringSize !== undefined && {
-        ringSize: input.ringSize?.trim() || null,
+        ringSize: trimOrNull(input.ringSize),
       }),
       ...(input.preferences !== undefined && {
-        preferences: input.preferences?.trim() || null,
+        preferences: trimOrNull(input.preferences),
       }),
     },
     include: customerInclude,

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { canViewInvoices } from "../lib/auth/permissions.js";
+import { getCustomer } from "../lib/customers/service.js";
 import { getInvoice, listInvoices } from "../lib/invoices/service.js";
 import { generateInvoicePdf } from "../lib/invoices/pdf.js";
 import { getShopSettings } from "../lib/settings/service.js";
@@ -35,7 +36,10 @@ invoicesRouter.get(
       }
 
       const settings = await getShopSettings();
-      const pdf = await generateInvoicePdf(invoice, settings);
+      const customerBilling = invoice.customerId
+        ? await getCustomer(invoice.customerId)
+        : null;
+      const pdf = await generateInvoicePdf(invoice, settings, customerBilling);
 
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(

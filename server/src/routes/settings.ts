@@ -32,7 +32,10 @@ settingsRouter.patch(
       res.json(settings);
     } catch (error) {
       console.error("PATCH /api/settings", error);
-      res.status(500).json({ error: "Failed to update settings" });
+      const message =
+        error instanceof Error ? error.message : "Failed to update settings";
+      const status = message.includes("Invalid") ? 400 : 500;
+      res.status(status).json({ error: message });
     }
   },
 );

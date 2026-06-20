@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Pencil, X } from "lucide-react";
+import { ChevronDown, Pencil, X } from "lucide-react";
 import type { Customer, CustomerDetail } from "@/lib/types";
 import { fetchCustomer } from "@/lib/api/customers";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -11,6 +11,10 @@ import { useCustomers } from "@/lib/customers/customers-context";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api/client";
 import StatusBadge from "@/app/(components)/StatusBadge";
+import {
+  formatCustomerBillingAddress,
+  hasCustomerFinancialData,
+} from "@/app/(components)/CustomerFinancialFields";
 
 const EditCustomerModal = dynamic(() => import("@/app/(components)/EditCustomerModal"), { ssr: false });
 
@@ -30,6 +34,7 @@ export default function CustomerDetailPanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [editOpen, setEditOpen] = useState(false);
+  const [financialOpen, setFinancialOpen] = useState(false);
 
   useEffect(() => {
     if (!customerId) return;
@@ -42,6 +47,9 @@ export default function CustomerDetailPanel({
   }, [customerId]);
 
   if (!customerId) return null;
+
+  const billingAddress = detail ? formatCustomerBillingAddress(detail) : null;
+  const showFinancial = detail ? hasCustomerFinancialData(detail) : false;
 
   return (
     <>
@@ -87,20 +95,58 @@ export default function CustomerDetailPanel({
                 <dl className="grid grid-cols-2 gap-3 text-sm">
                   {[
                     ["Email", detail.email ?? "—"],
-                    ["City", detail.city ?? "—"],
-                    ["Address", detail.address ?? "—"],
                     ["Ring Size", detail.ringSize ?? "—"],
                     ["Birthday", detail.birthday ? formatDate(detail.birthday) : "—"],
                     ["Anniversary", detail.anniversary ? formatDate(detail.anniversary) : "—"],
                     ["Total Orders", String(detail.totalOrders)],
                     ["Total Spent", formatCurrency(detail.totalSpent)],
                   ].map(([label, value]) => (
-                    <div key={label} className={label === "Address" ? "col-span-2" : ""}>
+                    <div key={label}>
                       <dt className="text-xs text-zinc-400">{label}</dt>
                       <dd className="font-medium text-zinc-900">{value}</dd>
                     </div>
                   ))}
                 </dl>
+
+                {showFinancial && (
+                  <div className="border border-zinc-200 rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setFinancialOpen((prev) => !prev)}
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-left bg-zinc-50 hover:bg-zinc-100"
+                    >
+                      <span className="text-xs font-medium text-zinc-600">Billing, Tax & Bank Details</span>
+                      <ChevronDown
+                        size={16}
+                        className={`text-zinc-400 transition-transform ${financialOpen ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                    {financialOpen && (
+                      <dl className="grid grid-cols-2 gap-3 p-3 text-sm border-t border-zinc-200">
+                        {[
+                          ["PAN", detail.panNumber],
+                          ["GST Number", detail.gstNumber],
+                          ["GST Registered Name", detail.gstRegisteredName],
+                          ["Billing Address", billingAddress],
+                          ["Bank", detail.bankName],
+                          ["Account Name", detail.bankAccountName],
+                          ["Account No.", detail.bankAccountNumber],
+                          ["IFSC", detail.bankIfsc],
+                        ]
+                          .filter(([, value]) => value)
+                          .map(([label, value]) => (
+                            <div
+                              key={label}
+                              className={label === "Billing Address" ? "col-span-2" : ""}
+                            >
+                              <dt className="text-xs text-zinc-400">{label}</dt>
+                              <dd className="font-medium text-zinc-900">{value}</dd>
+                            </div>
+                          ))}
+                      </dl>
+                    )}
+                  </div>
+                )}
 
                 {detail.preferences && (
                   <div>

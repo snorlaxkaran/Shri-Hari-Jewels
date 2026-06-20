@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import type { Customer, UpdateCustomerInput } from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/api/client";
+import CustomerFinancialFields, {
+  financialValuesFromCustomer,
+  financialValuesToUpdateInput,
+  hasCustomerFinancialData,
+} from "@/app/(components)/CustomerFinancialFields";
 
 type EditCustomerModalProps = {
   open: boolean;
@@ -26,12 +31,11 @@ export default function EditCustomerModal({
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
   const [email, setEmail] = useState("");
-  const [city, setCity] = useState("");
-  const [address, setAddress] = useState("");
   const [birthday, setBirthday] = useState("");
   const [anniversary, setAnniversary] = useState("");
   const [ringSize, setRingSize] = useState("");
   const [preferences, setPreferences] = useState("");
+  const [financial, setFinancial] = useState(financialValuesFromCustomer({}));
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -40,12 +44,11 @@ export default function EditCustomerModal({
     setName(customer.name);
     setMobile(customer.mobile);
     setEmail(customer.email ?? "");
-    setCity(customer.city ?? "");
-    setAddress(customer.address ?? "");
     setBirthday(toDateInput(customer.birthday));
     setAnniversary(toDateInput(customer.anniversary));
     setRingSize(customer.ringSize ?? "");
     setPreferences(customer.preferences ?? "");
+    setFinancial(financialValuesFromCustomer(customer));
     setError("");
   }, [open, customer]);
 
@@ -62,12 +65,11 @@ export default function EditCustomerModal({
         name: name.trim(),
         mobile: mobile.trim(),
         email: email.trim() || null,
-        city: city.trim() || null,
-        address: address.trim() || null,
         birthday: birthday || null,
         anniversary: anniversary || null,
         ringSize: ringSize.trim() || null,
         preferences: preferences.trim() || null,
+        ...financialValuesToUpdateInput(financial),
       });
       onClose();
     } catch (err) {
@@ -104,14 +106,6 @@ export default function EditCustomerModal({
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={fieldClass} />
             </div>
             <div>
-              <label className={labelClass}>City</label>
-              <input value={city} onChange={(e) => setCity(e.target.value)} className={fieldClass} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className={labelClass}>Address</label>
-              <input value={address} onChange={(e) => setAddress(e.target.value)} className={fieldClass} />
-            </div>
-            <div>
               <label className={labelClass}>Birthday</label>
               <input type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} className={fieldClass} />
             </div>
@@ -123,11 +117,18 @@ export default function EditCustomerModal({
               <label className={labelClass}>Ring Size</label>
               <input value={ringSize} onChange={(e) => setRingSize(e.target.value)} className={fieldClass} />
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <label className={labelClass}>Preferences</label>
               <input value={preferences} onChange={(e) => setPreferences(e.target.value)} className={fieldClass} />
             </div>
           </div>
+
+          <CustomerFinancialFields
+            values={financial}
+            onChange={setFinancial}
+            defaultOpen={hasCustomerFinancialData(customer)}
+          />
+
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex gap-3">
             <button type="button" onClick={onClose} className="btn-secondary flex-1 px-4 py-2.5 text-sm">Cancel</button>

@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import type { NewCustomerInput } from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/api/client";
+import CustomerFinancialFields, {
+  emptyCustomerFinancialValues,
+  financialValuesToInput,
+} from "@/app/(components)/CustomerFinancialFields";
 
 type AddCustomerModalProps = {
   open: boolean;
@@ -22,12 +26,11 @@ export default function AddCustomerModal({
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
   const [email, setEmail] = useState("");
-  const [city, setCity] = useState("");
-  const [address, setAddress] = useState("");
   const [birthday, setBirthday] = useState("");
   const [anniversary, setAnniversary] = useState("");
   const [ringSize, setRingSize] = useState("");
   const [preferences, setPreferences] = useState("");
+  const [financial, setFinancial] = useState(emptyCustomerFinancialValues());
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -44,12 +47,11 @@ export default function AddCustomerModal({
     setName("");
     setMobile("");
     setEmail("");
-    setCity("");
-    setAddress("");
     setBirthday("");
     setAnniversary("");
     setRingSize("");
     setPreferences("");
+    setFinancial(emptyCustomerFinancialValues());
     setError("");
   };
 
@@ -77,12 +79,11 @@ export default function AddCustomerModal({
         name: name.trim(),
         mobile: mobile.trim(),
         email: email.trim() || undefined,
-        city: city.trim() || undefined,
-        address: address.trim() || undefined,
         birthday: birthday || undefined,
         anniversary: anniversary || undefined,
         ringSize: ringSize.trim() || undefined,
         preferences: preferences.trim() || undefined,
+        ...financialValuesToInput(financial),
       });
       reset();
       onClose();
@@ -120,16 +121,8 @@ export default function AddCustomerModal({
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={fieldClass} />
             </div>
             <div>
-              <label className={labelClass}>City</label>
-              <input value={city} onChange={(e) => setCity(e.target.value)} className={fieldClass} />
-            </div>
-            <div>
               <label className={labelClass}>Ring Size</label>
               <input value={ringSize} onChange={(e) => setRingSize(e.target.value)} className={fieldClass} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className={labelClass}>Address</label>
-              <input value={address} onChange={(e) => setAddress(e.target.value)} className={fieldClass} />
             </div>
             <div>
               <label className={labelClass}>Birthday</label>
@@ -144,6 +137,9 @@ export default function AddCustomerModal({
               <textarea value={preferences} onChange={(e) => setPreferences(e.target.value)} className={fieldClass} rows={2} />
             </div>
           </div>
+
+          <CustomerFinancialFields values={financial} onChange={setFinancial} />
+
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex gap-3">
             <button type="button" onClick={handleClose} disabled={submitting} className="btn-secondary flex-1 px-4 py-2.5 text-sm">Cancel</button>

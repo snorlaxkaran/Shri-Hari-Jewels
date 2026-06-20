@@ -18,18 +18,42 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState("");
 
   const [businessName, setBusinessName] = useState("");
-  const [address, setAddress] = useState("");
+  const [addressLine1, setAddressLine1] = useState("");
+  const [addressLine2, setAddressLine2] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [country, setCountry] = useState("India");
   const [phone, setPhone] = useState("");
   const [upiVpa, setUpiVpa] = useState("");
+  const [panNumber, setPanNumber] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
+  const [gstRegisteredName, setGstRegisteredName] = useState("");
+  const [bankAccountName, setBankAccountName] = useState("");
+  const [bankAccountNumber, setBankAccountNumber] = useState("");
+  const [bankIfsc, setBankIfsc] = useState("");
+  const [bankName, setBankName] = useState("");
 
   useEffect(() => {
     fetchSettings()
       .then((data) => {
         setSettings(data);
         setBusinessName(data.businessName);
-        setAddress(data.address ?? "");
+        setAddressLine1(data.addressLine1 ?? data.address ?? "");
+        setAddressLine2(data.addressLine2 ?? "");
+        setCity(data.city ?? "");
+        setState(data.state ?? "");
+        setPincode(data.pincode ?? "");
+        setCountry(data.country ?? "India");
         setPhone(data.phone ?? "");
         setUpiVpa(data.upiVpa ?? "");
+        setPanNumber(data.panNumber ?? "");
+        setGstNumber(data.gstNumber ?? "");
+        setGstRegisteredName(data.gstRegisteredName ?? "");
+        setBankAccountName(data.bankAccountName ?? "");
+        setBankAccountNumber(data.bankAccountNumber ?? "");
+        setBankIfsc(data.bankIfsc ?? "");
+        setBankName(data.bankName ?? "");
       })
       .catch(() => setError("Could not load settings."))
       .finally(() => setLoading(false));
@@ -43,9 +67,21 @@ export default function SettingsPage() {
     try {
       const updated = await updateSettings({
         businessName: businessName.trim(),
-        address: address.trim(),
+        addressLine1: addressLine1.trim(),
+        addressLine2: addressLine2.trim(),
+        city: city.trim(),
+        state: state.trim(),
+        pincode: pincode.trim(),
+        country: country.trim(),
         phone: phone.trim(),
         upiVpa: upiVpa.trim(),
+        panNumber: panNumber.trim(),
+        gstNumber: gstNumber.trim(),
+        gstRegisteredName: gstRegisteredName.trim(),
+        bankAccountName: bankAccountName.trim(),
+        bankAccountNumber: bankAccountNumber.trim(),
+        bankIfsc: bankIfsc.trim(),
+        bankName: bankName.trim(),
       });
       setSettings(updated);
       setSuccess("Settings saved.");
@@ -63,7 +99,7 @@ export default function SettingsPage() {
     <div>
       <PageHeader
         title="Settings"
-        subtitle="Store details and UPI payment configuration"
+        subtitle="Business details, tax registration, and payment configuration"
       />
 
       {error && (
@@ -79,18 +115,112 @@ export default function SettingsPage() {
 
       <form onSubmit={handleSave} className="space-y-6 max-w-2xl">
         <div className="surface-card p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-zinc-900">Store Information</h2>
+          <h2 className="text-sm font-semibold text-zinc-900">Business Information</h2>
           <div>
             <label className={labelClass}>Business name</label>
             <input value={businessName} onChange={(e) => setBusinessName(e.target.value)} className={fieldClass} />
           </div>
           <div>
-            <label className={labelClass}>Address</label>
-            <input value={address} onChange={(e) => setAddress(e.target.value)} className={fieldClass} />
+            <label className={labelClass}>GST registered name</label>
+            <input
+              value={gstRegisteredName}
+              onChange={(e) => setGstRegisteredName(e.target.value)}
+              placeholder="If different from business name"
+              className={fieldClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Phone</label>
             <input value={phone} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
+          </div>
+        </div>
+
+        <div className="surface-card p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-zinc-900">Registered Address</h2>
+          <div>
+            <label className={labelClass}>Address Line 1</label>
+            <input value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} className={fieldClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Address Line 2</label>
+            <input value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} className={fieldClass} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>City</label>
+              <input value={city} onChange={(e) => setCity(e.target.value)} className={fieldClass} />
+            </div>
+            <div>
+              <label className={labelClass}>State</label>
+              <input value={state} onChange={(e) => setState(e.target.value)} className={fieldClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Pincode</label>
+              <input
+                value={pincode}
+                onChange={(e) => setPincode(e.target.value)}
+                maxLength={6}
+                className={fieldClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Country</label>
+              <input value={country} onChange={(e) => setCountry(e.target.value)} className={fieldClass} />
+            </div>
+          </div>
+        </div>
+
+        <div className="surface-card p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-zinc-900">Tax Registration</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>PAN</label>
+              <input
+                value={panNumber}
+                onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
+                maxLength={10}
+                placeholder="AAAAA9999A"
+                className={fieldClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>GST Number</label>
+              <input
+                value={gstNumber}
+                onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+                maxLength={15}
+                className={fieldClass}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="surface-card p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-zinc-900">Bank Details</h2>
+          <p className="text-xs text-zinc-500">Shown on invoices for bank transfer instructions.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Bank name</label>
+              <input value={bankName} onChange={(e) => setBankName(e.target.value)} className={fieldClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Account holder name</label>
+              <input value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} className={fieldClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Account number</label>
+              <input value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} className={fieldClass} />
+            </div>
+            <div>
+              <label className={labelClass}>IFSC</label>
+              <input
+                value={bankIfsc}
+                onChange={(e) => setBankIfsc(e.target.value.toUpperCase())}
+                maxLength={11}
+                placeholder="AAAA0XXXXXX"
+                className={fieldClass}
+              />
+            </div>
           </div>
         </div>
 
