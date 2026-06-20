@@ -11,6 +11,7 @@
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:deploy": "tsx scripts/migrate-status-enums.ts && prisma db push",
     "db:backfill-motif-purity": "tsx scripts/backfill-motif-purity.ts",
     "db:migrate-motif-stones": "tsx scripts/migrate-motif-stones.ts",
     "db:studio": "prisma studio",
