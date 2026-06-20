@@ -16,6 +16,7 @@ import {
   isValidDesignMetal,
   isValidDesignPurity,
 } from "./validation.js";
+import { toApiDesignBuilderStage } from "./builder-stages.js";
 
 export const DESIGN_CATEGORIES: DesignCategory[] = [
   "Necklace",
@@ -82,6 +83,14 @@ const toDesign = (design: {
   metal: string | null;
   purity: string | null;
   makingChargesPerSet: { toString(): string } | null;
+  builderStage: Parameters<typeof toApiDesignBuilderStage>[0];
+  cadFileUrl: string | null;
+  cadCompletedAt: Date | null;
+  moldNotes: string | null;
+  moldPhotoUrl: string | null;
+  moldCompletedAt: Date | null;
+  finishedPhotoUrl: string | null;
+  builderCompletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   elements?: Array<Parameters<typeof toDesignElement>[0]>;
@@ -96,10 +105,20 @@ const toDesign = (design: {
     design.makingChargesPerSet != null
       ? moneyToNumber(String(design.makingChargesPerSet))
       : undefined,
+  builderStage: toApiDesignBuilderStage(design.builderStage),
+  cadFileUrl: design.cadFileUrl ?? undefined,
+  cadCompletedAt: design.cadCompletedAt?.toISOString(),
+  moldNotes: design.moldNotes ?? undefined,
+  moldPhotoUrl: design.moldPhotoUrl ?? undefined,
+  moldCompletedAt: design.moldCompletedAt?.toISOString(),
+  finishedPhotoUrl: design.finishedPhotoUrl ?? undefined,
+  builderCompletedAt: design.builderCompletedAt?.toISOString(),
   elements: (design.elements ?? []).map(toDesignElement),
   createdAt: design.createdAt.toISOString(),
   updatedAt: design.updatedAt.toISOString(),
 });
+
+export { toDesign };
 
 const resolveMotifSnapshot = async (
   motifId: string,
@@ -169,6 +188,12 @@ export const createDesign = async (
   if (input.category && !DESIGN_CATEGORIES.includes(input.category)) {
     throw new DesignError("Invalid design category.");
   }
+  if (input.metal && !isValidDesignMetal(input.metal)) {
+    throw new DesignError("Invalid metal.");
+  }
+  if (input.purity && !isValidDesignPurity(input.purity)) {
+    throw new DesignError("Invalid purity.");
+  }
 
   const elements = input.elements ?? [];
   for (const el of elements) {
@@ -185,6 +210,8 @@ export const createDesign = async (
       code,
       name: input.name?.trim() || null,
       category: input.category || null,
+      metal: input.metal || null,
+      purity: input.purity || null,
       elements: {
         create: builtElements.map((el, index) => ({
           motifId: el.motifId,

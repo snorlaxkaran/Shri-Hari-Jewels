@@ -61,6 +61,28 @@ enum StoneLotStatus {
   Issued
 }
 
+enum DesignBuilderStage {
+  SKU         @map("SKU")
+  CAD         @map("CAD")
+  MoldMaking  @map("Mold Making")
+  Motifs      @map("Motifs")
+  Photo       @map("Photo")
+  Complete    @map("Complete")
+}
+
+enum ProductionRunStage {
+  WaxPattern      @map("Wax Pattern")
+  Casting         @map("Casting")
+  Cleaning        @map("Cleaning")
+  Assembly        @map("Assembly")
+  Prepolish       @map("Prepolish")
+  StoneSetting    @map("Stone Setting")
+  FinalPolishing  @map("Final Polishing")
+  Plating         @map("Plating")
+  QualityCheck    @map("Quality Check")
+  Packaging       @map("Packaging")
+}
+
 model Branch {
   id          String   @id @default(uuid())
   name        String
@@ -288,6 +310,14 @@ model Design {
   metal               String?
   purity              String?
   makingChargesPerSet Decimal? @db.Decimal(12, 2)
+  builderStage        DesignBuilderStage @default(SKU)
+  cadFileUrl          String?  @db.Text
+  cadCompletedAt      DateTime?
+  moldNotes           String?
+  moldPhotoUrl        String?  @db.Text
+  moldCompletedAt     DateTime?
+  finishedPhotoUrl    String?  @db.Text
+  builderCompletedAt  DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -297,6 +327,7 @@ model Design {
 
   @@index([branchId])
   @@index([category])
+  @@index([builderStage])
 }
 
 model DesignElement {
@@ -393,6 +424,7 @@ model ProductionRun {
   designId    String
   setsOrdered Int
   status      ProductionRunStatusEnum @default(Open)
+  currentStage ProductionRunStage @default(WaxPattern)
   finishedGoodsProductId String? @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -400,11 +432,29 @@ model ProductionRun {
   branch Branch              @relation(fields: [branchId], references: [id], onDelete: Cascade)
   design Design              @relation(fields: [designId], references: [id], onDelete: Restrict)
   items  ProductionRunItem[]
+  stageLogs ProductionRunStageLog[]
   finishedGoodsProduct Product? @relation("ProductionRunFinishedGoods", fields: [finishedGoodsProductId], references: [id], onDelete: SetNull)
 
   @@index([branchId])
   @@index([designId])
   @@index([status])
+  @@index([currentStage])
+}
+
+model ProductionRunStageLog {
+  id              String   @id @default(uuid())
+  productionRunId String
+  stage           ProductionRunStage
+  notes           String?
+  performedById   String?
+  performedByName String
+  createdAt       DateTime @default(now())
+
+  productionRun ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: Cascade)
+
+  @@index([productionRunId])
+  @@index([stage])
+  @@index([createdAt])
 }
 
 model ProductionRunItem {

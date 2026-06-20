@@ -15,6 +15,8 @@ import {
   updateProductionRun,
   updateProductionRunItem,
 } from "../lib/production-runs/service.js";
+import { completeProductionRunStage } from "../lib/production-runs/stage-service.js";
+import { slugToStage } from "../lib/production-runs/stages.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
 import { prisma } from "../lib/db.js";
 import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
@@ -23,6 +25,7 @@ import type {
   NewProductionRunInput,
   UpdateProductionRunInput,
   UpdateProductionRunItemInput,
+  CompleteProductionRunStageInput,
 } from "../types.js";
 
 export const productionRunsRouter = Router();
@@ -178,6 +181,34 @@ productionRunsRouter.patch(
       }
       console.error("PATCH /api/production-runs/:id/items/:itemId", error);
       res.status(500).json({ error: "Failed to update production run item" });
+    }
+  },
+);
+
+productionRunsRouter.post(
+  "/:id/stages/:stageSlug/complete",
+  requireRole(canUpdateProductionRunItems),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const stage = slugToStage(routeParam(req.params.stageSlug));
+      if (!stage) {
+        res.status(400).json({ error: "Invalid stage." });
+        return;
+      }
+      const result = await completeProductionRunStage(
+        routeParam(req.params.id),
+        stage,
+        req.body as CompleteProductionRunStageInput,
+        { id: req.user!.id, name: req.user!.name },
+      );
+      res.json(result);
+    } catch (error) {
+      if (error instanceof ProductionRunError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/production-runs/:id/stages/:stageSlug/complete", error);
+      res.status(500).json({ error: "Failed to complete stage" });
     }
   },
 );

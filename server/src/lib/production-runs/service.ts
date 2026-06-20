@@ -1,4 +1,4 @@
-import { ProductionRunStatusEnum } from "@prisma/client";
+import { DesignBuilderStage, ProductionRunStatusEnum } from "@prisma/client";
 import { prisma } from "../db.js";
 import { moneyToNumber } from "../money.js";
 import type {
@@ -6,6 +6,7 @@ import type {
   NewProductionRunInput,
   ProductionRun,
   ProductionRunItem,
+  ProductionRunStageLog,
   ProductionRunStatus,
   UpdateProductionRunInput,
   UpdateProductionRunItemInput,
@@ -29,6 +30,7 @@ import {
   expectedElementWeight,
   requireWeightOverrideNote,
 } from "../weight-reconciliation.js";
+import { toApiProductionRunStage } from "./stages.js";
 
 export { ProductionRunError } from "./errors.js";
 
@@ -50,7 +52,26 @@ const toDbRunStatus = (
 const runInclude = {
   design: { select: { code: true, name: true, category: true } },
   items: { orderBy: { sortOrder: "asc" as const } },
+  stageLogs: { orderBy: { createdAt: "asc" as const } },
 };
+
+const toStageLog = (row: {
+  id: string;
+  productionRunId: string;
+  stage: string;
+  notes: string | null;
+  performedById: string | null;
+  performedByName: string;
+  createdAt: Date;
+}): ProductionRunStageLog => ({
+  id: row.id,
+  productionRunId: row.productionRunId,
+  stage: toApiProductionRunStage(row.stage as Parameters<typeof toApiProductionRunStage>[0]),
+  notes: row.notes ?? undefined,
+  performedById: row.performedById ?? undefined,
+  performedByName: row.performedByName,
+  createdAt: row.createdAt.toISOString(),
+});
 
 const toProductionRunItem = (item: {
   id: string;
@@ -101,11 +122,13 @@ const toProductionRun = (run: {
   designId: string;
   setsOrdered: number;
   status: string;
+  currentStage: Parameters<typeof toApiProductionRunStage>[0];
   finishedGoodsProductId?: string | null;
   createdAt: Date;
   updatedAt: Date;
   design?: { code: string; name: string | null; category: string | null };
   items?: Array<Parameters<typeof toProductionRunItem>[0]>;
+  stageLogs?: Array<Parameters<typeof toStageLog>[0]>;
   stoneStockWarnings?: import("../../types.js").BulkStoneStockWarning[];
 }): ProductionRun => {
   const items = (run.items ?? []).map(toProductionRunItem);
@@ -120,6 +143,8 @@ const toProductionRun = (run: {
     designCategory: run.design?.category ?? undefined,
     setsOrdered: run.setsOrdered,
     status: run.status as ProductionRunStatus,
+    currentStage: toApiProductionRunStage(run.currentStage),
+    stageLogs: (run.stageLogs ?? []).map(toStageLog),
     items,
     castingsReceived,
     castingsTotal: items.length,
@@ -176,6 +201,11 @@ export const createProductionRun = async (
   if (!design.purity || !isValidDesignPurity(design.purity)) {
     throw new ProductionRunError(
       "Design purity must be set before starting a production run.",
+    );
+  }
+  if (design.builderStage !== DesignBuilderStage.Complete) {
+    throw new ProductionRunError(
+      "Complete the design builder before starting a production run.",
     );
   }
 

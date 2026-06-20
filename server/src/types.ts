@@ -656,6 +656,14 @@ export type DesignElement = {
   sortOrder: number;
 };
 
+export type DesignBuilderStage =
+  | "SKU"
+  | "CAD"
+  | "Mold Making"
+  | "Motifs"
+  | "Photo"
+  | "Complete";
+
 export type Design = {
   id: string;
   code: string;
@@ -664,6 +672,14 @@ export type Design = {
   metal?: MetalType;
   purity?: Purity;
   makingChargesPerSet?: number;
+  builderStage: DesignBuilderStage;
+  cadFileUrl?: string;
+  cadCompletedAt?: string;
+  moldNotes?: string;
+  moldPhotoUrl?: string;
+  moldCompletedAt?: string;
+  finishedPhotoUrl?: string;
+  builderCompletedAt?: string;
   elements: DesignElement[];
   createdAt: string;
   updatedAt: string;
@@ -683,6 +699,8 @@ export type NewDesignInput = {
   code: string;
   name?: string;
   category?: DesignCategory;
+  metal?: MetalType;
+  purity?: Purity;
   elements?: NewDesignElementInput[];
 };
 
@@ -692,6 +710,13 @@ export type UpdateDesignInput = {
   metal?: MetalType | null;
   purity?: Purity | null;
   makingChargesPerSet?: number | null;
+};
+
+export type UpdateDesignBuilderInput = {
+  cadFileUrl?: string | null;
+  moldNotes?: string | null;
+  moldPhotoUrl?: string | null;
+  finishedPhotoUrl?: string | null;
 };
 
 export type UpdateDesignElementInput = {
@@ -926,6 +951,28 @@ export type ProductionRunStatus =
   | "Completed"
   | "Cancelled";
 
+export type ProductionRunStage =
+  | "Wax Pattern"
+  | "Casting"
+  | "Cleaning"
+  | "Assembly"
+  | "Prepolish"
+  | "Stone Setting"
+  | "Final Polishing"
+  | "Plating"
+  | "Quality Check"
+  | "Packaging";
+
+export type ProductionRunStageLog = {
+  id: string;
+  productionRunId: string;
+  stage: ProductionRunStage;
+  notes?: string;
+  performedById?: string;
+  performedByName: string;
+  createdAt: string;
+};
+
 export type ProductionRunItem = {
   id: string;
   productionRunId: string;
@@ -956,6 +1003,8 @@ export type ProductionRun = {
   designCategory?: string;
   setsOrdered: number;
   status: ProductionRunStatus;
+  currentStage: ProductionRunStage;
+  stageLogs: ProductionRunStageLog[];
   items: ProductionRunItem[];
   castingsReceived: number;
   castingsTotal: number;
@@ -963,6 +1012,10 @@ export type ProductionRun = {
   stoneStockWarnings?: BulkStoneStockWarning[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type CompleteProductionRunStageInput = {
+  notes?: string;
 };
 
 export type NewProductionRunInput = {

@@ -1,6 +1,7 @@
 import type { MetalLot as DbMetalLot, StoneLot as DbStoneLot } from "@prisma/client";
 import type { MetalLot, StoneLot } from "../../types.js";
 import { moneyToNumber, multiplyMoney } from "../money.js";
+import { toApiStoneLotStatus } from "./status.js";
 
 export const toMetalLot = (row: DbMetalLot): MetalLot => ({
   id: row.id,
@@ -32,7 +33,7 @@ export const toStoneLot = (row: DbStoneLot): StoneLot => ({
   currentRate:
     row.currentRate != null ? moneyToNumber(row.currentRate) : undefined,
   location: row.location,
-  status: row.status as StoneLot["status"],
+  status: toApiStoneLotStatus(row.status),
   notes: row.notes ?? undefined,
   stockValue:
     row.currentRate != null

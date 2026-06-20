@@ -16,6 +16,10 @@ import {
   updateDesignElement,
 } from "../lib/designs/service.js";
 import {
+  advanceDesignBuilderStage,
+  updateDesignBuilderFields,
+} from "../lib/designs/builder.js";
+import {
   buildImportPreview,
   confirmedRowsToElements,
   parseDesignImportRows,
@@ -33,6 +37,7 @@ import type {
   NewDesignInput,
   UpdateDesignElementInput,
   UpdateDesignInput,
+  UpdateDesignBuilderInput,
 } from "../types.js";
 
 export const designsRouter = Router();
@@ -400,6 +405,48 @@ designsRouter.delete(
       }
       console.error("DELETE /api/designs/:id/elements/:elementId", error);
       res.status(500).json({ error: "Failed to delete design element" });
+    }
+  },
+);
+
+designsRouter.patch(
+  "/:id/builder",
+  requireRole(canManageDesigns),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const design = await updateDesignBuilderFields(
+        routeParam(req.params.id),
+        req.body as UpdateDesignBuilderInput,
+      );
+      res.json(design);
+    } catch (error) {
+      if (error instanceof DesignError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("PATCH /api/designs/:id/builder", error);
+      res.status(500).json({ error: "Failed to update design builder" });
+    }
+  },
+);
+
+designsRouter.post(
+  "/:id/builder/advance",
+  requireRole(canManageDesigns),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const result = await advanceDesignBuilderStage(
+        routeParam(req.params.id),
+        actorFrom(req),
+      );
+      res.json(result);
+    } catch (error) {
+      if (error instanceof DesignError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/designs/:id/builder/advance", error);
+      res.status(500).json({ error: "Failed to advance design builder" });
     }
   },
 );
