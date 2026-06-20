@@ -6,6 +6,10 @@ import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import MotifExcelImport from "@/app/(components)/motifs/MotifExcelImport";
 import MotifImageUpload from "@/app/(components)/motifs/MotifImageUpload";
+import MotifStoneRows, {
+  type MotifStoneRow,
+} from "@/app/(components)/motifs/MotifStoneRows";
+import { fetchBulkStoneLots } from "@/lib/api/bulk-stone-lots";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canManageMotifs } from "@/lib/auth/permissions";
 import {
@@ -18,13 +22,14 @@ import {
 import {
   MOTIF_METALS,
   MOTIF_PURITIES,
-  MOTIF_STONE_TYPES,
   MOTIF_SUB_CATEGORIES,
   puritiesForMotifMetal,
 } from "@/lib/motifs/constants";
 import type {
+  BulkStoneLot,
   Motif,
   MotifMetal,
+  MotifStoneInput,
   MotifStoneType,
   MotifSubCategory,
   NewMotifInput,
@@ -50,9 +55,9 @@ export default function MotifsPage() {
   const [weightGrams, setWeightGrams] = useState("");
   const [metal, setMetal] = useState<MotifMetal>("Gold");
   const [purity, setPurity] = useState<Purity>("22K");
-  const [stone1, setStone1] = useState(emptyStone);
-  const [stone2, setStone2] = useState(emptyStone);
-  const [stone3, setStone3] = useState(emptyStone);
+  const [stoneRows, setStoneRows] = useState<MotifStoneRow[]>([]);
+  const [makingCost, setMakingCost] = useState("");
+  const [bulkStoneLots, setBulkStoneLots] = useState<BulkStoneLot[]>([]);
   const [subCategory, setSubCategory] = useState<MotifSubCategory>("Contemporary");
   const [price, setPrice] = useState("");
   const [imageUrl, setImageUrl] = useState<string | undefined>();
@@ -62,6 +67,18 @@ export default function MotifsPage() {
   const [search, setSearch] = useState("");
   const [filterMetal, setFilterMetal] = useState<MotifMetal | "">("");
   const [filterPurity, setFilterPurity] = useState<Purity | "">("");
+
+  const loadBulkStoneLots = useCallback(async () => {
+    try {
+      setBulkStoneLots(await fetchBulkStoneLots());
+    } catch {
+      /* optional — form still works without lots */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadBulkStoneLots();
+  }, [loadBulkStoneLots]);
 
   const loadMotifs = useCallback(async () => {
     setLoading(true);
@@ -101,9 +118,8 @@ export default function MotifsPage() {
     setWeightGrams("");
     setMetal("Gold");
     setPurity("22K");
-    setStone1(emptyStone);
-    setStone2(emptyStone);
-    setStone3(emptyStone);
+    setStoneRows([]);
+    setMakingCost("");
     setSubCategory("Contemporary");
     setPrice("");
     setImageUrl(undefined);
@@ -116,11 +132,17 @@ export default function MotifsPage() {
     weightGrams: weightGrams.trim() ? parseFloat(weightGrams) : undefined,
     metal,
     purity,
-    stone1: (stone1 || undefined) as MotifStoneType | undefined,
-    stone2: (stone2 || undefined) as MotifStoneType | undefined,
-    stone3: (stone3 || undefined) as MotifStoneType | undefined,
     subCategory,
+    makingCost: makingCost.trim() ? parseFloat(makingCost) : undefined,
     price: price.trim() ? parseFloat(price) : undefined,
+    stones: stoneRows
+      .filter((r) => r.bulkStoneLotId)
+      .map(
+        (r): MotifStoneInput => ({
+          bulkStoneLotId: r.bulkStoneLotId,
+          qtyPerMotif: r.qtyPerMotif,
+        }),
+      ),
     imageUrl,
   });
 
@@ -242,15 +264,30 @@ export default function MotifsPage() {
                 disabled={!canManage}
               />
             </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Price (₹)</label>
+              <label className={labelClass}>Making cost (₹)</label>
+              <input
+                type="number"
+                min={0}
+                value={makingCost}
+                onChange={(e) => setMakingCost(e.target.value)}
+                className={fieldClass}
+                placeholder="Non-stone casting cost"
+                disabled={!canManage}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Price override (₹)</label>
               <input
                 type="number"
                 min={0}
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 className={fieldClass}
-                placeholder="e.g. 850"
+                placeholder="Auto from stones if blank"
                 disabled={!canManage}
               />
             </div>
@@ -307,30 +344,12 @@ export default function MotifsPage() {
             </div>
           </div>
 
-          <div>
-            <label className={labelClass}>Stones on motif (optional)</label>
-            <div className="grid sm:grid-cols-3 gap-3 mt-1">
-              {[stone1, stone2, stone3].map((value, index) => (
-                <select
-                  key={index}
-                  value={value}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (index === 0) setStone1(v);
-                    if (index === 1) setStone2(v);
-                    if (index === 2) setStone3(v);
-                  }}
-                  className={fieldClass}
-                  disabled={!canManage}
-                >
-                  <option value="">None</option>
-                  {MOTIF_STONE_TYPES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              ))}
-            </div>
-          </div>
+          <MotifStoneRows
+            lots={bulkStoneLots}
+            rows={stoneRows}
+            onChange={setStoneRows}
+            disabled={!canManage}
+          />
 
           <MotifImageUpload
             imageUrl={imageUrl}

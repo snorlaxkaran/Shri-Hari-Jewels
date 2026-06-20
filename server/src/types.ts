@@ -582,6 +582,7 @@ export type DesignElementType = "Motif" | "Stone" | "Casting";
 export type DesignElement = {
   id: string;
   designId: string;
+  motifId?: string;
   name: string;
   type: DesignElementType;
   qtyPerSet: number;
@@ -607,6 +608,7 @@ export type NewDesignElementInput = {
   name: string;
   type: DesignElementType;
   qtyPerSet: number;
+  motifId?: string;
   unitValue?: number;
   weightGramsPerPc?: number;
   sortOrder?: number;
@@ -630,10 +632,122 @@ export type UpdateDesignInput = {
 export type UpdateDesignElementInput = {
   name?: string;
   type?: DesignElementType;
+  motifId?: string | null;
   qtyPerSet?: number;
   unitValue?: number | null;
   weightGramsPerPc?: number | null;
   sortOrder?: number;
+};
+
+export type BulkStoneLot = {
+  id: string;
+  sizeLabel: string;
+  stoneType: MotifStoneType;
+  quantity: number;
+  pricePerStone: number;
+  vendor?: string;
+  lotReference?: string;
+  purchaseDate?: string;
+  location: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewBulkStoneLotInput = {
+  sizeLabel: string;
+  stoneType: MotifStoneType;
+  quantity: number;
+  pricePerStone: number;
+  vendor?: string;
+  lotReference?: string;
+  purchaseDate?: string;
+  location?: string;
+};
+
+export type UpdateBulkStoneLotInput = {
+  sizeLabel?: string;
+  stoneType?: MotifStoneType;
+  quantity?: number;
+  pricePerStone?: number;
+  vendor?: string | null;
+  lotReference?: string | null;
+  purchaseDate?: string | null;
+  location?: string;
+};
+
+export type MotifStone = {
+  id: string;
+  bulkStoneLotId: string;
+  qtyPerMotif: number;
+  sortOrder: number;
+  bulkStoneLot?: {
+    id: string;
+    sizeLabel: string;
+    stoneType: MotifStoneType;
+    pricePerStone: number;
+  };
+};
+
+export type MotifStoneInput = {
+  bulkStoneLotId: string;
+  qtyPerMotif: number;
+  sortOrder?: number;
+};
+
+export type DesignImportRow = {
+  rowNumber: number;
+  elementName: string;
+  qtyPerSet: number;
+  totalQty?: number;
+  matchedMotifId?: string;
+  matchedMotifName?: string;
+  matchConfidence: "exact" | "fuzzy" | "none";
+  suggestedMotifs: Array<{ id: string; name: string; score: number }>;
+};
+
+export type DesignImportPreview = {
+  designCode: string;
+  sheetName: string;
+  codeMismatch: boolean;
+  rows: DesignImportRow[];
+  existingElements: DesignElement[];
+  warnings: string[];
+};
+
+export type ConfirmedDesignImportRow = {
+  elementName: string;
+  qtyPerSet: number;
+  motifId?: string;
+  type?: DesignElementType;
+};
+
+export type DesignElementDiff = {
+  added: NewDesignElementInput[];
+  removed: DesignElement[];
+  changed: Array<{ before: DesignElement; after: NewDesignElementInput }>;
+};
+
+export type CatalogAuditLog = {
+  id: string;
+  entityType: "Design" | "Motif" | "DesignElement";
+  entityId: string;
+  entityRef?: string;
+  action: string;
+  previousValue?: string;
+  newValue?: string;
+  reason?: string;
+  performedById?: string;
+  performedByName: string;
+  createdAt: string;
+};
+
+export type BulkStoneStockWarning = {
+  bulkStoneLotId: string;
+  sizeLabel: string;
+  stoneType?: string;
+  required: number;
+  available: number;
+  shortfall: number;
 };
 
 export type MotifMetal = "Silver" | "Gold" | "Platinum";
@@ -660,11 +774,16 @@ export type Motif = {
   weightGrams?: number;
   metal: MotifMetal;
   purity: Purity;
+  /** @deprecated Use stones[] instead */
   stone1?: MotifStoneType;
+  /** @deprecated Use stones[] instead */
   stone2?: MotifStoneType;
+  /** @deprecated Use stones[] instead */
   stone3?: MotifStoneType;
   subCategory: MotifSubCategory;
+  makingCost?: number;
   price?: number;
+  stones?: MotifStone[];
   imageUrl?: string;
   createdAt: string;
   updatedAt: string;
@@ -676,11 +795,16 @@ export type NewMotifInput = {
   weightGrams?: number;
   metal: MotifMetal;
   purity: Purity;
+  /** @deprecated Use stones[] instead */
   stone1?: MotifStoneType | null;
+  /** @deprecated Use stones[] instead */
   stone2?: MotifStoneType | null;
+  /** @deprecated Use stones[] instead */
   stone3?: MotifStoneType | null;
   subCategory: MotifSubCategory;
+  makingCost?: number;
   price?: number;
+  stones?: MotifStoneInput[];
   imageUrl?: string;
 };
 
@@ -690,11 +814,16 @@ export type UpdateMotifInput = {
   weightGrams?: number | null;
   metal?: MotifMetal;
   purity?: Purity;
+  /** @deprecated Use stones[] instead */
   stone1?: MotifStoneType | null;
+  /** @deprecated Use stones[] instead */
   stone2?: MotifStoneType | null;
+  /** @deprecated Use stones[] instead */
   stone3?: MotifStoneType | null;
   subCategory?: MotifSubCategory;
+  makingCost?: number | null;
   price?: number | null;
+  stones?: MotifStoneInput[];
   imageUrl?: string | null;
 };
 
@@ -738,6 +867,7 @@ export type ProductionRun = {
   castingsReceived: number;
   castingsTotal: number;
   finishedGoodsProductId?: string;
+  stoneStockWarnings?: BulkStoneStockWarning[];
   createdAt: string;
   updatedAt: string;
 };

@@ -1,5 +1,8 @@
 import type {
+  ConfirmedDesignImportRow,
   Design,
+  DesignElementDiff,
+  DesignImportPreview,
   NewDesignElementInput,
   NewDesignInput,
   UpdateDesignElementInput,
@@ -58,6 +61,53 @@ export const deleteDesignElement = async (
 ): Promise<Design> => {
   const { data } = await api.delete<Design>(
     `/api/designs/${designId}/elements/${elementId}`,
+  );
+  return data;
+};
+
+export const computeDesignElementDiff = async (
+  designId: string,
+  elements: NewDesignElementInput[],
+): Promise<DesignElementDiff> => {
+  const { data } = await api.post<DesignElementDiff>(
+    `/api/designs/${designId}/elements/diff`,
+    { elements },
+  );
+  return data;
+};
+
+export const replaceDesignElements = async (
+  designId: string,
+  elements: NewDesignElementInput[],
+  reason?: string,
+): Promise<Design> => {
+  const { data } = await api.post<Design>(
+    `/api/designs/${designId}/elements/replace`,
+    { elements, reason },
+  );
+  return data;
+};
+
+export const previewDesignImport = async (
+  designId: string,
+  rows: unknown[][],
+  sheetName: string,
+): Promise<DesignImportPreview> => {
+  const { data } = await api.post<DesignImportPreview>(
+    `/api/designs/${designId}/import/preview`,
+    { rows, sheetName },
+  );
+  return data;
+};
+
+export const applyDesignImport = async (
+  designId: string,
+  rows: ConfirmedDesignImportRow[],
+  reason?: string,
+): Promise<Design> => {
+  const { data } = await api.post<Design>(
+    `/api/designs/${designId}/import/apply`,
+    { rows, reason },
   );
   return data;
 };

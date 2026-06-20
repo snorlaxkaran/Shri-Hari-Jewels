@@ -41,6 +41,7 @@ export const navSections: NavSection[] = [
       { label: "Scan Transfer", href: "/stock-transfer", icon: icon(ArrowRightLeft) },
       { label: "Sent to Stores", href: "/stock-transfer/sent", icon: icon(List) },
       { label: "Raw Stock", href: "/raw-inventory", icon: icon(Gem) },
+      { label: "Bulk Stone Lots", href: "/bulk-stone-lots", icon: icon(Gem) },
       { label: "Sales", href: "/sales", icon: icon(ShoppingCart) },
       { label: "Orders", href: "/orders", icon: icon(ShoppingBag) },
       { label: "Work Orders", href: "/work-orders", icon: icon(Briefcase) },

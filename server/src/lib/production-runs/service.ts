@@ -19,6 +19,7 @@ import {
   deductPendingRawMaterialForRunInTx,
   deductRawMaterialForItemInTx,
 } from "./raw-material.js";
+import { checkBulkStoneStock, deductBulkStonesForProductionRun } from "./bulk-stone-stock.js";
 import {
   buildFinishedGoodsFromRun,
   createFinishedGoodsInTx,
@@ -105,6 +106,7 @@ const toProductionRun = (run: {
   updatedAt: Date;
   design?: { code: string; name: string | null; category: string | null };
   items?: Array<Parameters<typeof toProductionRunItem>[0]>;
+  stoneStockWarnings?: import("../../types.js").BulkStoneStockWarning[];
 }): ProductionRun => {
   const items = (run.items ?? []).map(toProductionRunItem);
   const castingsReceived = items.filter((i) => i.castingReceived).length;
@@ -122,6 +124,7 @@ const toProductionRun = (run: {
     castingsReceived,
     castingsTotal: items.length,
     finishedGoodsProductId: run.finishedGoodsProductId ?? undefined,
+    stoneStockWarnings: run.stoneStockWarnings,
     createdAt: run.createdAt.toISOString(),
     updatedAt: run.updatedAt.toISOString(),
   };
@@ -177,6 +180,10 @@ export const createProductionRun = async (
   }
 
   const runNo = await generateProductionRunNo();
+  const stoneStockWarnings = await checkBulkStoneStock(
+    input.designId,
+    input.setsOrdered,
+  );
 
   const run = await prisma.productionRun.create({
     data: {
@@ -200,7 +207,7 @@ export const createProductionRun = async (
     include: runInclude,
   });
 
-  return toProductionRun(run);
+  return toProductionRun({ ...run, stoneStockWarnings });
 };
 
 export const getFinishedGoodsDefaults = async (
@@ -436,6 +443,10 @@ export const updateProductionRun = async (
       }
     }
   });
+
+  if (completingRun) {
+    await deductBulkStonesForProductionRun(existing.designId, existing.setsOrdered);
+  }
 
   return getProductionRun(id);
 };

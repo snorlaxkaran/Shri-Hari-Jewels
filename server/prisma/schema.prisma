@@ -84,6 +84,7 @@ model Branch {
   invoices    Invoice[]
   metalLots   MetalLot[]
   stoneLots   StoneLot[]
+  bulkStoneLots BulkStoneLot[]
   stockTransfersFrom StockTransfer[] @relation("StockTransferFromBranch")
   stockTransfersTo   StockTransfer[] @relation("StockTransferToBranch")
 }
@@ -275,6 +276,7 @@ model Design {
 model DesignElement {
   id               String   @id @default(uuid())
   designId         String
+  motifId          String?
   name             String
   type             String
   qtyPerSet        Int
@@ -283,8 +285,10 @@ model DesignElement {
   sortOrder        Int      @default(0)
 
   design Design @relation(fields: [designId], references: [id], onDelete: Cascade)
+  motif  Motif? @relation(fields: [motifId], references: [id], onDelete: SetNull)
 
   @@index([designId])
+  @@index([motifId])
 }
 
 model Motif {
@@ -295,16 +299,22 @@ model Motif {
   weightGrams Float?
   metal       String
   purity      String
+  /// @deprecated Use MotifStone rows instead. Kept for migration; will be removed in a follow-up.
   stone1      String?
+  /// @deprecated Use MotifStone rows instead. Kept for migration; will be removed in a follow-up.
   stone2      String?
+  /// @deprecated Use MotifStone rows instead. Kept for migration; will be removed in a follow-up.
   stone3      String?
   subCategory String
+  makingCost  Decimal? @db.Decimal(12, 2)
   price       Decimal? @db.Decimal(12, 2)
   imageUrl    String?  @db.Text
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  branch         Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  stones         MotifStone[]
+  designElements DesignElement[]
 
   @@unique([branchId, name, metal, purity])
   @@index([branchId])
@@ -312,6 +322,42 @@ model Motif {
   @@index([metal])
   @@index([purity])
   @@index([name])
+}
+
+model BulkStoneLot {
+  id            String    @id @default(uuid())
+  branchId      String
+  sizeLabel     String
+  stoneType     String
+  quantity      Int
+  pricePerStone Decimal   @db.Decimal(12, 4)
+  vendor        String?
+  lotReference  String?
+  purchaseDate  DateTime?
+  location      String    @default("Main Vault")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  branch      Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  motifStones MotifStone[]
+
+  @@index([branchId])
+  @@index([stoneType])
+  @@index([sizeLabel])
+}
+
+model MotifStone {
+  id             String @id @default(uuid())
+  motifId        String
+  bulkStoneLotId String
+  qtyPerMotif    Int
+  sortOrder      Int    @default(0)
+
+  motif        Motif        @relation(fields: [motifId], references: [id], onDelete: Cascade)
+  bulkStoneLot BulkStoneLot @relation(fields: [bulkStoneLotId], references: [id], onDelete: Restrict)
+
+  @@index([motifId])
+  @@index([bulkStoneLotId])
 }
 
 model ProductionRun {
@@ -577,5 +623,22 @@ model IntegrityMismatchLog {
   createdAt  DateTime @default(now())
 
   @@index([category])
+  @@index([createdAt])
+}
+
+model CatalogAuditLog {
+  id              String   @id @default(uuid())
+  entityType      String
+  entityId        String
+  entityRef       String?
+  action          String
+  previousValue   String?
+  newValue        String?
+  reason          String?
+  performedById   String?
+  performedByName String
+  createdAt       DateTime @default(now())
+
+  @@index([entityType, entityId])
   @@index([createdAt])
 }

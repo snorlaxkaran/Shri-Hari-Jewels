@@ -8,14 +8,21 @@ import PageSkeleton from "@/app/(components)/PageSkeleton";
 import MotifCard from "@/app/(components)/designs/MotifCard";
 import AddMotifCard from "@/app/(components)/designs/AddMotifCard";
 import SkuSearchDropdown from "@/app/(components)/designs/SkuSearchDropdown";
+import BomDiffModal from "@/app/(components)/designs/BomDiffModal";
+import DesignBomImport from "@/app/(components)/designs/DesignBomImport";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canManageDesigns } from "@/lib/auth/permissions";
 import { useDesigns } from "@/lib/designs/designs-context";
 import { fetchMotifs } from "@/lib/api/motifs";
+import {
+  computeDesignElementDiff,
+  replaceDesignElements,
+} from "@/lib/api/designs";
 import { designMetalToMotifMetal } from "@/lib/motifs/constants";
 import type {
   Design,
   DesignCategory,
+  DesignElementDiff,
   DesignElementType,
   MetalType,
   Motif,
@@ -115,8 +122,7 @@ export default function DesignsPage() {
     patchDesign,
     removeDesign,
     addElement,
-    removeElement,
-    patchElement,
+    refresh,
   } = useDesigns();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -137,6 +143,8 @@ export default function DesignsPage() {
   const [saving, setSaving] = useState(false);
   const [productionRunModalOpen, setProductionRunModalOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [bomDiffOpen, setBomDiffOpen] = useState(false);
+  const [bomDiff, setBomDiff] = useState<DesignElementDiff | null>(null);
 
   const library = useMemo(() => buildLibrary(designs), [designs]);
 
@@ -205,6 +213,10 @@ export default function DesignsPage() {
       design.elements
         .filter((e) => e.type === "Motif")
         .forEach((m) => {
+          if (m.motifId) {
+            quantities[m.motifId] = m.qtyPerSet;
+            return;
+          }
           const match = motifs.find(
             (motif) =>
               motif.name === m.name &&
@@ -354,6 +366,7 @@ export default function DesignsPage() {
         result.push({
           name: motif.name,
           type: "Motif",
+          motifId: motif.id,
           qtyPerSet: qty,
           unitValue: motif.price,
           weightGramsPerPc: motif.weightGrams,
@@ -396,16 +409,8 @@ export default function DesignsPage() {
     return result;
   };
 
-  const handleSaveJewelry = async (): Promise<boolean> => {
+  const applySaveJewelry = async (): Promise<boolean> => {
     if (!selectedDesign || !canManage) return false;
-    setSaveError("");
-
-    if (buildTargetElements().length === 0) {
-      setSaveError("Add at least one motif or component before saving.");
-      return false;
-    }
-
-    setSaving(true);
 
     try {
       const making =
@@ -425,42 +430,60 @@ export default function DesignsPage() {
       });
 
       const target = buildTargetElements();
-      const current = selectedDesign.elements;
-
-      const targetKeys = new Set(
-        target.map((t) => elementKey(t.type, t.name)),
+      await replaceDesignElements(
+        selectedDesign.id,
+        target,
+        "Design BOM update",
       );
-      const currentKeys = new Map(
-        current.map((e) => [elementKey(e.type, e.name), e]),
-      );
-
-      for (const [key, el] of currentKeys) {
-        if (!targetKeys.has(key)) {
-          await removeElement(selectedDesign.id, el.id);
-        }
-      }
-
-      for (const t of target) {
-        const key = elementKey(t.type, t.name);
-        const existing = currentKeys.get(key);
-        if (!existing) {
-          await addElement(selectedDesign.id, t);
-        } else if (
-          existing.qtyPerSet !== t.qtyPerSet ||
-          existing.unitValue !== t.unitValue ||
-          existing.weightGramsPerPc !== t.weightGramsPerPc
-        ) {
-          await patchElement(selectedDesign.id, existing.id, {
-            qtyPerSet: t.qtyPerSet,
-            unitValue: t.unitValue,
-            weightGramsPerPc: t.weightGramsPerPc,
-          });
-        }
-      }
+      await refresh();
       return true;
     } catch (err) {
       setSaveError(getApiErrorMessage(err, "Failed to save jewelry."));
       return false;
+    }
+  };
+
+  const handleSaveJewelry = async (): Promise<boolean> => {
+    if (!selectedDesign || !canManage) return false;
+    setSaveError("");
+
+    const target = buildTargetElements();
+    if (target.length === 0) {
+      setSaveError("Add at least one motif or component before saving.");
+      return false;
+    }
+
+    setSaving(true);
+    try {
+      const diff = await computeDesignElementDiff(selectedDesign.id, target);
+      const hasElementChanges =
+        diff.added.length > 0 ||
+        diff.removed.length > 0 ||
+        diff.changed.length > 0;
+
+      if (hasElementChanges && selectedDesign.elements.length > 0) {
+        setBomDiff(diff);
+        setBomDiffOpen(true);
+        return false;
+      }
+
+      return await applySaveJewelry();
+    } catch (err) {
+      setSaveError(getApiErrorMessage(err, "Failed to save jewelry."));
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleConfirmBomDiff = async () => {
+    setSaving(true);
+    try {
+      const ok = await applySaveJewelry();
+      if (ok) {
+        setBomDiffOpen(false);
+        setBomDiff(null);
+      }
     } finally {
       setSaving(false);
     }
@@ -484,8 +507,18 @@ export default function DesignsPage() {
 
   const handleCreateProductionRun = async (input: NewProductionRunInput) => {
     const run = await createProductionRun(input);
-    setSuccessMessage(`Production run ${run.runNo} created`);
-    setTimeout(() => setSuccessMessage(""), 4000);
+    let message = `Production run ${run.runNo} created`;
+    if (run.stoneStockWarnings?.length) {
+      const summary = run.stoneStockWarnings
+        .map(
+          (w) =>
+            `${w.sizeLabel}: need ${w.required}, have ${w.available}`,
+        )
+        .join("; ");
+      message += `. Stone stock warning: ${summary}`;
+    }
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(""), 8000);
   };
 
   const handleCreateDesign = async (input: {
@@ -509,6 +542,7 @@ export default function DesignsPage() {
     await addElement(selectedDesign.id, {
       name: input.name,
       type: input.type,
+      motifId: input.libraryMotifId,
       qtyPerSet: 1,
       unitValue: input.unitValue,
       weightGramsPerPc: input.weightGramsPerPc,
@@ -775,6 +809,14 @@ export default function DesignsPage() {
             </section>
           )}
 
+          {canManage && (
+            <DesignBomImport
+              designId={selectedDesign.id}
+              disabled={!canManage}
+              onApplied={() => void refresh()}
+            />
+          )}
+
           {/* Metal & pricing */}
           <section className="surface-card rounded-xl p-5 space-y-4">
             <h2 className="text-sm font-semibold text-zinc-700">
@@ -959,6 +1001,17 @@ export default function DesignsPage() {
           onSubmit={handleCreateProductionRun}
         />
       )}
+
+      <BomDiffModal
+        open={bomDiffOpen}
+        diff={bomDiff}
+        onConfirm={() => void handleConfirmBomDiff()}
+        onCancel={() => {
+          setBomDiffOpen(false);
+          setBomDiff(null);
+        }}
+        saving={saving}
+      />
     </div>
   );
 }
