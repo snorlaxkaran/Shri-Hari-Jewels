@@ -1,7 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatusBadge from "@/app/(components)/StatusBadge";
@@ -11,23 +13,33 @@ import { useCustomers } from "@/lib/customers/customers-context";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Plus, Search } from "lucide-react";
 
-const AddCustomerModal = dynamic(
-  () => import("@/app/(components)/AddCustomerModal"),
-  { ssr: false },
-);
-
 const CustomerDetailPanel = dynamic(
   () => import("@/app/(components)/CustomerDetailPanel"),
   { ssr: false },
 );
 
 export default function CustomersPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <CustomersPageContent />
+    </Suspense>
+  );
+}
+
+function CustomersPageContent() {
   const { user } = useAuth();
-  const { customers, hydrated, loading, error, addCustomer } = useCustomers();
+  const { customers, hydrated, loading, error } = useCustomers();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const canManage = user ? canManageCustomers(user.role) : false;
+
+  useEffect(() => {
+    const selected = searchParams.get("selected");
+    if (selected) {
+      setSelectedId(selected);
+    }
+  }, [searchParams]);
 
   const filtered = useMemo(
     () =>
@@ -35,7 +47,7 @@ export default function CustomersPage() {
         (c) =>
           c.name.toLowerCase().includes(search.toLowerCase()) ||
           c.mobile.includes(search) ||
-          (c.city ?? "").toLowerCase().includes(search.toLowerCase()),
+          (c.billingCity ?? c.city ?? "").toLowerCase().includes(search.toLowerCase()),
       ),
     [customers, search],
   );
@@ -51,13 +63,13 @@ export default function CustomersPage() {
         subtitle={`${filtered.length} registered customers`}
         action={
           canManage ? (
-            <button
-              onClick={() => setModalOpen(true)}
+            <Link
+              href="/customers/new"
               className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
             >
               <Plus size={16} />
               Add Customer
-            </button>
+            </Link>
           ) : undefined
         }
       />
@@ -92,7 +104,9 @@ export default function CustomersPage() {
               key={customer.id}
               type="button"
               onClick={() => setSelectedId(customer.id)}
-              className="surface-card p-5 text-left hover:border-zinc-300 transition-colors w-full"
+              className={`surface-card p-5 text-left hover:border-zinc-300 transition-colors w-full ${
+                selectedId === customer.id ? "ring-2 ring-zinc-300 border-zinc-300" : ""
+              }`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
@@ -101,7 +115,7 @@ export default function CustomersPage() {
                   </div>
                   <div>
                     <p className="font-semibold text-sm text-zinc-900">{customer.name}</p>
-                    <p className="text-xs text-zinc-400">{customer.city ?? "—"}</p>
+                    <p className="text-xs text-zinc-400">{customer.billingCity ?? customer.city ?? "—"}</p>
                   </div>
                 </div>
                 <StatusBadge status={customer.tier} />
@@ -135,16 +149,6 @@ export default function CustomersPage() {
         <CustomerDetailPanel
           customerId={selectedId}
           onClose={() => setSelectedId(null)}
-        />
-      )}
-
-      {modalOpen && (
-        <AddCustomerModal
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          onSubmit={async (input) => {
-            await addCustomer(input);
-          }}
         />
       )}
     </div>
