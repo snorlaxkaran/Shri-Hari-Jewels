@@ -163,7 +163,7 @@ async function seedDatabase() {
         stoneCarat: 0,
         price: 45000,
         stock: 2,
-        status: "In Stock",
+        status: "InStock",
         imageColor: "#d4af37",
         units: {
           create: [
