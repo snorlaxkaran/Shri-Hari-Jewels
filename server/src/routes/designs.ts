@@ -17,6 +17,7 @@ import {
 } from "../lib/designs/service.js";
 import {
   advanceDesignBuilderStage,
+  saveAndAdvanceDesignBuilderStage,
   updateDesignBuilderFields,
 } from "../lib/designs/builder.js";
 import {
@@ -430,15 +431,23 @@ designsRouter.patch(
   },
 );
 
+const hasBuilderFields = (body: UpdateDesignBuilderInput): boolean =>
+  body.cadFileUrl !== undefined ||
+  body.moldNotes !== undefined ||
+  body.moldPhotoUrl !== undefined ||
+  body.finishedPhotoUrl !== undefined ||
+  body.finishedPhotoUrls !== undefined;
+
 designsRouter.post(
   "/:id/builder/advance",
   requireRole(canManageDesigns),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const result = await advanceDesignBuilderStage(
-        routeParam(req.params.id),
-        actorFrom(req),
-      );
+      const designId = routeParam(req.params.id);
+      const body = req.body as UpdateDesignBuilderInput;
+      const result = hasBuilderFields(body)
+        ? await saveAndAdvanceDesignBuilderStage(designId, body, actorFrom(req))
+        : await advanceDesignBuilderStage(designId, actorFrom(req));
       res.json(result);
     } catch (error) {
       if (error instanceof DesignError) {

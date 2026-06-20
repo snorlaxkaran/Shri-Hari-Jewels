@@ -450,6 +450,7 @@ export type Design = {
   moldPhotoUrl?: string;
   moldCompletedAt?: string;
   finishedPhotoUrl?: string;
+  finishedPhotoUrls?: string[];
   builderCompletedAt?: string;
   elements: DesignElement[];
   createdAt: string;
@@ -488,6 +489,7 @@ export type UpdateDesignBuilderInput = {
   moldNotes?: string | null;
   moldPhotoUrl?: string | null;
   finishedPhotoUrl?: string | null;
+  finishedPhotoUrls?: string[] | null;
 };
 
 export type UpdateDesignElementInput = {

@@ -14,9 +14,23 @@ import type { Design } from "../../types.js";
 
 type Actor = { id: string; name: string };
 
-export const advanceDesignBuilderStage = async (
+type DesignForValidation = {
+  code: string;
+  metal: string | null;
+  purity: string | null;
+  cadFileUrl: string | null;
+  moldPhotoUrl: string | null;
+  moldNotes: string | null;
+  finishedPhotoUrl: string | null;
+  finishedPhotoUrls?: string[];
+  elements: unknown[];
+  builderStage: DbDesignBuilderStage;
+};
+
+export const saveAndAdvanceDesignBuilderStage = async (
   designId: string,
-  actor: Actor,
+  fields: UpdateDesignBuilderInput | undefined,
+  _actor: Actor,
 ): Promise<{ design: Design; nextStage: DesignBuilderStage | null }> => {
   const design = await prisma.design.findUnique({
     where: { id: designId },
@@ -25,7 +39,28 @@ export const advanceDesignBuilderStage = async (
   if (!design) throw new DesignError("Design not found.", 404);
 
   const current = toApiDesignBuilderStage(design.builderStage);
-  validateStageComplete(design, current);
+
+  const merged: DesignForValidation = {
+    ...design,
+    cadFileUrl:
+      fields?.cadFileUrl !== undefined ? fields.cadFileUrl : design.cadFileUrl,
+    moldNotes:
+      fields?.moldNotes !== undefined ? fields.moldNotes : design.moldNotes,
+    moldPhotoUrl:
+      fields?.moldPhotoUrl !== undefined
+        ? fields.moldPhotoUrl
+        : design.moldPhotoUrl,
+    finishedPhotoUrl:
+      fields?.finishedPhotoUrl !== undefined
+        ? fields.finishedPhotoUrl
+        : design.finishedPhotoUrl,
+    finishedPhotoUrls:
+      fields?.finishedPhotoUrls !== undefined
+        ? (fields.finishedPhotoUrls ?? [])
+        : design.finishedPhotoUrls,
+  };
+
+  validateStageComplete(merged, current);
 
   const next = nextBuilderStage(current);
   if (!next) {
@@ -33,22 +68,37 @@ export const advanceDesignBuilderStage = async (
   }
 
   const now = new Date();
-  const stageData: Partial<{
+  const data: {
     builderStage: DbDesignBuilderStage;
-    cadCompletedAt: Date;
-    moldCompletedAt: Date;
-    builderCompletedAt: Date;
-  }> = {
+    cadFileUrl?: string | null;
+    moldNotes?: string | null;
+    moldPhotoUrl?: string | null;
+    finishedPhotoUrl?: string | null;
+    finishedPhotoUrls?: string[];
+    cadCompletedAt?: Date;
+    moldCompletedAt?: Date;
+    builderCompletedAt?: Date;
+  } = {
     builderStage: toDbDesignBuilderStage(next),
   };
 
-  if (current === "CAD") stageData.cadCompletedAt = now;
-  if (current === "Mold Making") stageData.moldCompletedAt = now;
-  if (current === "Photo") stageData.builderCompletedAt = now;
+  if (fields?.cadFileUrl !== undefined) data.cadFileUrl = fields.cadFileUrl;
+  if (fields?.moldNotes !== undefined) data.moldNotes = fields.moldNotes;
+  if (fields?.moldPhotoUrl !== undefined) data.moldPhotoUrl = fields.moldPhotoUrl;
+  if (fields?.finishedPhotoUrl !== undefined) {
+    data.finishedPhotoUrl = fields.finishedPhotoUrl;
+  }
+  if (fields?.finishedPhotoUrls !== undefined) {
+    data.finishedPhotoUrls = fields.finishedPhotoUrls ?? [];
+  }
+
+  if (current === "CAD") data.cadCompletedAt = now;
+  if (current === "Mold Making") data.moldCompletedAt = now;
+  if (current === "Photo") data.builderCompletedAt = now;
 
   const updated = await prisma.design.update({
     where: { id: designId },
-    data: stageData,
+    data,
     include: { elements: { orderBy: { sortOrder: "asc" } } },
   });
 
@@ -57,6 +107,12 @@ export const advanceDesignBuilderStage = async (
     nextStage: next,
   };
 };
+
+export const advanceDesignBuilderStage = async (
+  designId: string,
+  actor: Actor,
+): Promise<{ design: Design; nextStage: DesignBuilderStage | null }> =>
+  saveAndAdvanceDesignBuilderStage(designId, undefined, actor);
 
 export const updateDesignBuilderFields = async (
   designId: string,
@@ -77,6 +133,10 @@ export const updateDesignBuilderFields = async (
         input.finishedPhotoUrl === undefined
           ? undefined
           : input.finishedPhotoUrl,
+      finishedPhotoUrls:
+        input.finishedPhotoUrls === undefined
+          ? undefined
+          : (input.finishedPhotoUrls ?? []),
     },
     include: { elements: { orderBy: { sortOrder: "asc" } } },
   });
@@ -85,17 +145,7 @@ export const updateDesignBuilderFields = async (
 };
 
 const validateStageComplete = (
-  design: {
-    code: string;
-    metal: string | null;
-    purity: string | null;
-    cadFileUrl: string | null;
-    moldPhotoUrl: string | null;
-    moldNotes: string | null;
-    finishedPhotoUrl: string | null;
-    elements: unknown[];
-    builderStage: DbDesignBuilderStage;
-  },
+  design: DesignForValidation,
   stage: DesignBuilderStage,
 ): void => {
   switch (stage) {
@@ -122,7 +172,10 @@ const validateStageComplete = (
       }
       break;
     case "Photo":
-      if (!design.finishedPhotoUrl) {
+      if (
+        !design.finishedPhotoUrl &&
+        !(design.finishedPhotoUrls && design.finishedPhotoUrls.length > 0)
+      ) {
         throw new DesignError(
           "Upload a finished piece photo before completing.",
         );

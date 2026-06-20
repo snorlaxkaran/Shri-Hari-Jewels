@@ -14,6 +14,14 @@ type DesignBuilderShellProps = {
   children: React.ReactNode;
 };
 
+const STAGE_ORDER = ["SKU", "CAD", "Mold Making", "Motifs", "Photo", "Complete"] as const;
+
+const isStepComplete = (stepStage: string, designStage: string): boolean => {
+  const stepIdx = STAGE_ORDER.indexOf(stepStage as typeof STAGE_ORDER[number]);
+  const currentIdx = STAGE_ORDER.indexOf(designStage as typeof STAGE_ORDER[number]);
+  return stepIdx < currentIdx;
+};
+
 export default function DesignBuilderShell({
   design,
   children,
@@ -48,6 +56,7 @@ export default function DesignBuilderShell({
           const stepIdx = DESIGN_BUILDER_STEPS.findIndex((s) => s.slug === step.slug);
           const currentIdx = DESIGN_BUILDER_STEPS.findIndex((s) => s.slug === currentSlug);
           const accessible = stepIdx <= currentIdx || design.builderStage === "Complete";
+          const done = isStepComplete(step.stage, design.builderStage);
 
           return accessible ? (
             <Link
@@ -56,10 +65,12 @@ export default function DesignBuilderShell({
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                 active
                   ? "bg-zinc-900 text-white border-zinc-900"
-                  : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300"
+                  : done
+                    ? "bg-green-50 text-green-700 border-green-200 hover:border-green-300"
+                    : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300"
               }`}
             >
-              {idx + 1}. {step.label}
+              {done && !active ? "✓ " : `${idx + 1}. `}{step.label}
             </Link>
           ) : (
             <span

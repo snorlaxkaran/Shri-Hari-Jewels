@@ -22,9 +22,14 @@ export default function MotifImageUpload({
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [processingLabel, setProcessingLabel] = useState("");
 
   const handleFile = async (file: File) => {
     setError("");
+    const sizeLabel = file.size > 1024 * 1024
+      ? `${(file.size / 1024 / 1024).toFixed(1)} MB`
+      : `${Math.round(file.size / 1024)} KB`;
+    setProcessingLabel(`Processing ${file.name} (${sizeLabel})…`);
     setProcessing(true);
     try {
       const url = await processImageFile(file);
@@ -33,6 +38,7 @@ export default function MotifImageUpload({
       setError(err instanceof Error ? err.message : "Failed to upload image.");
     } finally {
       setProcessing(false);
+      setProcessingLabel("");
     }
   };
 
@@ -96,7 +102,7 @@ export default function MotifImageUpload({
           />
           <ImagePlus size={28} className="mx-auto mb-2 text-zinc-400" />
           <p className="text-sm font-medium text-zinc-700">
-            {processing ? "Processing…" : "Click or drag image here"}
+            {processing ? processingLabel || "Processing…" : "Click or drag image here"}
           </p>
           <p className="text-[11px] mt-1 text-zinc-400">JPG, PNG, WebP</p>
         </div>

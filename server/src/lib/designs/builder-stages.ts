@@ -58,4 +58,5 @@ export type UpdateDesignBuilderInput = {
   moldNotes?: string | null;
   moldPhotoUrl?: string | null;
   finishedPhotoUrl?: string | null;
+  finishedPhotoUrls?: string[] | null;
 };

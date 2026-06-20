@@ -73,7 +73,11 @@ export default function NewDesignPage() {
         metal: metal as MetalType,
         purity: purity as Purity,
       });
-      await advanceDesignBuilder(design.id);
+      try {
+        await advanceDesignBuilder(design.id);
+      } catch {
+        // Non-fatal: design was created, just navigate to CAD
+      }
       router.push(`/designs/${design.id}/builder/cad`);
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to create design."));

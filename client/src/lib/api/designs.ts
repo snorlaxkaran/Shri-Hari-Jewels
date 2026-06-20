@@ -155,7 +155,11 @@ export const updateDesignBuilder = async (
 
 export const advanceDesignBuilder = async (
   designId: string,
+  fields?: UpdateDesignBuilderInput,
 ): Promise<{ design: Design; nextStage: import("@/lib/types").DesignBuilderStage | null }> => {
-  const { data } = await api.post(`/api/designs/${designId}/builder/advance`);
+  const { data } = await api.post(
+    `/api/designs/${designId}/builder/advance`,
+    fields ?? {},
+  );
   return data;
 };

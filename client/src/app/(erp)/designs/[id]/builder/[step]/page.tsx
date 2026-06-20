@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
@@ -14,13 +14,17 @@ import { useDesigns } from "@/lib/designs/designs-context";
 import {
   advanceDesignBuilder,
   replaceDesignElements,
-  updateDesignBuilder,
 } from "@/lib/api/designs";
 import { fetchMotifs } from "@/lib/api/motifs";
 import { designMetalToMotifMetal } from "@/lib/motifs/constants";
 import { DESIGN_BUILDER_STEPS } from "@/lib/designs/builder-stages";
 import { getApiErrorMessage } from "@/lib/api/client";
-import type { Design, Motif, NewDesignElementInput } from "@/lib/types";
+import type {
+  Design,
+  Motif,
+  NewDesignElementInput,
+  UpdateDesignBuilderInput,
+} from "@/lib/types";
 
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
 const inputClass = "input-field w-full px-3 py-2 text-sm";
@@ -44,10 +48,11 @@ export default function DesignBuilderStepPage() {
   const [cadFileUrl, setCadFileUrl] = useState<string | undefined>();
   const [moldNotes, setMoldNotes] = useState("");
   const [moldPhotoUrl, setMoldPhotoUrl] = useState<string | undefined>();
-  const [finishedPhotoUrl, setFinishedPhotoUrl] = useState<string | undefined>();
+  const [finishedPhotoUrls, setFinishedPhotoUrls] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (user && !canManage) router.replace("/designs");
@@ -57,11 +62,24 @@ export default function DesignBuilderStepPage() {
     fetchMotifs().then(setMotifs).catch(() => setMotifs([]));
   }, []);
 
+  useEffect(() => {
+    const el = notesRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [moldNotes]);
+
   const syncFromDesign = useCallback((d: Design) => {
     setCadFileUrl(d.cadFileUrl);
     setMoldNotes(d.moldNotes ?? "");
     setMoldPhotoUrl(d.moldPhotoUrl);
-    setFinishedPhotoUrl(d.finishedPhotoUrl);
+    setFinishedPhotoUrls(
+      d.finishedPhotoUrls?.length
+        ? d.finishedPhotoUrls
+        : d.finishedPhotoUrl
+          ? [d.finishedPhotoUrl]
+          : [],
+    );
     const filterMetal = designMetalToMotifMetal(d.metal ?? "");
     const quantities: Record<string, number> = {};
     d.elements
@@ -94,6 +112,19 @@ export default function DesignBuilderStepPage() {
     );
   }, [motifs, design]);
 
+  const motifSummary = useMemo(() => {
+    let totalQty = 0;
+    let totalWeight = 0;
+    for (const [motifId, qty] of Object.entries(motifQuantities)) {
+      if (qty < 1) continue;
+      const motif = motifs.find((m) => m.id === motifId);
+      if (!motif) continue;
+      totalQty += qty;
+      if (motif.weightGrams != null) totalWeight += motif.weightGrams * qty;
+    }
+    return { totalQty, totalWeight };
+  }, [motifQuantities, motifs]);
+
   const stepIndex = DESIGN_BUILDER_STEPS.findIndex((s) => s.slug === step);
   const nextStep = stepIndex >= 0 ? DESIGN_BUILDER_STEPS[stepIndex + 1] : null;
 
@@ -117,29 +148,53 @@ export default function DesignBuilderStepPage() {
     await refresh();
   };
 
-  const handleNext = () => setConfirmOpen(true);
+  const handleNext = () => {
+    setError("");
+    if (step === "cad" && !cadFileUrl) {
+      setError("Please upload a CAD render or file before continuing.");
+      return;
+    }
+    if (step === "mold" && !moldPhotoUrl && !moldNotes.trim()) {
+      setError("Please add mold notes or a photo before continuing.");
+      return;
+    }
+    if (step === "motifs" && Object.keys(motifQuantities).length === 0) {
+      setError("Please attach at least one motif before continuing.");
+      return;
+    }
+    if (step === "photo" && finishedPhotoUrls.length === 0) {
+      setError("Please upload a finished piece photo before completing.");
+      return;
+    }
+    setConfirmOpen(true);
+  };
 
   const handleConfirm = async () => {
     if (!design) return;
     setSubmitting(true);
     setError("");
     try {
+      let fields: UpdateDesignBuilderInput | undefined;
+
       if (step === "cad") {
-        await updateDesignBuilder(design.id, { cadFileUrl: cadFileUrl ?? null });
+        fields = { cadFileUrl: cadFileUrl ?? null };
       } else if (step === "mold") {
-        await updateDesignBuilder(design.id, {
+        fields = {
           moldNotes: moldNotes.trim() || null,
           moldPhotoUrl: moldPhotoUrl ?? null,
-        });
+        };
       } else if (step === "motifs") {
         await saveMotifs();
       } else if (step === "photo") {
-        await updateDesignBuilder(design.id, {
-          finishedPhotoUrl: finishedPhotoUrl ?? null,
-        });
+        fields = {
+          finishedPhotoUrls: finishedPhotoUrls.length ? finishedPhotoUrls : null,
+        };
       }
 
-      const { design: updated, nextStage } = await advanceDesignBuilder(design.id);
+      const { design: updated, nextStage } = await advanceDesignBuilder(
+        design.id,
+        fields,
+      );
       await refresh();
 
       if (nextStage === "Complete" || step === "photo") {
@@ -203,9 +258,10 @@ export default function DesignBuilderStepPage() {
           <div>
             <label className={labelClass}>Notes</label>
             <textarea
+              ref={notesRef}
               value={moldNotes}
               onChange={(e) => setMoldNotes(e.target.value)}
-              className={`${inputClass} min-h-[100px]`}
+              className={`${inputClass} min-h-[100px] resize-none overflow-hidden`}
               disabled={!canManage}
             />
           </div>
@@ -231,6 +287,24 @@ export default function DesignBuilderStepPage() {
               Create a new motif in the library →
             </Link>
           </div>
+          {motifSummary.totalQty > 0 && (
+            <div className="surface-card p-3 flex items-center gap-6 text-sm">
+              <span className="text-zinc-500">
+                Selected:{" "}
+                <span className="font-medium text-zinc-900">
+                  {motifSummary.totalQty} pc
+                </span>
+              </span>
+              {motifSummary.totalWeight > 0 && (
+                <span className="text-zinc-500">
+                  Est. weight:{" "}
+                  <span className="font-medium text-zinc-900">
+                    {motifSummary.totalWeight.toFixed(2)} g
+                  </span>
+                </span>
+              )}
+            </div>
+          )}
           {filteredMotifs.length === 0 ? (
             <p className="text-sm text-zinc-500">
               No motifs for this metal and purity yet. Create one in the motif library first.
@@ -256,15 +330,28 @@ export default function DesignBuilderStepPage() {
 
       {step === "photo" && (
         <div className="surface-card p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-zinc-900">Finished Piece Photo</h2>
+          <h2 className="text-sm font-semibold text-zinc-900">Finished Piece Photos</h2>
           <p className="text-sm text-zinc-500">
-            Upload a photo of the actual finished necklace (separate from motif images).
+            Upload up to 3 photos of the finished piece (front, side, clasp detail, etc.).
           </p>
-          <MotifImageUpload
-            imageUrl={finishedPhotoUrl}
-            onChange={setFinishedPhotoUrl}
-            disabled={!canManage}
-          />
+          {[0, 1, 2].map((i) => (
+            <div key={i}>
+              <p className="text-xs text-zinc-400 mb-1">
+                Photo {i + 1}
+                {i === 0 ? " *" : " (optional)"}
+              </p>
+              <MotifImageUpload
+                imageUrl={finishedPhotoUrls[i]}
+                onChange={(url) => {
+                  const next = [...finishedPhotoUrls];
+                  if (url) next[i] = url;
+                  else next.splice(i, 1);
+                  setFinishedPhotoUrls(next.filter(Boolean));
+                }}
+                disabled={!canManage}
+              />
+            </div>
+          ))}
         </div>
       )}
 

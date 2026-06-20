@@ -90,6 +90,7 @@ const toDesign = (design: {
   moldPhotoUrl: string | null;
   moldCompletedAt: Date | null;
   finishedPhotoUrl: string | null;
+  finishedPhotoUrls: string[];
   builderCompletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -112,6 +113,8 @@ const toDesign = (design: {
   moldPhotoUrl: design.moldPhotoUrl ?? undefined,
   moldCompletedAt: design.moldCompletedAt?.toISOString(),
   finishedPhotoUrl: design.finishedPhotoUrl ?? undefined,
+  finishedPhotoUrls:
+    design.finishedPhotoUrls.length > 0 ? design.finishedPhotoUrls : undefined,
   builderCompletedAt: design.builderCompletedAt?.toISOString(),
   elements: (design.elements ?? []).map(toDesignElement),
   createdAt: design.createdAt.toISOString(),
