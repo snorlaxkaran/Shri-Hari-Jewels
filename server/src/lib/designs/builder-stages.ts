@@ -11,6 +11,24 @@ export const DESIGN_BUILDER_STAGES = [
 
 export type DesignBuilderStage = (typeof DESIGN_BUILDER_STAGES)[number];
 
+const DB_TO_API: Record<DbDesignBuilderStage, DesignBuilderStage> = {
+  [DbDesignBuilderStage.SKU]: "SKU",
+  [DbDesignBuilderStage.CAD]: "CAD",
+  [DbDesignBuilderStage.MoldMaking]: "Mold Making",
+  [DbDesignBuilderStage.Motifs]: "Motifs",
+  [DbDesignBuilderStage.Photo]: "Photo",
+  [DbDesignBuilderStage.Complete]: "Complete",
+};
+
+const API_TO_DB: Record<DesignBuilderStage, DbDesignBuilderStage> = {
+  SKU: DbDesignBuilderStage.SKU,
+  CAD: DbDesignBuilderStage.CAD,
+  "Mold Making": DbDesignBuilderStage.MoldMaking,
+  Motifs: DbDesignBuilderStage.Motifs,
+  Photo: DbDesignBuilderStage.Photo,
+  Complete: DbDesignBuilderStage.Complete,
+};
+
 export const DESIGN_BUILDER_STAGE_SLUGS = [
   "sku",
   "cad",
@@ -47,11 +65,11 @@ export const nextBuilderStage = (
 
 export const toApiDesignBuilderStage = (
   stage: DbDesignBuilderStage,
-): DesignBuilderStage => stage as DesignBuilderStage;
+): DesignBuilderStage => DB_TO_API[stage];
 
 export const toDbDesignBuilderStage = (
   stage: DesignBuilderStage,
-): DbDesignBuilderStage => stage as DbDesignBuilderStage;
+): DbDesignBuilderStage => API_TO_DB[stage];
 
 export type UpdateDesignBuilderInput = {
   cadFileUrl?: string | null;
