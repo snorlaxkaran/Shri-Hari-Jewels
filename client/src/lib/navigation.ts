@@ -84,6 +84,13 @@ export const filterNavSections = (
 export const getPageTitle = (pathname: string): string => {
   if (pathname.startsWith("/stock-transfer/sent")) return "Sent to Stores";
   if (pathname === "/stock-transfer") return "Scan Transfer";
+  if (pathname === "/designs/new") return "New Design";
+  if (pathname.includes("/designs/") && pathname.includes("/builder/")) {
+    return "Design Builder";
+  }
+  if (pathname.match(/^\/production-runs\/[^/]+\/[^/]+$/)) {
+    return "Production Run";
+  }
   for (const section of navSections) {
     const match = section.items.find((item) => item.href === pathname);
     if (match) return match.label;

@@ -140,7 +140,6 @@ const validateStageComplete = (
         (i) => i.elementType === "Stone" || i.elementType === "Motif",
       );
       if (
-        stoneItems.length > 0 &&
         stoneItems.some(
           (i) =>
             (i.czStones == null || i.czStones < 0) &&
@@ -148,7 +147,7 @@ const validateStageComplete = (
         )
       ) {
         throw new ProductionRunError(
-          "Enter CZ stone counts or weights before continuing.",
+          "Enter CZ stone counts or weights for all stone/motif elements before continuing.",
         );
       }
       break;

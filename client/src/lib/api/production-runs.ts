@@ -1,6 +1,8 @@
 import type {
+  CompleteProductionRunStageInput,
   NewProductionRunInput,
   ProductionRun,
+  ProductionRunStage,
   UpdateProductionRunInput,
   UpdateProductionRunItemInput,
 } from "@/lib/types";
@@ -74,4 +76,16 @@ export const exportProductionRunCsv = async (
   link.download = `${runNo}.csv`;
   link.click();
   URL.revokeObjectURL(url);
+};
+
+export const completeProductionRunStage = async (
+  runId: string,
+  stageSlug: string,
+  input: CompleteProductionRunStageInput = {},
+): Promise<{ currentStage: ProductionRunStage; stageLogs: import("@/lib/types").ProductionRunStageLog[] }> => {
+  const { data } = await api.post(
+    `/api/production-runs/${runId}/stages/${stageSlug}/complete`,
+    input,
+  );
+  return data;
 };

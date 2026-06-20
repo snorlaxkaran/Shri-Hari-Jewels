@@ -20,6 +20,7 @@ import { fetchMetalLots, fetchStoneLots } from "@/lib/api/raw-inventory";
 import { PRODUCT_CATEGORIES, type ProductCategory } from "@/lib/inventory/categories";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api/client";
+import { stageToProductionRunSlug } from "@/lib/production-runs/stages";
 import {
   expectedElementWeight,
   weightMismatchMessage,
@@ -820,6 +821,13 @@ export default function ProductionRunDetailPage() {
   useEffect(() => {
     void loadRun();
   }, [loadRun]);
+
+  useEffect(() => {
+    if (!run) return;
+    if (run.status === "Completed" || run.status === "Cancelled") return;
+    const slug = stageToProductionRunSlug(run.currentStage);
+    if (slug) router.replace(`/production-runs/${runId}/${slug}`);
+  }, [run, runId, router]);
 
   useEffect(() => {
     if (!canEditItems) return;

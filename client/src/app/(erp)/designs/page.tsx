@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
@@ -113,6 +115,7 @@ function estimatePrice(
 }
 
 export default function DesignsPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const canManage = user ? canManageDesigns(user.role) : false;
   const {
@@ -594,7 +597,7 @@ export default function DesignsPage() {
           designs={designs}
           selectedId={selectedId}
           onSelect={handleSelectDesign}
-          onCreateNew={() => setModalOpen(true)}
+          onCreateNew={() => router.push("/designs/new")}
           disabled={!canManage && designs.length === 0}
         />
       </div>
@@ -607,16 +610,43 @@ export default function DesignsPage() {
               : "Select a SKU above to load motifs and start building."}
           </p>
           {canManage && designs.length === 0 && (
-            <button
-              onClick={() => setModalOpen(true)}
-              className="btn-primary mt-4 px-4 py-2 text-sm"
+            <Link
+              href="/designs/new"
+              className="btn-primary inline-block mt-4 px-4 py-2 text-sm"
             >
               Create first SKU
-            </button>
+            </Link>
           )}
         </div>
       ) : (
         <div className="space-y-8">
+          {selectedDesign.builderStage !== "Complete" && canManage && (
+            <div className="surface-card px-5 py-4 flex flex-wrap items-center justify-between gap-3 border-amber-200 bg-amber-50/50">
+              <div>
+                <p className="text-sm font-medium text-amber-900">
+                  Design builder in progress
+                </p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  Current stage: {selectedDesign.builderStage}
+                </p>
+              </div>
+              <Link
+                href={
+                  selectedDesign.builderStage === "SKU" ||
+                  selectedDesign.builderStage === "CAD"
+                    ? `/designs/${selectedDesign.id}/builder/cad`
+                    : selectedDesign.builderStage === "Mold Making"
+                      ? `/designs/${selectedDesign.id}/builder/mold`
+                      : selectedDesign.builderStage === "Motifs"
+                        ? `/designs/${selectedDesign.id}/builder/motifs`
+                        : `/designs/${selectedDesign.id}/builder/photo`
+                }
+                className="btn-primary px-4 py-2 text-sm"
+              >
+                Continue builder →
+              </Link>
+            </div>
+          )}
           {selectedDesign && (
             <>
               <DesignPriceDriftPanel

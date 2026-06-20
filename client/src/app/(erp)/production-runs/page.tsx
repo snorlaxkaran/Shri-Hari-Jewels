@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { canManageProductionRuns } from "@/lib/auth/permissions";
 import { useDesigns } from "@/lib/designs/designs-context";
 import { useProductionRuns } from "@/lib/production-runs/production-runs-context";
+import { stageToProductionRunSlug } from "@/lib/production-runs/stages";
 import type { ProductionRun, ProductionRunStatus } from "@/lib/types";
 import { formatDate } from "@/lib/format";
 
@@ -51,9 +52,14 @@ function ProgressBar({
 }
 
 function ProductionRunSummaryCard({ run }: { run: ProductionRun }) {
+  const href =
+    run.status === "Completed" || run.status === "Cancelled"
+      ? `/production-runs/${run.id}`
+      : `/production-runs/${run.id}/${stageToProductionRunSlug(run.currentStage) ?? "wax-pattern"}`;
+
   return (
     <Link
-      href={`/production-runs/${run.id}`}
+      href={href}
       className="surface-card block px-5 py-4 hover:border-zinc-300 transition-colors"
     >
       <div className="flex flex-wrap items-center gap-3">
@@ -76,6 +82,12 @@ function ProductionRunSummaryCard({ run }: { run: ProductionRun }) {
         <span className="text-xs px-2 py-1 rounded-full bg-zinc-100 text-zinc-600">
           {run.status}
         </span>
+
+        {run.status !== "Completed" && run.status !== "Cancelled" && (
+          <span className="text-xs px-2 py-1 rounded-full bg-amber-50 text-amber-800">
+            {run.currentStage}
+          </span>
+        )}
 
         <ProgressBar
           received={run.castingsReceived}

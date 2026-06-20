@@ -7,6 +7,7 @@ import type {
   NewDesignInput,
   UpdateDesignElementInput,
   UpdateDesignInput,
+  UpdateDesignBuilderInput,
 } from "@/lib/types";
 import { api } from "./client";
 
@@ -138,5 +139,23 @@ export const acceptDesignElementPrice = async (
     `/api/designs/${designId}/elements/${elementId}`,
     { motifId },
   );
+  return data;
+};
+
+export const updateDesignBuilder = async (
+  designId: string,
+  input: UpdateDesignBuilderInput,
+): Promise<Design> => {
+  const { data } = await api.patch<Design>(
+    `/api/designs/${designId}/builder`,
+    input,
+  );
+  return data;
+};
+
+export const advanceDesignBuilder = async (
+  designId: string,
+): Promise<{ design: Design; nextStage: import("@/lib/types").DesignBuilderStage | null }> => {
+  const { data } = await api.post(`/api/designs/${designId}/builder/advance`);
   return data;
 };
