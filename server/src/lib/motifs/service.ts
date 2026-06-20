@@ -3,6 +3,7 @@ import { moneyToNumber } from "../money.js";
 import {
   isValidMotifPurityForMetal,
 } from "../designs/validation.js";
+import { safeRecordCatalogAudit } from "../catalog/audit.js";
 import type {
   Motif,
   MotifMetal,
@@ -43,6 +44,22 @@ export class MotifError extends Error {
     this.name = "MotifError";
   }
 }
+
+type Actor = { id: string; name: string };
+
+const motifSummary = (motif: Motif) => ({
+  id: motif.id,
+  name: motif.name,
+  metal: motif.metal,
+  purity: motif.purity,
+  price: motif.price,
+  makingCost: motif.makingCost,
+  stones: motif.stones?.map((s) => ({
+    bulkStoneLotId: s.bulkStoneLotId,
+    qtyPerMotif: s.qtyPerMotif,
+    sizeLabel: s.bulkStoneLot?.sizeLabel,
+  })),
+});
 
 const motifInclude = {
   stones: {
@@ -252,6 +269,8 @@ export const getMotif = async (id: string): Promise<Motif> => {
 export const createMotif = async (
   input: NewMotifInput,
   branchId: string,
+  actor?: Actor,
+  auditOptions?: { skipAudit?: boolean },
 ): Promise<Motif> => {
   const validated = validateMotifInput(input);
 
@@ -299,19 +318,36 @@ export const createMotif = async (
     where: { id: row.id },
     include: motifInclude,
   });
-  return toMotif(full!);
+  const motif = toMotif(full!);
+
+  if (actor && !auditOptions?.skipAudit) {
+    await safeRecordCatalogAudit({
+      entityType: "Motif",
+      entityId: motif.id,
+      entityRef: motif.name,
+      action: "Create",
+      newValue: motifSummary(motif),
+      performedById: actor.id,
+      performedByName: actor.name,
+    });
+  }
+
+  return motif;
 };
 
 export const createMotifsBulk = async (
   items: NewMotifInput[],
   branchId: string,
+  actor?: Actor,
 ): Promise<{ created: Motif[]; errors: string[] }> => {
   const created: Motif[] = [];
   const errors: string[] = [];
 
   for (let i = 0; i < items.length; i++) {
     try {
-      const motif = await createMotif(items[i], branchId);
+      const motif = await createMotif(items[i], branchId, actor, {
+        skipAudit: true,
+      });
       created.push(motif);
     } catch (error) {
       const msg =
@@ -322,21 +358,38 @@ export const createMotifsBulk = async (
     }
   }
 
+  if (actor && created.length > 0) {
+    await safeRecordCatalogAudit({
+      entityType: "Motif",
+      entityId: created[0].id,
+      entityRef: `Bulk import (${created.length} motifs)`,
+      action: "Import",
+      newValue: created.map(motifSummary),
+      reason: errors.length
+        ? `${created.length} created, ${errors.length} errors`
+        : `${created.length} motifs imported`,
+      performedById: actor.id,
+      performedByName: actor.name,
+    });
+  }
+
   return { created, errors };
 };
 
 export const updateMotif = async (
   id: string,
   input: UpdateMotifInput,
+  actor?: Actor,
 ): Promise<Motif> => {
-  const existing = await prisma.motif.findUnique({
+  const existingRow = await prisma.motif.findUnique({
     where: { id },
-    include: { stones: true },
+    include: motifInclude,
   });
-  if (!existing) throw new MotifError("Motif not found.", 404);
+  if (!existingRow) throw new MotifError("Motif not found.", 404);
+  const existing = toMotif(existingRow);
 
-  const metal = (input.metal ?? existing.metal) as MotifMetal;
-  const purity = (input.purity ?? existing.purity) as Purity;
+  const metal = (input.metal ?? existingRow.metal) as MotifMetal;
+  const purity = (input.purity ?? existingRow.purity) as Purity;
 
   if (input.metal && !MOTIF_METALS.includes(input.metal)) {
     throw new MotifError("Invalid motif metal.");
@@ -359,7 +412,7 @@ export const updateMotif = async (
   if (input.name !== undefined || input.metal !== undefined || input.purity !== undefined) {
     const duplicate = await prisma.motif.findFirst({
       where: {
-        branchId: existing.branchId,
+        branchId: existingRow.branchId,
         name,
         metal,
         purity,
@@ -375,7 +428,7 @@ export const updateMotif = async (
 
   const stones =
     input.stones ??
-    existing.stones.map((s) => ({
+    existingRow.stones.map((s) => ({
       bulkStoneLotId: s.bulkStoneLotId,
       qtyPerMotif: s.qtyPerMotif,
       sortOrder: s.sortOrder,
@@ -383,8 +436,8 @@ export const updateMotif = async (
 
   const makingCost =
     input.makingCost === undefined
-      ? existing.makingCost != null
-        ? moneyToNumber(String(existing.makingCost))
+      ? existingRow.makingCost != null
+        ? moneyToNumber(String(existingRow.makingCost))
         : undefined
       : input.makingCost ?? undefined;
 
@@ -427,41 +480,76 @@ export const updateMotif = async (
     where: { id },
     include: motifInclude,
   });
-  return toMotif(full!);
+  const updated = toMotif(full!);
+
+  if (actor) {
+    await safeRecordCatalogAudit({
+      entityType: "Motif",
+      entityId: id,
+      entityRef: updated.name,
+      action: "Update",
+      previousValue: motifSummary(existing),
+      newValue: motifSummary(updated),
+      performedById: actor.id,
+      performedByName: actor.name,
+    });
+  }
+
+  return updated;
 };
 
-export const deleteMotif = async (id: string): Promise<void> => {
-  const existing = await prisma.motif.findUnique({
+export const deleteMotif = async (
+  id: string,
+  actor?: Actor,
+): Promise<void> => {
+  const existingRow = await prisma.motif.findUnique({
     where: { id },
-    include: { designElements: { take: 1 } },
+    include: { ...motifInclude, designElements: { take: 1 } },
   });
-  if (!existing) throw new MotifError("Motif not found.", 404);
-  if (existing.designElements.length > 0) {
+  if (!existingRow) throw new MotifError("Motif not found.", 404);
+  if (existingRow.designElements.length > 0) {
     throw new MotifError(
       "Cannot delete a motif referenced by design elements.",
     );
   }
+
+  const existing = toMotif(existingRow);
   await prisma.motif.delete({ where: { id } });
+
+  if (actor) {
+    await safeRecordCatalogAudit({
+      entityType: "Motif",
+      entityId: id,
+      entityRef: existing.name,
+      action: "Delete",
+      previousValue: motifSummary(existing),
+      performedById: actor.id,
+      performedByName: actor.name,
+    });
+  }
 };
 
 export const recalculateMotifPriceById = async (
   motifId: string,
+  actor?: Actor,
+  reason?: string,
 ): Promise<number> => {
-  const motif = await prisma.motif.findUnique({
+  const existingRow = await prisma.motif.findUnique({
     where: { id: motifId },
-    include: { stones: true },
+    include: motifInclude,
   });
-  if (!motif) throw new MotifError("Motif not found.", 404);
+  if (!existingRow) throw new MotifError("Motif not found.", 404);
+  const before = toMotif(existingRow);
 
-  const stones = motif.stones.map((s) => ({
+  const stones = existingRow.stones.map((s) => ({
     bulkStoneLotId: s.bulkStoneLotId,
     qtyPerMotif: s.qtyPerMotif,
     sortOrder: s.sortOrder,
   }));
 
   const makingCost =
-    motif.makingCost != null
-      ? moneyToNumber(String(motif.makingCost))
+    existingRow.makingCost != null
+      ? moneyToNumber(String(existingRow.makingCost))
       : undefined;
 
   const price = await calculateMotifPrice(stones, makingCost);
@@ -469,5 +557,40 @@ export const recalculateMotifPriceById = async (
     where: { id: motifId },
     data: { price },
   });
+
+  if (actor && Math.abs((before.price ?? 0) - price) >= 0.0001) {
+    const after = { ...motifSummary(before), price };
+    await safeRecordCatalogAudit({
+      entityType: "Motif",
+      entityId: motifId,
+      entityRef: before.name,
+      action: "Update",
+      previousValue: motifSummary(before),
+      newValue: after,
+      reason: reason ?? "Price recalculated from bulk stone lot change",
+      performedById: actor.id,
+      performedByName: actor.name,
+    });
+  }
+
   return price;
+};
+
+export const recalculateMotifsForBulkStoneLot = async (
+  bulkStoneLotId: string,
+  actor?: Actor,
+  reason?: string,
+): Promise<number> => {
+  const links = await prisma.motifStone.findMany({
+    where: { bulkStoneLotId },
+    select: { motifId: true },
+    distinct: ["motifId"],
+  });
+
+  let updated = 0;
+  for (const { motifId } of links) {
+    await recalculateMotifPriceById(motifId, actor, reason);
+    updated += 1;
+  }
+  return updated;
 };

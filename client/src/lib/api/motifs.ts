@@ -40,3 +40,19 @@ export const updateMotif = async (
 export const deleteMotif = async (id: string): Promise<void> => {
   await api.delete(`/api/motifs/${id}`);
 };
+
+export const fetchMotifPriceDrift = async (
+  motifId: string,
+): Promise<import("@/lib/types").MotifPriceDrift> => {
+  const { data } = await api.get(`/api/motifs/${motifId}/price-drift`);
+  return data;
+};
+
+export const recalculateMotifPrice = async (
+  motifId: string,
+): Promise<{ price: number }> => {
+  const { data } = await api.post<{ price: number }>(
+    `/api/motifs/${motifId}/recalculate-price`,
+  );
+  return data;
+};

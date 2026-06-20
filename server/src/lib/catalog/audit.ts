@@ -1,4 +1,6 @@
 import { prisma } from "../db.js";
+import { diffValues } from "./diff.js";
+import type { FieldDiff } from "./diff.js";
 
 export type CatalogEntityType = "Design" | "Motif" | "DesignElement";
 
@@ -43,9 +45,24 @@ export const recordCatalogAudit = async (
   });
 };
 
+/** Audit write that never fails the caller's mutation. */
+export const safeRecordCatalogAudit = async (
+  input: RecordCatalogAuditInput,
+): Promise<void> => {
+  try {
+    await recordCatalogAudit(input);
+  } catch (error) {
+    console.error(
+      `[CatalogAudit] Failed to record ${input.action} on ${input.entityType} ${input.entityId}:`,
+      error,
+    );
+  }
+};
+
 export const listCatalogAuditLogs = async (
   entityType?: CatalogEntityType,
   entityId?: string,
+  limit = 10,
 ) => {
   const rows = await prisma.catalogAuditLog.findMany({
     where: {
@@ -53,7 +70,7 @@ export const listCatalogAuditLogs = async (
       ...(entityId ? { entityId } : {}),
     },
     orderBy: { createdAt: "desc" },
-    take: 200,
+    take: Math.min(Math.max(limit, 1), 200),
   });
   return rows.map((row) => ({
     id: row.id,
@@ -63,9 +80,32 @@ export const listCatalogAuditLogs = async (
     action: row.action as CatalogAuditAction,
     previousValue: row.previousValue ?? undefined,
     newValue: row.newValue ?? undefined,
+    fieldDiffs: diffValues(row.previousValue, row.newValue) as FieldDiff[],
     reason: row.reason ?? undefined,
     performedById: row.performedById ?? undefined,
     performedByName: row.performedByName,
     createdAt: row.createdAt.toISOString(),
   }));
+};
+
+export const getLatestMotifPriceChange = async (
+  motifId: string,
+): Promise<{ at: string; by: string } | undefined> => {
+  const rows = await prisma.catalogAuditLog.findMany({
+    where: { entityType: "Motif", entityId: motifId, action: "Update" },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
+
+  for (const row of rows) {
+    const diffs = diffValues(row.previousValue, row.newValue);
+    if (diffs.some((d) => d.field === "price")) {
+      return {
+        at: row.createdAt.toISOString(),
+        by: row.performedByName,
+      };
+    }
+  }
+
+  return undefined;
 };

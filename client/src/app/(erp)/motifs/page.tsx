@@ -5,6 +5,7 @@ import { Trash2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import MotifExcelImport from "@/app/(components)/motifs/MotifExcelImport";
+import MotifPriceDriftBanner from "@/app/(components)/motifs/MotifPriceDriftBanner";
 import MotifImageUpload from "@/app/(components)/motifs/MotifImageUpload";
 import MotifStoneRows, {
   type MotifStoneRow,
@@ -220,6 +221,12 @@ export default function MotifsPage() {
           {error}
         </div>
       )}
+
+      <MotifPriceDriftBanner
+        motifs={motifs}
+        canManage={canManage}
+        onRecalculated={() => void loadMotifs()}
+      />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <form

@@ -10,7 +10,7 @@ import type {
   UpdateDesignElementInput,
   UpdateDesignInput,
 } from "../../types.js";
-import { recordCatalogAudit } from "../catalog/audit.js";
+import { safeRecordCatalogAudit } from "../catalog/audit.js";
 import { getMotif } from "../motifs/service.js";
 import {
   isValidDesignMetal,
@@ -201,7 +201,7 @@ export const createDesign = async (
   });
 
   if (actor) {
-    await recordCatalogAudit({
+    await safeRecordCatalogAudit({
       entityType: "Design",
       entityId: design.id,
       entityRef: design.code,
@@ -265,7 +265,7 @@ export const updateDesign = async (
   });
 
   if (actor) {
-    await recordCatalogAudit({
+    await safeRecordCatalogAudit({
       entityType: "Design",
       entityId: design.id,
       entityRef: design.code,
@@ -280,10 +280,13 @@ export const updateDesign = async (
   return toDesign(design);
 };
 
-export const deleteDesign = async (id: string): Promise<void> => {
+export const deleteDesign = async (
+  id: string,
+  actor?: Actor,
+): Promise<void> => {
   const existing = await prisma.design.findUnique({
     where: { id },
-    include: { productionRuns: { take: 1 } },
+    include: { ...designInclude, productionRuns: { take: 1 } },
   });
   if (!existing) throw new DesignError("Design not found.", 404);
   if (existing.productionRuns.length > 0) {
@@ -292,7 +295,21 @@ export const deleteDesign = async (id: string): Promise<void> => {
     );
   }
 
+  const snapshot = toDesign(existing);
+
   await prisma.design.delete({ where: { id } });
+
+  if (actor) {
+    await safeRecordCatalogAudit({
+      entityType: "Design",
+      entityId: id,
+      entityRef: existing.code,
+      action: "Delete",
+      previousValue: snapshot,
+      performedById: actor.id,
+      performedByName: actor.name,
+    });
+  }
 };
 
 export const addDesignElement = async (
@@ -328,7 +345,7 @@ export const addDesignElement = async (
   });
 
   if (actor) {
-    await recordCatalogAudit({
+    await safeRecordCatalogAudit({
       entityType: "DesignElement",
       entityId: element.id,
       entityRef: `${design.code} / ${element.name}`,
@@ -407,7 +424,7 @@ export const updateDesignElement = async (
   });
 
   if (actor) {
-    await recordCatalogAudit({
+    await safeRecordCatalogAudit({
       entityType: "DesignElement",
       entityId: elementId,
       entityRef: `${design.code} / ${updatedElement.name}`,
@@ -450,7 +467,7 @@ export const deleteDesignElement = async (
   await prisma.designElement.delete({ where: { id: elementId } });
 
   if (actor) {
-    await recordCatalogAudit({
+    await safeRecordCatalogAudit({
       entityType: "DesignElement",
       entityId: elementId,
       entityRef: `${design.code} / ${element.name}`,
@@ -515,7 +532,7 @@ export const replaceDesignElements = async (
     include: designInclude,
   });
 
-  await recordCatalogAudit({
+  await safeRecordCatalogAudit({
     entityType: "Design",
     entityId: designId,
     entityRef: design.code,

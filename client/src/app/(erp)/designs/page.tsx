@@ -10,6 +10,8 @@ import AddMotifCard from "@/app/(components)/designs/AddMotifCard";
 import SkuSearchDropdown from "@/app/(components)/designs/SkuSearchDropdown";
 import BomDiffModal from "@/app/(components)/designs/BomDiffModal";
 import DesignBomImport from "@/app/(components)/designs/DesignBomImport";
+import DesignPriceDriftPanel from "@/app/(components)/designs/DesignPriceDriftPanel";
+import DesignHistoryPanel from "@/app/(components)/designs/DesignHistoryPanel";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canManageDesigns } from "@/lib/auth/permissions";
 import { useDesigns } from "@/lib/designs/designs-context";
@@ -433,7 +435,7 @@ export default function DesignsPage() {
       await replaceDesignElements(
         selectedDesign.id,
         target,
-        "Design BOM update",
+        "Manual BOM edit",
       );
       await refresh();
       return true;
@@ -615,6 +617,17 @@ export default function DesignsPage() {
         </div>
       ) : (
         <div className="space-y-8">
+          {selectedDesign && (
+            <>
+              <DesignPriceDriftPanel
+                designId={selectedDesign.id}
+                canManage={canManage}
+                onUpdated={() => void refresh()}
+              />
+              <DesignHistoryPanel designId={selectedDesign.id} />
+            </>
+          )}
+
           {/* Motif library */}
           <section>
             <div className="flex flex-wrap items-center justify-between gap-3 mb-3">

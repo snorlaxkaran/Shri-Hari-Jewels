@@ -1,6 +1,7 @@
 import { prisma } from "../db.js";
 import { moneyToNumber } from "../money.js";
 import { MOTIF_STONE_TYPES } from "../motifs/service.js";
+import { recalculateMotifsForBulkStoneLot } from "../motifs/service.js";
 import type {
   BulkStoneLot,
   MotifStoneType,
@@ -108,6 +109,7 @@ export const createBulkStoneLot = async (
 export const updateBulkStoneLot = async (
   id: string,
   input: UpdateBulkStoneLotInput,
+  actor?: { id: string; name: string },
 ): Promise<BulkStoneLot> => {
   const existing = await prisma.bulkStoneLot.findUnique({ where: { id } });
   if (!existing) throw new BulkStoneLotError("Bulk stone lot not found.", 404);
@@ -143,6 +145,19 @@ export const updateBulkStoneLot = async (
       location: input.location?.trim(),
     },
   });
+
+  const priceChanged =
+    input.pricePerStone != null &&
+    moneyToNumber(String(existing.pricePerStone)) !== input.pricePerStone;
+
+  if (priceChanged && actor) {
+    await recalculateMotifsForBulkStoneLot(
+      id,
+      actor,
+      `Bulk stone lot "${row.sizeLabel}" price per stone updated`,
+    );
+  }
+
   return toBulkStoneLot(row);
 };
 

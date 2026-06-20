@@ -69,11 +69,12 @@ bulkStoneLotsRouter.post(
 bulkStoneLotsRouter.patch(
   "/:id",
   requireRole(canManageMotifs),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
       const lot = await updateBulkStoneLot(
         routeParam(req.params.id),
         req.body as UpdateBulkStoneLotInput,
+        { id: req.user!.id, name: req.user!.name },
       );
       res.json(lot);
     } catch (error) {

@@ -21,6 +21,8 @@ import {
   parseDesignImportRows,
 } from "../lib/designs/import.js";
 import { listMotifs } from "../lib/motifs/service.js";
+import { getDesignPriceDrift } from "../lib/catalog/price-drift.js";
+import { listCatalogAuditLogs } from "../lib/catalog/audit.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
 import { prisma } from "../lib/db.js";
 import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
@@ -111,9 +113,9 @@ designsRouter.patch(
 designsRouter.delete(
   "/:id",
   requireRole(canManageDesigns),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      await deleteDesign(routeParam(req.params.id));
+      await deleteDesign(routeParam(req.params.id), actorFrom(req));
       res.status(204).send();
     } catch (error) {
       if (error instanceof DesignError) {
@@ -122,6 +124,41 @@ designsRouter.delete(
       }
       console.error("DELETE /api/designs/:id", error);
       res.status(500).json({ error: "Failed to delete design" });
+    }
+  },
+);
+
+designsRouter.get(
+  "/:id/price-drift",
+  requireRole(canViewDesigns),
+  async (req, res) => {
+    try {
+      const drifts = await getDesignPriceDrift(routeParam(req.params.id));
+      res.json(drifts);
+    } catch (error) {
+      console.error("GET /api/designs/:id/price-drift", error);
+      res.status(500).json({ error: "Failed to check price drift" });
+    }
+  },
+);
+
+designsRouter.get(
+  "/:id/audit-log",
+  requireRole(canViewDesigns),
+  async (req, res) => {
+    try {
+      const limit = req.query.limit
+        ? parseInt(String(req.query.limit), 10)
+        : 10;
+      const logs = await listCatalogAuditLogs(
+        "Design",
+        routeParam(req.params.id),
+        limit,
+      );
+      res.json(logs);
+    } catch (error) {
+      console.error("GET /api/designs/:id/audit-log", error);
+      res.status(500).json({ error: "Failed to fetch design audit log" });
     }
   },
 );

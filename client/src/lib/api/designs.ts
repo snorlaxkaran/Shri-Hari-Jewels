@@ -111,3 +111,32 @@ export const applyDesignImport = async (
   );
   return data;
 };
+
+export const fetchDesignPriceDrift = async (
+  designId: string,
+): Promise<import("@/lib/types").DesignElementPriceDrift[]> => {
+  const { data } = await api.get(`/api/designs/${designId}/price-drift`);
+  return data;
+};
+
+export const fetchDesignAuditLog = async (
+  designId: string,
+  limit = 10,
+): Promise<import("@/lib/types").CatalogAuditLog[]> => {
+  const { data } = await api.get(`/api/designs/${designId}/audit-log`, {
+    params: { limit },
+  });
+  return data;
+};
+
+export const acceptDesignElementPrice = async (
+  designId: string,
+  elementId: string,
+  motifId: string,
+): Promise<Design> => {
+  const { data } = await api.patch<Design>(
+    `/api/designs/${designId}/elements/${elementId}`,
+    { motifId },
+  );
+  return data;
+};

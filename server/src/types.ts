@@ -735,10 +735,38 @@ export type CatalogAuditLog = {
   action: string;
   previousValue?: string;
   newValue?: string;
+  fieldDiffs?: Array<{ field: string; from: unknown; to: unknown }>;
   reason?: string;
   performedById?: string;
   performedByName: string;
   createdAt: string;
+};
+
+export type DesignElementPriceDrift = {
+  elementId: string;
+  elementName: string;
+  motifId: string;
+  motifName: string;
+  snapshotUnitValue: number;
+  liveMotifPrice: number;
+  lastMotifPriceChange?: {
+    at: string;
+    by: string;
+  };
+};
+
+export type MotifPriceDrift = {
+  motifId: string;
+  motifName: string;
+  storedPrice: number;
+  calculatedPrice: number;
+  isStale: boolean;
+  staleStoneLots: Array<{
+    bulkStoneLotId: string;
+    sizeLabel: string;
+    livePricePerStone: number;
+    qtyPerMotif: number;
+  }>;
 };
 
 export type BulkStoneStockWarning = {
