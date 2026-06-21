@@ -1,8 +1,10 @@
 import type {
   InventoryItem,
   NewProductInput,
+  PartialAcceptTransferInput,
   StockTransfer,
   StockTransferDocumentType,
+  StockTransferStatus,
   UpdateProductInput,
 } from "@/lib/types";
 import { api } from "./client";
@@ -73,6 +75,7 @@ export const createStockTransfer = async (input: {
   documentType: StockTransferDocumentType;
   transferDate: string;
   itemCodes: string[];
+  notes?: string;
 }): Promise<{ transfer: StockTransfer; products: InventoryItem[] }> => {
   const { data } = await api.post<{
     transfer: StockTransfer;
@@ -86,5 +89,70 @@ export const createStockTransfer = async (input: {
 
 export const fetchStockTransfers = async (): Promise<StockTransfer[]> => {
   const { data } = await api.get<StockTransfer[]>("/api/inventory/transfers");
+  return data;
+};
+
+export const fetchSentStockTransfers = async (): Promise<StockTransfer[]> => {
+  const { data } = await api.get<StockTransfer[]>("/api/inventory/transfers/sent");
+  return data;
+};
+
+export const fetchIncomingStockTransfers = async (
+  status?: StockTransferStatus,
+): Promise<StockTransfer[]> => {
+  const { data } = await api.get<StockTransfer[]>(
+    "/api/inventory/transfers/incoming",
+    { params: status ? { status } : undefined },
+  );
+  return data;
+};
+
+export const fetchIncomingTransferCount = async (): Promise<number> => {
+  const { data } = await api.get<{ count: number }>(
+    "/api/inventory/transfers/incoming/count",
+  );
+  return data.count;
+};
+
+export const fetchStockTransferById = async (
+  id: string,
+): Promise<StockTransfer> => {
+  const { data } = await api.get<StockTransfer>(`/api/inventory/transfers/${id}`);
+  return data;
+};
+
+export const acceptStockTransfer = async (id: string): Promise<StockTransfer> => {
+  const { data } = await api.post<StockTransfer>(
+    `/api/inventory/transfers/${id}/accept`,
+  );
+  return data;
+};
+
+export const rejectStockTransfer = async (
+  id: string,
+  reason: string,
+): Promise<StockTransfer> => {
+  const { data } = await api.post<StockTransfer>(
+    `/api/inventory/transfers/${id}/reject`,
+    { reason },
+  );
+  return data;
+};
+
+export const partialAcceptStockTransfer = async (
+  id: string,
+  input: PartialAcceptTransferInput,
+): Promise<StockTransfer> => {
+  const { data } = await api.post<StockTransfer>(
+    `/api/inventory/transfers/${id}/partial-accept`,
+    input,
+  );
+  return data;
+};
+
+export const cancelStockTransfer = async (id: string): Promise<StockTransfer> => {
+  const { data } = await api.post<StockTransfer>(
+    `/api/inventory/transfers/${id}/cancel`,
+  );
   return data;
 };

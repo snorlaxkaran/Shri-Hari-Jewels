@@ -32,6 +32,7 @@ export default function StockTransferScanPage() {
   const [transferDate, setTransferDate] = useState(today());
   const [docType, setDocType] =
     useState<StockTransferDocumentType>("Wholesale GST Invoice");
+  const [notes, setNotes] = useState("");
   const [barcode, setBarcode] = useState("");
   const [scanned, setScanned] = useState<ScannedItem[]>([]);
   const [error, setError] = useState("");
@@ -115,12 +116,13 @@ export default function StockTransferScanPage() {
         documentType: docType,
         transferDate,
         itemCodes: scanned.map((item) => item.unit.itemCode),
+        notes: notes.trim() || undefined,
       });
       await refresh({ silent: true });
       setSuccess(
         <>
           {result.transfer.transferNo} saved for {scanned.length} item
-          {scanned.length === 1 ? "" : "s"}.{" "}
+          {scanned.length === 1 ? "" : "s"} — awaiting store acceptance.{" "}
           <Link
             href="/stock-transfer/sent"
             className="font-medium underline underline-offset-2"
@@ -131,6 +133,7 @@ export default function StockTransferScanPage() {
       );
       setScanned([]);
       setBarcode("");
+      setNotes("");
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to save transfer."));
     } finally {
@@ -221,6 +224,19 @@ export default function StockTransferScanPage() {
                 ),
               )}
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs block mb-1 text-zinc-500 font-medium">
+              Notes (optional)
+            </label>
+            <textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={2}
+              placeholder="Handle with care — stone-set items"
+              className="input-field w-full px-3 py-2 text-sm"
+            />
           </div>
 
           <div className="pt-2 border-t border-zinc-100">

@@ -4,14 +4,15 @@ import { Gem, MoreVertical, X } from "lucide-react";
 
 import Link from "next/link";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "@/lib/auth/auth-context";
 
-import { canAccessRoute, ROLE_LABELS } from "@/lib/auth/permissions";
+import { canAccessRoute, canViewStockTransfers, ROLE_LABELS } from "@/lib/auth/permissions";
 
 import { filterNavSections } from "@/lib/navigation";
+import { fetchIncomingTransferCount } from "@/lib/api/inventory";
 
 type SidebarContentProps = {
   pathname: string;
@@ -32,12 +33,28 @@ const SidebarContent = ({
   const prefetchedRoutes = useRef(new Set<string>());
 
   const { user, logout } = useAuth();
+  const [incomingCount, setIncomingCount] = useState<number | undefined>();
 
-  const sections = useMemo(
-    () =>
-      user ? filterNavSections((href) => canAccessRoute(user.role, href)) : [],
-    [user],
-  );
+  const sections = useMemo(() => {
+    if (!user) return [];
+    const base = filterNavSections((href) => canAccessRoute(user.role, href));
+    if (incomingCount == null || incomingCount <= 0) return base;
+    return base.map((section) => ({
+      ...section,
+      items: section.items.map((item) =>
+        item.href === "/stock-transfer/incoming"
+          ? { ...item, badge: incomingCount }
+          : item,
+      ),
+    }));
+  }, [user, incomingCount]);
+
+  useEffect(() => {
+    if (!user || !canViewStockTransfers(user.role)) return;
+    fetchIncomingTransferCount()
+      .then(setIncomingCount)
+      .catch(() => setIncomingCount(undefined));
+  }, [user, pathname]);
 
   const prefetchRoute = useCallback(
     (href: string) => {

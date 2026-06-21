@@ -12,6 +12,13 @@ import {
 } from "../payments/razorpay.js";
 import { buildUpiPaymentString } from "../payments/upi.js";
 import { getShopSettings } from "../settings/service.js";
+import { getCurrentMarketRates } from "../market-rates/service.js";
+import {
+  calculateSellingPrice,
+  resolveMakingChargesPct,
+  resolveMarketRateForProduct,
+} from "../pricing/b2b-price.js";
+import { moneyToNumber } from "../money.js";
 import type {
   PaymentMode,
   RecordCartSaleResult,
@@ -60,12 +67,51 @@ export const lookupUnitForSale = async (itemCode: string, branchId?: string) => 
     throw new SaleError("This item already has a sale record.", 400);
   }
 
+  const product = unit.product;
+  const marketRates = await getCurrentMarketRates();
+  const marketRate = resolveMarketRateForProduct(
+    product.metal,
+    product.purity,
+    marketRates.gold22k,
+    marketRates.silver925,
+  );
+
+  let listPrice = moneyToNumber(product.price);
+  let priceBreakdown;
+
+  if (marketRate != null) {
+    const makingPct = resolveMakingChargesPct(
+      product.metal,
+      marketRates.goldMakingChargesPct,
+      marketRates.silverMakingChargesPct,
+    );
+    const metalKind =
+      product.metal === "Silver" ? ("Silver" as const) : ("Gold" as const);
+    const breakdown = calculateSellingPrice({
+      weightGrams: product.weightGrams,
+      metal: metalKind,
+      makingChargesPct: makingPct,
+      marketRatePerGram: marketRate,
+    });
+    listPrice = breakdown.totalPrice;
+    priceBreakdown = {
+      metalValue: breakdown.metalValue,
+      makingCharges: breakdown.makingCharges,
+      stoneCharges: breakdown.stoneCharges,
+      listPrice: breakdown.totalPrice,
+      ratePerGram: breakdown.ratePerGram,
+      makingChargesPct: makingPct,
+      weightGrams: product.weightGrams,
+    };
+  }
+
   return {
     itemCode: unit.itemCode,
-    productName: unit.product.name,
-    sku: unit.product.sku,
-    category: unit.product.category,
-    listPrice: unit.product.price,
+    productName: product.name,
+    sku: product.sku,
+    category: product.category,
+    listPrice,
+    priceBreakdown,
   };
 };
 

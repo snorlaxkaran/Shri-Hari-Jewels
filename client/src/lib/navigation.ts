@@ -14,6 +14,7 @@ import {
   List,
   Palette,
   Factory,
+  PackageOpen,
 } from "lucide-react";
 import { createElement } from "react";
 
@@ -40,6 +41,7 @@ export const navSections: NavSection[] = [
       { label: "Products", href: "/inventory", icon: icon(Diamond) },
       { label: "Scan Transfer", href: "/stock-transfer", icon: icon(ArrowRightLeft) },
       { label: "Sent to Stores", href: "/stock-transfer/sent", icon: icon(List) },
+      { label: "Incoming Stock", href: "/stock-transfer/incoming", icon: icon(PackageOpen) },
       { label: "Raw Stock", href: "/raw-inventory", icon: icon(Gem) },
       { label: "Bulk Stone Lots", href: "/bulk-stone-lots", icon: icon(Gem) },
       { label: "Sales", href: "/sales", icon: icon(ShoppingCart) },
@@ -82,6 +84,7 @@ export const filterNavSections = (
     .filter((section) => section.items.length > 0);
 
 export const getPageTitle = (pathname: string): string => {
+  if (pathname.startsWith("/stock-transfer/incoming")) return "Incoming Stock";
   if (pathname.startsWith("/stock-transfer/sent")) return "Sent to Stores";
   if (pathname === "/stock-transfer") return "Scan Transfer";
   if (pathname === "/designs/new") return "New Design";

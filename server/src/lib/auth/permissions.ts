@@ -16,6 +16,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
   ProductionManager: [
     "/dashboard",
     "/inventory",
+    "/stock-transfer",
     "/raw-inventory",
     "/orders",
     "/work-orders",
@@ -27,6 +28,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
   SalesManager: [
     "/dashboard",
     "/inventory",
+    "/stock-transfer",
     "/raw-inventory",
     "/sales",
     "/orders",
@@ -37,7 +39,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/motifs",
     "/production-runs",
   ],
-  Store: ["/dashboard", "/inventory", "/sales", "/customers"],
+  Store: ["/dashboard", "/inventory", "/stock-transfer", "/sales", "/customers"],
   Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs"],
   Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory"],
 };
@@ -128,6 +130,12 @@ export const canViewProductionRuns = (role: UserRole): boolean =>
 
 export const canManageProductionRuns = (role: UserRole): boolean =>
   role === "Admin" || role === "ProductionManager";
+
+export const canManageStockTransfers = (role: UserRole): boolean =>
+  role === "Admin" || role === "ProductionManager" || role === "SalesManager";
+
+export const canViewStockTransfers = (role: UserRole): boolean =>
+  canReadInventory(role);
 
 export const canUpdateProductionRunItems = (role: UserRole): boolean =>
   role === "Admin" || role === "ProductionManager" || role === "Karigar";

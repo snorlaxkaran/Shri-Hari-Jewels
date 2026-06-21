@@ -20,6 +20,7 @@ import { bulkStoneLotsRouter } from "./routes/bulk-stone-lots.js";
 import { catalogRouter } from "./routes/catalog.js";
 import { productionRunsRouter } from "./routes/production-runs.js";
 import { usersRouter } from "./routes/users.js";
+import { marketRatesRouter } from "./routes/market-rates.js";
 import { startScheduledJobs } from "./jobs/scheduler.js";
 
 const app = express();
@@ -94,6 +95,7 @@ app.use("/api/production-runs", productionRunsRouter);
 app.use("/api/sales", salesRouter);
 app.use("/api/invoices", invoicesRouter);
 app.use("/api/settings", settingsRouter);
+app.use("/api/market-rates", marketRatesRouter);
 app.use("/api/users", usersRouter);
 
 app.listen(port, () => {

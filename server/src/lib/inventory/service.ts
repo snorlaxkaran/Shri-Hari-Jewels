@@ -1,3 +1,4 @@
+import { InventoryUnitStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import type {
   Branch,
@@ -21,6 +22,7 @@ import { recordInventoryAudit } from "./audit.js";
 import { DEFAULT_BRANCH_ID } from "../branches/constants.js";
 import { moneyToNumber, sumMoney } from "../money.js";
 import { repairCompletedRunInventorySkus } from "../production-runs/run-completion.js";
+import { toStockTransferDto } from "./transfer-actions.js";
 
 const productInclude = {
   units: {
@@ -169,32 +171,7 @@ type StockTransferWithRelations = DbStockTransfer & {
   items: DbStockTransferItem[];
 };
 
-const toStockTransfer = (
-  transfer: StockTransferWithRelations,
-): StockTransfer => ({
-  id: transfer.id,
-  transferNo: transfer.transferNo,
-  fromBranchId: transfer.fromBranchId,
-  fromBranchName: transfer.fromBranch.name,
-  toBranchId: transfer.toBranchId,
-  toBranchName: transfer.toBranch.name,
-  documentType: transfer.documentType as StockTransfer["documentType"],
-  transferDate: transfer.transferDate.toISOString(),
-  itemCount: transfer.itemCount,
-  totalValue: moneyToNumber(transfer.totalValue),
-  createdByName: transfer.createdByName,
-  createdAt: transfer.createdAt.toISOString(),
-  items: transfer.items.map((item) => ({
-    id: item.id,
-    itemCode: item.itemCode,
-    productId: item.productId,
-    productName: item.productName,
-    sku: item.sku,
-    metal: item.metal,
-    purity: item.purity,
-    price: moneyToNumber(item.price),
-  })),
-});
+const toStockTransfer = toStockTransferDto;
 
 const nextTransferNo = async (): Promise<string> => {
   const year = new Date().getFullYear().toString().slice(-2);
@@ -251,7 +228,7 @@ export const transferInventoryUnits = async (
     throw new InventoryError("Some selected units were not found.", 404);
   }
 
-  const blocked = units.find((unit) => unit.status !== "Available");
+  const blocked = units.find((unit) => unit.status !== InventoryUnitStatus.Available);
   if (blocked) {
     throw new InventoryError(
       `Cannot transfer ${blocked.itemCode} because it is ${blocked.status}.`,
@@ -260,7 +237,14 @@ export const transferInventoryUnits = async (
 
   await prisma.inventoryUnit.updateMany({
     where: { id: { in: unitIds }, productId },
-    data: { branchId: toBranchId },
+    data: { status: InventoryUnitStatus.InTransit },
+  });
+
+  await prisma.$transaction(async (tx) => {
+    await syncProductStockInTx(tx, productId, {
+      performedByName: "System",
+      reason: "transfer_units",
+    });
   });
 
   const updated = await prisma.product.findUnique({
@@ -307,7 +291,7 @@ export const createStockTransfer = async (
     throw new InventoryError(`Item code not found: ${missing}`, 404);
   }
 
-  const blocked = units.find((unit) => unit.status !== "Available");
+  const blocked = units.find((unit) => unit.status !== InventoryUnitStatus.Available);
   if (blocked) {
     throw new InventoryError(
       `Cannot transfer ${blocked.itemCode} because it is ${blocked.status}.`,
@@ -320,6 +304,10 @@ export const createStockTransfer = async (
       `${notInAdminStock.itemCode} is not available in admin stock.`,
       400,
     );
+  }
+
+  if (toBranchId === DEFAULT_BRANCH_ID) {
+    throw new InventoryError("Cannot transfer to the same branch.");
   }
 
   const transferNo = await nextTransferNo();
@@ -339,6 +327,7 @@ export const createStockTransfer = async (
         totalValue,
         createdById: createdBy.id,
         createdByName: createdBy.name,
+        notes: input.notes?.trim() || null,
         items: {
           create: units.map((unit) => ({
             itemCode: unit.itemCode,
@@ -355,8 +344,17 @@ export const createStockTransfer = async (
 
     await tx.inventoryUnit.updateMany({
       where: { itemCode: { in: cleanCodes } },
-      data: { branchId: toBranchId },
+      data: { status: InventoryUnitStatus.InTransit },
     });
+
+    const productIds = [...new Set(units.map((unit) => unit.productId))];
+    for (const productId of productIds) {
+      await syncProductStockInTx(tx, productId, {
+        performedById: createdBy.id,
+        performedByName: createdBy.name,
+        reason: "transfer_create",
+      });
+    }
 
     return tx.stockTransfer.findUniqueOrThrow({
       where: { id: created.id },

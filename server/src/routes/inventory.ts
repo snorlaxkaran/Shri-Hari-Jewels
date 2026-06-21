@@ -1,7 +1,9 @@
 import { Router } from "express";
 import {
   canDeleteProduct,
+  canManageStockTransfers,
   canReadInventory,
+  canViewStockTransfers,
   canWriteInventory,
 } from "../lib/auth/permissions.js";
 import {
@@ -18,6 +20,16 @@ import {
   updateProduct,
 } from "../lib/inventory/service.js";
 import {
+  acceptStockTransfer,
+  cancelStockTransfer,
+  countPendingIncomingTransfers,
+  getStockTransferById,
+  listIncomingStockTransfers,
+  listSentStockTransfers,
+  partialAcceptStockTransfer,
+  rejectStockTransfer,
+} from "../lib/inventory/transfer-actions.js";
+import {
   authenticate,
   requireRole,
   type AuthenticatedRequest,
@@ -27,8 +39,10 @@ import { routeParam } from "../lib/route-param.js";
 import type {
   CreateStockTransferInput,
   NewProductInput,
+  PartialAcceptTransferInput,
   UpdateProductInput,
 } from "../types.js";
+import { StockTransferStatus } from "@prisma/client";
 
 export const inventoryRouter = Router();
 
@@ -96,9 +110,189 @@ inventoryRouter.post(
   },
 );
 
+inventoryRouter.get(
+  "/transfers/incoming/count",
+  requireRole(canViewStockTransfers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const branchId = await getUserBranch(req.user!.id);
+      const count = await countPendingIncomingTransfers(branchId);
+      res.json({ count });
+    } catch (error) {
+      console.error("GET /api/inventory/transfers/incoming/count", error);
+      res.status(500).json({ error: "Failed to count incoming transfers" });
+    }
+  },
+);
+
+inventoryRouter.get(
+  "/transfers/incoming",
+  requireRole(canViewStockTransfers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const branchId = await getUserBranch(req.user!.id);
+      const statusParam = req.query.status;
+      const status =
+        typeof statusParam === "string" &&
+        Object.values(StockTransferStatus).includes(
+          statusParam as StockTransferStatus,
+        )
+          ? (statusParam as StockTransferStatus)
+          : undefined;
+      const transfers = await listIncomingStockTransfers(branchId, status);
+      res.json(transfers);
+    } catch (error) {
+      console.error("GET /api/inventory/transfers/incoming", error);
+      res.status(500).json({ error: "Failed to fetch incoming transfers" });
+    }
+  },
+);
+
+inventoryRouter.get(
+  "/transfers/sent",
+  requireRole(canViewStockTransfers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const fromBranchId =
+        req.user!.role === "Admin"
+          ? undefined
+          : await getUserBranch(req.user!.id);
+      const transfers = await listSentStockTransfers(fromBranchId);
+      res.json(transfers);
+    } catch (error) {
+      console.error("GET /api/inventory/transfers/sent", error);
+      res.status(500).json({ error: "Failed to fetch sent transfers" });
+    }
+  },
+);
+
+inventoryRouter.get(
+  "/transfers/:id",
+  requireRole(canViewStockTransfers),
+  async (req, res) => {
+    try {
+      const transfer = await getStockTransferById(routeParam(req.params.id));
+      if (!transfer) {
+        res.status(404).json({ error: "Transfer not found" });
+        return;
+      }
+      res.json(transfer);
+    } catch (error) {
+      console.error("GET /api/inventory/transfers/:id", error);
+      res.status(500).json({ error: "Failed to fetch transfer" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/transfers/:id/accept",
+  requireRole(canManageStockTransfers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const branchId = await getUserBranch(req.user!.id);
+      const transfer = await acceptStockTransfer(
+        routeParam(req.params.id),
+        branchId,
+        { id: req.user!.id, name: req.user!.name },
+      );
+      res.json(transfer);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/inventory/transfers/:id/accept", error);
+      res.status(500).json({ error: "Failed to accept transfer" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/transfers/:id/reject",
+  requireRole(canManageStockTransfers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const branchId = await getUserBranch(req.user!.id);
+      const reason =
+        typeof req.body.reason === "string" ? req.body.reason : "";
+      const transfer = await rejectStockTransfer(
+        routeParam(req.params.id),
+        branchId,
+        { id: req.user!.id, name: req.user!.name },
+        reason,
+      );
+      res.json(transfer);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/inventory/transfers/:id/reject", error);
+      res.status(500).json({ error: "Failed to reject transfer" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/transfers/:id/partial-accept",
+  requireRole(canManageStockTransfers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const branchId = await getUserBranch(req.user!.id);
+      const transfer = await partialAcceptStockTransfer(
+        routeParam(req.params.id),
+        branchId,
+        { id: req.user!.id, name: req.user!.name },
+        req.body as PartialAcceptTransferInput,
+      );
+      res.json(transfer);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/inventory/transfers/:id/partial-accept", error);
+      res.status(500).json({ error: "Failed to partially accept transfer" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/transfers/:id/cancel",
+  requireRole(canManageStockTransfers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const fromBranchId =
+        req.user!.role === "Admin"
+          ? undefined
+          : await getUserBranch(req.user!.id);
+      const transferId = routeParam(req.params.id);
+      const existing = await getStockTransferById(transferId);
+      if (!existing) {
+        res.status(404).json({ error: "Transfer not found" });
+        return;
+      }
+      const sourceBranchId = fromBranchId ?? existing.fromBranchId;
+      const transfer = await cancelStockTransfer(
+        transferId,
+        sourceBranchId,
+        { id: req.user!.id, name: req.user!.name },
+      );
+      res.json(transfer);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/inventory/transfers/:id/cancel", error);
+      res.status(500).json({ error: "Failed to cancel transfer" });
+    }
+  },
+);
+
 inventoryRouter.post(
   "/transfers",
-  requireRole((role) => role === "Admin"),
+  requireRole(canManageStockTransfers),
   async (req: AuthenticatedRequest, res) => {
     try {
       const result = await createStockTransfer(
@@ -119,7 +313,7 @@ inventoryRouter.post(
 
 inventoryRouter.get(
   "/transfers",
-  requireRole((role) => role === "Admin"),
+  requireRole(canViewStockTransfers),
   async (_req, res) => {
     try {
       const transfers = await listStockTransfers();
@@ -133,7 +327,7 @@ inventoryRouter.get(
 
 inventoryRouter.post(
   "/:id/transfer",
-  requireRole((role) => role === "Admin"),
+  requireRole(canManageStockTransfers),
   async (req, res) => {
     try {
       const unitIds = Array.isArray(req.body.unitIds)

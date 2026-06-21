@@ -353,7 +353,9 @@ export default function SalesPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-medium text-zinc-900">{item.productName}</p>
-                        <p className="text-xs font-mono text-zinc-500">{item.itemCode}</p>
+                        <p className="text-xs font-mono text-zinc-500">
+                          {item.itemCode} · {item.sku}
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -364,6 +366,31 @@ export default function SalesPage() {
                         <Trash2 size={14} />
                       </button>
                     </div>
+                    {item.priceBreakdown && (
+                      <div className="rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600 space-y-1">
+                        <div className="flex justify-between">
+                          <span>
+                            Metal ({item.priceBreakdown.weightGrams}g ×{" "}
+                            {formatCurrency(item.priceBreakdown.ratePerGram)})
+                          </span>
+                          <span>{formatCurrency(item.priceBreakdown.metalValue)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Making ({item.priceBreakdown.makingChargesPct}%)</span>
+                          <span>{formatCurrency(item.priceBreakdown.makingCharges)}</span>
+                        </div>
+                        {item.priceBreakdown.stoneCharges > 0 && (
+                          <div className="flex justify-between">
+                            <span>Stone / other</span>
+                            <span>{formatCurrency(item.priceBreakdown.stoneCharges)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-t border-zinc-200 pt-1 font-medium text-zinc-800">
+                          <span>List price</span>
+                          <span>{formatCurrency(item.priceBreakdown.listPrice)}</span>
+                        </div>
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className={labelClass}>Discount (₹)</label>

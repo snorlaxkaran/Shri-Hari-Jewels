@@ -44,6 +44,15 @@ export const formatDate = (date: string) =>
     year: "numeric",
   });
 
+export const formatDateTime = (date: string) =>
+  new Date(date).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
 export const formatNumber = (value: number, decimals = 2) => {
   if (!Number.isFinite(value)) return "0";
   return value.toLocaleString("en-IN", {

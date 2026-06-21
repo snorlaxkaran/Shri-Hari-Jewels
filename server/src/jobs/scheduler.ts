@@ -1,9 +1,11 @@
 import cron from "node-cron";
 import { expireStaleReservations } from "../lib/sales/expire-reservations.js";
 import { runIntegrityReport } from "../lib/integrity/report.js";
+import { fetchLiveRates, persistRates } from "../lib/market-rates/service.js";
 
 let expiryJobRunning = false;
 let integrityJobRunning = false;
+let rateFetchJobRunning = false;
 
 export const startScheduledJobs = (): void => {
   if (process.env.DISABLE_SCHEDULED_JOBS === "true") {
@@ -42,7 +44,24 @@ export const startScheduledJobs = (): void => {
     }
   });
 
+  const rateCron = process.env.RATE_FETCH_CRON ?? "0 9 * * 1-6";
+  cron.schedule(rateCron, async () => {
+    if (rateFetchJobRunning) return;
+    rateFetchJobRunning = true;
+    try {
+      const rates = await fetchLiveRates();
+      await persistRates(rates);
+      console.log(
+        `[rates] Fetched: 22K Gold ₹${rates.gold22k}/g, 925 Silver ₹${rates.silver925}/g`,
+      );
+    } catch (error) {
+      console.error("[rates] Auto-fetch failed — admin override required:", error);
+    } finally {
+      rateFetchJobRunning = false;
+    }
+  });
+
   console.log(
-    `[jobs] Reservation expiry (${expiryCron}); integrity report (${integrityCron})`,
+    `[jobs] Reservation expiry (${expiryCron}); integrity report (${integrityCron}); market rates (${rateCron})`,
   );
 };

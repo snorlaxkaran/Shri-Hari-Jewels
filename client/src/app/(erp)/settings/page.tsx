@@ -38,6 +38,8 @@ export default function SettingsPage() {
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankIfsc, setBankIfsc] = useState("");
   const [bankName, setBankName] = useState("");
+  const [goldMakingChargesPct, setGoldMakingChargesPct] = useState("17");
+  const [silverMakingChargesPct, setSilverMakingChargesPct] = useState("17");
 
   useEffect(() => {
     fetchSettings()
@@ -59,6 +61,8 @@ export default function SettingsPage() {
         setBankAccountNumber(data.bankAccountNumber ?? "");
         setBankIfsc(data.bankIfsc ?? "");
         setBankName(data.bankName ?? "");
+        setGoldMakingChargesPct(String(data.goldMakingChargesPct ?? 17));
+        setSilverMakingChargesPct(String(data.silverMakingChargesPct ?? 17));
       })
       .catch(() => setError("Could not load settings."))
       .finally(() => setLoading(false));
@@ -87,6 +91,8 @@ export default function SettingsPage() {
         bankAccountNumber: bankAccountNumber.trim(),
         bankIfsc: bankIfsc.trim(),
         bankName: bankName.trim(),
+        goldMakingChargesPct: Number(goldMakingChargesPct),
+        silverMakingChargesPct: Number(silverMakingChargesPct),
       });
       setSettings(updated);
       setSuccess("Settings saved.");
@@ -246,6 +252,44 @@ export default function SettingsPage() {
             />
           </div>
         </div>
+
+        {isAdmin && (
+          <div className="surface-card p-5 space-y-4">
+            <h2 className="text-sm font-semibold text-zinc-900">Pricing</h2>
+            <p className="text-xs text-zinc-500">
+              Making charges are applied as a percentage of metal value at the time of sale.
+              Live metal rates can be refreshed from the banner at the top of the app.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Gold (22K) making charges (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={goldMakingChargesPct}
+                  onChange={(e) => setGoldMakingChargesPct(e.target.value)}
+                  className={fieldClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Silver (925) making charges (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={silverMakingChargesPct}
+                  onChange={(e) => setSilverMakingChargesPct(e.target.value)}
+                  className={fieldClass}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-zinc-500">
+              Rate API key: set <code className="text-[10px] bg-zinc-100 px-1 rounded">METALS_API_KEY</code> in server{" "}
+              <code className="text-[10px] bg-zinc-100 px-1 rounded">.env</code> for automatic daily fetches.
+            </p>
+          </div>
+        )}
 
         <button type="submit" disabled={saving} className="btn-primary px-6 py-2.5 text-sm disabled:opacity-50">
           {saving ? "Saving…" : "Save Changes"}

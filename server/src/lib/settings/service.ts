@@ -25,6 +25,9 @@ const DEFAULT_SETTINGS: ShopSettings = {
   bankAccountNumber: null,
   bankIfsc: null,
   bankName: null,
+  goldMakingChargesPct: 17,
+  silverMakingChargesPct: 17,
+  makingChargesOverrideNote: null,
 };
 
 const trimOrNull = (value: string | undefined): string | null => {
@@ -51,6 +54,9 @@ const toShopSettings = (settings: {
   bankAccountNumber: string | null;
   bankIfsc: string | null;
   bankName: string | null;
+  goldMakingChargesPct?: { toString(): string } | number | null;
+  silverMakingChargesPct?: { toString(): string } | number | null;
+  makingChargesOverrideNote?: string | null;
 }): ShopSettings => ({
   businessName: settings.businessName,
   address: settings.address,
@@ -69,6 +75,9 @@ const toShopSettings = (settings: {
   bankAccountNumber: settings.bankAccountNumber,
   bankIfsc: settings.bankIfsc,
   bankName: settings.bankName,
+  goldMakingChargesPct: Number(settings.goldMakingChargesPct ?? 17),
+  silverMakingChargesPct: Number(settings.silverMakingChargesPct ?? 17),
+  makingChargesOverrideNote: settings.makingChargesOverrideNote ?? null,
 });
 
 const validateSettingsInput = (input: UpdateShopSettingsInput) => {
@@ -161,6 +170,15 @@ export const updateShopSettings = async (
       }),
       ...(input.bankIfsc !== undefined && { bankIfsc: validated.bankIfsc }),
       ...(input.bankName !== undefined && { bankName: trimOrNull(input.bankName) }),
+      ...(input.goldMakingChargesPct !== undefined && {
+        goldMakingChargesPct: input.goldMakingChargesPct,
+      }),
+      ...(input.silverMakingChargesPct !== undefined && {
+        silverMakingChargesPct: input.silverMakingChargesPct,
+      }),
+      ...(input.makingChargesOverrideNote !== undefined && {
+        makingChargesOverrideNote: trimOrNull(input.makingChargesOverrideNote),
+      }),
     },
   });
 

@@ -5,8 +5,11 @@ import { ChevronDown, ChevronRight, Download, Search } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import TransferTabs from "@/app/(components)/stock-transfer/TransferTabs";
-import { fetchStockTransfers } from "@/lib/api/inventory";
+import { fetchSentStockTransfers, cancelStockTransfer } from "@/lib/api/inventory";
 import { getApiErrorMessage } from "@/lib/api/client";
+import { canManageStockTransfers } from "@/lib/auth/permissions";
+import { useAuth } from "@/lib/auth/auth-context";
+import TransferStatusBadge from "@/app/(components)/stock-transfer/TransferStatusBadge";
 import {
   downloadTransferCsv,
   downloadTransfersCsv,
@@ -15,6 +18,8 @@ import type { StockTransfer } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 export default function SentStockPage() {
+  const { user } = useAuth();
+  const canAct = user ? canManageStockTransfers(user.role) : false;
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -23,7 +28,7 @@ export default function SentStockPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchStockTransfers()
+    fetchSentStockTransfers()
       .then(setTransfers)
       .catch((err) =>
         setError(getApiErrorMessage(err, "Could not load sent transfers.")),
@@ -58,6 +63,18 @@ export default function SentStockPage() {
 
   const totalItems = filtered.reduce((sum, t) => sum + t.itemCount, 0);
   const totalValue = filtered.reduce((sum, t) => sum + t.totalValue, 0);
+
+  const handleCancel = async (transfer: StockTransfer) => {
+    if (!confirm(`Cancel pending transfer ${transfer.transferNo}?`)) return;
+    try {
+      const updated = await cancelStockTransfer(transfer.id);
+      setTransfers((prev) =>
+        prev.map((t) => (t.id === updated.id ? updated : t)),
+      );
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to cancel transfer."));
+    }
+  };
 
   if (loading) {
     return <PageSkeleton />;
@@ -128,6 +145,7 @@ export default function SentStockPage() {
                 <th className="text-left px-5 py-3 font-medium">Document</th>
                 <th className="text-left px-5 py-3 font-medium">Items</th>
                 <th className="text-left px-5 py-3 font-medium">Value</th>
+                <th className="text-left px-5 py-3 font-medium">Status</th>
                 <th className="text-left px-5 py-3 font-medium">Sent By</th>
                 <th className="text-left px-5 py-3 font-medium">Actions</th>
               </tr>
@@ -136,7 +154,7 @@ export default function SentStockPage() {
               {filtered.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-5 py-10 text-center text-sm text-zinc-400"
                   >
                     No transfers sent yet. Use Scan &amp; Send to transfer stock.
@@ -176,21 +194,35 @@ export default function SentStockPage() {
                         <td className="px-5 py-3">
                           {formatCurrency(transfer.totalValue)}
                         </td>
+                        <td className="px-5 py-3">
+                          <TransferStatusBadge status={transfer.status} />
+                        </td>
                         <td className="px-5 py-3">{transfer.createdByName}</td>
                         <td className="px-5 py-3">
-                          <button
-                            type="button"
-                            onClick={() => downloadTransferCsv(transfer)}
-                            className="btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
-                          >
-                            <Download size={14} />
-                            CSV
-                          </button>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => downloadTransferCsv(transfer)}
+                              className="btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                            >
+                              <Download size={14} />
+                              CSV
+                            </button>
+                            {canAct && transfer.status === "Pending" && (
+                              <button
+                                type="button"
+                                onClick={() => handleCancel(transfer)}
+                                className="btn-secondary px-3 py-1.5 text-xs text-red-700"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                       {expanded && (
                         <tr className="bg-zinc-50/80">
-                          <td colSpan={9} className="px-5 py-4">
+                          <td colSpan={10} className="px-5 py-4">
                             <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
                               <table className="w-full min-w-[720px] text-sm">
                                 <thead>

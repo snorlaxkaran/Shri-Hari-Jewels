@@ -42,6 +42,7 @@ export type InventoryUnitStatus =
   | "Available"
   | "Sold"
   | "Reserved"
+  | "InTransit"
   | "Transferred";
 
 export type PaymentMode = "Cash" | "UPI" | "Card";
@@ -92,6 +93,12 @@ export type InventoryItem = {
   createdAt: string;
 };
 
+export type StockTransferStatus =
+  | "Pending"
+  | "Accepted"
+  | "Rejected"
+  | "PartiallyAccepted";
+
 export type StockTransferDocumentType =
   | "Wholesale GST Invoice"
   | "Delivery Challan";
@@ -107,6 +114,12 @@ export type StockTransfer = {
   transferDate: string;
   itemCount: number;
   totalValue: number;
+  status: StockTransferStatus;
+  notes?: string;
+  acceptedById?: string;
+  acceptedByName?: string;
+  acceptedAt?: string;
+  rejectionReason?: string;
   createdByName: string;
   createdAt: string;
   items: StockTransferItem[];
@@ -121,6 +134,7 @@ export type StockTransferItem = {
   metal: string;
   purity: string;
   price: number;
+  accepted: boolean;
 };
 
 export type CreateStockTransferInput = {
@@ -128,6 +142,59 @@ export type CreateStockTransferInput = {
   documentType: StockTransferDocumentType;
   transferDate: string;
   itemCodes: string[];
+  notes?: string;
+};
+
+export type PartialAcceptTransferInput = {
+  accepted: string[];
+  rejected: string[];
+  reason?: string;
+};
+
+export type MarketRatesCurrent = {
+  gold22k: number | null;
+  silver925: number | null;
+  goldMakingChargesPct: number;
+  silverMakingChargesPct: number;
+  source: string | null;
+  fetchedAt: string | null;
+  isStale: boolean;
+};
+
+export type OverrideMarketRatesInput = {
+  gold22k: number;
+  silver925: number;
+  goldMakingChargesPct: number;
+  silverMakingChargesPct: number;
+  note?: string;
+};
+
+export type MarketRateHistoryEntry = {
+  id: string;
+  metalType: string;
+  purity: string;
+  ratePerGram: number;
+  source: string;
+  fetchedAt: string;
+};
+
+export type SalePriceBreakdown = {
+  metalValue: number;
+  makingCharges: number;
+  stoneCharges: number;
+  listPrice: number;
+  ratePerGram: number;
+  makingChargesPct: number;
+  weightGrams: number;
+};
+
+export type SaleLookupResult = {
+  itemCode: string;
+  productName: string;
+  sku: string;
+  category: string;
+  listPrice: number;
+  priceBreakdown?: SalePriceBreakdown;
 };
 
 export type NewProductInput = {
@@ -378,6 +445,9 @@ export type ShopSettings = {
   bankAccountNumber: string | null;
   bankIfsc: string | null;
   bankName: string | null;
+  goldMakingChargesPct: number;
+  silverMakingChargesPct: number;
+  makingChargesOverrideNote: string | null;
 };
 
 export type UpdateShopSettingsInput = {
@@ -398,6 +468,9 @@ export type UpdateShopSettingsInput = {
   bankAccountNumber?: string;
   bankIfsc?: string;
   bankName?: string;
+  goldMakingChargesPct?: number;
+  silverMakingChargesPct?: number;
+  makingChargesOverrideNote?: string;
 };
 
 export type RecordSaleResult = {

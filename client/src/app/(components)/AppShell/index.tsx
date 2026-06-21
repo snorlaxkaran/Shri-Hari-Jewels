@@ -4,6 +4,7 @@ import { useState } from "react";
 import Navbar from "@/app/(components)/Navbar";
 import NavigationProgress from "@/app/(components)/NavigationProgress";
 import Sidebar from "@/app/(components)/Sidebar";
+import MarketRateBanner from "@/app/(components)/MarketRateBanner";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -17,6 +18,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       />
       <div className="flex flex-col flex-1 min-w-0 overflow-auto p-4 md:p-6 lg:p-8">
         <Navbar onMenuClick={() => setMobileOpen((prev) => !prev)} />
+        <MarketRateBanner />
         <main className="flex-1 w-full min-w-0">{children}</main>
       </div>
     </div>
