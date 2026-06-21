@@ -180,6 +180,38 @@ export const calculateMotifPrice = async (
   return roundMoney(total);
 };
 
+const motifStonesFromRow = (
+  row: Pick<MotifRow, "stones">,
+): MotifStoneInput[] =>
+  (row.stones ?? []).map((stone) => ({
+    bulkStoneLotId: stone.bulkStoneLotId,
+    qtyPerMotif: stone.qtyPerMotif,
+    sortOrder: stone.sortOrder,
+  }));
+
+/** Recompute and persist motif price when it no longer matches market metal + stone rates. */
+export const ensureMotifPriceCurrent = async (
+  row: MotifRow,
+): Promise<number> => {
+  const price = await calculateMotifPrice({
+    weightGrams: row.weightGrams,
+    metal: row.metal as MotifMetal,
+    purity: row.purity as Purity,
+    stones: motifStonesFromRow(row),
+  });
+
+  const stored =
+    row.price != null ? moneyToNumber(String(row.price)) : null;
+  if (stored === null || Math.abs(stored - price) >= 0.0001) {
+    await prisma.motif.update({
+      where: { id: row.id },
+      data: { price },
+    });
+  }
+
+  return price;
+};
+
 const validateMotifStones = (stones?: MotifStoneInput[]) => {
   if (!stones?.length) return;
   for (const stone of stones) {
@@ -263,7 +295,18 @@ export const listMotifs = async (): Promise<Motif[]> => {
     include: motifInclude,
     orderBy: [{ subCategory: "asc" }, { name: "asc" }],
   });
-  return rows.map(toMotif);
+
+  const motifs: Motif[] = [];
+  for (const row of rows) {
+    const price = await ensureMotifPriceCurrent(row);
+    motifs.push(
+      toMotif({
+        ...row,
+        price: { toString: () => String(price) },
+      }),
+    );
+  }
+  return motifs;
 };
 
 export const getMotif = async (id: string): Promise<Motif> => {
@@ -272,7 +315,11 @@ export const getMotif = async (id: string): Promise<Motif> => {
     include: motifInclude,
   });
   if (!row) throw new MotifError("Motif not found.", 404);
-  return toMotif(row);
+  const price = await ensureMotifPriceCurrent(row);
+  return toMotif({
+    ...row,
+    price: { toString: () => String(price) },
+  });
 };
 
 export const createMotif = async (
@@ -549,11 +596,7 @@ export const recalculateMotifPriceById = async (
   if (!existingRow) throw new MotifError("Motif not found.", 404);
   const before = toMotif(existingRow);
 
-  const stones = existingRow.stones.map((s) => ({
-    bulkStoneLotId: s.bulkStoneLotId,
-    qtyPerMotif: s.qtyPerMotif,
-    sortOrder: s.sortOrder,
-  }));
+  const stones = motifStonesFromRow(existingRow);
 
   const price = await calculateMotifPrice({
     weightGrams: existingRow.weightGrams,
@@ -575,7 +618,7 @@ export const recalculateMotifPriceById = async (
       action: "Update",
       previousValue: motifSummary(before),
       newValue: after,
-      reason: reason ?? "Price recalculated from bulk stone lot change",
+      reason: reason ?? "Price recalculated from current market rates",
       performedById: actor.id,
       performedByName: actor.name,
     });

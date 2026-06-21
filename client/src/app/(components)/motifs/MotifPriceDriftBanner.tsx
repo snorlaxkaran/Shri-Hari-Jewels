@@ -27,7 +27,7 @@ export default function MotifPriceDriftBanner({
   const motifIds = useMemo(
     () =>
       motifs
-        .filter((m) => (m.stones?.length ?? 0) > 0)
+        .filter((m) => (m.weightGrams ?? 0) > 0 || (m.stones?.length ?? 0) > 0)
         .map((m) => m.id)
         .join(","),
     [motifs],
@@ -38,7 +38,9 @@ export default function MotifPriceDriftBanner({
     const run = async () => {
       const stale: MotifPriceDrift[] = [];
       for (const motif of motifs) {
-        if (!(motif.stones?.length ?? 0)) continue;
+        if ((motif.weightGrams ?? 0) <= 0 && !(motif.stones?.length ?? 0)) {
+          continue;
+        }
         try {
           const drift = await fetchMotifPriceDrift(motif.id);
           if (drift.isStale) stale.push(drift);
@@ -74,7 +76,7 @@ export default function MotifPriceDriftBanner({
     <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-amber-200 bg-amber-50 space-y-2">
       <div className="flex items-center gap-2 text-amber-800 font-medium">
         <AlertTriangle size={16} />
-        Stone prices changed — motif costs may be outdated
+        Stone or gold market rates changed — motif costs may be outdated
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
       <ul className="space-y-2">

@@ -14,6 +14,7 @@
     "db:deploy": "tsx scripts/migrate-status-enums.ts && tsx scripts/migrate-deploy-schema.ts && prisma db push",
     "db:backfill-motif-purity": "tsx scripts/backfill-motif-purity.ts",
     "db:migrate-motif-stones": "tsx scripts/migrate-motif-stones.ts",
+    "db:sync-motif-prices": "tsx scripts/sync-motif-prices.ts",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "db:seed-if-empty": "tsx prisma/seed-if-empty.ts"

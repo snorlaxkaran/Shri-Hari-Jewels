@@ -23,6 +23,26 @@ import { usersRouter } from "./routes/users.js";
 import { marketRatesRouter } from "./routes/market-rates.js";
 import { startScheduledJobs } from "./jobs/scheduler.js";
 
+const syncMotifPricesOnStartup = async () => {
+  try {
+    const { recalculateAllMotifPrices } = await import(
+      "./lib/motifs/service.js"
+    );
+    const count = await recalculateAllMotifPrices(
+      undefined,
+      "Startup sync from market rates",
+    );
+    if (count > 0) {
+      console.log(`[motifs] Synced ${count} motif price(s) to current market rates`);
+    }
+  } catch (error) {
+    console.warn(
+      "[motifs] Could not sync motif prices on startup:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+};
+
 const app = express();
 const port = Number(process.env.PORT) || 4000;
 const clientUrl = process.env.CLIENT_URL ?? "http://localhost:3000";
@@ -101,4 +121,5 @@ app.use("/api/users", usersRouter);
 app.listen(port, () => {
   console.log(`API running at http://localhost:${port}`);
   startScheduledJobs();
+  void syncMotifPricesOnStartup();
 });
