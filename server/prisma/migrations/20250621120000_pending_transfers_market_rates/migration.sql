@@ -1,8 +1,13 @@
 -- CreateEnum
 CREATE TYPE "StockTransferStatus" AS ENUM ('Pending', 'Accepted', 'Rejected', 'PartiallyAccepted');
 
--- AlterEnum
-ALTER TYPE "InventoryUnitStatus" ADD VALUE 'InTransit';
+-- AlterEnum (idempotent)
+DO $$
+BEGIN
+  ALTER TYPE "InventoryUnitStatus" ADD VALUE 'InTransit';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AlterTable
 ALTER TABLE "ShopSettings" ADD COLUMN "goldMakingChargesPct" DECIMAL(5,2) NOT NULL DEFAULT 17.00;

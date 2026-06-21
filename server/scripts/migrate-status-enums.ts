@@ -34,7 +34,7 @@ const CONVERSIONS: ColumnConversion[] = [
     table: "InventoryUnit",
     column: "status",
     enumName: "InventoryUnitStatus",
-    values: ["Available", "Reserved", "Sold"],
+    values: ["Available", "Reserved", "Sold", "InTransit"],
     usingSql: `TRIM("status"::text)::"InventoryUnitStatus"`,
   },
   {
@@ -268,10 +268,38 @@ const verifyEnumColumns = async () => {
   }
 };
 
+const addEnumValueIfMissing = async (
+  enumName: string,
+  value: string,
+): Promise<void> => {
+  const labels = await getEnumLabels(enumName);
+  if (labels.includes(value)) return;
+
+  console.log(`Adding ${enumName}.${value}…`);
+  await prisma.$executeRawUnsafe(`
+    DO $$ BEGIN
+      ALTER TYPE "${enumName}" ADD VALUE '${value.replace(/'/g, "''")}';
+    EXCEPTION
+      WHEN duplicate_object THEN NULL;
+    END $$;
+  `);
+};
+
 const main = async () => {
   for (const conversion of CONVERSIONS) {
     await convertColumn(conversion);
   }
+
+  if (await getColumnType("InventoryUnit", "status")) {
+    await ensureEnum("InventoryUnitStatus", [
+      "Available",
+      "Reserved",
+      "Sold",
+      "InTransit",
+    ]);
+    await addEnumValueIfMissing("InventoryUnitStatus", "InTransit");
+  }
+
   await verifyEnumColumns();
   console.log("Status enum migration complete.");
 };
