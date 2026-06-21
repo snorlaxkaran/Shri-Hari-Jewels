@@ -1,6 +1,6 @@
 /**
- * Converts legacy TEXT status columns to Prisma enums before `db push`.
- * Safe to run repeatedly — skips columns already using the target enum type.
+ * Converts legacy TEXT (or wrong-label enum) status columns before `db push`.
+ * Safe to run repeatedly — skips columns already using the target enum + labels.
  *
  * Run: npx tsx scripts/migrate-status-enums.ts
  */
@@ -98,6 +98,9 @@ const CONVERSIONS: ColumnConversion[] = [
 
 const quote = (value: string) => `'${value.replace(/'/g, "''")}'`;
 
+const isStringColumnType = (type: string): boolean =>
+  type === "text" || type === "varchar" || type === "character varying";
+
 const getColumnType = async (
   table: string,
   column: string,
@@ -112,6 +115,21 @@ const getColumnType = async (
   return rows[0]?.udt_name ?? null;
 };
 
+const getEnumLabels = async (enumName: string): Promise<string[]> => {
+  const rows = await prisma.$queryRaw<Array<{ enumlabel: string }>>`
+    SELECT e.enumlabel
+    FROM pg_type t
+    JOIN pg_enum e ON t.oid = e.enumtypid
+    WHERE t.typname = ${enumName}
+    ORDER BY e.enumsortorder
+  `;
+  return rows.map((row) => row.enumlabel);
+};
+
+const enumLabelsMatch = (actual: string[], expected: string[]): boolean =>
+  actual.length === expected.length &&
+  expected.every((value, index) => actual[index] === value);
+
 const ensureEnum = async (enumName: string, values: string[]) => {
   const enumValues = values.map(quote).join(", ");
   await prisma.$executeRawUnsafe(`
@@ -120,6 +138,33 @@ const ensureEnum = async (enumName: string, values: string[]) => {
     EXCEPTION
       WHEN duplicate_object THEN NULL;
     END $$;
+  `);
+};
+
+const recreateEnumColumn = async (conversion: ColumnConversion) => {
+  const { table, column, enumName, values, usingSql } = conversion;
+
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "${table}" ALTER COLUMN "${column}" DROP DEFAULT;
+  `).catch(() => undefined);
+
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "${table}"
+    ALTER COLUMN "${column}" TYPE TEXT
+    USING "${column}"::text;
+  `);
+
+  await prisma.$executeRawUnsafe(`DROP TYPE IF EXISTS "${enumName}";`);
+
+  const enumValues = values.map(quote).join(", ");
+  await prisma.$executeRawUnsafe(`
+    CREATE TYPE "${enumName}" AS ENUM (${enumValues});
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "${table}"
+    ALTER COLUMN "${column}" TYPE "${enumName}"
+    USING (${usingSql});
   `);
 };
 
@@ -133,15 +178,33 @@ const convertColumn = async (conversion: ColumnConversion) => {
   }
 
   if (currentType === conversion.enumName) {
+    const labels = await getEnumLabels(conversion.enumName);
+    if (enumLabelsMatch(labels, conversion.values)) {
+      console.log(
+        `Skip ${conversion.table}.${conversion.column} — enum labels already correct.`,
+      );
+      return;
+    }
+
     console.log(
-      `Skip ${conversion.table}.${conversion.column} — already ${conversion.enumName}.`,
+      `Fixing ${conversion.table}.${conversion.column} enum labels (${labels.join(", ")} -> ${conversion.values.join(", ")})...`,
     );
+    await recreateEnumColumn(conversion);
+    console.log(`Fixed ${conversion.table}.${conversion.column}.`);
     return;
   }
 
   console.log(
     `Converting ${conversion.table}.${conversion.column} (${currentType} -> ${conversion.enumName})...`,
   );
+
+  if (!isStringColumnType(currentType)) {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "${conversion.table}"
+      ALTER COLUMN "${conversion.column}" TYPE TEXT
+      USING "${conversion.column}"::text;
+    `);
+  }
 
   await ensureEnum(conversion.enumName, conversion.values);
   await prisma.$executeRawUnsafe(`
