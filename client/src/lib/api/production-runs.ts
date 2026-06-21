@@ -6,16 +6,21 @@ import type {
   UpdateProductionRunInput,
   UpdateProductionRunItemInput,
 } from "@/lib/types";
+import {
+  normalizeProductionRun,
+  normalizeProductionRunList,
+  normalizeProductionRunStage,
+} from "@/lib/production-runs/normalize-run";
 import { api } from "./client";
 
 export const fetchProductionRuns = async (): Promise<ProductionRun[]> => {
   const { data } = await api.get<ProductionRun[]>("/api/production-runs");
-  return data;
+  return normalizeProductionRunList(data);
 };
 
 export const fetchProductionRun = async (id: string): Promise<ProductionRun> => {
   const { data } = await api.get<ProductionRun>(`/api/production-runs/${id}`);
-  return data;
+  return normalizeProductionRun(data);
 };
 
 export const createProductionRun = async (
@@ -25,7 +30,7 @@ export const createProductionRun = async (
     "/api/production-runs",
     input,
   );
-  return data;
+  return normalizeProductionRun(data);
 };
 
 export const updateProductionRun = async (
@@ -36,7 +41,7 @@ export const updateProductionRun = async (
     `/api/production-runs/${id}`,
     input,
   );
-  return data;
+  return normalizeProductionRun(data);
 };
 
 export const fetchFinishedGoodsDefaults = async (
@@ -55,7 +60,7 @@ export const updateProductionRunItem = async (
     `/api/production-runs/${runId}/items/${itemId}`,
     input,
   );
-  return data;
+  return normalizeProductionRun(data);
 };
 
 export const deleteProductionRun = async (id: string): Promise<void> => {
@@ -87,5 +92,12 @@ export const completeProductionRunStage = async (
     `/api/production-runs/${runId}/stages/${stageSlug}/complete`,
     input,
   );
-  return data;
+  return {
+    ...data,
+    currentStage: normalizeProductionRunStage(data.currentStage),
+    stageLogs: data.stageLogs.map((log: import("@/lib/types").ProductionRunStageLog) => ({
+      ...log,
+      stage: normalizeProductionRunStage(log.stage),
+    })),
+  };
 };

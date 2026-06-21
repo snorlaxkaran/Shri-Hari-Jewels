@@ -36,52 +36,88 @@ export function WaxPatternFields({
   const [productionDate, setProductionDate] = useState(
     item.productionDate ? item.productionDate.slice(0, 10) : "",
   );
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle",
+  );
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     setWaxCount(item.waxCount !== undefined ? String(item.waxCount) : "");
     setProductionDate(item.productionDate ? item.productionDate.slice(0, 10) : "");
   }, [item.waxCount, item.productionDate]);
 
-  const handleWaxBlur = () => {
+  const persist = async (input: UpdateProductionRunItemInput) => {
+    setSaveState("saving");
+    setSaveError("");
+    try {
+      await onPatch(input);
+      setSaveState("saved");
+      window.setTimeout(() => setSaveState("idle"), 1500);
+    } catch (err) {
+      setSaveState("error");
+      setSaveError(getApiErrorMessage(err, "Failed to save."));
+    }
+  };
+
+  const saveWaxCount = () => {
     const current = item.waxCount !== undefined ? String(item.waxCount) : "";
     if (waxCount === current) return;
     const parsed = waxCount === "" ? null : parseInt(waxCount, 10);
     if (waxCount !== "" && (parsed === null || Number.isNaN(parsed))) return;
-    void onPatch({ waxCount: parsed });
+    void persist({ waxCount: parsed });
   };
 
-  const handleDateBlur = () => {
+  const saveProductionDate = () => {
     const current = item.productionDate?.slice(0, 10) ?? "";
     if (productionDate === current) return;
-    void onPatch({ productionDate: productionDate || null });
+    void persist({ productionDate: productionDate || null });
   };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>
-        <label className={labelClass}>Wax moulds</label>
-        <input
-          type="number"
-          min={0}
-          value={waxCount}
-          onChange={(e) => setWaxCount(e.target.value)}
-          onBlur={handleWaxBlur}
-          disabled={!canEdit}
-          className={inputClass}
-          placeholder="Enter count"
-        />
+    <div className="space-y-3">
+      {!canEdit && (
+        <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1.5 rounded">
+          Read-only — open the current active step to edit this worksheet.
+        </p>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>Wax moulds</label>
+          <input
+            type="number"
+            min={0}
+            value={waxCount}
+            onChange={(e) => setWaxCount(e.target.value)}
+            onBlur={saveWaxCount}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.currentTarget.blur();
+              }
+            }}
+            disabled={!canEdit}
+            className={inputClass}
+            placeholder="Enter count"
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Production date</label>
+          <input
+            type="date"
+            value={productionDate}
+            onChange={(e) => setProductionDate(e.target.value)}
+            onBlur={saveProductionDate}
+            disabled={!canEdit}
+            className={inputClass}
+          />
+        </div>
       </div>
-      <div>
-        <label className={labelClass}>Production date</label>
-        <input
-          type="date"
-          value={productionDate}
-          onChange={(e) => setProductionDate(e.target.value)}
-          onBlur={handleDateBlur}
-          disabled={!canEdit}
-          className={inputClass}
-        />
-      </div>
+      {saveState === "saving" && (
+        <p className="text-xs text-zinc-500">Saving…</p>
+      )}
+      {saveState === "saved" && (
+        <p className="text-xs text-emerald-600">Saved</p>
+      )}
+      {saveError && <p className="text-xs text-red-500">{saveError}</p>}
     </div>
   );
 }

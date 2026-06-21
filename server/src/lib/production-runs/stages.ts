@@ -17,6 +17,23 @@ export const PRODUCTION_RUN_STAGES = [
 
 export type ProductionRunStage = (typeof PRODUCTION_RUN_STAGES)[number];
 
+const DB_TO_API: Record<DbProductionRunStage, ProductionRunStage> = {
+  WaxPattern: "Wax Pattern",
+  Casting: "Casting",
+  Cleaning: "Cleaning",
+  Assembly: "Assembly",
+  Prepolish: "Prepolish",
+  StoneSetting: "Stone Setting",
+  FinalPolishing: "Final Polishing",
+  Plating: "Plating",
+  QualityCheck: "Quality Check",
+  Packaging: "Packaging",
+};
+
+const API_TO_DB = Object.fromEntries(
+  Object.entries(DB_TO_API).map(([db, api]) => [api, db]),
+) as Record<ProductionRunStage, DbProductionRunStage>;
+
 export const PRODUCTION_RUN_STAGE_SLUGS = [
   "wax-pattern",
   "casting",
@@ -66,11 +83,11 @@ export const nextProductionRunStage = (
 
 export const toApiProductionRunStage = (
   stage: DbProductionRunStage,
-): ProductionRunStage => stage as ProductionRunStage;
+): ProductionRunStage => DB_TO_API[stage];
 
 export const toDbProductionRunStage = (
   stage: ProductionRunStage,
-): DbProductionRunStage => stage as DbProductionRunStage;
+): DbProductionRunStage => API_TO_DB[stage];
 
 export type ProductionRunStageLog = {
   id: string;

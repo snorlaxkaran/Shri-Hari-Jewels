@@ -214,12 +214,56 @@ export default function ProductionRunStagePage() {
   const worksheetConfig = getStageWorksheetConfig(stage);
   const stepMeta = PRODUCTION_RUN_STEPS.find((s) => s.slug === stageSlug);
   const canEdit = canEditItems && isCurrent;
+  const currentStepSlug = stageToProductionRunSlug(run.currentStage);
+  const waxRequiredItems = stageItems.filter((item) => item.elementType !== "Stone");
+  const waxReadyCount = waxRequiredItems.filter(
+    (item) => item.waxCount != null && item.waxCount >= 0,
+  ).length;
 
   return (
     <ProductionRunWizardShell run={run}>
       {error && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">
           {error}
+        </div>
+      )}
+
+      {isCurrent && canEditItems ? (
+        <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-emerald-200 bg-emerald-50 text-emerald-800">
+          <p className="font-medium">Active step — you can edit this worksheet.</p>
+          <p className="mt-1 text-emerald-700">
+            Fill in each element below, then use{" "}
+            <strong>
+              {nextStep ? `Complete & Next: ${nextStep.label}` : "Complete Run"}
+            </strong>{" "}
+            at the bottom to move forward.
+          </p>
+        </div>
+      ) : !isCurrent && currentStepSlug ? (
+        <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-amber-200 bg-amber-50 text-amber-800">
+          <p className="font-medium">
+            This step is read-only. Current active step: {run.currentStage}
+          </p>
+          <Link
+            href={`/production-runs/${runId}/${currentStepSlug}`}
+            className="inline-block mt-2 text-sm font-medium underline"
+          >
+            Go to current step →
+          </Link>
+        </div>
+      ) : !canEditItems && isCurrent ? (
+        <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-amber-200 bg-amber-50 text-amber-800">
+          Your role can view this worksheet but not edit it. Ask a production manager
+          or karigar to update fields.
+        </div>
+      ) : null}
+
+      {stage === "Wax Pattern" && isCurrent && waxRequiredItems.length > 0 && (
+        <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-zinc-200 bg-zinc-50 text-zinc-700">
+          Wax mould progress: {waxReadyCount}/{waxRequiredItems.length} elements ready
+          {waxReadyCount < waxRequiredItems.length
+            ? " — enter wax counts for all non-stone elements"
+            : " — ready to complete this step"}
         </div>
       )}
 
@@ -289,9 +333,19 @@ export default function ProductionRunStagePage() {
 
         {!canEditItems && isCurrent && (
           <p className="text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
-            You can view this worksheet and download exports. Ask a production manager to
-            update fields if changes are needed.
+            You can view this worksheet and download exports. Ask a production manager
+            or karigar to update fields if changes are needed.
           </p>
+        )}
+
+        {isCurrent && canEditItems && nextStep && (
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
+            <p className="font-medium text-zinc-900">Ready for the next step?</p>
+            <p className="mt-1">
+              When every required field on this page is filled, scroll down and click{" "}
+              <strong>Complete & Next: {nextStep.label}</strong>.
+            </p>
+          </div>
         )}
 
         {isDone && !isCurrent && (
