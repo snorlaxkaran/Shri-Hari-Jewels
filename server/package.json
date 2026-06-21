@@ -16,6 +16,7 @@
     "db:migrate-motif-stones": "tsx scripts/migrate-motif-stones.ts",
     "db:sync-motif-prices": "tsx scripts/sync-motif-prices.ts",
     "db:repair-inventory-weights": "tsx scripts/repair-inventory-weights.ts",
+    "db:verify-unit-pricing": "tsx scripts/verify-unit-pricing.ts",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "db:seed-if-empty": "tsx prisma/seed-if-empty.ts"

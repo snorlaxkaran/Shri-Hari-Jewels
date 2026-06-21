@@ -305,6 +305,7 @@ const addUnitsToExistingProductInTx = async (
   branchId: string,
   sku: string,
   quantity: number,
+  listPrice: number,
 ): Promise<void> => {
   const allUnits = await tx.inventoryUnit.findMany({
     select: { itemCode: true },
@@ -318,6 +319,7 @@ const addUnitsToExistingProductInTx = async (
       itemCode,
       productId,
       status: "Available",
+      listPrice,
     })),
   });
 
@@ -369,6 +371,7 @@ export const createFinishedGoodsInTx = async (
       run.branchId,
       sku,
       quantity,
+      input.price,
     );
 
     await tx.product.update({
@@ -414,6 +417,7 @@ export const createFinishedGoodsInTx = async (
           branchId: run.branchId,
           itemCode,
           status: "Available",
+          listPrice: input.price,
         })),
       },
       images: {

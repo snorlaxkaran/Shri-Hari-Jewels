@@ -2,17 +2,13 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 import type { InventoryItem } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 import { useAuth } from "@/lib/auth/auth-context";
-import {
-  canDeleteProduct,
-  canWriteInventory,
-} from "@/lib/auth/permissions";
+import { canWriteInventory } from "@/lib/auth/permissions";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import StatusBadge from "@/app/(components)/StatusBadge";
-import { getApiErrorMessage } from "@/lib/api/client";
 
 const EditProductModal = dynamic(() => import("@/app/(components)/EditProductModal"), { ssr: false });
 const AddUnitsModal = dynamic(() => import("@/app/(components)/AddUnitsModal"), { ssr: false });
@@ -25,26 +21,26 @@ type ProductDetailPanelProps = {
   onDeleted?: () => void;
 };
 
+const unitPriceLabel = (priceSource: InventoryItem["units"][0]["priceSource"]) => {
+  if (priceSource === "live") return "Live price";
+  if (priceSource === "sold") return "Sold at";
+  return "Locked price";
+};
+
 export default function ProductDetailPanel({
   product,
   existingUnitCodes,
   onClose,
   onUpdated,
-  onDeleted,
 }: ProductDetailPanelProps) {
   const { user } = useAuth();
-  const { updateProduct, deleteProduct, addQuantityToSku, removeUnit } =
-    useInventory();
+  const { updateProduct, addQuantityToSku } = useInventory();
   const [editOpen, setEditOpen] = useState(false);
   const [unitsOpen, setUnitsOpen] = useState(false);
-  const [error, setError] = useState("");
-  const [deleting, setDeleting] = useState(false);
-  const [removingUnitId, setRemovingUnitId] = useState<string | null>(null);
 
   if (!product) return null;
 
   const canWrite = user ? canWriteInventory(user.role) : false;
-  const canDelete = user ? canDeleteProduct(user.role) : false;
   const availableCount = product.units.filter(
     (unit) => unit.status === "Available",
   ).length;
@@ -55,41 +51,7 @@ export default function ProductDetailPanel({
   const reservedCount = product.units.filter(
     (unit) => unit.status === "Reserved",
   ).length;
-
-  const handleRemoveUnit = async (unitId: string, itemCode: string) => {
-    if (
-      !confirm(
-        `Remove unit ${itemCode}? Stock count will decrease by 1. This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
-    setRemovingUnitId(unitId);
-    setError("");
-    try {
-      const updated = await removeUnit(unitId);
-      onUpdated?.(updated);
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to remove unit."));
-    } finally {
-      setRemovingUnitId(null);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!confirm(`Delete ${product.name} (${product.sku})? This cannot be undone.`)) return;
-    setDeleting(true);
-    setError("");
-    try {
-      await deleteProduct(product.id);
-      onDeleted?.();
-      onClose();
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to delete product."));
-    } finally {
-      setDeleting(false);
-    }
-  };
+  const hasLivePrice = product.units.some((unit) => unit.priceSource === "live");
 
   return (
     <>
@@ -107,10 +69,6 @@ export default function ProductDetailPanel({
           </div>
 
           <div className="p-5 space-y-5">
-            {error && (
-              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
-            )}
-
             {canWrite && (
               <div className="flex gap-2">
                 <button
@@ -127,16 +85,6 @@ export default function ProductDetailPanel({
                 >
                   <Plus size={14} /> Add Units
                 </button>
-                {canDelete && (
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="px-3 py-2 text-xs rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                )}
               </div>
             )}
 
@@ -166,7 +114,7 @@ export default function ProductDetailPanel({
                 ["Metal", `${product.metal} ${product.purity}`],
                 ["Weight", `${product.weightGrams}g`],
                 ["Making Charges", formatCurrency(product.makingCharges)],
-                ["Price", formatCurrency(product.price)],
+                [hasLivePrice ? "Live Price" : "Price", formatCurrency(product.price)],
                 ["Available", String(availableCount)],
                 ["Sold", String(soldCount)],
                 ["Transferred", String(transferredCount)],
@@ -183,11 +131,9 @@ export default function ProductDetailPanel({
             <div>
               <p className="text-xs font-medium mb-2 text-zinc-500">
                 Units ({product.units.length})
-                {canWrite && (
-                  <span className="text-zinc-400 font-normal">
-                    {" "}— transferred and sold items stay visible here
-                  </span>
-                )}
+                <span className="text-zinc-400 font-normal">
+                  {" "}— each piece keeps its own price; sold prices never change
+                </span>
               </p>
               <div className="space-y-1.5 max-h-64 overflow-y-auto">
                 {product.units.map((unit) => (
@@ -195,27 +141,21 @@ export default function ProductDetailPanel({
                     key={unit.id}
                     className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs bg-zinc-50"
                   >
-                    <span className="font-mono font-medium text-zinc-800">
-                      {unit.itemCode}
-                    </span>
-                    <div className="flex items-center gap-2">
+                    <div className="min-w-0">
+                      <p className="font-mono font-medium text-zinc-800 truncate">
+                        {unit.itemCode}
+                      </p>
+                      <p className="text-[11px] text-zinc-500">
+                        {unitPriceLabel(unit.priceSource)}: {formatCurrency(unit.price)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
                       {unit.status === "Transferred" && unit.branchName && (
                         <span className="text-[11px] text-zinc-500">
                           to {unit.branchName}
                         </span>
                       )}
                       <StatusBadge status={unit.status} />
-                      {canWrite && unit.status === "Available" && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveUnit(unit.id, unit.itemCode)}
-                          disabled={removingUnitId === unit.id}
-                          className="p-1 rounded text-zinc-400 hover:text-red-600 disabled:opacity-50"
-                          aria-label={`Remove ${unit.itemCode}`}
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      )}
                     </div>
                   </div>
                 ))}

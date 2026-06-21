@@ -131,10 +131,40 @@ const ensureStockTransferStatus = async () => {
   );
 };
 
+const ensureInventoryUnitListPrice = async () => {
+  await run(
+    "Ensure InventoryUnit.listPrice column…",
+    `ALTER TABLE "InventoryUnit" ADD COLUMN IF NOT EXISTS "listPrice" DECIMAL(12,2)`,
+  );
+
+  await run(
+    "Backfill InventoryUnit.listPrice from product price…",
+    `
+    UPDATE "InventoryUnit" AS u
+    SET "listPrice" = p."price"
+    FROM "Product" AS p
+    WHERE u."productId" = p."id"
+      AND u."listPrice" IS NULL;
+    `,
+  );
+
+  await run(
+    "Backfill sold/reserved unit prices from sale records…",
+    `
+    UPDATE "InventoryUnit" AS u
+    SET "listPrice" = s."listPrice"
+    FROM "Sale" AS s
+    WHERE s."unitId" = u."id"
+      AND u."status" IN ('Sold', 'Reserved');
+    `,
+  );
+};
+
 const main = async () => {
   await ensureProductStockStatusEnum();
   await ensureInventoryUnitInTransit();
   await ensureStockTransferStatus();
+  await ensureInventoryUnitListPrice();
   console.log("Deploy schema migration complete.");
 };
 

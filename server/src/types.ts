@@ -64,6 +64,8 @@ export type ProductImage = {
   name: string;
 };
 
+export type InventoryUnitPriceSource = "live" | "sold" | "locked";
+
 export type InventoryUnit = {
   id: string;
   itemCode: string;
@@ -71,6 +73,8 @@ export type InventoryUnit = {
   branchId?: string;
   branchName?: string;
   status: InventoryUnitStatus;
+  price: number;
+  priceSource: InventoryUnitPriceSource;
   createdAt: string;
 };
 

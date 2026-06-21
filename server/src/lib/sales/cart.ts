@@ -10,6 +10,8 @@ import {
 } from "../payments/razorpay.js";
 import { buildUpiPaymentString } from "../payments/upi.js";
 import { getShopSettings } from "../settings/service.js";
+import { getCurrentMarketRates } from "../market-rates/service.js";
+import { computeLiveListPriceForProduct } from "../inventory/unit-pricing.js";
 import { moneyToNumber, sumMoney } from "../money.js";
 import type {
   CartSaleItemInput,
@@ -26,6 +28,7 @@ type ValidatedCartItem = {
   itemCode: string;
   unit: Awaited<ReturnType<typeof loadUnit>>;
   product: Awaited<ReturnType<typeof loadUnit>>["product"];
+  listPrice: number;
   discount: number;
   dealPrice: number;
 };
@@ -67,6 +70,7 @@ const validateCartInput = async (
   });
   if (!customer) throw new SaleError("Customer not found.", 404);
 
+  const marketRates = await getCurrentMarketRates();
   const codes = new Set<string>();
   const validated: ValidatedCartItem[] = [];
 
@@ -87,6 +91,7 @@ const validateCartInput = async (
       itemCode,
       unit,
       product: unit.product,
+      listPrice: computeLiveListPriceForProduct(unit.product, marketRates),
       discount: Math.max(0, item.discount ?? 0),
       dealPrice: item.dealPrice,
     });
@@ -125,7 +130,7 @@ const completeOneSaleInTx = async (
 
   await tx.inventoryUnit.update({
     where: { id: sale.unitId },
-    data: { status: "Sold" },
+    data: { status: "Sold", listPrice: sale.listPrice },
   });
 
   await syncProductStockInTx(tx, sale.unit.productId);
@@ -250,7 +255,7 @@ export const recordCartSale = async (
             productName: item.product.name,
             sku: item.product.sku,
             category: item.product.category,
-            listPrice: item.product.price,
+            listPrice: item.listPrice,
             discount: item.discount,
             dealPrice: item.dealPrice,
             paymentMode: "UPI",
@@ -263,7 +268,7 @@ export const recordCartSale = async (
         });
         await tx.inventoryUnit.update({
           where: { id: item.unit.id },
-          data: { status: "Reserved" },
+          data: { status: "Reserved", listPrice: item.listPrice },
         });
         await syncProductStockInTx(tx, item.product.id);
         created.push(sale);
@@ -329,7 +334,7 @@ export const recordCartSale = async (
           productName: item.product.name,
           sku: item.product.sku,
           category: item.product.category,
-          listPrice: item.product.price,
+          listPrice: item.listPrice,
           discount: item.discount,
           dealPrice: item.dealPrice,
           paymentMode: input.paymentMode,
@@ -343,7 +348,7 @@ export const recordCartSale = async (
 
       await tx.inventoryUnit.update({
         where: { id: item.unit.id },
-        data: { status: "Sold" },
+        data: { status: "Sold", listPrice: item.listPrice },
       });
 
       await syncProductStockInTx(tx, item.product.id);

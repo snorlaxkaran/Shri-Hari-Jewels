@@ -23,10 +23,12 @@ import { DEFAULT_BRANCH_ID } from "../branches/constants.js";
 import { moneyToNumber, sumMoney } from "../money.js";
 import { repairCompletedRunInventorySkus } from "../production-runs/run-completion.js";
 import { toStockTransferDto } from "./transfer-actions.js";
+import { getCurrentMarketRates } from "../market-rates/service.js";
+import { computeLiveListPriceForProduct } from "./unit-pricing.js";
 
 const productInclude = {
   units: {
-    include: { branch: true },
+    include: { branch: true, sale: true },
     orderBy: { createdAt: "asc" as const },
   },
   images: { orderBy: { sortOrder: "asc" as const } },
@@ -38,13 +40,14 @@ export const listProducts = async (
   await repairCompletedRunInventorySkus();
 
   const stockBranchId = branchId ?? DEFAULT_BRANCH_ID;
+  const marketRates = await getCurrentMarketRates();
   const products = await prisma.product.findMany({
     where: branchId ? { units: { some: { branchId } } } : undefined,
     include: branchId
       ? {
           units: {
             where: { branchId },
-            include: { branch: true },
+            include: { branch: true, sale: true },
             orderBy: { createdAt: "asc" as const },
           },
           images: { orderBy: { sortOrder: "asc" as const } },
@@ -53,7 +56,9 @@ export const listProducts = async (
     orderBy: { createdAt: "desc" },
   });
   return products
-    .map((product) => toInventoryItem(product, { stockBranchId }))
+    .map((product) =>
+      toInventoryItem(product, { stockBranchId, marketRates }),
+    )
     .filter((item) => item.units.length > 0);
 };
 
@@ -62,6 +67,16 @@ export const createProduct = async (
   branchId: string,
 ): Promise<InventoryItem> => {
   const category = input.category as ProductCategory;
+  const marketRates = await getCurrentMarketRates();
+  const unitListPrice = computeLiveListPriceForProduct(
+    {
+      metal: input.metal,
+      purity: input.purity,
+      weightGrams: input.weightGrams,
+      price: input.price,
+    },
+    marketRates,
+  );
 
   const existing = await prisma.product.findMany({
     where: { branchId },
@@ -99,6 +114,7 @@ export const createProduct = async (
           branchId,
           itemCode,
           status: "Available",
+          listPrice: unitListPrice,
         })),
       },
       images: {
@@ -112,7 +128,7 @@ export const createProduct = async (
     include: productInclude,
   });
 
-  return toInventoryItem(product);
+  return toInventoryItem(product, { marketRates });
 };
 
 export const addQuantityToProduct = async (
@@ -125,6 +141,9 @@ export const addQuantityToProduct = async (
   });
 
   if (!product) return null;
+
+  const marketRates = await getCurrentMarketRates();
+  const unitListPrice = computeLiveListPriceForProduct(product, marketRates);
 
   const allUnits = await prisma.inventoryUnit.findMany({
     select: { itemCode: true },
@@ -139,6 +158,7 @@ export const addQuantityToProduct = async (
         itemCode,
         productId: product.id,
         status: "Available",
+        listPrice: unitListPrice,
       })),
     });
 
@@ -150,7 +170,7 @@ export const addQuantityToProduct = async (
     });
   });
 
-  return toInventoryItem(updated);
+  return toInventoryItem(updated, { marketRates });
 };
 
 export class InventoryError extends Error {
@@ -252,7 +272,8 @@ export const transferInventoryUnits = async (
     include: productInclude,
   });
 
-  return updated ? toInventoryItem(updated) : null;
+  const marketRates = await getCurrentMarketRates();
+  return updated ? toInventoryItem(updated, { marketRates }) : null;
 };
 
 export const createStockTransfer = async (
@@ -311,8 +332,13 @@ export const createStockTransfer = async (
   }
 
   const transferNo = await nextTransferNo();
+  const marketRates = await getCurrentMarketRates();
   const totalValue = moneyToNumber(
-    sumMoney(units.map((unit) => unit.product.price)),
+    sumMoney(
+      units.map((unit) =>
+        computeLiveListPriceForProduct(unit.product, marketRates),
+      ),
+    ),
   );
 
   const transfer = await prisma.$transaction(async (tx) => {
@@ -336,7 +362,7 @@ export const createStockTransfer = async (
             sku: unit.product.sku,
             metal: unit.product.metal,
             purity: unit.product.purity,
-            price: unit.product.price,
+            price: computeLiveListPriceForProduct(unit.product, marketRates),
           })),
         },
       },
@@ -376,7 +402,10 @@ export const createStockTransfer = async (
   return {
     transfer: toStockTransfer(transfer),
     products: updatedProducts.map((product) =>
-      toInventoryItem(product, { stockBranchId: DEFAULT_BRANCH_ID }),
+      toInventoryItem(product, {
+        stockBranchId: DEFAULT_BRANCH_ID,
+        marketRates,
+      }),
     ),
   };
 };
@@ -433,7 +462,7 @@ export const updateProduct = async (
     });
   });
 
-  return toInventoryItem(updated);
+  return toInventoryItem(updated, { marketRates: await getCurrentMarketRates() });
 };
 
 export const deleteProduct = async (productId: string): Promise<boolean> => {
@@ -443,13 +472,10 @@ export const deleteProduct = async (productId: string): Promise<boolean> => {
   });
   if (!product) return false;
 
-  const blocked = product.units.some(
-    (u) => u.status === "Sold" || u.status === "Reserved",
-  );
-  if (blocked) {
+  if (product.units.length > 0) {
     throw new InventoryError(
-      "Cannot delete a product with sold or reserved units.",
-      400,
+      "Confirmed inventory cannot be deleted. Only a manual database change can remove stock.",
+      403,
     );
   }
 
@@ -458,40 +484,12 @@ export const deleteProduct = async (productId: string): Promise<boolean> => {
 };
 
 export const deleteInventoryUnit = async (
-  unitId: string,
+  _unitId: string,
 ): Promise<InventoryItem | null> => {
-  const unit = await prisma.inventoryUnit.findUnique({
-    where: { id: unitId },
-    include: { product: true, sale: true },
-  });
-
-  if (!unit) return null;
-
-  if (unit.status !== "Available") {
-    throw new InventoryError(
-      `Cannot remove unit ${unit.itemCode} — it is ${unit.status}.`,
-      400,
-    );
-  }
-
-  if (unit.sale) {
-    throw new InventoryError(
-      "This unit has a sale record and cannot be removed.",
-      400,
-    );
-  }
-
-  const updated = await prisma.$transaction(async (tx) => {
-    await tx.inventoryUnit.delete({ where: { id: unitId } });
-    await syncProductStockInTx(tx, unit.productId);
-
-    return tx.product.findUniqueOrThrow({
-      where: { id: unit.productId },
-      include: productInclude,
-    });
-  });
-
-  return toInventoryItem(updated);
+  throw new InventoryError(
+    "Confirmed inventory units cannot be deleted. Only a manual database change can remove stock.",
+    403,
+  );
 };
 
 export const repairInventory = async (actor?: {

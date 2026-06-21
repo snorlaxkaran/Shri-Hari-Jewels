@@ -14,10 +14,8 @@ import { buildUpiPaymentString } from "../payments/upi.js";
 import { getShopSettings } from "../settings/service.js";
 import { getCurrentMarketRates } from "../market-rates/service.js";
 import {
-  calculateSellingPrice,
-  resolveMakingChargesPct,
-  resolveMarketRateForProduct,
-} from "../pricing/b2b-price.js";
+  computeListPriceBreakdownForProduct,
+} from "../inventory/unit-pricing.js";
 import { moneyToNumber } from "../money.js";
 import type {
   PaymentMode,
@@ -69,41 +67,10 @@ export const lookupUnitForSale = async (itemCode: string, branchId?: string) => 
 
   const product = unit.product;
   const marketRates = await getCurrentMarketRates();
-  const marketRate = resolveMarketRateForProduct(
-    product.metal,
-    product.purity,
-    marketRates.gold22k,
-    marketRates.silver925,
+  const { listPrice, priceBreakdown } = computeListPriceBreakdownForProduct(
+    product,
+    marketRates,
   );
-
-  let listPrice = moneyToNumber(product.price);
-  let priceBreakdown;
-
-  if (marketRate != null) {
-    const makingPct = resolveMakingChargesPct(
-      product.metal,
-      marketRates.goldMakingChargesPct,
-      marketRates.silverMakingChargesPct,
-    );
-    const metalKind =
-      product.metal === "Silver" ? ("Silver" as const) : ("Gold" as const);
-    const breakdown = calculateSellingPrice({
-      weightGrams: product.weightGrams,
-      metal: metalKind,
-      makingChargesPct: makingPct,
-      marketRatePerGram: marketRate,
-    });
-    listPrice = breakdown.totalPrice;
-    priceBreakdown = {
-      metalValue: breakdown.metalValue,
-      makingCharges: breakdown.makingCharges,
-      stoneCharges: breakdown.stoneCharges,
-      listPrice: breakdown.totalPrice,
-      ratePerGram: breakdown.ratePerGram,
-      makingChargesPct: makingPct,
-      weightGrams: product.weightGrams,
-    };
-  }
 
   return {
     itemCode: unit.itemCode,
@@ -231,7 +198,10 @@ export const completeSale = async (
 
     await tx.inventoryUnit.update({
       where: { id: sale.unitId },
-      data: { status: InventoryUnitStatus.Sold },
+      data: {
+        status: InventoryUnitStatus.Sold,
+        listPrice: sale.listPrice,
+      },
     });
 
     await syncProductStockInTx(tx, sale.unit.productId, {
@@ -308,6 +278,9 @@ export const recordSale = async (
   const { itemCode, customer, unit, product, discount } =
     await validateSaleInput(input, branchId);
 
+  const marketRates = await getCurrentMarketRates();
+  const { listPrice } = computeListPriceBreakdownForProduct(product, marketRates);
+
   if (input.paymentMode === "UPI") {
     const useRazorpay = isRazorpayEnabled();
 
@@ -331,7 +304,7 @@ export const recordSale = async (
           productName: product.name,
           sku: product.sku,
           category: product.category,
-          listPrice: product.price,
+          listPrice,
           discount,
           dealPrice: input.dealPrice,
           paymentMode: "UPI",
@@ -344,7 +317,7 @@ export const recordSale = async (
 
       await tx.inventoryUnit.update({
         where: { id: unit.id },
-        data: { status: InventoryUnitStatus.Reserved },
+        data: { status: InventoryUnitStatus.Reserved, listPrice },
       });
 
       await syncProductStockInTx(tx, product.id, {
@@ -405,7 +378,7 @@ export const recordSale = async (
         productName: product.name,
         sku: product.sku,
         category: product.category,
-        listPrice: product.price,
+        listPrice,
         discount,
         dealPrice: input.dealPrice,
         paymentMode: input.paymentMode,
@@ -418,7 +391,7 @@ export const recordSale = async (
 
     await tx.inventoryUnit.update({
       where: { id: unit.id },
-      data: { status: InventoryUnitStatus.Sold },
+      data: { status: InventoryUnitStatus.Sold, listPrice },
     });
 
     await syncProductStockInTx(tx, product.id, {
