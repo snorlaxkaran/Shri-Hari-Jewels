@@ -3,6 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
@@ -114,6 +115,7 @@ function estimatePrice(
 }
 
 export default function DesignsPage() {
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const canManage = user ? canManageDesigns(user.role) : false;
   const {
@@ -262,6 +264,14 @@ export default function DesignsPage() {
   useEffect(() => {
     if (selectedDesign) syncFromDesign(selectedDesign);
   }, [selectedDesign, syncFromDesign]);
+
+  useEffect(() => {
+    const designId = searchParams.get("design");
+    if (!designId || !hydrated) return;
+    if (designs.some((design) => design.id === designId)) {
+      setSelectedId(designId);
+    }
+  }, [searchParams, designs, hydrated]);
 
   const stoneElements = useMemo(() => {
     if (!selectedDesign) return [];

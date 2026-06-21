@@ -6,6 +6,7 @@ import { syncProductStockInTx } from "../inventory/stock-sync.js";
 import { moneyToNumber } from "../money.js";
 import {
   calculateJewelryPrice,
+  calculatePhysicalMetalWeightPerSet,
   mapMetalLotsForPricing,
 } from "../pricing/jewelry-price.js";
 import type {
@@ -124,6 +125,8 @@ export const buildFinishedGoodsFromRun = (
     metalLots: mapMetalLotsForPricing(metalLots),
   });
 
+  const weightGrams = calculatePhysicalMetalWeightPerSet(pricingItems);
+
   return {
     sku: normalizeDesignSku(run.design.code),
     name: run.design.name?.trim() || run.design.code,
@@ -131,7 +134,7 @@ export const buildFinishedGoodsFromRun = (
     quantity: run.setsOrdered,
     metal,
     purity,
-    weightGrams: priceBreakdown.weightGrams,
+    weightGrams,
     makingCharges: priceBreakdown.makingCharges,
     stoneCarat:
       priceBreakdown.stoneCarat > 0 ? priceBreakdown.stoneCarat : undefined,

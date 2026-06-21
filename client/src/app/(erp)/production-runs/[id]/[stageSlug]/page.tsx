@@ -186,7 +186,7 @@ export default function ProductionRunStagePage() {
       if (run.status !== "Completed" && nextSlug && nextSlug !== stageSlug) {
         router.push(`/production-runs/${runId}/${nextSlug}`);
       } else if (updated.status === "Completed") {
-        router.push(`/production-runs/${runId}`);
+        router.push(`/designs?design=${run.designId}`);
       } else {
         await loadRun();
       }

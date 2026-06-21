@@ -884,6 +884,7 @@ export default function ProductionRunDetailPage() {
     setStatusDraft(null);
     setShowCreateSku(false);
     setSkuDefaults(null);
+    router.push(`/designs?design=${run.designId}`);
   };
 
   const handlePatchItem = async (
