@@ -58,13 +58,19 @@ export const createMetalLot = async (
   }
 
   const existing = await prisma.metalLot.findMany({
-    where: { branchId },
     select: { lotNumber: true },
   });
   const lotNumber = generateMetalLotNumber(
     input.metalType,
     existing.map((r) => r.lotNumber),
   );
+
+  const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+  if (!branch) {
+    throw new RawInventoryError(
+      "Your branch is not set up in the system. Contact an administrator.",
+    );
+  }
 
   const row = await prisma.metalLot.create({
     data: {

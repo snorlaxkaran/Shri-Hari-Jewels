@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/db.js";
 import {
   canReadRawInventory,
@@ -50,7 +51,6 @@ const actorFrom = (req: AuthenticatedRequest) => ({
   name: req.user!.name,
 });
 
-// Helper to get user's branch
 const getUserBranch = async (userId: string): Promise<string> => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -66,6 +66,30 @@ const getUserBranch = async (userId: string): Promise<string> => {
   }
 
   return DEFAULT_BRANCH_ID;
+};
+
+const mapRawInventoryError = (error: unknown): RawInventoryError | null => {
+  if (error instanceof RawInventoryError) return error;
+
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  ) {
+    return new RawInventoryError(
+      "A lot with this number already exists. Refresh and try again.",
+    );
+  }
+
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2003"
+  ) {
+    return new RawInventoryError(
+      "Your branch is not set up in the system. Contact an administrator.",
+    );
+  }
+
+  return null;
 };
 
 rawInventoryRouter.get(
@@ -141,8 +165,9 @@ rawInventoryRouter.post(
       );
       res.status(201).json(lot);
     } catch (error) {
-      if (error instanceof RawInventoryError) {
-        res.status(error.status).json({ error: error.message });
+      const mapped = mapRawInventoryError(error);
+      if (mapped) {
+        res.status(mapped.status).json({ error: mapped.message });
         return;
       }
       console.error("POST /api/raw-inventory/metal", error);

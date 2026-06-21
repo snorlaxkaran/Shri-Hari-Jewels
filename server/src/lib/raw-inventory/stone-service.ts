@@ -49,8 +49,14 @@ export const createStoneLot = async (
     throw new RawInventoryError("Vendor is required.");
   }
 
+  const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+  if (!branch) {
+    throw new RawInventoryError(
+      "Your branch is not set up in the system. Contact an administrator.",
+    );
+  }
+
   const existingCerts = await prisma.stoneLot.findMany({
-    where: { branchId },
     select: { certificateNumber: true },
   });
   const certNumbers = existingCerts.map((r) => r.certificateNumber);
