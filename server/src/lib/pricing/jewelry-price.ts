@@ -70,7 +70,10 @@ export const resolveMetalRatePerGram = (
   return 0;
 };
 
-export const calculateTotalMetalWeight = (items: PricingItem[]): number => {
+/** Physical metal per finished set (motifs + casting) — used for raw stock deduction. */
+export const calculatePhysicalMetalWeightPerSet = (
+  items: PricingItem[],
+): number => {
   const weightItems = items.filter(
     (item) => item.elementType === "Casting" || item.elementType === "Motif",
   );
@@ -85,6 +88,20 @@ export const calculateTotalMetalWeight = (items: PricingItem[]): number => {
     total += (item.weightGramsPerPc ?? 0) * item.qtyPerSet;
   }
 
+  return roundMoney(total);
+};
+
+/** Casting metal only — motif metal value lives in motif unit prices. */
+export const calculateTotalMetalWeight = (items: PricingItem[]): number => {
+  let total = 0;
+  for (const item of items) {
+    if (item.elementType !== "Casting") continue;
+    if ((item.metalWeightGrams ?? 0) > 0) {
+      total += item.metalWeightGrams ?? 0;
+      continue;
+    }
+    total += (item.weightGramsPerPc ?? 0) * item.qtyPerSet;
+  }
   return roundMoney(total);
 };
 

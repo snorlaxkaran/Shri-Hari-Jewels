@@ -4,10 +4,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import MotifImageUpload from "@/app/(components)/motifs/MotifImageUpload";
 import { createMotif } from "@/lib/api/motifs";
-import {
-  designMetalToMotifMetal,
-  puritiesForMotifMetal,
-} from "@/lib/motifs/constants";
+import { designMetalToMotifMetal } from "@/lib/motifs/constants";
 import type { DesignElementType, MetalType, MotifMetal, Purity } from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/api/client";
 
@@ -94,7 +91,7 @@ export default function AddMotifModal({
     }
 
     let unitValue: number | undefined;
-    if (price.trim()) {
+    if (type !== "Motif" && price.trim()) {
       unitValue = parseFloat(price);
       if (Number.isNaN(unitValue) || unitValue < 0) {
         setError("Enter a valid price.");
@@ -112,9 +109,13 @@ export default function AddMotifModal({
     }
 
     let motifWeightGrams: number | undefined;
-    if (type === "Motif" && motifWeight.trim()) {
+    if (type === "Motif") {
+      if (!motifWeight.trim()) {
+        setError("Enter motif weight in grams.");
+        return;
+      }
       motifWeightGrams = parseFloat(motifWeight);
-      if (Number.isNaN(motifWeightGrams) || motifWeightGrams < 0) {
+      if (Number.isNaN(motifWeightGrams) || motifWeightGrams <= 0) {
         setError("Enter a valid motif weight.");
         return;
       }
@@ -128,7 +129,6 @@ export default function AddMotifModal({
           metal: motifMetal as MotifMetal,
           purity: designPurity,
           subCategory: "Contemporary",
-          price: unitValue,
           weightGrams: motifWeightGrams,
           imageUrl,
         });
@@ -137,7 +137,7 @@ export default function AddMotifModal({
         await onSubmit({
           name: trimmed,
           type,
-          unitValue,
+          unitValue: created.price,
           weightGramsPerPc: motifWeightGrams,
           libraryMotifId: created.id,
         });
@@ -199,8 +199,9 @@ export default function AddMotifModal({
               Library motif will be saved as{" "}
               <span className="font-medium text-zinc-800">
                 {motifMetal} {designPurity}
-              </span>{" "}
-              (matches this design).
+              </span>
+              . Price is calculated from weight × current market rate (making
+              charges are added at the design level).
             </div>
           )}
           {type === "Motif" && !lockedMetalPurity && (
@@ -233,31 +234,18 @@ export default function AddMotifModal({
             </select>
           </div>
           {type === "Motif" ? (
-            <>
-              <div>
-                <label className={labelClass}>Price (₹ per piece)</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className={fieldClass}
-                  placeholder="Optional"
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Weight (grams per piece)</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={motifWeight}
-                  onChange={(e) => setMotifWeight(e.target.value)}
-                  className={fieldClass}
-                  placeholder="Optional"
-                />
-              </div>
-            </>
+            <div>
+              <label className={labelClass}>Weight (grams per piece) *</label>
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={motifWeight}
+                onChange={(e) => setMotifWeight(e.target.value)}
+                className={fieldClass}
+                placeholder="e.g. 10"
+              />
+            </div>
           ) : type === "Casting" ? (
             <div>
               <label className={labelClass}>Weight (grams per piece)</label>

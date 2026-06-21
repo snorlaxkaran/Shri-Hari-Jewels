@@ -229,6 +229,7 @@ export const getRawInventorySummary =
 
     const summary: RawInventorySummary = {
       goldGrams: 0,
+      gold22kGrams: 0,
       silverGrams: 0,
       platinumGrams: 0,
       diamondCarats: 0,
@@ -242,7 +243,10 @@ export const getRawInventorySummary =
       summary.metalValue += moneyToNumber(
         multiplyMoney(lot.weightGrams, lot.currentRate),
       );
-      if (lot.metalType === "Gold") summary.goldGrams += lot.weightGrams;
+      if (lot.metalType === "Gold") {
+        summary.goldGrams += lot.weightGrams;
+        if (lot.purity === "22K") summary.gold22kGrams += lot.weightGrams;
+      }
       if (lot.metalType === "Silver") summary.silverGrams += lot.weightGrams;
       if (lot.metalType === "Platinum")
         summary.platinumGrams += lot.weightGrams;

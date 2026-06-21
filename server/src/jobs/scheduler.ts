@@ -51,6 +51,10 @@ export const startScheduledJobs = (): void => {
     try {
       const rates = await fetchLiveRates();
       await persistRates(rates);
+      const { recalculateAllMotifPrices } = await import(
+        "../lib/motifs/service.js"
+      );
+      await recalculateAllMotifPrices(undefined, "Market rates refreshed");
       console.log(
         `[rates] Fetched: 22K Gold ₹${rates.gold22k}/g, 925 Silver ₹${rates.silver925}/g`,
       );

@@ -134,6 +134,8 @@ export const getCurrentMarketRates = async (): Promise<MarketRatesCurrent> => {
 export const refreshMarketRates = async (): Promise<MarketRatesCurrent> => {
   const rates = await fetchLiveRates();
   await persistRates(rates);
+  const { recalculateAllMotifPrices } = await import("../motifs/service.js");
+  await recalculateAllMotifPrices(undefined, "Market rates refreshed");
   return getCurrentMarketRates();
 };
 
@@ -186,6 +188,9 @@ export const overrideMarketRates = async (
       },
     }),
   ]);
+
+  const { recalculateAllMotifPrices } = await import("../motifs/service.js");
+  await recalculateAllMotifPrices(undefined, "Market rates updated");
 
   return getCurrentMarketRates();
 };

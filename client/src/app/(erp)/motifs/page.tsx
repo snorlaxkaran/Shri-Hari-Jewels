@@ -57,10 +57,8 @@ export default function MotifsPage() {
   const [metal, setMetal] = useState<MotifMetal>("Gold");
   const [purity, setPurity] = useState<Purity>("22K");
   const [stoneRows, setStoneRows] = useState<MotifStoneRow[]>([]);
-  const [makingCost, setMakingCost] = useState("");
   const [bulkStoneLots, setBulkStoneLots] = useState<BulkStoneLot[]>([]);
   const [subCategory, setSubCategory] = useState<MotifSubCategory>("Contemporary");
-  const [price, setPrice] = useState("");
   const [imageUrl, setImageUrl] = useState<string | undefined>();
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -120,9 +118,7 @@ export default function MotifsPage() {
     setMetal("Gold");
     setPurity("22K");
     setStoneRows([]);
-    setMakingCost("");
     setSubCategory("Contemporary");
-    setPrice("");
     setImageUrl(undefined);
     setFormError("");
   };
@@ -134,8 +130,6 @@ export default function MotifsPage() {
     metal,
     purity,
     subCategory,
-    makingCost: makingCost.trim() ? parseFloat(makingCost) : undefined,
-    price: price.trim() ? parseFloat(price) : undefined,
     stones: stoneRows
       .filter((r) => r.bulkStoneLotId)
       .map(
@@ -156,6 +150,11 @@ export default function MotifsPage() {
 
     if (!name.trim()) {
       setFormError("Motif name is required.");
+      return;
+    }
+
+    if (!weightGrams.trim() || parseFloat(weightGrams) <= 0) {
+      setFormError("Motif weight in grams is required.");
       return;
     }
 
@@ -259,7 +258,7 @@ export default function MotifsPage() {
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Motif weight (grams)</label>
+              <label className={labelClass}>Motif weight (grams) *</label>
               <input
                 type="number"
                 min={0}
@@ -267,38 +266,17 @@ export default function MotifsPage() {
                 value={weightGrams}
                 onChange={(e) => setWeightGrams(e.target.value)}
                 className={fieldClass}
-                placeholder="e.g. 4.5"
+                placeholder="e.g. 10"
                 disabled={!canManage}
               />
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Making cost (₹)</label>
-              <input
-                type="number"
-                min={0}
-                value={makingCost}
-                onChange={(e) => setMakingCost(e.target.value)}
-                className={fieldClass}
-                placeholder="Non-stone casting cost"
-                disabled={!canManage}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Price override (₹)</label>
-              <input
-                type="number"
-                min={0}
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className={fieldClass}
-                placeholder="Auto from stones if blank"
-                disabled={!canManage}
-              />
-            </div>
-          </div>
+          <p className="text-xs text-zinc-500">
+            Price is calculated automatically from weight × current market rate,
+            plus any linked bulk stones. Making charges are added at the design
+            level.
+          </p>
 
           <div className="grid sm:grid-cols-3 gap-4">
             <div>

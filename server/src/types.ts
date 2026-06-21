@@ -686,6 +686,7 @@ export type RawStockAuditLog = {
 
 export type RawInventorySummary = {
   goldGrams: number;
+  gold22kGrams: number;
   silverGrams: number;
   platinumGrams: number;
   diamondCarats: number;

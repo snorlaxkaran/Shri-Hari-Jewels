@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
-import { calculateTotalMetalWeight } from "../pricing/jewelry-price.js";
+import {
+  calculatePhysicalMetalWeightPerSet,
+} from "../pricing/jewelry-price.js";
 import { ProductionRunError } from "./errors.js";
 
 type TransactionClient = Prisma.TransactionClient;
@@ -30,7 +32,7 @@ export const computeRunMetalWeightGrams = (
   items: RunItemForMetal[],
   setsOrdered: number,
 ): number => {
-  const perSet = calculateTotalMetalWeight(
+  const perSet = calculatePhysicalMetalWeightPerSet(
     items.map((item) => ({
       elementName: item.elementName,
       elementType: item.elementType,
@@ -72,16 +74,73 @@ const recordMetalAuditInTx = async (
   });
 };
 
-const resolveMetalLotId = async (
+const sumLotWeight = (lots: Array<{ weightGrams: number }>) =>
+  roundWeight(lots.reduce((sum, lot) => sum + lot.weightGrams, 0));
+
+const deductFromLotInTx = async (
+  tx: TransactionClient,
+  lot: { id: string; lotNumber: string; weightGrams: number },
+  amount: number,
+  reason: string,
+  actor: Actor,
+) => {
+  const newWeight = roundWeight(lot.weightGrams - amount);
+  await tx.metalLot.update({
+    where: { id: lot.id },
+    data: { weightGrams: newWeight },
+  });
+  await recordMetalAuditInTx(tx, {
+    stockId: lot.id,
+    lotRef: lot.lotNumber,
+    previousWeight: lot.weightGrams,
+    newWeight,
+    delta: -amount,
+    reason,
+    performedById: actor.id,
+    performedByName: actor.name,
+  });
+};
+
+const buildInsufficientMetalError = async (
+  tx: TransactionClient,
+  branchId: string,
+  design: { metal: string; purity: string },
+  totalGrams: number,
+  matchingLots: Array<{ weightGrams: number }>,
+): Promise<string> => {
+  const matchingTotal = sumLotWeight(matchingLots);
+  let message =
+    `Insufficient ${design.metal} ${design.purity} metal: need ${totalGrams}g for this run, have ${matchingTotal}g in matching lots.`;
+
+  if (design.metal === "Gold") {
+    const allGoldLots = await tx.metalLot.findMany({
+      where: { branchId, metalType: "Gold" },
+      select: { weightGrams: true, purity: true },
+    });
+    const allGoldTotal = sumLotWeight(allGoldLots);
+    if (allGoldTotal > matchingTotal) {
+      message +=
+        ` Raw inventory shows ${allGoldTotal}g total gold (all purities); only ${matchingTotal}g is ${design.purity}.`;
+    }
+  }
+
+  return message;
+};
+
+const deductMetalAcrossLotsInTx = async (
   tx: TransactionClient,
   branchId: string,
   items: RunItemForMetal[],
-  design: { metal: string | null; purity: string | null },
+  design: { metal: string; purity: string },
   totalGrams: number,
-): Promise<string> => {
+  run: { runNo: string; setsOrdered: number },
+  actor: Actor,
+): Promise<void> => {
   const selectedLotId = items.find(
     (item) => item.elementType === "Casting" && item.metalLotId,
   )?.metalLotId;
+
+  const reasonBase = `Production run ${run.runNo} — metal inventory (${totalGrams}g for ${run.setsOrdered} set${run.setsOrdered !== 1 ? "s" : ""})`;
 
   if (selectedLotId) {
     const lot = await tx.metalLot.findUnique({ where: { id: selectedLotId } });
@@ -98,13 +157,8 @@ const resolveMetalLotId = async (
         `Insufficient metal in lot ${lot.lotNumber}: need ${totalGrams}g for this run, have ${lot.weightGrams}g.`,
       );
     }
-    return selectedLotId;
-  }
-
-  if (!design.metal || !design.purity) {
-    throw new ProductionRunError(
-      "Select a metal lot on a casting element before completing this run.",
-    );
+    await deductFromLotInTx(tx, lot, totalGrams, reasonBase, actor);
+    return;
   }
 
   const matchingLots = await tx.metalLot.findMany({
@@ -112,30 +166,50 @@ const resolveMetalLotId = async (
       branchId,
       metalType: design.metal,
       purity: design.purity,
-      weightGrams: { gte: totalGrams },
+      weightGrams: { gt: 0 },
     },
-    orderBy: { weightGrams: "asc" },
-  });
-
-  if (matchingLots.length > 0) {
-    return matchingLots[0].id;
-  }
-
-  const anyMatching = await tx.metalLot.findMany({
-    where: { branchId, metalType: design.metal, purity: design.purity },
     orderBy: { weightGrams: "desc" },
   });
 
-  if (anyMatching.length === 0) {
+  if (matchingLots.length === 0) {
     throw new ProductionRunError(
       `No ${design.metal} ${design.purity} metal lot found. Add stock to Raw Inventory or select a lot on a casting element.`,
     );
   }
 
-  const totalAvailable = anyMatching.reduce((sum, lot) => sum + lot.weightGrams, 0);
-  throw new ProductionRunError(
-    `Insufficient ${design.metal} ${design.purity} metal: need ${totalGrams}g for this run, have ${roundWeight(totalAvailable)}g across matching lots.`,
-  );
+  let remaining = totalGrams;
+  const planned: Array<{ lot: (typeof matchingLots)[number]; amount: number }> =
+    [];
+
+  for (const lot of matchingLots) {
+    if (remaining <= 0) break;
+    const amount = roundWeight(Math.min(lot.weightGrams, remaining));
+    if (amount <= 0) continue;
+    planned.push({ lot, amount });
+    remaining = roundWeight(remaining - amount);
+  }
+
+  if (remaining > 0.001) {
+    throw new ProductionRunError(
+      await buildInsufficientMetalError(
+        tx,
+        branchId,
+        design,
+        totalGrams,
+        matchingLots,
+      ),
+    );
+  }
+
+  for (const { lot, amount } of planned) {
+    await deductFromLotInTx(
+      tx,
+      lot,
+      amount,
+      planned.length > 1 ? `${reasonBase} (partial)` : reasonBase,
+      actor,
+    );
+  }
 };
 
 export const deductRunMetalInventoryInTx = async (
@@ -155,32 +229,21 @@ export const deductRunMetalInventoryInTx = async (
     return;
   }
 
-  const lotId = await resolveMetalLotId(
+  if (!design.metal || !design.purity) {
+    throw new ProductionRunError(
+      "Design metal and purity must be set before completing this run.",
+    );
+  }
+
+  await deductMetalAcrossLotsInTx(
     tx,
     run.branchId,
     run.items,
-    design,
+    { metal: design.metal, purity: design.purity },
     totalGrams,
+    { runNo: run.runNo, setsOrdered: run.setsOrdered },
+    actor,
   );
-
-  const lot = await tx.metalLot.findUniqueOrThrow({ where: { id: lotId } });
-  const newWeight = roundWeight(lot.weightGrams - totalGrams);
-
-  await tx.metalLot.update({
-    where: { id: lot.id },
-    data: { weightGrams: newWeight },
-  });
-
-  await recordMetalAuditInTx(tx, {
-    stockId: lot.id,
-    lotRef: lot.lotNumber,
-    previousWeight: lot.weightGrams,
-    newWeight,
-    delta: -totalGrams,
-    reason: `Production run ${run.runNo} — metal inventory (${totalGrams}g for ${run.setsOrdered} set${run.setsOrdered !== 1 ? "s" : ""})`,
-    performedById: actor.id,
-    performedByName: actor.name,
-  });
 
   await tx.productionRun.update({
     where: { id: run.id },

@@ -135,10 +135,15 @@ export default function RawInventoryPage() {
       )}
 
       {summary && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <StatCard
-            label="Gold Stock"
+            label="Gold Stock (all purities)"
             value={`${formatNumber(summary.goldGrams)} g`}
+            icon={<Gem size={18} />}
+          />
+          <StatCard
+            label="22K Gold Stock"
+            value={`${formatNumber(summary.gold22kGrams ?? 0)} g`}
             icon={<Gem size={18} />}
           />
           <StatCard

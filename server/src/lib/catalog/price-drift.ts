@@ -7,7 +7,9 @@ import {
 } from "../motifs/service.js";
 import type {
   DesignElementPriceDrift,
+  MotifMetal,
   MotifPriceDrift,
+  Purity,
 } from "../../types.js";
 
 export const getDesignPriceDrift = async (
@@ -65,12 +67,12 @@ export const getMotifPriceDrift = async (
     sortOrder: s.sortOrder,
   }));
 
-  const makingCost =
-    motif.makingCost != null
-      ? moneyToNumber(String(motif.makingCost))
-      : undefined;
-
-  const calculatedPrice = await calculateMotifPrice(stones, makingCost);
+  const calculatedPrice = await calculateMotifPrice({
+    weightGrams: motif.weightGrams,
+    metal: motif.metal as MotifMetal,
+    purity: motif.purity as Purity,
+    stones,
+  });
   const storedPrice =
     motif.price != null ? moneyToNumber(String(motif.price)) : 0;
 
@@ -109,7 +111,6 @@ export const getMotifPriceDrift = async (
 
 export const listMotifPriceDrifts = async (): Promise<MotifPriceDrift[]> => {
   const motifs = await prisma.motif.findMany({
-    where: { stones: { some: {} } },
     select: { id: true },
   });
 

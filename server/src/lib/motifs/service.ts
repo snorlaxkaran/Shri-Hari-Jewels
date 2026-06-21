@@ -4,6 +4,7 @@ import {
   isValidMotifPurityForMetal,
 } from "../designs/validation.js";
 import { safeRecordCatalogAudit } from "../catalog/audit.js";
+import { resolveMarketRateForMetalPurity } from "../pricing/metal-rate.js";
 import type {
   Motif,
   MotifMetal,
@@ -142,17 +143,26 @@ const toMotif = (row: MotifRow): Motif => ({
   updatedAt: row.updatedAt.toISOString(),
 });
 
+const roundMoney = (value: number) => Math.round(value * 100) / 100;
+
+export type MotifPriceInput = {
+  weightGrams?: number | null;
+  metal: MotifMetal;
+  purity: Purity;
+  stones: MotifStoneInput[];
+};
+
 export const calculateMotifPrice = async (
-  stones: MotifStoneInput[],
-  makingCost?: number | null,
-  priceOverride?: number | null,
+  input: MotifPriceInput,
 ): Promise<number> => {
-  if (priceOverride != null && stones.length === 0) {
-    return priceOverride;
+  let total = 0;
+
+  if (input.weightGrams != null && input.weightGrams > 0) {
+    const rate = await resolveMarketRateForMetalPurity(input.metal, input.purity);
+    total += roundMoney(input.weightGrams * rate);
   }
 
-  let stoneTotal = 0;
-  for (const stone of stones) {
+  for (const stone of input.stones) {
     const lot = await prisma.bulkStoneLot.findUnique({
       where: { id: stone.bulkStoneLotId },
     });
@@ -162,13 +172,12 @@ export const calculateMotifPrice = async (
     if (stone.qtyPerMotif < 1) {
       throw new MotifError("Stone quantity per motif must be at least 1.");
     }
-    stoneTotal +=
-      moneyToNumber(String(lot.pricePerStone)) * stone.qtyPerMotif;
+    total += roundMoney(
+      moneyToNumber(String(lot.pricePerStone)) * stone.qtyPerMotif,
+    );
   }
 
-  const computed = stoneTotal + (makingCost ?? 0);
-  if (priceOverride != null) return priceOverride;
-  return computed;
+  return roundMoney(total);
 };
 
 const validateMotifStones = (stones?: MotifStoneInput[]) => {
@@ -288,11 +297,12 @@ export const createMotif = async (
     );
   }
 
-  const price = await calculateMotifPrice(
-    validated.stones,
-    validated.makingCost,
-    validated.price,
-  );
+  const price = await calculateMotifPrice({
+    weightGrams: validated.weightGrams,
+    metal: validated.metal,
+    purity: validated.purity,
+    stones: validated.stones,
+  });
 
   const row = await prisma.motif.create({
     data: {
@@ -434,24 +444,22 @@ export const updateMotif = async (
       sortOrder: s.sortOrder,
     }));
 
-  const makingCost =
-    input.makingCost === undefined
-      ? existingRow.makingCost != null
-        ? moneyToNumber(String(existingRow.makingCost))
-        : undefined
-      : input.makingCost ?? undefined;
-
   const recalculate =
     input.stones !== undefined ||
-    input.makingCost !== undefined ||
-    input.price === undefined;
+    input.weightGrams !== undefined ||
+    input.metal !== undefined ||
+    input.purity !== undefined;
 
   const price = recalculate
-    ? await calculateMotifPrice(
+    ? await calculateMotifPrice({
+        weightGrams:
+          input.weightGrams === undefined
+            ? existingRow.weightGrams
+            : input.weightGrams,
+        metal,
+        purity,
         stones,
-        makingCost,
-        input.price === undefined ? undefined : input.price,
-      )
+      })
     : input.price ?? undefined;
 
   await prisma.motif.update({
@@ -547,12 +555,12 @@ export const recalculateMotifPriceById = async (
     sortOrder: s.sortOrder,
   }));
 
-  const makingCost =
-    existingRow.makingCost != null
-      ? moneyToNumber(String(existingRow.makingCost))
-      : undefined;
-
-  const price = await calculateMotifPrice(stones, makingCost);
+  const price = await calculateMotifPrice({
+    weightGrams: existingRow.weightGrams,
+    metal: existingRow.metal as MotifMetal,
+    purity: existingRow.purity as Purity,
+    stones,
+  });
   await prisma.motif.update({
     where: { id: motifId },
     data: { price },
@@ -590,6 +598,22 @@ export const recalculateMotifsForBulkStoneLot = async (
   let updated = 0;
   for (const { motifId } of links) {
     await recalculateMotifPriceById(motifId, actor, reason);
+    updated += 1;
+  }
+  return updated;
+};
+
+export const recalculateAllMotifPrices = async (
+  actor?: Actor,
+  reason?: string,
+): Promise<number> => {
+  const motifs = await prisma.motif.findMany({
+    select: { id: true },
+  });
+
+  let updated = 0;
+  for (const { id } of motifs) {
+    await recalculateMotifPriceById(id, actor, reason);
     updated += 1;
   }
   return updated;
