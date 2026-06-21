@@ -839,10 +839,15 @@ export default function ProductionRunDetailPage() {
     }
 
     if (status === "Completed" && !run.finishedGoodsProductId) {
-      setStatusDraft("Completed");
-      setShowCreateSku(true);
-      if (!skuDefaults && !loadingDefaults) {
-        void loadSkuDefaults();
+      setStatusDraft(null);
+      setShowCreateSku(false);
+      setSkuDefaults(null);
+
+      try {
+        const updated = await patchProductionRun(run.id, { status });
+        setRun(updated);
+      } catch (err) {
+        setStatusError(getApiErrorMessage(err, "Failed to update status."));
       }
       return;
     }

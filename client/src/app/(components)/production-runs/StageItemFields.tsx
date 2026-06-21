@@ -231,7 +231,7 @@ export function CastingFields({
       await onPatch({ castingReceived: true });
       setDraft((d) => ({ ...d, castingReceived: true }));
       setRowSuccess(
-        "Casting received. Raw metal/stone deducted from Raw Inventory. Finished jewellery SKU is added to Inventory when the full run is completed.",
+        "Casting received. Raw metal/stone deducted from Raw Inventory. Finished jewellery is added to Inventory when the run completes.",
       );
       setConfirmCastingOpen(false);
     } catch (patchErr) {

@@ -1,6 +1,10 @@
 import { ProductionRunStatusEnum } from "@prisma/client";
 import { prisma } from "../db.js";
 import { ProductionRunError } from "./errors.js";
+import {
+  finalizeProductionRunAfterTx,
+  finalizeProductionRunInTx,
+} from "./run-completion.js";
 import { CHECKOFF_STAGES, STAGE_WORKSHEET_CONFIG } from "./stage-config.js";
 import {
   nextProductionRunStage,
@@ -93,7 +97,15 @@ export const completeProductionRunStage = async (
             : run.status,
       },
     });
+
+    if (isLast) {
+      await finalizeProductionRunInTx(tx, runId, actor);
+    }
   });
+
+  if (isLast) {
+    await finalizeProductionRunAfterTx(run.designId, run.setsOrdered);
+  }
 
   const logs = await listProductionRunStageLogs(runId);
   const updated = await prisma.productionRun.findUnique({ where: { id: runId } });

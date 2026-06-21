@@ -17,15 +17,18 @@ import {
 } from "../designs/validation.js";
 import { generateProductionRunNo } from "./run-no.js";
 import {
-  deductPendingRawMaterialForRunInTx,
   deductRawMaterialForItemInTx,
   validateLotSelectionForItem,
 } from "./raw-material.js";
-import { checkBulkStoneStock, deductBulkStonesForProductionRun } from "./bulk-stone-stock.js";
+import { checkBulkStoneStock } from "./bulk-stone-stock.js";
 import {
   buildFinishedGoodsFromRun,
-  createFinishedGoodsInTx,
 } from "./finished-goods.js";
+import {
+  ensureCompletedRunInventory,
+  finalizeProductionRunAfterTx,
+  finalizeProductionRunInTx,
+} from "./run-completion.js";
 import { ProductionRunError } from "./errors.js";
 import {
   expectedElementWeight,
@@ -217,7 +220,31 @@ const toProductionRun = (run: {
   };
 };
 
+export const syncCompletedRunsInventory = async (
+  actor: { id: string; name: string },
+): Promise<number> => {
+  const runs = await prisma.productionRun.findMany({
+    where: {
+      status: "Completed",
+      finishedGoodsProductId: null,
+    },
+    select: { id: true },
+  });
+
+  let synced = 0;
+  for (const run of runs) {
+    const didSync = await ensureCompletedRunInventory(run.id, actor);
+    if (didSync) synced += 1;
+  }
+  return synced;
+};
+
 export const listProductionRuns = async (): Promise<ProductionRun[]> => {
+  await syncCompletedRunsInventory({
+    id: "system",
+    name: "Production completion sync",
+  });
+
   const runs = await prisma.productionRun.findMany({
     include: runInclude,
     orderBy: { createdAt: "desc" },
@@ -226,11 +253,22 @@ export const listProductionRuns = async (): Promise<ProductionRun[]> => {
 };
 
 export const getProductionRun = async (id: string): Promise<ProductionRun> => {
-  const run = await prisma.productionRun.findUnique({
+  let run = await prisma.productionRun.findUnique({
     where: { id },
     include: runInclude,
   });
   if (!run) throw new ProductionRunError("Production run not found.", 404);
+
+  if (run.status === "Completed" && !run.finishedGoodsProductId) {
+    await ensureCompletedRunInventory(id, {
+      id: "system",
+      name: "Production completion sync",
+    });
+    run = await prisma.productionRun.findUniqueOrThrow({
+      where: { id },
+      include: runInclude,
+    });
+  }
 
   const needsImageBackfill = run.items.some(
     (item) => !item.imageUrl || !item.motifId,
@@ -460,12 +498,7 @@ export const updateProductionRun = async (
     input.status === "Completed" &&
     existing.status !== ProductionRunStatusEnum.Completed;
 
-  if (completingRun && input.createFinishedGoods) {
-    if (!input.finishedGoods) {
-      throw new ProductionRunError(
-        "Finished goods details are required when creating inventory on completion.",
-      );
-    }
+  if (completingRun && input.finishedGoods) {
     validateFinishedGoodsInput(input.finishedGoods);
 
     const runForPricing = await prisma.productionRun.findUnique({
@@ -546,39 +579,17 @@ export const updateProductionRun = async (
     }
 
     if (completingRun) {
-      const runWithItems = await tx.productionRun.findUniqueOrThrow({
-        where: { id },
-        include: { items: true },
-      });
-      await deductPendingRawMaterialForRunInTx(
+      await finalizeProductionRunInTx(
         tx,
-        {
-          id: runWithItems.id,
-          runNo: runWithItems.runNo,
-          branchId: runWithItems.branchId,
-          items: runWithItems.items,
-        },
+        id,
         actor,
+        input.finishedGoods,
       );
-
-      if (input.createFinishedGoods && input.finishedGoods) {
-        await createFinishedGoodsInTx(
-          tx,
-          {
-            id: runWithItems.id,
-            runNo: runWithItems.runNo,
-            branchId: runWithItems.branchId,
-            setsOrdered: runWithItems.setsOrdered,
-            finishedGoodsProductId: runWithItems.finishedGoodsProductId,
-          },
-          input.finishedGoods,
-        );
-      }
     }
   });
 
   if (completingRun) {
-    await deductBulkStonesForProductionRun(existing.designId, existing.setsOrdered);
+    await finalizeProductionRunAfterTx(existing.designId, existing.setsOrdered);
   }
 
   return getProductionRun(id);
