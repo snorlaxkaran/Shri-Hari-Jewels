@@ -20,6 +20,7 @@ import { syncProductStockInTx } from "./stock-sync.js";
 import { recordInventoryAudit } from "./audit.js";
 import { DEFAULT_BRANCH_ID } from "../branches/constants.js";
 import { moneyToNumber, sumMoney } from "../money.js";
+import { repairCompletedRunInventorySkus } from "../production-runs/run-completion.js";
 
 const productInclude = {
   units: {
@@ -32,6 +33,8 @@ const productInclude = {
 export const listProducts = async (
   branchId?: string,
 ): Promise<InventoryItem[]> => {
+  await repairCompletedRunInventorySkus();
+
   const stockBranchId = branchId ?? DEFAULT_BRANCH_ID;
   const products = await prisma.product.findMany({
     where: branchId ? { units: { some: { branchId } } } : undefined,

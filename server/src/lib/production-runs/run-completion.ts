@@ -6,6 +6,7 @@ import { ProductionRunError } from "./errors.js";
 import {
   buildFinishedGoodsFromRun,
   createFinishedGoodsInTx,
+  repairProductSkuFromDesignInTx,
 } from "./finished-goods.js";
 import { deductPendingRawMaterialForRunInTx } from "./raw-material.js";
 
@@ -101,7 +102,10 @@ export const finalizeProductionRunInTx = async (
 ): Promise<void> => {
   const run = await tx.productionRun.findUniqueOrThrow({
     where: { id: runId },
-    include: { items: true },
+    include: {
+      items: true,
+      design: { select: { code: true } },
+    },
   });
 
   await deductPendingRawMaterialForRunInTx(
@@ -125,6 +129,7 @@ export const finalizeProductionRunInTx = async (
         runNo: run.runNo,
         branchId: run.branchId,
         setsOrdered: run.setsOrdered,
+        designCode: run.design.code,
         finishedGoodsProductId: run.finishedGoodsProductId,
       },
       input,
@@ -161,4 +166,30 @@ export const ensureCompletedRunInventory = async (
     await finalizeProductionRunInTx(tx, runId, actor);
   });
   return true;
+};
+
+export const repairCompletedRunInventorySkus = async (): Promise<number> => {
+  const runs = await prisma.productionRun.findMany({
+    where: { finishedGoodsProductId: { not: null } },
+    select: {
+      finishedGoodsProductId: true,
+      design: { select: { code: true } },
+    },
+  });
+
+  let repaired = 0;
+  for (const run of runs) {
+    if (!run.finishedGoodsProductId) continue;
+
+    const didRepair = await prisma.$transaction(async (tx) =>
+      repairProductSkuFromDesignInTx(
+        tx,
+        run.finishedGoodsProductId!,
+        run.design.code,
+      ),
+    );
+    if (didRepair) repaired += 1;
+  }
+
+  return repaired;
 };

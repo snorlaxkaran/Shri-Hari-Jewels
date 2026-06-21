@@ -847,6 +847,7 @@ export type FinishedGoodsDefaults = FinishedGoodsInput & {
   quantity: number;
   runNo: string;
   designCode: string;
+  sku: string;
   priceBreakdown?: JewelryPriceBreakdown;
 };
 

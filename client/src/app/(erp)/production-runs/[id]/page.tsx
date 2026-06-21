@@ -596,6 +596,15 @@ function CreateSkuSection({
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
+          <label className={labelClass}>SKU (from design)</label>
+          <input
+            value={defaults.sku || defaults.designCode}
+            readOnly
+            className={`${inputClass} bg-zinc-50 text-zinc-700`}
+          />
+        </div>
+
+        <div>
           <label className={labelClass}>Product name *</label>
           <input
             value={name}

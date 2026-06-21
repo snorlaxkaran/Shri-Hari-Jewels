@@ -61,11 +61,14 @@ export const getNextUnitNumber = (
   sku: string,
 ): number => {
   let max = 0;
+  const prefix = `${sku}-`;
 
   for (const code of existingUnitCodes) {
-    const match = code.match(UNIT_CODE_PATTERN);
-    if (match && match[1] === sku) {
-      max = Math.max(max, parseInt(match[2], 10));
+    if (!code.startsWith(prefix)) continue;
+    const suffix = code.slice(prefix.length);
+    const num = parseInt(suffix, 10);
+    if (!Number.isNaN(num) && suffix === String(num).padStart(3, "0")) {
+      max = Math.max(max, num);
     }
   }
 

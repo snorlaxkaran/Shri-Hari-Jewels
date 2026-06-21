@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { CATEGORY_COLORS, type ProductCategory } from "../inventory/categories.js";
-import { generateSku, generateUnitCodes } from "../inventory/sku.js";
+import { generateUnitCodes } from "../inventory/sku.js";
 import { getStockStatus } from "../inventory/status.js";
 import { syncProductStockInTx } from "../inventory/stock-sync.js";
 import { moneyToNumber } from "../money.js";
@@ -39,6 +39,9 @@ export const mapDesignCategoryToProduct = (
   return DESIGN_TO_PRODUCT_CATEGORY[designCategory] ?? "Others";
 };
 
+export const normalizeDesignSku = (designCode: string): string =>
+  designCode.trim().toUpperCase();
+
 type RunForPricing = {
   setsOrdered: number;
   design: {
@@ -70,6 +73,7 @@ export const buildFinishedGoodsFromRun = (
     currentRate: { toString(): string } | number;
   }>,
 ): {
+  sku: string;
   name: string;
   category: ProductCategory;
   quantity: number;
@@ -121,6 +125,7 @@ export const buildFinishedGoodsFromRun = (
   });
 
   return {
+    sku: normalizeDesignSku(run.design.code),
     name: run.design.name?.trim() || run.design.code,
     category: mapDesignCategoryToProduct(run.design.category),
     quantity: run.setsOrdered,
@@ -137,6 +142,31 @@ export const buildFinishedGoodsFromRun = (
 
 export const buildFinishedGoodsDefaults = buildFinishedGoodsFromRun;
 
+const addUnitsToExistingProductInTx = async (
+  tx: TransactionClient,
+  productId: string,
+  branchId: string,
+  sku: string,
+  quantity: number,
+): Promise<void> => {
+  const allUnits = await tx.inventoryUnit.findMany({
+    select: { itemCode: true },
+  });
+  const existingUnitCodes = allUnits.map((unit) => unit.itemCode);
+  const unitCodes = generateUnitCodes(sku, quantity, existingUnitCodes);
+
+  await tx.inventoryUnit.createMany({
+    data: unitCodes.map((itemCode) => ({
+      branchId,
+      itemCode,
+      productId,
+      status: "Available",
+    })),
+  });
+
+  await syncProductStockInTx(tx, productId);
+};
+
 export const createFinishedGoodsInTx = async (
   tx: TransactionClient,
   run: {
@@ -144,6 +174,7 @@ export const createFinishedGoodsInTx = async (
     runNo: string;
     branchId: string;
     setsOrdered: number;
+    designCode: string;
     finishedGoodsProductId: string | null;
   },
   input: FinishedGoodsInput,
@@ -156,21 +187,41 @@ export const createFinishedGoodsInTx = async (
 
   const category = input.category as ProductCategory;
   const quantity = run.setsOrdered;
+  const sku = normalizeDesignSku(run.designCode);
 
-  const existing = await tx.product.findMany({
-    where: { branchId: run.branchId },
-    select: {
-      sku: true,
-      units: { select: { itemCode: true } },
-    },
+  const allUnits = await tx.inventoryUnit.findMany({
+    select: { itemCode: true },
+  });
+  const existingUnitCodes = allUnits.map((unit) => unit.itemCode);
+
+  const existingProduct = await tx.product.findUnique({
+    where: { sku },
+    select: { id: true, branchId: true, productionRunId: true },
   });
 
-  const existingSkus = existing.map((p) => p.sku);
-  const existingUnitCodes = existing.flatMap((p) =>
-    p.units.map((u) => u.itemCode),
-  );
+  if (existingProduct) {
+    if (existingProduct.branchId !== run.branchId) {
+      throw new ProductionRunError(
+        `SKU ${sku} already exists in another branch.`,
+      );
+    }
 
-  const sku = generateSku(existingSkus, category);
+    await addUnitsToExistingProductInTx(
+      tx,
+      existingProduct.id,
+      run.branchId,
+      sku,
+      quantity,
+    );
+
+    await tx.productionRun.update({
+      where: { id: run.id },
+      data: { finishedGoodsProductId: existingProduct.id },
+    });
+
+    return existingProduct.id;
+  }
+
   const unitCodes = generateUnitCodes(sku, quantity, existingUnitCodes);
 
   const product = await tx.product.create({
@@ -214,4 +265,61 @@ export const createFinishedGoodsInTx = async (
   });
 
   return product.id;
+};
+
+export const repairProductSkuFromDesignInTx = async (
+  tx: TransactionClient,
+  productId: string,
+  designCode: string,
+): Promise<boolean> => {
+  const expectedSku = normalizeDesignSku(designCode);
+  const product = await tx.product.findUnique({
+    where: { id: productId },
+    include: {
+      units: { orderBy: { createdAt: "asc" } },
+    },
+  });
+  if (!product || product.sku === expectedSku) {
+    return false;
+  }
+
+  const conflicting = await tx.product.findUnique({
+    where: { sku: expectedSku },
+    select: { id: true },
+  });
+  if (conflicting && conflicting.id !== productId) {
+    return false;
+  }
+
+  const oldSku = product.sku;
+  await tx.product.update({
+    where: { id: productId },
+    data: { sku: expectedSku },
+  });
+
+  const otherUnitCodes = (
+    await tx.inventoryUnit.findMany({
+      where: { productId: { not: productId } },
+      select: { itemCode: true },
+    })
+  ).map((unit) => unit.itemCode);
+
+  const newCodes = generateUnitCodes(
+    expectedSku,
+    product.units.length,
+    otherUnitCodes,
+  );
+
+  for (let index = 0; index < product.units.length; index++) {
+    const unit = product.units[index];
+    const newItemCode = newCodes[index];
+    if (unit.itemCode === newItemCode) continue;
+
+    await tx.inventoryUnit.update({
+      where: { id: unit.id },
+      data: { itemCode: newItemCode },
+    });
+  }
+
+  return oldSku !== expectedSku;
 };

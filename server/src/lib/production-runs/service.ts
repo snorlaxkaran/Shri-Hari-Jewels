@@ -28,6 +28,7 @@ import {
   ensureCompletedRunInventory,
   finalizeProductionRunAfterTx,
   finalizeProductionRunInTx,
+  repairCompletedRunInventorySkus,
 } from "./run-completion.js";
 import { ProductionRunError } from "./errors.js";
 import {
@@ -223,6 +224,8 @@ const toProductionRun = (run: {
 export const syncCompletedRunsInventory = async (
   actor: { id: string; name: string },
 ): Promise<number> => {
+  await repairCompletedRunInventorySkus();
+
   const runs = await prisma.productionRun.findMany({
     where: {
       status: "Completed",
@@ -439,6 +442,7 @@ export const getFinishedGoodsDefaults = async (
     quantity: calculated.quantity,
     runNo: run.runNo,
     designCode: run.design.code,
+    sku: calculated.sku,
     priceBreakdown: calculated.priceBreakdown,
   };
 };
