@@ -477,6 +477,9 @@ model ProductionRunItem {
   metalWeightGrams    Float?
   rawMaterialDeducted Boolean   @default(false)
   sortOrder           Int       @default(0)
+  motifId             String?
+  imageUrl            String?   @db.Text
+  stageCheckoffs      Json      @default("{}")
 
   productionRun ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: Cascade)
 

@@ -1,6 +1,7 @@
 import { ProductionRunStatusEnum } from "@prisma/client";
 import { prisma } from "../db.js";
 import { ProductionRunError } from "./errors.js";
+import { CHECKOFF_STAGES, STAGE_WORKSHEET_CONFIG } from "./stage-config.js";
 import {
   nextProductionRunStage,
   toApiProductionRunStage,
@@ -102,6 +103,19 @@ export const completeProductionRunStage = async (
   };
 };
 
+const parseStageCheckoffs = (
+  value: unknown,
+): Partial<Record<ProductionRunStage, boolean>> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out: Partial<Record<ProductionRunStage, boolean>> = {};
+  for (const [key, done] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof done === "boolean") {
+      out[key as ProductionRunStage] = done;
+    }
+  }
+  return out;
+};
+
 const validateStageComplete = (
   run: {
     items: Array<{
@@ -110,19 +124,21 @@ const validateStageComplete = (
       castingReceived: boolean;
       czStones: number | null;
       czWeight: number | null;
+      stageCheckoffs?: unknown;
     }>;
   },
   stage: ProductionRunStage,
 ): void => {
   switch (stage) {
     case "Wax Pattern": {
-      const castingItems = run.items.filter((i) => i.elementType === "Casting");
+      if (run.items.length === 0) break;
+      const needsWax = run.items.filter((i) => i.elementType !== "Stone");
       if (
-        castingItems.length > 0 &&
-        castingItems.some((i) => i.waxCount == null || i.waxCount < 0)
+        needsWax.length > 0 &&
+        needsWax.some((i) => i.waxCount == null || i.waxCount < 0)
       ) {
         throw new ProductionRunError(
-          "Enter wax mould counts for all casting elements before continuing.",
+          "Enter wax mould counts for all elements before continuing.",
         );
       }
       break;
@@ -153,8 +169,21 @@ const validateStageComplete = (
       }
       break;
     }
-    default:
+    default: {
+      if (!CHECKOFF_STAGES.includes(stage)) break;
+      const config = STAGE_WORKSHEET_CONFIG[stage];
+      if (config.mode !== "checkoff" || !config.checkoffStage) break;
+      if (
+        run.items.some(
+          (item) => !parseStageCheckoffs(item.stageCheckoffs)[config.checkoffStage!],
+        )
+      ) {
+        throw new ProductionRunError(
+          `Mark all elements complete for ${stage} before continuing.`,
+        );
+      }
       break;
+    }
   }
 };
 

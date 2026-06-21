@@ -81,7 +81,7 @@ export default function ProductionRunWizardShell({
         })}
       </nav>
 
-      <div className="max-w-4xl">{children}</div>
+      <div className="max-w-6xl">{children}</div>
     </div>
   );
 }

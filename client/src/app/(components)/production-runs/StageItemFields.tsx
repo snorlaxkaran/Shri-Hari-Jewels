@@ -1,0 +1,392 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type {
+  MetalLot,
+  ProductionRunItem,
+  ProductionRunStage,
+  StoneLot,
+  UpdateProductionRunItemInput,
+} from "@/lib/types";
+import {
+  expectedElementWeight,
+  weightMismatchMessage,
+  weightsMatch,
+} from "@/lib/weight-reconciliation";
+import { getApiErrorMessage } from "@/lib/api/client";
+import { isItemStageDone } from "@/lib/production-runs/item-helpers";
+
+const inputClass = "input-field w-full px-3 py-2 text-sm";
+const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
+
+type PatchHandler = (input: UpdateProductionRunItemInput) => Promise<void>;
+
+export function WaxPatternFields({
+  item,
+  canEdit,
+  onPatch,
+}: {
+  item: ProductionRunItem;
+  canEdit: boolean;
+  onPatch: PatchHandler;
+}) {
+  const [waxCount, setWaxCount] = useState(
+    item.waxCount !== undefined ? String(item.waxCount) : "",
+  );
+  const [productionDate, setProductionDate] = useState(
+    item.productionDate ? item.productionDate.slice(0, 10) : "",
+  );
+
+  useEffect(() => {
+    setWaxCount(item.waxCount !== undefined ? String(item.waxCount) : "");
+    setProductionDate(item.productionDate ? item.productionDate.slice(0, 10) : "");
+  }, [item.waxCount, item.productionDate]);
+
+  const handleWaxBlur = () => {
+    const current = item.waxCount !== undefined ? String(item.waxCount) : "";
+    if (waxCount === current) return;
+    const parsed = waxCount === "" ? null : parseInt(waxCount, 10);
+    if (waxCount !== "" && (parsed === null || Number.isNaN(parsed))) return;
+    void onPatch({ waxCount: parsed });
+  };
+
+  const handleDateBlur = () => {
+    const current = item.productionDate?.slice(0, 10) ?? "";
+    if (productionDate === current) return;
+    void onPatch({ productionDate: productionDate || null });
+  };
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label className={labelClass}>Wax moulds</label>
+        <input
+          type="number"
+          min={0}
+          value={waxCount}
+          onChange={(e) => setWaxCount(e.target.value)}
+          onBlur={handleWaxBlur}
+          disabled={!canEdit}
+          className={inputClass}
+          placeholder="Enter count"
+        />
+      </div>
+      <div>
+        <label className={labelClass}>Production date</label>
+        <input
+          type="date"
+          value={productionDate}
+          onChange={(e) => setProductionDate(e.target.value)}
+          onBlur={handleDateBlur}
+          disabled={!canEdit}
+          className={inputClass}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function CastingFields({
+  item,
+  canEdit,
+  metalLots,
+  stoneLots,
+  onPatch,
+}: {
+  item: ProductionRunItem;
+  canEdit: boolean;
+  metalLots: MetalLot[];
+  stoneLots: StoneLot[];
+  onPatch: PatchHandler;
+}) {
+  const isCastingElement = item.elementType === "Casting";
+  const needsMetalLot = isCastingElement;
+  const needsStoneLot =
+    item.elementType === "Stone" || item.elementType === "Motif";
+
+  const [draft, setDraft] = useState({
+    metalLotId: item.metalLotId ?? "",
+    stoneLotId: item.stoneLotId ?? "",
+    metalWeightGrams:
+      item.metalWeightGrams !== undefined ? String(item.metalWeightGrams) : "",
+    castingReceived: item.castingReceived,
+  });
+  const [metalWeightOverrideNote, setMetalWeightOverrideNote] = useState("");
+  const [rowError, setRowError] = useState("");
+
+  useEffect(() => {
+    setDraft({
+      metalLotId: item.metalLotId ?? "",
+      stoneLotId: item.stoneLotId ?? "",
+      metalWeightGrams:
+        item.metalWeightGrams !== undefined ? String(item.metalWeightGrams) : "",
+      castingReceived: item.castingReceived,
+    });
+  }, [item]);
+
+  const expectedCastingWeight = expectedElementWeight(
+    item.weightGramsPerPc,
+    item.qtyPerSet,
+  );
+  const parsedMetalWeight =
+    draft.metalWeightGrams === "" ? null : parseFloat(draft.metalWeightGrams);
+
+  const saveField = async (
+    field: keyof UpdateProductionRunItemInput,
+    value: UpdateProductionRunItemInput[keyof UpdateProductionRunItemInput],
+    extra?: Pick<UpdateProductionRunItemInput, "metalWeightOverrideNote">,
+  ) => {
+    setRowError("");
+    try {
+      await onPatch({ [field]: value, ...extra });
+    } catch (err) {
+      setRowError(getApiErrorMessage(err, "Failed to save."));
+    }
+  };
+
+  const handleMetalWeightBlur = () => {
+    const raw = draft.metalWeightGrams;
+    const current =
+      item.metalWeightGrams !== undefined ? String(item.metalWeightGrams) : "";
+    if (raw === current) return;
+    const parsed = raw === "" ? null : parseFloat(raw);
+    if (raw !== "" && (parsed === null || Number.isNaN(parsed))) return;
+
+    if (
+      parsed !== null &&
+      !weightsMatch(parsed, expectedCastingWeight) &&
+      !metalWeightOverrideNote.trim()
+    ) {
+      setRowError(
+        weightMismatchMessage(
+          parsed,
+          expectedCastingWeight,
+          `Casting weight for "${item.elementName}"`,
+        ),
+      );
+      return;
+    }
+
+    void saveField("metalWeightGrams", parsed, {
+      metalWeightOverrideNote: metalWeightOverrideNote.trim() || undefined,
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      {needsMetalLot && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>Metal lot</label>
+            <select
+              value={draft.metalLotId}
+              onChange={(e) => {
+                setDraft((d) => ({ ...d, metalLotId: e.target.value }));
+                void saveField("metalLotId", e.target.value || null);
+              }}
+              disabled={!canEdit || item.rawMaterialDeducted}
+              className={inputClass}
+            >
+              <option value="">Select metal lot…</option>
+              {metalLots.map((lot) => (
+                <option key={lot.id} value={lot.id}>
+                  {lot.lotNumber} ({lot.weightGrams}g)
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>
+              Metal weight (g)
+              {expectedCastingWeight > 0 && (
+                <span className="text-zinc-400 font-normal ml-1">
+                  — design: {expectedCastingWeight.toFixed(2)}g
+                </span>
+              )}
+            </label>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={draft.metalWeightGrams}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, metalWeightGrams: e.target.value }))
+              }
+              onBlur={handleMetalWeightBlur}
+              disabled={!canEdit || item.rawMaterialDeducted}
+              className={inputClass}
+            />
+            {parsedMetalWeight !== null &&
+              !weightsMatch(parsedMetalWeight, expectedCastingWeight) && (
+                <textarea
+                  value={metalWeightOverrideNote}
+                  onChange={(e) => setMetalWeightOverrideNote(e.target.value)}
+                  className={`${inputClass} min-h-[60px] text-xs mt-2`}
+                  placeholder="Reason for weight difference…"
+                />
+              )}
+          </div>
+        </div>
+      )}
+
+      {needsStoneLot && (
+        <div>
+          <label className={labelClass}>Stone lot</label>
+          <select
+            value={draft.stoneLotId}
+            onChange={(e) => {
+              setDraft((d) => ({ ...d, stoneLotId: e.target.value }));
+              void saveField("stoneLotId", e.target.value || null);
+            }}
+            disabled={!canEdit || item.rawMaterialDeducted}
+            className={inputClass}
+          >
+            <option value="">Select stone lot…</option>
+            {stoneLots
+              .filter((lot) => lot.status === "In Stock")
+              .map((lot) => (
+                <option key={lot.id} value={lot.id}>
+                  {lot.certificateNumber} ({lot.carat}ct)
+                </option>
+              ))}
+          </select>
+        </div>
+      )}
+
+      {isCastingElement && (
+        <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <input
+            type="checkbox"
+            checked={draft.castingReceived}
+            onChange={(e) => {
+              setDraft((d) => ({ ...d, castingReceived: e.target.checked }));
+              void saveField("castingReceived", e.target.checked);
+            }}
+            disabled={!canEdit || item.rawMaterialDeducted}
+            className="h-4 w-4 rounded border-zinc-300"
+          />
+          Casting received
+        </label>
+      )}
+
+      {!isCastingElement && !needsStoneLot && (
+        <p className="text-xs text-zinc-400">
+          No casting input required for this element.
+        </p>
+      )}
+
+      {rowError && <p className="text-xs text-red-500">{rowError}</p>}
+    </div>
+  );
+}
+
+export function StoneSettingFields({
+  item,
+  canEdit,
+  onPatch,
+}: {
+  item: ProductionRunItem;
+  canEdit: boolean;
+  onPatch: PatchHandler;
+}) {
+  const [czStones, setCzStones] = useState(
+    item.czStones !== undefined ? String(item.czStones) : "",
+  );
+  const [czWeight, setCzWeight] = useState(
+    item.czWeight !== undefined ? String(item.czWeight) : "",
+  );
+
+  useEffect(() => {
+    setCzStones(item.czStones !== undefined ? String(item.czStones) : "");
+    setCzWeight(item.czWeight !== undefined ? String(item.czWeight) : "");
+  }, [item.czStones, item.czWeight]);
+
+  const handleBlur = (field: "czStones" | "czWeight") => {
+    const raw = field === "czStones" ? czStones : czWeight;
+    const current = item[field] !== undefined ? String(item[field]) : "";
+    if (raw === current) return;
+    const parsed =
+      raw === "" ? null : field === "czWeight" ? parseFloat(raw) : parseInt(raw, 10);
+    if (raw !== "" && (parsed === null || Number.isNaN(parsed))) return;
+    void onPatch({ [field]: parsed });
+  };
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div>
+        <label className={labelClass}>CZ stones</label>
+        <input
+          type="number"
+          min={0}
+          value={czStones}
+          onChange={(e) => setCzStones(e.target.value)}
+          onBlur={() => handleBlur("czStones")}
+          disabled={!canEdit}
+          className={inputClass}
+        />
+      </div>
+      <div>
+        <label className={labelClass}>CZ weight (ct)</label>
+        <input
+          type="number"
+          min={0}
+          step={0.01}
+          value={czWeight}
+          onChange={(e) => setCzWeight(e.target.value)}
+          onBlur={() => handleBlur("czWeight")}
+          disabled={!canEdit}
+          className={inputClass}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function StageCheckoffField({
+  item,
+  stage,
+  checkoffStage,
+  canEdit,
+  onPatch,
+}: {
+  item: ProductionRunItem;
+  stage: ProductionRunStage;
+  checkoffStage: ProductionRunStage;
+  canEdit: boolean;
+  onPatch: PatchHandler;
+}) {
+  const [rowError, setRowError] = useState("");
+  const done = isItemStageDone(item, checkoffStage);
+
+  const handleToggle = async (checked: boolean) => {
+    setRowError("");
+    try {
+      await onPatch({
+        stageCheckoffs: {
+          ...(item.stageCheckoffs ?? {}),
+          [checkoffStage]: checked,
+        },
+      });
+    } catch (err) {
+      setRowError(getApiErrorMessage(err, "Failed to save."));
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="flex items-start gap-3 text-sm text-zinc-700">
+        <input
+          type="checkbox"
+          checked={done}
+          onChange={(e) => void handleToggle(e.target.checked)}
+          disabled={!canEdit}
+          className="h-4 w-4 mt-0.5 rounded border-zinc-300"
+        />
+        <span>
+          Mark <strong>{item.elementName}</strong> complete for {stage}
+        </span>
+      </label>
+      {rowError && <p className="text-xs text-red-500">{rowError}</p>}
+    </div>
+  );
+}

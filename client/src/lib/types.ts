@@ -756,6 +756,16 @@ export type ProductionRunItem = {
   metalWeightGrams?: number;
   rawMaterialDeducted: boolean;
   sortOrder: number;
+  motifId?: string;
+  imageUrl?: string;
+  stageCheckoffs?: Partial<Record<ProductionRunStage, boolean>>;
+};
+
+export type ProductionRunDesignPhotos = {
+  cadFileUrl?: string;
+  moldPhotoUrl?: string;
+  finishedPhotoUrl?: string;
+  finishedPhotoUrls?: string[];
 };
 
 export type ProductionRun = {
@@ -765,6 +775,9 @@ export type ProductionRun = {
   designCode: string;
   designName?: string;
   designCategory?: string;
+  designMetal?: string;
+  designPurity?: string;
+  designPhotos?: ProductionRunDesignPhotos;
   setsOrdered: number;
   status: ProductionRunStatus;
   currentStage: ProductionRunStage;
@@ -841,6 +854,7 @@ export type UpdateProductionRunItemInput = {
   stoneLotId?: string | null;
   metalWeightGrams?: number | null;
   metalWeightOverrideNote?: string;
+  stageCheckoffs?: Partial<Record<ProductionRunStage, boolean>>;
 };
 
 export type RecordSaleResult = {

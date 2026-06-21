@@ -92,4 +92,4 @@ export const canManageProductionRuns = (role: UserRole): boolean =>
   role === "Admin" || role === "ProductionManager";
 
 export const canUpdateProductionRunItems = (role: UserRole): boolean =>
-  role === "Admin" || role === "ProductionManager";
+  role === "Admin" || role === "ProductionManager" || role === "Karigar";

@@ -5,12 +5,18 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import ConfirmDialog from "@/app/(components)/ConfirmDialog";
+import DesignReferenceStrip from "@/app/(components)/production-runs/DesignReferenceStrip";
+import ProductionRunElementCard from "@/app/(components)/production-runs/ProductionRunElementCard";
 import ProductionRunWizardShell from "@/app/(components)/production-runs/ProductionRunWizardShell";
-import { useAuth } from "@/lib/auth/auth-context";
+import StageWorksheetToolbar from "@/app/(components)/production-runs/StageWorksheetToolbar";
 import {
-  canManageProductionRuns,
-  canUpdateProductionRunItems,
-} from "@/lib/auth/permissions";
+  CastingFields,
+  StageCheckoffField,
+  StoneSettingFields,
+  WaxPatternFields,
+} from "@/app/(components)/production-runs/StageItemFields";
+import { useAuth } from "@/lib/auth/auth-context";
+import { canUpdateProductionRunItems } from "@/lib/auth/permissions";
 import { useProductionRuns } from "@/lib/production-runs/production-runs-context";
 import {
   completeProductionRunStage,
@@ -19,21 +25,23 @@ import {
 } from "@/lib/api/production-runs";
 import { fetchMetalLots, fetchStoneLots } from "@/lib/api/raw-inventory";
 import {
+  getStageItems,
+  getStageProgress,
+  isItemStageDone,
+} from "@/lib/production-runs/item-helpers";
+import { getStageWorksheetConfig } from "@/lib/production-runs/stage-config";
+import {
   PRODUCTION_RUN_STEPS,
   slugToProductionRunStage,
   stageToProductionRunSlug,
   isProductionRunStepCurrent,
 } from "@/lib/production-runs/stages";
-import {
-  expectedElementWeight,
-  weightMismatchMessage,
-  weightsMatch,
-} from "@/lib/weight-reconciliation";
 import { getApiErrorMessage } from "@/lib/api/client";
 import type {
   MetalLot,
   ProductionRun,
   ProductionRunItem,
+  ProductionRunStage,
   StoneLot,
   UpdateProductionRunItemInput,
 } from "@/lib/types";
@@ -41,312 +49,67 @@ import type {
 const inputClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
 
-function WaxPatternFields({
-  item,
-  canEdit,
-  onPatch,
-}: {
-  item: ProductionRunItem;
-  canEdit: boolean;
-  onPatch: (input: UpdateProductionRunItemInput) => Promise<void>;
-}) {
-  const [waxCount, setWaxCount] = useState(
-    item.waxCount !== undefined ? String(item.waxCount) : "",
-  );
+function isItemDoneForStage(item: ProductionRunItem, stage: ProductionRunStage): boolean {
+  const config = getStageWorksheetConfig(stage);
+  if (config.mode === "wax") {
+    return item.elementType === "Stone"
+      ? true
+      : item.waxCount != null && item.waxCount >= 0;
+  }
+  if (config.mode === "casting") {
+    if (item.elementType === "Casting") return item.castingReceived;
+    return true;
+  }
+  if (config.mode === "stone-setting") {
+    return (
+      (item.czStones != null && item.czStones >= 0) ||
+      (item.czWeight != null && item.czWeight > 0)
+    );
+  }
+  if (config.mode === "checkoff" && config.checkoffStage) {
+    return isItemStageDone(item, config.checkoffStage);
+  }
+  return true;
+}
 
-  useEffect(() => {
-    setWaxCount(item.waxCount !== undefined ? String(item.waxCount) : "");
-  }, [item.waxCount]);
+function renderStageFields(
+  stage: ProductionRunStage,
+  item: ProductionRunItem,
+  canEdit: boolean,
+  metalLots: MetalLot[],
+  stoneLots: StoneLot[],
+  onPatch: (input: UpdateProductionRunItemInput) => Promise<void>,
+) {
+  const config = getStageWorksheetConfig(stage);
 
-  const handleBlur = () => {
-    const current = item.waxCount !== undefined ? String(item.waxCount) : "";
-    if (waxCount === current) return;
-    const parsed = waxCount === "" ? null : parseInt(waxCount, 10);
-    if (waxCount !== "" && (parsed === null || Number.isNaN(parsed))) return;
-    void onPatch({ waxCount: parsed });
-  };
-
-  return (
-    <div className="surface-card p-4 space-y-2">
-      <p className="font-medium text-zinc-900">{item.elementName}</p>
-      <p className="text-xs text-zinc-500">{item.elementType}</p>
-      <div>
-        <label className={labelClass}>Wax Moulds</label>
-        <input
-          type="number"
-          min={0}
-          value={waxCount}
-          onChange={(e) => setWaxCount(e.target.value)}
-          onBlur={handleBlur}
-          disabled={!canEdit}
-          className={inputClass}
+  switch (config.mode) {
+    case "wax":
+      return <WaxPatternFields item={item} canEdit={canEdit} onPatch={onPatch} />;
+    case "casting":
+      return (
+        <CastingFields
+          item={item}
+          canEdit={canEdit}
+          metalLots={metalLots}
+          stoneLots={stoneLots}
+          onPatch={onPatch}
         />
-      </div>
-    </div>
-  );
-}
-
-function CastingFields({
-  item,
-  canEdit,
-  metalLots,
-  stoneLots,
-  onPatch,
-}: {
-  item: ProductionRunItem;
-  canEdit: boolean;
-  metalLots: MetalLot[];
-  stoneLots: StoneLot[];
-  onPatch: (input: UpdateProductionRunItemInput) => Promise<void>;
-}) {
-  const isCastingElement = item.elementType === "Casting";
-  const needsMetalLot = isCastingElement;
-  const needsStoneLot =
-    item.elementType === "Stone" || item.elementType === "Motif";
-
-  const [draft, setDraft] = useState({
-    metalLotId: item.metalLotId ?? "",
-    stoneLotId: item.stoneLotId ?? "",
-    metalWeightGrams:
-      item.metalWeightGrams !== undefined ? String(item.metalWeightGrams) : "",
-    castingReceived: item.castingReceived,
-  });
-  const [metalWeightOverrideNote, setMetalWeightOverrideNote] = useState("");
-  const [rowError, setRowError] = useState("");
-
-  useEffect(() => {
-    setDraft({
-      metalLotId: item.metalLotId ?? "",
-      stoneLotId: item.stoneLotId ?? "",
-      metalWeightGrams:
-        item.metalWeightGrams !== undefined ? String(item.metalWeightGrams) : "",
-      castingReceived: item.castingReceived,
-    });
-  }, [item]);
-
-  const expectedCastingWeight = expectedElementWeight(
-    item.weightGramsPerPc,
-    item.qtyPerSet,
-  );
-  const parsedMetalWeight =
-    draft.metalWeightGrams === "" ? null : parseFloat(draft.metalWeightGrams);
-
-  const saveField = async (
-    field: keyof UpdateProductionRunItemInput,
-    value: UpdateProductionRunItemInput[keyof UpdateProductionRunItemInput],
-    extra?: Pick<UpdateProductionRunItemInput, "metalWeightOverrideNote">,
-  ) => {
-    setRowError("");
-    try {
-      await onPatch({ [field]: value, ...extra });
-    } catch (err) {
-      setRowError(getApiErrorMessage(err, "Failed to save."));
-    }
-  };
-
-  const handleMetalWeightBlur = () => {
-    const raw = draft.metalWeightGrams;
-    const current =
-      item.metalWeightGrams !== undefined ? String(item.metalWeightGrams) : "";
-    if (raw === current) return;
-    const parsed = raw === "" ? null : parseFloat(raw);
-    if (raw !== "" && (parsed === null || Number.isNaN(parsed))) return;
-
-    if (
-      parsed !== null &&
-      !weightsMatch(parsed, expectedCastingWeight) &&
-      !metalWeightOverrideNote.trim()
-    ) {
-      setRowError(
-        weightMismatchMessage(
-          parsed,
-          expectedCastingWeight,
-          `Casting weight for "${item.elementName}"`,
-        ),
       );
-      return;
-    }
-
-    void saveField("metalWeightGrams", parsed, {
-      metalWeightOverrideNote: metalWeightOverrideNote.trim() || undefined,
-    });
-  };
-
-  return (
-    <div className="surface-card p-4 space-y-3">
-      <p className="font-medium text-zinc-900">{item.elementName}</p>
-      <p className="text-xs text-zinc-500">{item.elementType}</p>
-
-      {needsMetalLot && canEdit && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className={labelClass}>Metal lot</label>
-            <select
-              value={draft.metalLotId}
-              onChange={(e) => {
-                setDraft((d) => ({ ...d, metalLotId: e.target.value }));
-                void saveField("metalLotId", e.target.value || null);
-              }}
-              disabled={item.rawMaterialDeducted}
-              className={inputClass}
-            >
-              <option value="">Select metal lot…</option>
-              {metalLots.map((lot) => (
-                <option key={lot.id} value={lot.id}>
-                  {lot.lotNumber} ({lot.weightGrams}g)
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>
-              Metal weight (g)
-              {expectedCastingWeight > 0 && (
-                <span className="text-zinc-400 font-normal ml-1">
-                  — design: {expectedCastingWeight.toFixed(2)}g
-                </span>
-              )}
-            </label>
-            <input
-              type="number"
-              min={0}
-              step={0.01}
-              value={draft.metalWeightGrams}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, metalWeightGrams: e.target.value }))
-              }
-              onBlur={handleMetalWeightBlur}
-              disabled={item.rawMaterialDeducted}
-              className={inputClass}
-            />
-            {parsedMetalWeight !== null &&
-              !weightsMatch(parsedMetalWeight, expectedCastingWeight) && (
-                <textarea
-                  value={metalWeightOverrideNote}
-                  onChange={(e) => setMetalWeightOverrideNote(e.target.value)}
-                  className={`${inputClass} min-h-[60px] text-xs mt-2`}
-                  placeholder="Reason for weight difference…"
-                />
-              )}
-          </div>
-        </div>
-      )}
-
-      {needsStoneLot && canEdit && (
-        <div>
-          <label className={labelClass}>Stone lot</label>
-          <select
-            value={draft.stoneLotId}
-            onChange={(e) => {
-              setDraft((d) => ({ ...d, stoneLotId: e.target.value }));
-              void saveField("stoneLotId", e.target.value || null);
-            }}
-            disabled={item.rawMaterialDeducted}
-            className={inputClass}
-          >
-            <option value="">Select stone lot…</option>
-            {stoneLots
-              .filter((lot) => lot.status === "In Stock")
-              .map((lot) => (
-                <option key={lot.id} value={lot.id}>
-                  {lot.certificateNumber} ({lot.carat}ct)
-                </option>
-              ))}
-          </select>
-        </div>
-      )}
-
-      {isCastingElement && (
-        <label className="flex items-center gap-2 text-sm text-zinc-700">
-          <input
-            type="checkbox"
-            checked={draft.castingReceived}
-            onChange={(e) => {
-              setDraft((d) => ({ ...d, castingReceived: e.target.checked }));
-              void saveField("castingReceived", e.target.checked);
-            }}
-            disabled={!canEdit || item.rawMaterialDeducted}
-            className="h-4 w-4 rounded border-zinc-300"
-          />
-          Casting Received
-        </label>
-      )}
-
-      {!isCastingElement && (
-        <p className="text-xs text-zinc-400">
-          No casting input required for this element.
-        </p>
-      )}
-
-      {rowError && <p className="text-xs text-red-500">{rowError}</p>}
-    </div>
-  );
-}
-
-function StoneSettingFields({
-  item,
-  canEdit,
-  onPatch,
-}: {
-  item: ProductionRunItem;
-  canEdit: boolean;
-  onPatch: (input: UpdateProductionRunItemInput) => Promise<void>;
-}) {
-  const [czStones, setCzStones] = useState(
-    item.czStones !== undefined ? String(item.czStones) : "",
-  );
-  const [czWeight, setCzWeight] = useState(
-    item.czWeight !== undefined ? String(item.czWeight) : "",
-  );
-
-  useEffect(() => {
-    setCzStones(item.czStones !== undefined ? String(item.czStones) : "");
-    setCzWeight(item.czWeight !== undefined ? String(item.czWeight) : "");
-  }, [item.czStones, item.czWeight]);
-
-  const handleBlur = (field: "czStones" | "czWeight") => {
-    const raw = field === "czStones" ? czStones : czWeight;
-    const current =
-      item[field] !== undefined ? String(item[field]) : "";
-    if (raw === current) return;
-    const parsed =
-      raw === "" ? null : field === "czWeight" ? parseFloat(raw) : parseInt(raw, 10);
-    if (raw !== "" && (parsed === null || Number.isNaN(parsed))) return;
-    void onPatch({ [field]: parsed });
-  };
-
-  return (
-    <div className="surface-card p-4 space-y-3">
-      <p className="font-medium text-zinc-900">{item.elementName}</p>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelClass}>CZ Stones</label>
-          <input
-            type="number"
-            min={0}
-            value={czStones}
-            onChange={(e) => setCzStones(e.target.value)}
-            onBlur={() => handleBlur("czStones")}
-            disabled={!canEdit}
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className={labelClass}>CZ Weight (ct)</label>
-          <input
-            type="number"
-            min={0}
-            step={0.01}
-            value={czWeight}
-            onChange={(e) => setCzWeight(e.target.value)}
-            onBlur={() => handleBlur("czWeight")}
-            disabled={!canEdit}
-            className={inputClass}
-          />
-        </div>
-      </div>
-    </div>
-  );
+    case "stone-setting":
+      return <StoneSettingFields item={item} canEdit={canEdit} onPatch={onPatch} />;
+    case "checkoff":
+      return (
+        <StageCheckoffField
+          item={item}
+          stage={stage}
+          checkoffStage={config.checkoffStage!}
+          canEdit={canEdit}
+          onPatch={onPatch}
+        />
+      );
+    default:
+      return null;
+  }
 }
 
 export default function ProductionRunStagePage() {
@@ -358,7 +121,6 @@ export default function ProductionRunStagePage() {
 
   const { user } = useAuth();
   const canEditItems = user ? canUpdateProductionRunItems(user.role) : false;
-  const canManage = user ? canManageProductionRuns(user.role) : false;
   const { refresh: refreshList } = useProductionRuns();
 
   const [run, setRun] = useState<ProductionRun | null>(null);
@@ -437,18 +199,21 @@ export default function ProductionRunStagePage() {
   };
 
   if (loading || !run || !stage) {
-    return loading ? <PageSkeleton /> : <p className="text-sm text-zinc-500">Invalid stage.</p>;
+    return loading ? (
+      <PageSkeleton />
+    ) : (
+      <p className="text-sm text-zinc-500">Invalid stage.</p>
+    );
   }
 
   const isCurrent = isProductionRunStepCurrent(run.currentStage, stage);
   const completedStages = run.stageLogs.map((l) => l.stage);
   const isDone = completedStages.includes(stage);
-
-  const stoneItems = run.items.filter(
-    (i) => i.elementType === "Stone" || i.elementType === "Motif",
-  );
-
+  const stageItems = getStageItems(run, stage);
+  const progress = getStageProgress(run, stage);
+  const worksheetConfig = getStageWorksheetConfig(stage);
   const stepMeta = PRODUCTION_RUN_STEPS.find((s) => s.slug === stageSlug);
+  const canEdit = canEditItems && isCurrent;
 
   return (
     <ProductionRunWizardShell run={run}>
@@ -458,73 +223,75 @@ export default function ProductionRunStagePage() {
         </div>
       )}
 
-      <div className="surface-card p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-zinc-900">{stepMeta?.label}</h2>
+      <DesignReferenceStrip photos={run.designPhotos} />
 
-        {stageSlug === "wax-pattern" && (
-          <div className="space-y-3">
-            {run.items.length === 0 ? (
-              <p className="text-sm text-zinc-500">No elements on this run.</p>
-            ) : (
-              run.items.map((item) => (
-                <WaxPatternFields
-                  key={item.id}
-                  item={item}
-                  canEdit={canEditItems && isCurrent}
-                  onPatch={(input) => patchItem(item.id, input)}
-                />
-              ))
-            )}
+      <div className="surface-card p-5 space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+          <div className="space-y-2">
+            <h2 className="text-base font-semibold text-zinc-900">{stepMeta?.label}</h2>
+            <p className="text-sm text-zinc-600">{worksheetConfig.instructions}</p>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="px-2 py-1 rounded-full bg-zinc-100 text-zinc-600">
+                {stageItems.length} element{stageItems.length !== 1 ? "s" : ""}
+              </span>
+              {worksheetConfig.mode === "checkoff" && (
+                <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-800">
+                  {progress.done}/{progress.total} checked off
+                </span>
+              )}
+              {run.designMetal && (
+                <span className="px-2 py-1 rounded-full bg-zinc-100 text-zinc-600">
+                  {run.designMetal} {run.designPurity ?? ""}
+                </span>
+              )}
+            </div>
           </div>
-        )}
+          <StageWorksheetToolbar run={run} stage={stage} />
+        </div>
 
-        {stageSlug === "casting" && (
-          <div className="space-y-3">
-            {run.items.map((item) => (
-              <CastingFields
+        {stageItems.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            No elements apply to this stage for this run.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {stageItems.map((item, index) => (
+              <ProductionRunElementCard
                 key={item.id}
                 item={item}
-                canEdit={canEditItems && isCurrent}
-                metalLots={metalLots}
-                stoneLots={stoneLots}
-                onPatch={(input) => patchItem(item.id, input)}
-              />
+                index={index}
+                done={isItemDoneForStage(item, stage)}
+              >
+                {renderStageFields(
+                  stage,
+                  item,
+                  canEdit,
+                  metalLots,
+                  stoneLots,
+                  (input) => patchItem(item.id, input),
+                )}
+              </ProductionRunElementCard>
             ))}
           </div>
         )}
 
-        {stageSlug === "stone-setting" && (
-          <div className="space-y-3">
-            {stoneItems.length === 0 ? (
-              <p className="text-sm text-zinc-500">No stone/motif elements on this run.</p>
-            ) : (
-              stoneItems.map((item) => (
-                <StoneSettingFields
-                  key={item.id}
-                  item={item}
-                  canEdit={canEditItems && isCurrent}
-                  onPatch={(input) => patchItem(item.id, input)}
-                />
-              ))
-            )}
-          </div>
-        )}
-
-        {!["wax-pattern", "casting", "stone-setting"].includes(stageSlug) && (
-          <p className="text-sm text-zinc-500">
-            Confirm this stage is complete when ready. Add optional notes below.
-          </p>
-        )}
-
         {isCurrent && canEditItems && (
           <div>
-            <label className={labelClass}>Notes (optional)</label>
+            <label className={labelClass}>Stage notes (optional)</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className={`${inputClass} min-h-[80px]`}
+              placeholder="Any issues, batch notes, or handover details for the next step…"
             />
           </div>
+        )}
+
+        {!canEditItems && isCurrent && (
+          <p className="text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
+            You can view this worksheet and download exports. Ask a production manager to
+            update fields if changes are needed.
+          </p>
         )}
 
         {isDone && !isCurrent && (

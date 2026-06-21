@@ -50,7 +50,19 @@ const toDbRunStatus = (
 };
 
 const runInclude = {
-  design: { select: { code: true, name: true, category: true } },
+  design: {
+    select: {
+      code: true,
+      name: true,
+      category: true,
+      metal: true,
+      purity: true,
+      cadFileUrl: true,
+      moldPhotoUrl: true,
+      finishedPhotoUrl: true,
+      finishedPhotoUrls: true,
+    },
+  },
   items: { orderBy: { sortOrder: "asc" as const } },
   stageLogs: { orderBy: { createdAt: "asc" as const } },
 };
@@ -73,6 +85,20 @@ const toStageLog = (row: {
   createdAt: row.createdAt.toISOString(),
 });
 
+const parseStageCheckoffs = (
+  value: unknown,
+): Partial<Record<import("../../types.js").ProductionRunStage, boolean>> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out: Partial<Record<import("../../types.js").ProductionRunStage, boolean>> =
+    {};
+  for (const [key, done] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof done === "boolean") {
+      out[key as import("../../types.js").ProductionRunStage] = done;
+    }
+  }
+  return out;
+};
+
 const toProductionRunItem = (item: {
   id: string;
   productionRunId: string;
@@ -92,6 +118,9 @@ const toProductionRunItem = (item: {
   metalWeightGrams: number | null;
   rawMaterialDeducted: boolean;
   sortOrder: number;
+  motifId?: string | null;
+  imageUrl?: string | null;
+  stageCheckoffs?: unknown;
 }): ProductionRunItem => ({
   id: item.id,
   productionRunId: item.productionRunId,
@@ -114,6 +143,9 @@ const toProductionRunItem = (item: {
   metalWeightGrams: item.metalWeightGrams ?? undefined,
   rawMaterialDeducted: item.rawMaterialDeducted,
   sortOrder: item.sortOrder,
+  motifId: item.motifId ?? undefined,
+  imageUrl: item.imageUrl ?? undefined,
+  stageCheckoffs: parseStageCheckoffs(item.stageCheckoffs),
 });
 
 const toProductionRun = (run: {
@@ -126,13 +158,28 @@ const toProductionRun = (run: {
   finishedGoodsProductId?: string | null;
   createdAt: Date;
   updatedAt: Date;
-  design?: { code: string; name: string | null; category: string | null };
+  design?: {
+    code: string;
+    name: string | null;
+    category: string | null;
+    metal?: string | null;
+    purity?: string | null;
+    cadFileUrl?: string | null;
+    moldPhotoUrl?: string | null;
+    finishedPhotoUrl?: string | null;
+    finishedPhotoUrls?: string[];
+  };
   items?: Array<Parameters<typeof toProductionRunItem>[0]>;
   stageLogs?: Array<Parameters<typeof toStageLog>[0]>;
   stoneStockWarnings?: import("../../types.js").BulkStoneStockWarning[];
 }): ProductionRun => {
   const items = (run.items ?? []).map(toProductionRunItem);
-  const castingsReceived = items.filter((i) => i.castingReceived).length;
+  const castingItems = items.filter((i) => i.elementType === "Casting");
+  const castingsReceived = castingItems.filter((i) => i.castingReceived).length;
+  const finishedPhotoUrls = [
+    ...(run.design?.finishedPhotoUrls ?? []),
+    ...(run.design?.finishedPhotoUrl ? [run.design.finishedPhotoUrl] : []),
+  ].filter((url, index, all) => url && all.indexOf(url) === index);
 
   return {
     id: run.id,
@@ -141,13 +188,27 @@ const toProductionRun = (run: {
     designCode: run.design?.code ?? "",
     designName: run.design?.name ?? undefined,
     designCategory: run.design?.category ?? undefined,
+    designMetal: run.design?.metal ?? undefined,
+    designPurity: run.design?.purity ?? undefined,
+    designPhotos:
+      run.design?.cadFileUrl ||
+      run.design?.moldPhotoUrl ||
+      finishedPhotoUrls.length
+        ? {
+            cadFileUrl: run.design?.cadFileUrl ?? undefined,
+            moldPhotoUrl: run.design?.moldPhotoUrl ?? undefined,
+            finishedPhotoUrl: run.design?.finishedPhotoUrl ?? undefined,
+            finishedPhotoUrls:
+              finishedPhotoUrls.length > 0 ? finishedPhotoUrls : undefined,
+          }
+        : undefined,
     setsOrdered: run.setsOrdered,
     status: run.status as ProductionRunStatus,
     currentStage: toApiProductionRunStage(run.currentStage),
     stageLogs: (run.stageLogs ?? []).map(toStageLog),
     items,
     castingsReceived,
-    castingsTotal: items.length,
+    castingsTotal: castingItems.length,
     finishedGoodsProductId: run.finishedGoodsProductId ?? undefined,
     stoneStockWarnings: run.stoneStockWarnings,
     createdAt: run.createdAt.toISOString(),
@@ -169,6 +230,39 @@ export const getProductionRun = async (id: string): Promise<ProductionRun> => {
     include: runInclude,
   });
   if (!run) throw new ProductionRunError("Production run not found.", 404);
+
+  const needsImageBackfill = run.items.some(
+    (item) => !item.imageUrl || !item.motifId,
+  );
+  if (needsImageBackfill) {
+    const elements = await prisma.designElement.findMany({
+      where: { designId: run.designId },
+      orderBy: { sortOrder: "asc" },
+      include: { motif: { select: { id: true, imageUrl: true } } },
+    });
+
+    await Promise.all(
+      run.items.map(async (item) => {
+        const element = elements[item.sortOrder];
+        if (!element) return;
+        const motifId = item.motifId ?? element.motifId;
+        const imageUrl = item.imageUrl ?? element.motif?.imageUrl ?? null;
+        if (
+          motifId === item.motifId &&
+          imageUrl === item.imageUrl
+        ) {
+          return;
+        }
+        await prisma.productionRunItem.update({
+          where: { id: item.id },
+          data: { motifId, imageUrl },
+        });
+        item.motifId = motifId;
+        item.imageUrl = imageUrl;
+      }),
+    );
+  }
+
   return toProductionRun(run);
 };
 
@@ -185,7 +279,12 @@ export const createProductionRun = async (
 
   const design = await prisma.design.findUnique({
     where: { id: input.designId },
-    include: { elements: { orderBy: { sortOrder: "asc" } } },
+    include: {
+      elements: {
+        orderBy: { sortOrder: "asc" },
+        include: { motif: { select: { id: true, imageUrl: true } } },
+      },
+    },
   });
   if (!design) throw new ProductionRunError("Design not found.", 404);
   if (design.elements.length === 0) {
@@ -231,6 +330,9 @@ export const createProductionRun = async (
           unitValue: el.unitValue,
           weightGramsPerPc: el.weightGramsPerPc,
           sortOrder: index,
+          motifId: el.motifId,
+          imageUrl: el.motif?.imageUrl ?? null,
+          stageCheckoffs: {},
         })),
       },
     },
@@ -528,6 +630,14 @@ export const updateProductionRunItem = async (
   const markingCastingReceived =
     input.castingReceived === true && !item.castingReceived;
 
+  const mergedStageCheckoffs =
+    input.stageCheckoffs === undefined
+      ? undefined
+      : {
+          ...parseStageCheckoffs(item.stageCheckoffs),
+          ...input.stageCheckoffs,
+        };
+
   await prisma.$transaction(async (tx) => {
     const updatedItem = await tx.productionRunItem.update({
       where: { id: itemId },
@@ -550,6 +660,8 @@ export const updateProductionRunItem = async (
           input.metalWeightGrams === undefined
             ? undefined
             : input.metalWeightGrams,
+        stageCheckoffs:
+          mergedStageCheckoffs === undefined ? undefined : mergedStageCheckoffs,
       },
     });
 
