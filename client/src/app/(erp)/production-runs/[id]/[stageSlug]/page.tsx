@@ -228,6 +228,14 @@ export default function ProductionRunStagePage() {
         </div>
       )}
 
+      {stage === "Casting" && isCurrent && (
+        <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-blue-200 bg-blue-50 text-blue-900">
+          Marking casting received deducts metal from <strong>Raw Inventory</strong> (not
+          finished Inventory). Finished jewellery SKU is created when the run completes
+          on the last step.
+        </div>
+      )}
+
       {isCurrent && canEditItems ? (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-emerald-200 bg-emerald-50 text-emerald-800">
           <p className="font-medium">Active step — you can edit this worksheet.</p>

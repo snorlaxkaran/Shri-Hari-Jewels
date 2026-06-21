@@ -69,6 +69,8 @@ export const canManageCustomers = (role: UserRole): boolean =>
 
 export const canManageBranches = (role: UserRole): boolean => role === "Admin";
 
+export const canManageSettings = (role: UserRole): boolean => role === "Admin";
+
 export const canViewDesigns = (role: UserRole): boolean =>
   role === "Admin" ||
   role === "ProductionManager" ||

@@ -19,6 +19,7 @@ import { generateProductionRunNo } from "./run-no.js";
 import {
   deductPendingRawMaterialForRunInTx,
   deductRawMaterialForItemInTx,
+  validateLotSelectionForItem,
 } from "./raw-material.js";
 import { checkBulkStoneStock, deductBulkStonesForProductionRun } from "./bulk-stone-stock.js";
 import {
@@ -629,6 +630,22 @@ export const updateProductionRunItem = async (
 
   const markingCastingReceived =
     input.castingReceived === true && !item.castingReceived;
+
+  if (markingCastingReceived) {
+    const itemForValidation = {
+      ...item,
+      metalLotId:
+        input.metalLotId !== undefined ? input.metalLotId : item.metalLotId,
+      stoneLotId:
+        input.stoneLotId !== undefined ? input.stoneLotId : item.stoneLotId,
+      metalWeightGrams:
+        input.metalWeightGrams !== undefined
+          ? input.metalWeightGrams
+          : item.metalWeightGrams,
+      czWeight: input.czWeight !== undefined ? input.czWeight : item.czWeight,
+    };
+    validateLotSelectionForItem(itemForValidation);
+  }
 
   const mergedStageCheckoffs =
     input.stageCheckoffs === undefined

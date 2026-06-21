@@ -706,16 +706,16 @@ export default function LoginPage() {
                     marginBottom: 6,
                   }}
                 >
-                  Email address
+                  User ID or email
                 </label>
                 <input
                   id="email"
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="input-field-login"
-                  autoComplete="email"
-                  placeholder="you@example.com"
+                  autoComplete="username"
+                  placeholder="workerkaran or you@example.com"
                   required
                 />
               </div>

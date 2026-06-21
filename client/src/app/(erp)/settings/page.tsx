@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
+import UsersPanel from "@/app/(components)/settings/UsersPanel";
+import { useAuth } from "@/lib/auth/auth-context";
+import { canManageSettings } from "@/lib/auth/permissions";
 import { fetchSettings, updateSettings } from "@/lib/api/settings";
 import { getApiErrorMessage } from "@/lib/api/client";
 import type { ShopSettings } from "@/lib/types";
@@ -11,6 +14,8 @@ const fieldClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
 
 export default function SettingsPage() {
+  const { user } = useAuth();
+  const isAdmin = user ? canManageSettings(user.role) : false;
   const [settings, setSettings] = useState<ShopSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -251,6 +256,12 @@ export default function SettingsPage() {
         <p className="mt-4 text-xs text-zinc-400">
           UPI QR payments require a valid VPA. Cash and Card sales complete immediately with an invoice.
         </p>
+      )}
+
+      {isAdmin && (
+        <div className="mt-10">
+          <UsersPanel />
+        </div>
       )}
     </div>
   );

@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import MotifCard from "@/app/(components)/designs/MotifCard";
 import AddMotifCard from "@/app/(components)/designs/AddMotifCard";
-import SkuSearchDropdown from "@/app/(components)/designs/SkuSearchDropdown";
+import SkuDesignList from "@/app/(components)/designs/SkuDesignList";
 import BomDiffModal from "@/app/(components)/designs/BomDiffModal";
 import DesignBomImport from "@/app/(components)/designs/DesignBomImport";
 import DesignPriceDriftPanel from "@/app/(components)/designs/DesignPriceDriftPanel";
@@ -115,7 +114,6 @@ function estimatePrice(
 }
 
 export default function DesignsPage() {
-  const router = useRouter();
   const { user } = useAuth();
   const canManage = user ? canManageDesigns(user.role) : false;
   const {
@@ -593,12 +591,10 @@ export default function DesignsPage() {
       )}
 
       <div className="mb-8">
-        <SkuSearchDropdown
+        <SkuDesignList
           designs={designs}
           selectedId={selectedId}
           onSelect={handleSelectDesign}
-          onCreateNew={() => router.push("/designs/new")}
-          disabled={!canManage && designs.length === 0}
         />
       </div>
 
@@ -606,8 +602,8 @@ export default function DesignsPage() {
         <div className="surface-card px-5 py-12 text-center rounded-xl">
           <p className="text-sm text-zinc-500">
             {designs.length === 0
-              ? "No SKUs yet. Create your first design pattern."
-              : "Select a SKU above to load motifs and start building."}
+              ? "No SKUs yet. Click New design to create one."
+              : "Select a SKU from the list above to load motifs and start building."}
           </p>
           {canManage && designs.length === 0 && (
             <Link

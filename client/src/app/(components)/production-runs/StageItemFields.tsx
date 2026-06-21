@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ConfirmDialog from "@/app/(components)/ConfirmDialog";
 import type {
   MetalLot,
   ProductionRunItem,
@@ -13,6 +14,7 @@ import {
   weightMismatchMessage,
   weightsMatch,
 } from "@/lib/weight-reconciliation";
+import { getCastingReceivedError } from "@/lib/production-runs/casting-validation";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { isItemStageDone } from "@/lib/production-runs/item-helpers";
 
@@ -149,6 +151,9 @@ export function CastingFields({
   });
   const [metalWeightOverrideNote, setMetalWeightOverrideNote] = useState("");
   const [rowError, setRowError] = useState("");
+  const [rowSuccess, setRowSuccess] = useState("");
+  const [confirmCastingOpen, setConfirmCastingOpen] = useState(false);
+  const [castingSubmitting, setCastingSubmitting] = useState(false);
 
   useEffect(() => {
     setDraft({
@@ -206,6 +211,35 @@ export function CastingFields({
     void saveField("metalWeightGrams", parsed, {
       metalWeightOverrideNote: metalWeightOverrideNote.trim() || undefined,
     });
+  };
+
+  const handleMarkCastingReceived = async () => {
+    const err = getCastingReceivedError(item, {
+      ...draft,
+      czWeight: item.czWeight !== undefined ? String(item.czWeight) : "",
+    });
+    if (err) {
+      setRowError(err);
+      setConfirmCastingOpen(false);
+      return;
+    }
+
+    setCastingSubmitting(true);
+    setRowError("");
+    setRowSuccess("");
+    try {
+      await onPatch({ castingReceived: true });
+      setDraft((d) => ({ ...d, castingReceived: true }));
+      setRowSuccess(
+        "Casting received. Raw metal/stone deducted from Raw Inventory. Finished jewellery SKU is added to Inventory when the full run is completed.",
+      );
+      setConfirmCastingOpen(false);
+    } catch (patchErr) {
+      setRowError(getApiErrorMessage(patchErr, "Failed to mark casting received."));
+      setConfirmCastingOpen(false);
+    } finally {
+      setCastingSubmitting(false);
+    }
   };
 
   return (
@@ -290,19 +324,31 @@ export function CastingFields({
       )}
 
       {isCastingElement && (
-        <label className="flex items-center gap-2 text-sm text-zinc-700">
-          <input
-            type="checkbox"
-            checked={draft.castingReceived}
-            onChange={(e) => {
-              setDraft((d) => ({ ...d, castingReceived: e.target.checked }));
-              void saveField("castingReceived", e.target.checked);
-            }}
-            disabled={!canEdit || item.rawMaterialDeducted}
-            className="h-4 w-4 rounded border-zinc-300"
+        <div className="space-y-2">
+          {item.castingReceived || item.rawMaterialDeducted ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              Casting received
+              {item.rawMaterialDeducted ? " · raw stock deducted" : ""}
+            </div>
+          ) : canEdit ? (
+            <button
+              type="button"
+              onClick={() => setConfirmCastingOpen(true)}
+              className="btn-primary px-4 py-2 text-sm"
+            >
+              Mark casting received
+            </button>
+          ) : (
+            <p className="text-xs text-zinc-400">Casting not yet received.</p>
+          )}
+          <ConfirmDialog
+            open={confirmCastingOpen}
+            message={`Mark "${item.elementName}" as casting received? This deducts metal/stone from Raw Inventory.`}
+            onConfirm={() => void handleMarkCastingReceived()}
+            onCancel={() => setConfirmCastingOpen(false)}
+            loading={castingSubmitting}
           />
-          Casting received
-        </label>
+        </div>
       )}
 
       {!isCastingElement && !needsStoneLot && (
@@ -312,6 +358,7 @@ export function CastingFields({
       )}
 
       {rowError && <p className="text-xs text-red-500">{rowError}</p>}
+      {rowSuccess && <p className="text-xs text-emerald-700">{rowSuccess}</p>}
     </div>
   );
 }
@@ -392,36 +439,55 @@ export function StageCheckoffField({
   onPatch: PatchHandler;
 }) {
   const [rowError, setRowError] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const done = isItemStageDone(item, checkoffStage);
 
-  const handleToggle = async (checked: boolean) => {
+  const handleConfirm = async () => {
+    setSubmitting(true);
     setRowError("");
     try {
       await onPatch({
         stageCheckoffs: {
           ...(item.stageCheckoffs ?? {}),
-          [checkoffStage]: checked,
+          [checkoffStage]: true,
         },
       });
+      setConfirmOpen(false);
     } catch (err) {
       setRowError(getApiErrorMessage(err, "Failed to save."));
+      setConfirmOpen(false);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <div className="space-y-2">
-      <label className="flex items-start gap-3 text-sm text-zinc-700">
-        <input
-          type="checkbox"
-          checked={done}
-          onChange={(e) => void handleToggle(e.target.checked)}
-          disabled={!canEdit}
-          className="h-4 w-4 mt-0.5 rounded border-zinc-300"
-        />
-        <span>
-          Mark <strong>{item.elementName}</strong> complete for {stage}
-        </span>
-      </label>
+      {done ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Complete for {stage}
+        </div>
+      ) : canEdit ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setConfirmOpen(true)}
+            className="btn-secondary px-4 py-2 text-sm"
+          >
+            Mark complete for {stage}
+          </button>
+          <ConfirmDialog
+            open={confirmOpen}
+            message={`Mark "${item.elementName}" complete for ${stage}?`}
+            onConfirm={() => void handleConfirm()}
+            onCancel={() => setConfirmOpen(false)}
+            loading={submitting}
+          />
+        </>
+      ) : (
+        <p className="text-xs text-zinc-400">Not yet complete for {stage}.</p>
+      )}
       {rowError && <p className="text-xs text-red-500">{rowError}</p>}
     </div>
   );

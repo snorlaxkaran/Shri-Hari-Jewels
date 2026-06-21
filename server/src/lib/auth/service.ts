@@ -17,12 +17,16 @@ export class AuthError extends Error {
 export const login = async (
   input: LoginInput,
 ): Promise<{ token: string; user: AuthUser }> => {
-  const email = input.email.trim().toLowerCase();
+  const identifier = input.email.trim().toLowerCase();
   const password = input.password;
 
-  if (!email || !password) {
-    throw new AuthError("Email and password are required.");
+  if (!identifier || !password) {
+    throw new AuthError("User ID and password are required.");
   }
+
+  const email = identifier.includes("@")
+    ? identifier
+    : `${identifier}@shreehari.com`;
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !user.active) {

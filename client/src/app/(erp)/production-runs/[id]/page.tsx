@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Download, Trash2 } from "lucide-react";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
+import ConfirmDialog from "@/app/(components)/ConfirmDialog";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   canManageProductionRuns,
@@ -26,6 +27,7 @@ import {
   weightMismatchMessage,
   weightsMatch,
 } from "@/lib/weight-reconciliation";
+import { getCastingReceivedError } from "@/lib/production-runs/casting-validation";
 import type {
   FinishedGoodsDefaults,
   FinishedGoodsInput,
@@ -51,57 +53,6 @@ const PURITIES: Purity[] = ["24K", "22K", "18K", "14K", "925"];
 
 const inputClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
-
-function getCastingReceivedError(
-  item: ProductionRunItem,
-  draft: {
-    metalLotId: string;
-    metalWeightGrams: string;
-    stoneLotId: string;
-    czWeight: string;
-  },
-): string | null {
-  if (item.rawMaterialDeducted) return null;
-
-  const needsMetalLot = item.elementType === "Casting";
-  const needsStoneLot =
-    item.elementType === "Stone" || item.elementType === "Motif";
-
-  if (needsMetalLot) {
-    const missingLot = draft.metalLotId === "";
-    const missingWeight =
-      draft.metalWeightGrams === "" ||
-      parseFloat(draft.metalWeightGrams) <= 0;
-    if (missingLot && missingWeight) {
-      return "Select a metal lot and enter metal weight (g) before marking casting received.";
-    }
-    if (missingLot) {
-      return "Select a metal lot before marking casting received.";
-    }
-    if (missingWeight) {
-      return "Enter metal weight (g) before marking casting received.";
-    }
-    return null;
-  }
-
-  if (needsStoneLot) {
-    const missingLot = draft.stoneLotId === "";
-    const missingWeight =
-      draft.czWeight === "" || parseFloat(draft.czWeight) <= 0;
-    if (missingLot && missingWeight) {
-      return "Select a stone lot and enter CZ weight (ct) before marking casting received.";
-    }
-    if (missingLot) {
-      return "Select a stone lot before marking casting received.";
-    }
-    if (missingWeight) {
-      return "Enter CZ weight (ct) before marking casting received.";
-    }
-    return null;
-  }
-
-  return null;
-}
 
 function RunItemCard({
   run,
@@ -137,6 +88,8 @@ function RunItemCard({
   });
   const [rowError, setRowError] = useState("");
   const [metalWeightOverrideNote, setMetalWeightOverrideNote] = useState("");
+  const [confirmCastingOpen, setConfirmCastingOpen] = useState(false);
+  const [castingSubmitting, setCastingSubmitting] = useState(false);
 
   const needsMetalLot = item.elementType === "Casting";
   const needsStoneLot =
@@ -183,17 +136,25 @@ function RunItemCard({
     }
   };
 
-  const handleCastingReceivedChange = async (checked: boolean) => {
-    if (checked) {
-      const err = getCastingReceivedError(item, draft);
-      if (err) {
-        setRowError(err);
-        return;
-      }
+  const handleMarkCastingReceived = async () => {
+    const err = getCastingReceivedError(item, draft);
+    if (err) {
+      setRowError(err);
+      setConfirmCastingOpen(false);
+      return;
     }
 
-    setDraft((d) => ({ ...d, castingReceived: checked }));
-    await saveField("castingReceived", checked);
+    setCastingSubmitting(true);
+    setRowError("");
+    try {
+      setDraft((d) => ({ ...d, castingReceived: true }));
+      await saveField("castingReceived", true);
+      setConfirmCastingOpen(false);
+    } catch {
+      setDraft((d) => ({ ...d, castingReceived: item.castingReceived }));
+    } finally {
+      setCastingSubmitting(false);
+    }
   };
 
   const handleDateBlur = () => {
@@ -426,21 +387,29 @@ function RunItemCard({
       )}
 
       <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-zinc-100">
-        <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={draft.castingReceived}
-            onChange={(e) => void handleCastingReceivedChange(e.target.checked)}
-            disabled={!canEditItems || item.rawMaterialDeducted}
-            className="h-4 w-4 rounded border-zinc-300"
-          />
-          Casting Received
-        </label>
-        {item.rawMaterialDeducted && (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
-            Stock deducted
+        {item.castingReceived || item.rawMaterialDeducted ? (
+          <span className="text-sm text-emerald-700">
+            Casting received
+            {item.rawMaterialDeducted ? " · stock deducted from Raw Inventory" : ""}
           </span>
-        )}
+        ) : canEditItems ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setConfirmCastingOpen(true)}
+              className="btn-primary px-4 py-2 text-sm"
+            >
+              Mark casting received
+            </button>
+            <ConfirmDialog
+              open={confirmCastingOpen}
+              message={`Mark "${item.elementName}" as casting received? Metal/stone will be deducted from Raw Inventory.`}
+              onConfirm={() => void handleMarkCastingReceived()}
+              onCancel={() => setConfirmCastingOpen(false)}
+              loading={castingSubmitting}
+            />
+          </>
+        ) : null}
       </div>
 
       {rowError && <p className="text-xs text-red-500">{rowError}</p>}

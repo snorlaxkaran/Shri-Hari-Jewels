@@ -13,6 +13,24 @@ export type AuthUser = {
   role: UserRole;
 };
 
+export type AppUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  active: boolean;
+  defaultBranchId?: string;
+  createdAt: string;
+};
+
+export type CreateUserInput = {
+  userId: string;
+  name: string;
+  password: string;
+  role: UserRole;
+  branchId?: string;
+};
+
 export type LoginInput = {
   email: string;
   password: string;

@@ -119,6 +119,37 @@ async function seedDatabase() {
     });
   }
 
+  const workerPassword = await hashPassword("worker123");
+  const workerUser = await prisma.user.upsert({
+    where: { email: "workerkaran@shreehari.com" },
+    update: {
+      name: "Worker Karan",
+      password: workerPassword,
+      role: "Karigar",
+      active: true,
+      defaultBranchId: headOffice.id,
+    },
+    create: {
+      email: "workerkaran@shreehari.com",
+      name: "Worker Karan",
+      password: workerPassword,
+      role: "Karigar",
+      active: true,
+      defaultBranchId: headOffice.id,
+    },
+  });
+
+  await prisma.userBranch.upsert({
+    where: {
+      userId_branchId: { userId: workerUser.id, branchId: headOffice.id },
+    },
+    update: {},
+    create: {
+      userId: workerUser.id,
+      branchId: headOffice.id,
+    },
+  });
+
   await prisma.shopSettings.upsert({
     where: { id: "default" },
     update: {},
@@ -253,6 +284,7 @@ async function seedDatabase() {
   console.log(`\nStore Accounts:`);
   console.log(`Jaipur: jaipur@shreehari.com / store123`);
   console.log(`Delhi: delhi@shreehari.com / store123`);
+  console.log(`Worker: workerkaran / worker123 (Karigar)`);
   console.log(`\nBranches:`);
   for (const branch of branches) {
     console.log(`   - ${branch.name} (ID: ${branch.id})`);
