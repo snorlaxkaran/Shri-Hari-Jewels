@@ -22,7 +22,7 @@ import {
 } from "./raw-material.js";
 import { checkBulkStoneStock } from "./bulk-stone-stock.js";
 import {
-  buildFinishedGoodsFromRun,
+  calculateFinishedGoodsForRunInTx,
 } from "./finished-goods.js";
 import {
   ensureCompletedRunInventory,
@@ -389,45 +389,19 @@ export const getFinishedGoodsDefaults = async (
 ): Promise<FinishedGoodsDefaults> => {
   const run = await prisma.productionRun.findUnique({
     where: { id },
-    include: {
-      design: {
-        select: {
-          code: true,
-          name: true,
-          category: true,
-          metal: true,
-          purity: true,
-          makingChargesPerSet: true,
-        },
-      },
-      items: {
-        orderBy: { sortOrder: "asc" },
-        select: {
-          elementName: true,
-          elementType: true,
-          qtyPerSet: true,
-          unitValue: true,
-          weightGramsPerPc: true,
-          metalWeightGrams: true,
-          metalLotId: true,
-          czWeight: true,
-        },
-      },
+    select: {
+      runNo: true,
+      branchId: true,
+      design: { select: { code: true } },
     },
   });
   if (!run) throw new ProductionRunError("Production run not found.", 404);
 
-  const metalLots = await prisma.metalLot.findMany({
-    where: { branchId: run.branchId },
-    select: {
-      id: true,
-      metalType: true,
-      purity: true,
-      currentRate: true,
-    },
-  });
-
-  const calculated = buildFinishedGoodsFromRun(run, metalLots);
+  const calculated = await calculateFinishedGoodsForRunInTx(
+    prisma,
+    id,
+    run.branchId,
+  );
 
   return {
     name: calculated.name,
@@ -464,8 +438,8 @@ const validateFinishedGoodsInput = (input: {
   }
   if (!input.metal) throw new ProductionRunError("Metal type is required.");
   if (!input.purity) throw new ProductionRunError("Purity is required.");
-  if (input.weightGrams === undefined || input.weightGrams < 0) {
-    throw new ProductionRunError("Weight cannot be negative.");
+  if (input.weightGrams === undefined || input.weightGrams <= 0) {
+    throw new ProductionRunError("Weight must be greater than zero.");
   }
   if (input.makingCharges === undefined || input.makingCharges < 0) {
     throw new ProductionRunError("Making charges cannot be negative.");
@@ -505,49 +479,17 @@ export const updateProductionRun = async (
   if (completingRun && input.finishedGoods) {
     validateFinishedGoodsInput(input.finishedGoods);
 
-    const runForPricing = await prisma.productionRun.findUnique({
+    const runMeta = await prisma.productionRun.findUnique({
       where: { id },
-      include: {
-        design: {
-          select: {
-            code: true,
-            name: true,
-            category: true,
-            metal: true,
-            purity: true,
-            makingChargesPerSet: true,
-          },
-        },
-        items: {
-          orderBy: { sortOrder: "asc" },
-          select: {
-            elementName: true,
-            elementType: true,
-            qtyPerSet: true,
-            unitValue: true,
-            weightGramsPerPc: true,
-            metalWeightGrams: true,
-            metalLotId: true,
-            czWeight: true,
-          },
-        },
-      },
+      select: { branchId: true },
     });
-    if (!runForPricing) {
+    if (!runMeta) {
       throw new ProductionRunError("Production run not found.", 404);
     }
-    const metalLots = await prisma.metalLot.findMany({
-      where: { branchId: runForPricing.branchId },
-      select: {
-        id: true,
-        metalType: true,
-        purity: true,
-        currentRate: true,
-      },
-    });
-    const expectedFinishedGoods = buildFinishedGoodsFromRun(
-      runForPricing,
-      metalLots,
+    const expectedFinishedGoods = await calculateFinishedGoodsForRunInTx(
+      prisma,
+      id,
+      runMeta.branchId,
     );
 
     try {

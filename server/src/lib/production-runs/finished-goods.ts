@@ -20,6 +20,7 @@ import {
   isValidDesignPurity,
 } from "../designs/validation.js";
 import { ProductionRunError } from "./errors.js";
+import { weightsMatch } from "../weight-reconciliation.js";
 
 type TransactionClient = Prisma.TransactionClient;
 
@@ -42,6 +43,159 @@ export const mapDesignCategoryToProduct = (
 
 export const normalizeDesignSku = (designCode: string): string =>
   designCode.trim().toUpperCase();
+
+export const RUN_FOR_FINISHED_GOODS_INCLUDE = {
+  design: {
+    select: {
+      code: true,
+      name: true,
+      category: true,
+      metal: true,
+      purity: true,
+      makingChargesPerSet: true,
+      finishedPhotoUrl: true,
+      finishedPhotoUrls: true,
+    },
+  },
+  items: {
+    orderBy: { sortOrder: "asc" as const },
+    select: {
+      elementName: true,
+      elementType: true,
+      qtyPerSet: true,
+      unitValue: true,
+      weightGramsPerPc: true,
+      metalWeightGrams: true,
+      metalLotId: true,
+      czWeight: true,
+      motifId: true,
+    },
+  },
+} as const;
+
+type RunItemWeightSource = RunForPricing["items"][number] & {
+  motifId?: string | null;
+};
+
+export const hydrateRunItemWeights = (
+  items: RunItemWeightSource[],
+  designElements: Array<{
+    name: string;
+    type: string;
+    weightGramsPerPc: number | null;
+    motifId: string | null;
+  }>,
+  motifWeightById: Map<string, number>,
+): RunForPricing["items"] =>
+  items.map((item) => {
+    let weightGramsPerPc = item.weightGramsPerPc;
+    const designEl = designElements.find(
+      (el) => el.type === item.elementType && el.name === item.elementName,
+    );
+
+    if (weightGramsPerPc == null || weightGramsPerPc <= 0) {
+      if (designEl?.weightGramsPerPc != null && designEl.weightGramsPerPc > 0) {
+        weightGramsPerPc = designEl.weightGramsPerPc;
+      }
+    }
+
+    if (weightGramsPerPc == null || weightGramsPerPc <= 0) {
+      const motifId = item.motifId ?? designEl?.motifId;
+      if (motifId) {
+        const motifWeight = motifWeightById.get(motifId);
+        if (motifWeight != null && motifWeight > 0) {
+          weightGramsPerPc = motifWeight;
+        }
+      }
+    }
+
+    return {
+      elementName: item.elementName,
+      elementType: item.elementType,
+      qtyPerSet: item.qtyPerSet,
+      unitValue: item.unitValue,
+      weightGramsPerPc,
+      metalWeightGrams: item.metalWeightGrams,
+      metalLotId: item.metalLotId,
+      czWeight: item.czWeight,
+    };
+  });
+
+export const calculateFinishedGoodsForRunInTx = async (
+  tx: TransactionClient,
+  runId: string,
+  branchId: string,
+): Promise<ReturnType<typeof buildFinishedGoodsFromRun>> => {
+  const run = await tx.productionRun.findUniqueOrThrow({
+    where: { id: runId },
+    include: RUN_FOR_FINISHED_GOODS_INCLUDE,
+  });
+
+  const designElements = await tx.designElement.findMany({
+    where: { designId: run.designId },
+    select: {
+      name: true,
+      type: true,
+      weightGramsPerPc: true,
+      motifId: true,
+    },
+  });
+
+  const motifIds = new Set<string>();
+  for (const item of run.items) {
+    if (item.motifId) motifIds.add(item.motifId);
+  }
+  for (const element of designElements) {
+    if (element.motifId) motifIds.add(element.motifId);
+  }
+
+  const motifs =
+    motifIds.size > 0
+      ? await tx.motif.findMany({
+          where: { id: { in: [...motifIds] } },
+          select: { id: true, weightGrams: true },
+        })
+      : [];
+
+  const motifWeightById = new Map<string, number>();
+  for (const motif of motifs) {
+    if (motif.weightGrams != null && motif.weightGrams > 0) {
+      motifWeightById.set(motif.id, motif.weightGrams);
+    }
+  }
+
+  const hydratedItems = hydrateRunItemWeights(
+    run.items,
+    designElements,
+    motifWeightById,
+  );
+
+  const metalLots = await tx.metalLot.findMany({
+    where: { branchId },
+    select: {
+      id: true,
+      metalType: true,
+      purity: true,
+      currentRate: true,
+    },
+  });
+
+  return buildFinishedGoodsFromRun(
+    {
+      setsOrdered: run.setsOrdered,
+      design: run.design,
+      items: hydratedItems,
+    },
+    metalLots,
+  );
+};
+
+export const assertPositiveFinishedGoodsWeight = (weightGrams: number): void => {
+  if (weightGrams > 0) return;
+  throw new ProductionRunError(
+    "Cannot create inventory SKU with zero weight. Ensure every motif and casting element has a weight (g) on the design bill of materials.",
+  );
+};
 
 type RunForPricing = {
   setsOrdered: number;
@@ -217,6 +371,18 @@ export const createFinishedGoodsInTx = async (
       quantity,
     );
 
+    await tx.product.update({
+      where: { id: existingProduct.id },
+      data: {
+        weightGrams: input.weightGrams,
+        makingCharges: input.makingCharges,
+        price: input.price,
+        stoneCarat: input.stoneCarat ?? null,
+        metal: input.metal,
+        purity: input.purity,
+      },
+    });
+
     await tx.productionRun.update({
       where: { id: run.id },
       data: { finishedGoodsProductId: existingProduct.id },
@@ -325,4 +491,34 @@ export const repairProductSkuFromDesignInTx = async (
   }
 
   return oldSku !== expectedSku;
+};
+
+export const repairProductWeightFromProductionRunInTx = async (
+  tx: TransactionClient,
+  productId: string,
+  runId: string,
+  branchId: string,
+): Promise<boolean> => {
+  const product = await tx.product.findUnique({
+    where: { id: productId },
+    select: { weightGrams: true },
+  });
+  if (!product) return false;
+
+  const calculated = await calculateFinishedGoodsForRunInTx(tx, runId, branchId);
+  if (calculated.weightGrams <= 0) return false;
+
+  if (
+    product.weightGrams > 0 &&
+    weightsMatch(product.weightGrams, calculated.weightGrams)
+  ) {
+    return false;
+  }
+
+  await tx.product.update({
+    where: { id: productId },
+    data: { weightGrams: calculated.weightGrams },
+  });
+
+  return true;
 };

@@ -4,43 +4,18 @@ import { prisma } from "../db.js";
 import { deductBulkStonesForProductionRun } from "./bulk-stone-stock.js";
 import { ProductionRunError } from "./errors.js";
 import {
-  buildFinishedGoodsFromRun,
+  assertPositiveFinishedGoodsWeight,
+  calculateFinishedGoodsForRunInTx,
   createFinishedGoodsInTx,
   repairProductSkuFromDesignInTx,
+  repairProductWeightFromProductionRunInTx,
+  RUN_FOR_FINISHED_GOODS_INCLUDE,
 } from "./finished-goods.js";
 import { deductRunMetalInventoryInTx } from "./metal-inventory.js";
 import { deductPendingRawMaterialForRunInTx } from "./raw-material.js";
 
 type TransactionClient = Prisma.TransactionClient;
 type Actor = { id: string; name: string };
-
-const runForFinishedGoodsInclude = {
-  design: {
-    select: {
-      code: true,
-      name: true,
-      category: true,
-      metal: true,
-      purity: true,
-      makingChargesPerSet: true,
-      finishedPhotoUrl: true,
-      finishedPhotoUrls: true,
-    },
-  },
-  items: {
-    orderBy: { sortOrder: "asc" as const },
-    select: {
-      elementName: true,
-      elementType: true,
-      qtyPerSet: true,
-      unitValue: true,
-      weightGramsPerPc: true,
-      metalWeightGrams: true,
-      metalLotId: true,
-      czWeight: true,
-    },
-  },
-};
 
 const designPhotosToImages = (design: {
   finishedPhotoUrl: string | null;
@@ -62,25 +37,18 @@ export const buildAutoFinishedGoodsInput = async (
   tx?: TransactionClient,
 ): Promise<FinishedGoodsInput> => {
   const client = tx ?? prisma;
-  const run = await client.productionRun.findUnique({
+  const run = await client.productionRun.findUniqueOrThrow({
     where: { id: runId },
-    include: runForFinishedGoodsInclude,
-  });
-  if (!run) {
-    throw new ProductionRunError("Production run not found.", 404);
-  }
-
-  const metalLots = await client.metalLot.findMany({
-    where: { branchId: run.branchId },
-    select: {
-      id: true,
-      metalType: true,
-      purity: true,
-      currentRate: true,
-    },
+    include: RUN_FOR_FINISHED_GOODS_INCLUDE,
   });
 
-  const calculated = buildFinishedGoodsFromRun(run, metalLots);
+  const calculated = await calculateFinishedGoodsForRunInTx(
+    client,
+    runId,
+    run.branchId,
+  );
+
+  assertPositiveFinishedGoodsWeight(calculated.weightGrams);
 
   return {
     name: calculated.name,
@@ -137,6 +105,7 @@ export const finalizeProductionRunInTx = async (
   if (!run.finishedGoodsProductId) {
     const input =
       finishedGoods ?? (await buildAutoFinishedGoodsInput(runId, tx));
+    assertPositiveFinishedGoodsWeight(input.weightGrams);
     await createFinishedGoodsInTx(
       tx,
       {
@@ -187,6 +156,8 @@ export const repairCompletedRunInventorySkus = async (): Promise<number> => {
   const runs = await prisma.productionRun.findMany({
     where: { finishedGoodsProductId: { not: null } },
     select: {
+      id: true,
+      branchId: true,
       finishedGoodsProductId: true,
       design: { select: { code: true } },
     },
@@ -196,11 +167,44 @@ export const repairCompletedRunInventorySkus = async (): Promise<number> => {
   for (const run of runs) {
     if (!run.finishedGoodsProductId) continue;
 
-    const didRepair = await prisma.$transaction(async (tx) =>
-      repairProductSkuFromDesignInTx(
+    const didRepair = await prisma.$transaction(async (tx) => {
+      const skuRepaired = await repairProductSkuFromDesignInTx(
         tx,
         run.finishedGoodsProductId!,
         run.design.code,
+      );
+      const weightRepaired = await repairProductWeightFromProductionRunInTx(
+        tx,
+        run.finishedGoodsProductId!,
+        run.id,
+        run.branchId,
+      );
+      return skuRepaired || weightRepaired;
+    });
+    if (didRepair) repaired += 1;
+  }
+
+  const zeroWeightProducts = await prisma.product.findMany({
+    where: {
+      weightGrams: { lte: 0 },
+      productionRunId: { not: null },
+    },
+    select: {
+      id: true,
+      productionRunId: true,
+      branchId: true,
+    },
+  });
+
+  for (const product of zeroWeightProducts) {
+    if (!product.productionRunId) continue;
+
+    const didRepair = await prisma.$transaction(async (tx) =>
+      repairProductWeightFromProductionRunInTx(
+        tx,
+        product.id,
+        product.productionRunId!,
+        product.branchId,
       ),
     );
     if (didRepair) repaired += 1;
