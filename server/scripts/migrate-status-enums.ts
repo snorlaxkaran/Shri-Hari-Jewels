@@ -5,7 +5,9 @@
  * Run: npx tsx scripts/migrate-status-enums.ts
  */
 import "dotenv/config";
-import { prisma } from "../src/lib/db.js";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 type ColumnConversion = {
   table: string;
@@ -98,19 +100,33 @@ const CONVERSIONS: ColumnConversion[] = [
 
 const quote = (value: string) => `'${value.replace(/'/g, "''")}'`;
 
-const isStringColumnType = (type: string): boolean =>
-  type === "text" || type === "varchar" || type === "character varying";
+const normalizeTypeName = (type: string | null): string =>
+  type?.replace(/"/g, "").toLowerCase() ?? "";
+
+const isStringColumnType = (type: string): boolean => {
+  const normalized = normalizeTypeName(type);
+  return (
+    normalized === "text" ||
+    normalized === "varchar" ||
+    normalized === "character varying"
+  );
+};
+
+const isTargetEnumType = (
+  currentType: string | null,
+  enumName: string,
+): boolean => normalizeTypeName(currentType) === enumName.toLowerCase();
 
 const getColumnType = async (
   table: string,
   column: string,
 ): Promise<string | null> => {
   const rows = await prisma.$queryRaw<Array<{ udt_name: string }>>`
-    SELECT udt_name
-    FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = ${table}
-      AND column_name = ${column}
+    SELECT c.udt_name
+    FROM information_schema.columns c
+    WHERE c.table_schema = 'public'
+      AND lower(c.table_name) = lower(${table})
+      AND lower(c.column_name) = lower(${column})
   `;
   return rows[0]?.udt_name ?? null;
 };
@@ -120,7 +136,7 @@ const getEnumLabels = async (enumName: string): Promise<string[]> => {
     SELECT e.enumlabel
     FROM pg_type t
     JOIN pg_enum e ON t.oid = e.enumtypid
-    WHERE t.typname = ${enumName}
+    WHERE lower(t.typname) = lower(${enumName})
     ORDER BY e.enumsortorder
   `;
   return rows.map((row) => row.enumlabel);
@@ -177,7 +193,7 @@ const convertColumn = async (conversion: ColumnConversion) => {
     return;
   }
 
-  if (currentType === conversion.enumName) {
+  if (isTargetEnumType(currentType, conversion.enumName)) {
     const labels = await getEnumLabels(conversion.enumName);
     if (enumLabelsMatch(labels, conversion.values)) {
       console.log(
@@ -216,10 +232,47 @@ const convertColumn = async (conversion: ColumnConversion) => {
   console.log(`Converted ${conversion.table}.${conversion.column}.`);
 };
 
+const verifyEnumColumns = async () => {
+  const failures: string[] = [];
+
+  for (const conversion of CONVERSIONS) {
+    const currentType = await getColumnType(conversion.table, conversion.column);
+    if (!currentType) continue;
+
+    if (isStringColumnType(currentType)) {
+      failures.push(
+        `${conversion.table}.${conversion.column} is still ${currentType}`,
+      );
+      continue;
+    }
+
+    if (!isTargetEnumType(currentType, conversion.enumName)) {
+      failures.push(
+        `${conversion.table}.${conversion.column} is ${currentType}, expected ${conversion.enumName}`,
+      );
+      continue;
+    }
+
+    const labels = await getEnumLabels(conversion.enumName);
+    if (!enumLabelsMatch(labels, conversion.values)) {
+      failures.push(
+        `${conversion.table}.${conversion.column} labels [${labels.join(", ")}] != [${conversion.values.join(", ")}]`,
+      );
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(
+      `Status enum verification failed before db push:\n- ${failures.join("\n- ")}`,
+    );
+  }
+};
+
 const main = async () => {
   for (const conversion of CONVERSIONS) {
     await convertColumn(conversion);
   }
+  await verifyEnumColumns();
   console.log("Status enum migration complete.");
 };
 
