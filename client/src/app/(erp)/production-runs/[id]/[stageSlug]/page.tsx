@@ -99,7 +99,8 @@ function CastingFields({
   stoneLots: StoneLot[];
   onPatch: (input: UpdateProductionRunItemInput) => Promise<void>;
 }) {
-  const needsMetalLot = item.elementType === "Casting";
+  const isCastingElement = item.elementType === "Casting";
+  const needsMetalLot = isCastingElement;
   const needsStoneLot =
     item.elementType === "Stone" || item.elementType === "Motif";
 
@@ -255,19 +256,27 @@ function CastingFields({
         </div>
       )}
 
-      <label className="flex items-center gap-2 text-sm text-zinc-700">
-        <input
-          type="checkbox"
-          checked={draft.castingReceived}
-          onChange={(e) => {
-            setDraft((d) => ({ ...d, castingReceived: e.target.checked }));
-            void saveField("castingReceived", e.target.checked);
-          }}
-          disabled={!canEdit || item.rawMaterialDeducted}
-          className="h-4 w-4 rounded border-zinc-300"
-        />
-        Casting Received
-      </label>
+      {isCastingElement && (
+        <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <input
+            type="checkbox"
+            checked={draft.castingReceived}
+            onChange={(e) => {
+              setDraft((d) => ({ ...d, castingReceived: e.target.checked }));
+              void saveField("castingReceived", e.target.checked);
+            }}
+            disabled={!canEdit || item.rawMaterialDeducted}
+            className="h-4 w-4 rounded border-zinc-300"
+          />
+          Casting Received
+        </label>
+      )}
+
+      {!isCastingElement && (
+        <p className="text-xs text-zinc-400">
+          No casting input required for this element.
+        </p>
+      )}
 
       {rowError && <p className="text-xs text-red-500">{rowError}</p>}
     </div>
@@ -435,7 +444,6 @@ export default function ProductionRunStagePage() {
   const completedStages = run.stageLogs.map((l) => l.stage);
   const isDone = completedStages.includes(stage);
 
-  const waxItems = run.items.filter((i) => i.elementType === "Casting");
   const stoneItems = run.items.filter(
     (i) => i.elementType === "Stone" || i.elementType === "Motif",
   );
@@ -455,10 +463,10 @@ export default function ProductionRunStagePage() {
 
         {stageSlug === "wax-pattern" && (
           <div className="space-y-3">
-            {waxItems.length === 0 ? (
-              <p className="text-sm text-zinc-500">No casting elements on this run.</p>
+            {run.items.length === 0 ? (
+              <p className="text-sm text-zinc-500">No elements on this run.</p>
             ) : (
-              waxItems.map((item) => (
+              run.items.map((item) => (
                 <WaxPatternFields
                   key={item.id}
                   item={item}

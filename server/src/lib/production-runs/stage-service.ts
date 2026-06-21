@@ -128,9 +128,10 @@ const validateStageComplete = (
       break;
     }
     case "Casting": {
-      if (run.items.some((i) => !i.castingReceived)) {
+      const castingItems = run.items.filter((i) => i.elementType === "Casting");
+      if (castingItems.some((i) => !i.castingReceived)) {
         throw new ProductionRunError(
-          "Mark all elements as casting received before continuing.",
+          "Mark all casting elements as received before continuing.",
         );
       }
       break;
