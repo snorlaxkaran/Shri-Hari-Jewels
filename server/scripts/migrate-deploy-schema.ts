@@ -64,7 +64,7 @@ const ensureInventoryUnitInTransit = async () => {
 
 const ensureStockTransferStatus = async () => {
   await run(
-    "Ensure StockTransferStatus enum and columns…",
+    "Ensure StockTransferStatus enum…",
     `
     DO $$
     BEGIN
@@ -72,20 +72,29 @@ const ensureStockTransferStatus = async () => {
         CREATE TYPE "StockTransferStatus" AS ENUM ('Pending', 'Accepted', 'Rejected', 'PartiallyAccepted');
       END IF;
     END $$;
+    `,
+  );
 
-    ALTER TABLE "ShopSettings" ADD COLUMN IF NOT EXISTS "goldMakingChargesPct" DECIMAL(5,2) NOT NULL DEFAULT 17.00;
-    ALTER TABLE "ShopSettings" ADD COLUMN IF NOT EXISTS "silverMakingChargesPct" DECIMAL(5,2) NOT NULL DEFAULT 17.00;
-    ALTER TABLE "ShopSettings" ADD COLUMN IF NOT EXISTS "makingChargesOverrideNote" TEXT;
+  const alters = [
+    `ALTER TABLE "ShopSettings" ADD COLUMN IF NOT EXISTS "goldMakingChargesPct" DECIMAL(5,2) NOT NULL DEFAULT 17.00`,
+    `ALTER TABLE "ShopSettings" ADD COLUMN IF NOT EXISTS "silverMakingChargesPct" DECIMAL(5,2) NOT NULL DEFAULT 17.00`,
+    `ALTER TABLE "ShopSettings" ADD COLUMN IF NOT EXISTS "makingChargesOverrideNote" TEXT`,
+    `ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "status" "StockTransferStatus" NOT NULL DEFAULT 'Pending'`,
+    `ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "acceptedById" TEXT`,
+    `ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "acceptedByName" TEXT`,
+    `ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "acceptedAt" TIMESTAMP(3)`,
+    `ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "rejectionReason" TEXT`,
+    `ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "notes" TEXT`,
+    `ALTER TABLE "StockTransferItem" ADD COLUMN IF NOT EXISTS "accepted" BOOLEAN NOT NULL DEFAULT true`,
+  ];
 
-    ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "status" "StockTransferStatus" NOT NULL DEFAULT 'Pending';
-    ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "acceptedById" TEXT;
-    ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "acceptedByName" TEXT;
-    ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "acceptedAt" TIMESTAMP(3);
-    ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "rejectionReason" TEXT;
-    ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "notes" TEXT;
+  for (const sql of alters) {
+    await run(`Apply: ${sql.slice(0, 60)}…`, sql);
+  }
 
-    ALTER TABLE "StockTransferItem" ADD COLUMN IF NOT EXISTS "accepted" BOOLEAN NOT NULL DEFAULT true;
-
+  await run(
+    "Ensure MetalMarketRate table…",
+    `
     CREATE TABLE IF NOT EXISTS "MetalMarketRate" (
       "id" TEXT NOT NULL,
       "metalType" TEXT NOT NULL,
@@ -95,12 +104,21 @@ const ensureStockTransferStatus = async () => {
       "fetchedAt" TIMESTAMP(3) NOT NULL,
       "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "MetalMarketRate_pkey" PRIMARY KEY ("id")
-    );
-
-    CREATE INDEX IF NOT EXISTS "StockTransfer_status_idx" ON "StockTransfer"("status");
-    CREATE INDEX IF NOT EXISTS "StockTransfer_toBranchId_status_idx" ON "StockTransfer"("toBranchId", "status");
-    CREATE INDEX IF NOT EXISTS "MetalMarketRate_metalType_purity_fetchedAt_idx" ON "MetalMarketRate"("metalType", "purity", "fetchedAt");
+    )
     `,
+  );
+
+  await run(
+    "Ensure StockTransfer indexes…",
+    `CREATE INDEX IF NOT EXISTS "StockTransfer_status_idx" ON "StockTransfer"("status")`,
+  );
+  await run(
+    "Ensure StockTransfer branch/status index…",
+    `CREATE INDEX IF NOT EXISTS "StockTransfer_toBranchId_status_idx" ON "StockTransfer"("toBranchId", "status")`,
+  );
+  await run(
+    "Ensure MetalMarketRate index…",
+    `CREATE INDEX IF NOT EXISTS "MetalMarketRate_metalType_purity_fetchedAt_idx" ON "MetalMarketRate"("metalType", "purity", "fetchedAt")`,
   );
 
   await run(
