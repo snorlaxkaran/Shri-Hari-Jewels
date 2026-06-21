@@ -231,7 +231,7 @@ export function CastingFields({
       await onPatch({ castingReceived: true });
       setDraft((d) => ({ ...d, castingReceived: true }));
       setRowSuccess(
-        "Casting received. Raw metal/stone deducted from Raw Inventory. Finished jewellery is added to Inventory when the run completes.",
+        "Casting received. Raw metal is deducted from Raw Inventory when the run completes. Stone stock is deducted now if applicable.",
       );
       setConfirmCastingOpen(false);
     } catch (patchErr) {
@@ -343,7 +343,7 @@ export function CastingFields({
           )}
           <ConfirmDialog
             open={confirmCastingOpen}
-            message={`Mark "${item.elementName}" as casting received? This deducts metal/stone from Raw Inventory.`}
+            message={`Mark "${item.elementName}" as casting received? Stone stock is deducted now if applicable. Total metal for all sets is deducted when the run completes.`}
             onConfirm={() => void handleMarkCastingReceived()}
             onCancel={() => setConfirmCastingOpen(false)}
             loading={castingSubmitting}

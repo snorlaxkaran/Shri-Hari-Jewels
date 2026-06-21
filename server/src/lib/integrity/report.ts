@@ -1,5 +1,6 @@
 import { prisma } from "../db.js";
 import { moneyToNumber, subtractMoney, toMoney } from "../money.js";
+import { computeRunMetalWeightGrams } from "../production-runs/metal-inventory.js";
 
 export type IntegrityMismatch = {
   category: string;
@@ -57,21 +58,26 @@ export const runIntegrityReport = async (): Promise<IntegrityMismatch[]> => {
   }
 
   const completedRuns = await prisma.productionRun.findMany({
-    where: { status: "Completed" },
-    include: {
+    where: { status: "Completed", metalInventoryDeducted: true },
+    select: {
+      branchId: true,
+      setsOrdered: true,
       items: {
-        where: { rawMaterialDeducted: true, elementType: "Casting" },
-        select: { metalWeightGrams: true },
+        select: {
+          elementName: true,
+          elementType: true,
+          qtyPerSet: true,
+          weightGramsPerPc: true,
+          metalWeightGrams: true,
+          metalLotId: true,
+        },
       },
     },
   });
 
   const expectedMetalByBranch = new Map<string, number>();
   for (const run of completedRuns) {
-    const used = run.items.reduce(
-      (sum, item) => sum + (item.metalWeightGrams ?? 0),
-      0,
-    );
+    const used = computeRunMetalWeightGrams(run.items, run.setsOrdered);
     if (used <= 0) continue;
     expectedMetalByBranch.set(
       run.branchId,

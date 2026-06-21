@@ -58,9 +58,6 @@ const recordAuditInTx = async (
 export const itemNeedsRawMaterialDeduction = (
   item: Pick<ProductionRunItemRow, "elementType" | "metalWeightGrams" | "czWeight">,
 ): boolean => {
-  if (item.elementType === "Casting") {
-    return (item.metalWeightGrams ?? 0) > 0;
-  }
   if (item.elementType === "Stone" || item.elementType === "Motif") {
     return (item.czWeight ?? 0) > 0;
   }
@@ -112,87 +109,48 @@ export const deductRawMaterialForItemInTx = async (
 
   const reason = `Production run ${run.runNo} — ${item.elementName}`;
 
-  if (item.elementType === "Casting") {
-    const lot = await tx.metalLot.findUnique({
-      where: { id: item.metalLotId! },
-    });
-    if (!lot) {
-      throw new ProductionRunError("Selected metal lot not found.", 404);
-    }
-    if (lot.branchId !== run.branchId) {
-      throw new ProductionRunError(
-        "Selected metal lot belongs to a different branch.",
-      );
-    }
-    const weight = item.metalWeightGrams!;
-    if (lot.weightGrams < weight) {
-      throw new ProductionRunError(
-        `Insufficient metal in lot ${lot.lotNumber}: need ${weight}g, have ${lot.weightGrams}g.`,
-      );
-    }
-
-    const newWeight = lot.weightGrams - weight;
-    await tx.metalLot.update({
-      where: { id: lot.id },
-      data: { weightGrams: newWeight },
-    });
-
-    await recordAuditInTx(tx, {
-      stockType: "Metal",
-      stockId: lot.id,
-      lotRef: lot.lotNumber,
-      action: "Adjustment",
-      previousValue: { weightGrams: lot.weightGrams },
-      newValue: { weightGrams: newWeight },
-      delta: -weight,
-      reason,
-      performedById: actor.id,
-      performedByName: actor.name,
-    });
-  } else {
-    const lot = await tx.stoneLot.findUnique({
-      where: { id: item.stoneLotId! },
-    });
-    if (!lot) {
-      throw new ProductionRunError("Selected stone lot not found.", 404);
-    }
-    if (lot.branchId !== run.branchId) {
-      throw new ProductionRunError(
-        "Selected stone lot belongs to a different branch.",
-      );
-    }
-    if (lot.status !== StoneLotStatus.InStock) {
-      throw new ProductionRunError(
-        `Stone lot ${lot.certificateNumber} is ${lot.status} and cannot be consumed.`,
-      );
-    }
-
-    const carats = item.czWeight!;
-    if (lot.carat < carats) {
-      throw new ProductionRunError(
-        `Insufficient carats in lot ${lot.certificateNumber}: need ${carats}ct, have ${lot.carat}ct.`,
-      );
-    }
-
-    const newCarat = lot.carat - carats;
-    await tx.stoneLot.update({
-      where: { id: lot.id },
-      data: { carat: newCarat },
-    });
-
-    await recordAuditInTx(tx, {
-      stockType: "Stone",
-      stockId: lot.id,
-      lotRef: lot.certificateNumber,
-      action: "Adjustment",
-      previousValue: { carat: lot.carat },
-      newValue: { carat: newCarat },
-      delta: -carats,
-      reason,
-      performedById: actor.id,
-      performedByName: actor.name,
-    });
+  const lot = await tx.stoneLot.findUnique({
+    where: { id: item.stoneLotId! },
+  });
+  if (!lot) {
+    throw new ProductionRunError("Selected stone lot not found.", 404);
   }
+  if (lot.branchId !== run.branchId) {
+    throw new ProductionRunError(
+      "Selected stone lot belongs to a different branch.",
+    );
+  }
+  if (lot.status !== StoneLotStatus.InStock) {
+    throw new ProductionRunError(
+      `Stone lot ${lot.certificateNumber} is ${lot.status} and cannot be consumed.`,
+    );
+  }
+
+  const carats = item.czWeight!;
+  if (lot.carat < carats) {
+    throw new ProductionRunError(
+      `Insufficient carats in lot ${lot.certificateNumber}: need ${carats}ct, have ${lot.carat}ct.`,
+    );
+  }
+
+  const newCarat = lot.carat - carats;
+  await tx.stoneLot.update({
+    where: { id: lot.id },
+    data: { carat: newCarat },
+  });
+
+  await recordAuditInTx(tx, {
+    stockType: "Stone",
+    stockId: lot.id,
+    lotRef: lot.certificateNumber,
+    action: "Adjustment",
+    previousValue: { carat: lot.carat },
+    newValue: { carat: newCarat },
+    delta: -carats,
+    reason,
+    performedById: actor.id,
+    performedByName: actor.name,
+  });
 
   await tx.productionRunItem.update({
     where: { id: item.id },

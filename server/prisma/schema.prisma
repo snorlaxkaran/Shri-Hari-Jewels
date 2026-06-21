@@ -447,6 +447,7 @@ model ProductionRun {
   status      ProductionRunStatusEnum @default(Open)
   currentStage ProductionRunStage @default(WaxPattern)
   finishedGoodsProductId String? @unique
+  metalInventoryDeducted Boolean @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

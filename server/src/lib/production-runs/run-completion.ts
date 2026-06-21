@@ -8,6 +8,7 @@ import {
   createFinishedGoodsInTx,
   repairProductSkuFromDesignInTx,
 } from "./finished-goods.js";
+import { deductRunMetalInventoryInTx } from "./metal-inventory.js";
 import { deductPendingRawMaterialForRunInTx } from "./raw-material.js";
 
 type TransactionClient = Prisma.TransactionClient;
@@ -104,9 +105,23 @@ export const finalizeProductionRunInTx = async (
     where: { id: runId },
     include: {
       items: true,
-      design: { select: { code: true } },
+      design: { select: { code: true, metal: true, purity: true } },
     },
   });
+
+  await deductRunMetalInventoryInTx(
+    tx,
+    {
+      id: run.id,
+      runNo: run.runNo,
+      branchId: run.branchId,
+      setsOrdered: run.setsOrdered,
+      metalInventoryDeducted: run.metalInventoryDeducted,
+      items: run.items,
+    },
+    { metal: run.design.metal, purity: run.design.purity },
+    actor,
+  );
 
   await deductPendingRawMaterialForRunInTx(
     tx,

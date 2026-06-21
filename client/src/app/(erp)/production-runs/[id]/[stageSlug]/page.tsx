@@ -230,9 +230,9 @@ export default function ProductionRunStagePage() {
 
       {stage === "Casting" && isCurrent && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-blue-200 bg-blue-50 text-blue-900">
-          Marking casting received deducts metal from <strong>Raw Inventory</strong> (not
-          finished Inventory). Finished jewellery SKU is created when the run completes
-          on the last step.
+          Marking casting received records the lot and weight for this element. Total metal
+          for all sets is deducted from <strong>Raw Inventory</strong> when the run
+          completes. Finished jewellery SKU is created on the last step.
         </div>
       )}
 

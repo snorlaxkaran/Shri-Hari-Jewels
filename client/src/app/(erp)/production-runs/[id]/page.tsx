@@ -403,7 +403,7 @@ function RunItemCard({
             </button>
             <ConfirmDialog
               open={confirmCastingOpen}
-              message={`Mark "${item.elementName}" as casting received? Metal/stone will be deducted from Raw Inventory.`}
+              message={`Mark "${item.elementName}" as casting received? Stone stock is deducted now if applicable. Total metal for all sets is deducted when the run completes.`}
               onConfirm={() => void handleMarkCastingReceived()}
               onCancel={() => setConfirmCastingOpen(false)}
               loading={castingSubmitting}
