@@ -91,8 +91,39 @@ export const createProduct = async (
     p.units.map((u) => u.itemCode),
   );
 
-  const sku = generateSku(existingSkus, category);
-  const unitCodes = generateUnitCodes(sku, input.quantity, existingUnitCodes);
+  const catalogNo = input.catalogNo?.trim().toUpperCase();
+  const sku = catalogNo || generateSku(existingSkus, category);
+
+  if (catalogNo && existingSkus.includes(sku)) {
+    throw new InventoryError(`Catalog number ${sku} already exists.`, 409);
+  }
+
+  let unitCodes: string[];
+  if (input.itemCodes?.length) {
+    if (input.itemCodes.length !== input.quantity) {
+      throw new InventoryError(
+        "Item code count must match quantity.",
+        400,
+      );
+    }
+    const normalized = input.itemCodes.map((code) => code.trim());
+    const duplicates = normalized.filter(
+      (code, i) => normalized.indexOf(code) !== i,
+    );
+    if (duplicates.length) {
+      throw new InventoryError("Duplicate item codes in import.", 400);
+    }
+    const taken = normalized.filter((code) => existingUnitCodes.includes(code));
+    if (taken.length) {
+      throw new InventoryError(
+        `Item code(s) already exist: ${taken.slice(0, 3).join(", ")}`,
+        409,
+      );
+    }
+    unitCodes = normalized;
+  } else {
+    unitCodes = generateUnitCodes(sku, input.quantity, existingUnitCodes);
+  }
 
   const product = await prisma.product.create({
     data: {

@@ -36,7 +36,12 @@ export type LoginInput = {
   password: string;
 };
 
-export type MetalType = "Gold" | "Silver" | "Platinum" | "Rose Gold";
+export type MetalType =
+  | "Gold"
+  | "Silver"
+  | "Platinum"
+  | "Rose Gold"
+  | "Base Metal";
 export type Purity = "24K" | "22K" | "18K" | "14K" | "925";
 export type InventoryUnitStatus =
   | "Available"
@@ -158,6 +163,31 @@ export type NewProductInput = {
   price: number;
   quantity: number;
   images: ProductImage[];
+  catalogNo?: string;
+  itemCodes?: string[];
+};
+
+export type LegacyStockImportRow = {
+  catalogNo: string;
+  itemCode: string;
+  name: string;
+  category: string;
+  subCategory?: string;
+  collection?: string;
+  vendor?: string;
+  metal: string;
+  purity: string;
+  weightGrams: number;
+  stoneName?: string;
+  retailPrice: number;
+  hsn?: string;
+  stockType?: string;
+};
+
+export type BulkStockImportResult = {
+  created: number;
+  unitsAdded: number;
+  errors: string[];
 };
 
 export type UpdateProductInput = {

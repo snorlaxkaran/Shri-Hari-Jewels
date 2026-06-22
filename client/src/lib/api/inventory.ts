@@ -1,5 +1,7 @@
 import type {
+  BulkStockImportResult,
   InventoryItem,
+  LegacyStockImportRow,
   NewProductInput,
   PartialAcceptTransferInput,
   StockTransfer,
@@ -21,6 +23,16 @@ export const createProduct = async (
   input: NewProductInput,
 ): Promise<InventoryItem> => {
   const { data } = await api.post<InventoryItem>("/api/inventory", input);
+  return data;
+};
+
+export const importLegacyStock = async (
+  rows: LegacyStockImportRow[],
+): Promise<BulkStockImportResult> => {
+  const { data } = await api.post<BulkStockImportResult>(
+    "/api/inventory/import",
+    { rows },
+  );
   return data;
 };
 

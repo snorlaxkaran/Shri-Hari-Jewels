@@ -110,7 +110,7 @@ export default function DashboardPage() {
           icon={<Diamond size={18} />}
         />
         <StatCard
-          label="Inventory Value"
+          label="Inventory Value (live rates)"
           value={formatCompact(stats?.inventoryValue ?? 0)}
           icon={<Package size={18} />}
         />

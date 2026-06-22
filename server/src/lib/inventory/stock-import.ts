@@ -1,0 +1,164 @@
+import type {
+  BulkStockImportResult,
+  LegacyStockImportRow,
+  NewProductInput,
+} from "../../types.js";
+import { InventoryError } from "./service.js";
+import { createProduct } from "./service.js";
+import { prisma } from "../db.js";
+import { getCurrentMarketRates } from "../market-rates/service.js";
+import { computeLiveListPriceForProduct } from "./unit-pricing.js";
+import { recordInventoryAudit } from "./audit.js";
+import { syncProductStockInTx } from "./stock-sync.js";
+
+export type { BulkStockImportResult, LegacyStockImportRow };
+
+const productInclude = {
+  units: {
+    include: { branch: true, sale: true },
+    orderBy: { createdAt: "asc" as const },
+  },
+  images: { orderBy: { sortOrder: "asc" as const } },
+};
+
+const deriveMakingCharges = (
+  retailPrice: number,
+  weightGrams: number,
+  metal: string,
+  purity: string,
+  marketRates: Awaited<ReturnType<typeof getCurrentMarketRates>>,
+): number => {
+  const livePrice = computeLiveListPriceForProduct(
+    { metal, purity, weightGrams, price: retailPrice },
+    marketRates,
+  );
+  if (livePrice !== retailPrice) {
+    return Math.max(0, Math.round((retailPrice - livePrice) * 100) / 100);
+  }
+  return Math.max(0, Math.round(retailPrice * 0.15 * 100) / 100);
+};
+
+const buildProductInput = (
+  catalogNo: string,
+  rows: LegacyStockImportRow[],
+  marketRates: Awaited<ReturnType<typeof getCurrentMarketRates>>,
+): NewProductInput => {
+  const first = rows[0];
+  const stoneSuffix = first.stoneName ? ` (${first.stoneName})` : "";
+
+  return {
+    name: first.name.trim() + stoneSuffix,
+    category: first.category,
+    metal: first.metal as NewProductInput["metal"],
+    purity: first.purity as NewProductInput["purity"],
+    weightGrams: first.weightGrams,
+    makingCharges: deriveMakingCharges(
+      first.retailPrice,
+      first.weightGrams,
+      first.metal,
+      first.purity,
+      marketRates,
+    ),
+    price: first.retailPrice,
+    quantity: rows.length,
+    images: [],
+    catalogNo,
+    itemCodes: rows.map((row) => row.itemCode),
+  };
+};
+
+export const importLegacyStock = async (
+  rows: LegacyStockImportRow[],
+  branchId: string,
+  actor?: { id: string; name: string },
+): Promise<BulkStockImportResult> => {
+  if (!rows.length) {
+    throw new InventoryError("No rows to import.");
+  }
+
+  const marketRates = await getCurrentMarketRates();
+  const grouped = new Map<string, LegacyStockImportRow[]>();
+
+  for (const row of rows) {
+    const key = row.catalogNo.trim().toUpperCase();
+    const list = grouped.get(key) ?? [];
+    list.push(row);
+    grouped.set(key, list);
+  }
+
+  let created = 0;
+  let unitsAdded = 0;
+  const errors: string[] = [];
+
+  for (const [catalogNo, groupRows] of grouped) {
+    try {
+      const existing = await prisma.product.findUnique({
+        where: { sku: catalogNo },
+        include: productInclude,
+      });
+
+      if (existing) {
+        const allUnits = await prisma.inventoryUnit.findMany({
+          select: { itemCode: true },
+        });
+        const existingCodes = new Set(allUnits.map((u) => u.itemCode));
+        const newRows = groupRows.filter(
+          (row) => !existingCodes.has(row.itemCode.trim()),
+        );
+
+        if (!newRows.length) {
+          errors.push(`${catalogNo}: all barcodes already exist — skipped.`);
+          continue;
+        }
+
+        const unitListPrice = computeLiveListPriceForProduct(
+          existing,
+          marketRates,
+        );
+
+        await prisma.$transaction(async (tx) => {
+          await tx.inventoryUnit.createMany({
+            data: newRows.map((row) => ({
+              branchId: existing.branchId,
+              itemCode: row.itemCode.trim(),
+              productId: existing.id,
+              status: "Available",
+              listPrice: unitListPrice,
+            })),
+          });
+          await syncProductStockInTx(tx, existing.id);
+        });
+
+        unitsAdded += newRows.length;
+        continue;
+      }
+
+      const input = buildProductInput(catalogNo, groupRows, marketRates);
+      await createProduct(input, branchId);
+      created += 1;
+      unitsAdded += groupRows.length;
+    } catch (error) {
+      const msg =
+        error instanceof InventoryError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Import failed.";
+      errors.push(`${catalogNo}: ${msg}`);
+    }
+  }
+
+  if (actor && (created > 0 || unitsAdded > 0)) {
+    await recordInventoryAudit({
+      entityType: "Product",
+      entityId: actor.id,
+      action: "Import",
+      newValue: { created, unitsAdded, errors: errors.length },
+      reason: `${created} SKU(s), ${unitsAdded} unit(s) imported`,
+      performedById: actor.id,
+      performedByName: actor.name,
+    });
+  }
+
+  return { created, unitsAdded, errors };
+};

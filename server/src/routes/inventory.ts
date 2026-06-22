@@ -19,6 +19,7 @@ import {
   transferInventoryUnits,
   updateProduct,
 } from "../lib/inventory/service.js";
+import { importLegacyStock } from "../lib/inventory/stock-import.js";
 import {
   acceptStockTransfer,
   cancelStockTransfer,
@@ -38,6 +39,7 @@ import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
 import { routeParam } from "../lib/route-param.js";
 import type {
   CreateStockTransferInput,
+  LegacyStockImportRow,
   NewProductInput,
   PartialAcceptTransferInput,
   UpdateProductInput,
@@ -104,8 +106,43 @@ inventoryRouter.post(
       );
       res.status(201).json(product);
     } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
       console.error("POST /api/inventory", error);
       res.status(500).json({ error: "Failed to create product" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/import",
+  requireRole(canWriteInventory),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const rows = Array.isArray(req.body?.rows)
+        ? (req.body.rows as LegacyStockImportRow[])
+        : [];
+
+      if (!rows.length) {
+        res.status(400).json({ error: "No rows to import." });
+        return;
+      }
+
+      const branchId = await getUserBranch(req.user!.id);
+      const result = await importLegacyStock(rows, branchId, {
+        id: req.user!.id,
+        name: req.user!.name,
+      });
+      res.status(201).json(result);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/inventory/import", error);
+      res.status(500).json({ error: "Failed to import stock" });
     }
   },
 );

@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
@@ -29,11 +30,6 @@ const InventoryTable = dynamic(
   },
 );
 
-const AddProductModal = dynamic(
-  () => import("@/app/(components)/AddProductModal"),
-  { ssr: false },
-);
-
 const ProductDetailPanel = dynamic(
   () => import("@/app/(components)/ProductDetailPanel"),
   { ssr: false },
@@ -41,16 +37,14 @@ const ProductDetailPanel = dynamic(
 
 export default function InventoryPage() {
   const { user } = useAuth();
-  const { items, hydrated, loading, error, addProduct } = useInventory();
+  const { items, hydrated, loading, error } = useInventory();
   const canAdd = user ? canWriteInventory(user.role) : false;
   const [search, setSearch] = useState("");
   const [metalTab, setMetalTab] = useState<ProductMetalTab>("all");
   const [category, setCategory] = useState("All");
-  const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(
     null,
   );
-  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     if (!selectedProduct) return;
@@ -60,7 +54,6 @@ export default function InventoryPage() {
 
   const categories = ["All", ...PRODUCT_CATEGORIES];
 
-  const existingSkus = useMemo(() => items.map((i) => i.sku), [items]);
   const existingUnitCodes = useMemo(
     () => items.flatMap((i) => i.units.map((u) => u.itemCode)),
     [items],
@@ -85,14 +78,6 @@ export default function InventoryPage() {
       return matchesSearch && matchesCategory && matchesMetal;
     });
   }, [items, search, category, metalTab]);
-
-  const handleAddProduct = async (input: Parameters<typeof addProduct>[0]) => {
-    const product = await addProduct(input);
-    setSuccessMessage(
-      `Added ${product.name} - SKU ${product.sku} with ${product.stock} unit${product.stock > 1 ? "s" : ""}`,
-    );
-    setTimeout(() => setSuccessMessage(""), 4000);
-  };
 
   if (!hydrated || loading) {
     return <PageSkeleton />;
@@ -119,14 +104,13 @@ export default function InventoryPage() {
               Download Stock
             </button>
             {canAdd && (
-              <button
-                type="button"
-                onClick={() => setModalOpen(true)}
+              <Link
+                href="/inventory/new"
                 className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
               >
                 <Plus size={16} />
-                Add Product
-              </button>
+                Add Stock
+              </Link>
             )}
           </div>
         }
@@ -135,12 +119,6 @@ export default function InventoryPage() {
       {error && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">
           {error}
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-emerald-200 bg-emerald-50 text-emerald-700">
-          {successMessage}
         </div>
       )}
 
@@ -211,16 +189,6 @@ export default function InventoryPage() {
           onRowClick={setSelectedProduct}
         />
       </div>
-
-      {modalOpen && (
-        <AddProductModal
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          onSubmit={handleAddProduct}
-          existingSkus={existingSkus}
-          existingUnitCodes={existingUnitCodes}
-        />
-      )}
 
       {selectedProduct && (
         <ProductDetailPanel

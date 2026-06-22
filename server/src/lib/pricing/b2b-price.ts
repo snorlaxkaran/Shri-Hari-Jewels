@@ -48,9 +48,18 @@ export const resolveMarketRateForProduct = (
   goldRate: number | null,
   silverRate: number | null,
 ): number | null => {
-  if (metal === "Gold" && purity === "22K" && goldRate != null) return goldRate;
+  const goldMetals = new Set(["Gold", "Rose Gold", "Platinum"]);
+  if (goldMetals.has(metal) && purity === "22K" && goldRate != null) {
+    return goldRate;
+  }
+  if (goldMetals.has(metal) && purity === "18K" && goldRate != null) {
+    return Math.round(goldRate * (18 / 22) * 100) / 100;
+  }
   if (metal === "Silver" && purity === "925" && silverRate != null) {
     return silverRate;
+  }
+  if (metal === "Silver" && purity === "24K" && silverRate != null) {
+    return Math.round(silverRate * (24 / 22.5) * 100) / 100;
   }
   return null;
 };

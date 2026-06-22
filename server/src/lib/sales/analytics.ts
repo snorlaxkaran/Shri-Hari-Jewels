@@ -17,6 +17,8 @@ import { getStockStatus } from "../inventory/status.js";
 import { moneyToNumber, multiplyMoney, sumMoney } from "../money.js";
 import { countPendingOrders } from "../orders/service.js";
 import { getRawInventorySummary } from "../raw-inventory/metal-service.js";
+import { getCurrentMarketRates } from "../market-rates/service.js";
+import { computeLiveListPriceForProduct } from "../inventory/unit-pricing.js";
 import { prisma } from "../db.js";
 import { toSale } from "./mappers.js";
 
@@ -130,7 +132,7 @@ const uniqueCustomerIdsInRange = (
 export const getSalesAnalytics = async (
   branchId?: string,
 ): Promise<SalesAnalytics> => {
-  const [sales, products, customerCount, pendingOrders, rawSummary, activeWorkOrders] =
+  const [sales, products, customerCount, pendingOrders, rawSummary, activeWorkOrders, marketRates] =
     await Promise.all([
     prisma.sale.findMany({
       where: { paymentStatus: SalePaymentStatus.Completed, ...(branchId && { branchId }) },
@@ -140,6 +142,9 @@ export const getSalesAnalytics = async (
       where: branchId ? { units: { some: { branchId } } } : undefined,
       select: {
         price: true,
+        metal: true,
+        purity: true,
+        weightGrams: true,
         units: {
           where: branchId ? { branchId } : undefined,
           select: { status: true },
@@ -157,6 +162,7 @@ export const getSalesAnalytics = async (
         ...(branchId && { branchId }),
       },
     }),
+    getCurrentMarketRates(),
   ]);
 
   const now = new Date();
@@ -189,15 +195,16 @@ export const getSalesAnalytics = async (
     sumMoney(lastMonthSales.map((s) => s.dealPrice)),
   );
 
-  const productStocks = products.map((product) => ({
-    stock: product.units.filter(
+  const productStocks = products.map((product) => {
+    const stock = product.units.filter(
       (unit) => unit.status === InventoryUnitStatus.Available,
-    ).length,
-    price: moneyToNumber(product.price),
-  }));
+    ).length;
+    const unitPrice = computeLiveListPriceForProduct(product, marketRates);
+    return { stock, unitPrice };
+  });
   const inventoryCount = productStocks.reduce((sum, p) => sum + p.stock, 0);
   const inventoryValue = productStocks.reduce(
-    (sum, p) => sum + moneyToNumber(multiplyMoney(p.stock, p.price)),
+    (sum, p) => sum + moneyToNumber(multiplyMoney(p.stock, p.unitPrice)),
     0,
   );
   const lowStockCount = products.filter(
