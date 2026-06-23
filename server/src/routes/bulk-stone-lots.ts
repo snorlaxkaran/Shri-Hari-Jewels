@@ -12,8 +12,7 @@ import {
 } from "../lib/bulk-stone-lots/service.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
 import { attachOrganization } from "../middleware/organization.js";
-import { prisma } from "../lib/db.js";
-import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
+import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
 import { routeParam } from "../lib/route-param.js";
 import type {
   NewBulkStoneLotInput,
@@ -25,20 +24,10 @@ export const bulkStoneLotsRouter = Router();
 bulkStoneLotsRouter.use(authenticate);
 bulkStoneLotsRouter.use(attachOrganization);
 
-const getUserBranch = async (userId: string): Promise<string> => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { branches: { take: 1 } },
-  });
-
-  if (user?.defaultBranchId) return user.defaultBranchId;
-  if (user?.branches.length) return user.branches[0].branchId;
-  return DEFAULT_BRANCH_ID;
-};
-
-bulkStoneLotsRouter.get("/", requireRole(canViewMotifs), async (_req, res) => {
+bulkStoneLotsRouter.get("/", requireRole(canViewMotifs), async (req: AuthenticatedRequest, res) => {
   try {
-    const lots = await listBulkStoneLots();
+    const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
+    const lots = await listBulkStoneLots(req.organizationId!, branchId);
     res.json(lots);
   } catch (error) {
     console.error("GET /api/bulk-stone-lots", error);
@@ -51,7 +40,7 @@ bulkStoneLotsRouter.post(
   requireRole(canManageMotifs),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getUserBranch(req.user!.id);
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
       const lot = await createBulkStoneLot(
         req.body as NewBulkStoneLotInput,
         branchId,

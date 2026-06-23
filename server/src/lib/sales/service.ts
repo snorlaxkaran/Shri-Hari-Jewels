@@ -1,3 +1,4 @@
+import { organizationBranchFilter } from "../branches/access.js";
 import { InventoryUnitStatus, SalePaymentStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import { toInvoice } from "../invoices/mappers.js";
@@ -33,22 +34,37 @@ import { SaleError } from "./errors.js";
 
 export { SaleError } from "./errors.js";
 
-export const listSales = async (branchId?: string): Promise<Sale[]> => {
+export const listSales = async (
+  organizationId: string,
+  branchId?: string,
+): Promise<Sale[]> => {
   const sales = await prisma.sale.findMany({
-    where: branchId ? { branchId } : undefined,
+    where: organizationBranchFilter(organizationId, branchId),
     orderBy: { soldAt: "desc" },
   });
   return sales.map(toSale);
 };
 
-export const getSaleById = async (saleId: string): Promise<Sale | null> => {
-  const sale = await prisma.sale.findUnique({ where: { id: saleId } });
+export const getSaleById = async (
+  saleId: string,
+  organizationId: string,
+): Promise<Sale | null> => {
+  const sale = await prisma.sale.findFirst({
+    where: { id: saleId, branch: { organizationId } },
+  });
   return sale ? toSale(sale) : null;
 };
 
-export const lookupUnitForSale = async (itemCode: string, branchId?: string) => {
-  const unit = await prisma.inventoryUnit.findUnique({
-    where: { itemCode: itemCode.trim() },
+export const lookupUnitForSale = async (
+  itemCode: string,
+  organizationId: string,
+  branchId?: string,
+) => {
+  const unit = await prisma.inventoryUnit.findFirst({
+    where: {
+      itemCode: itemCode.trim(),
+      ...organizationBranchFilter(organizationId, branchId),
+    },
     include: { product: true, sale: true },
   });
 
@@ -82,7 +98,11 @@ export const lookupUnitForSale = async (itemCode: string, branchId?: string) => 
   };
 };
 
-const validateSaleInput = async (input: RecordSaleInput, branchId?: string) => {
+const validateSaleInput = async (
+  input: RecordSaleInput,
+  organizationId: string,
+  branchId?: string,
+) => {
   const itemCode = input.itemCode.trim();
 
   if (!itemCode) throw new SaleError("Item code is required.");
@@ -94,13 +114,16 @@ const validateSaleInput = async (input: RecordSaleInput, branchId?: string) => {
     throw new SaleError("Invalid payment mode.");
   }
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: input.customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: input.customerId, organizationId },
   });
   if (!customer) throw new SaleError("Customer not found.", 404);
 
-  const unit = await prisma.inventoryUnit.findUnique({
-    where: { itemCode },
+  const unit = await prisma.inventoryUnit.findFirst({
+    where: {
+      itemCode,
+      ...organizationBranchFilter(organizationId, branchId),
+    },
     include: { product: true, sale: true },
   });
 
@@ -273,12 +296,13 @@ export const syncPendingSalePayment = async (
 
 export const recordSale = async (
   input: RecordSaleInput,
+  organizationId: string,
   branchId: string,
 ): Promise<RecordSaleResult> => {
   const { itemCode, customer, unit, product, discount } =
-    await validateSaleInput(input, branchId);
+    await validateSaleInput(input, organizationId, branchId);
 
-  const marketRates = await getCurrentMarketRates();
+  const marketRates = await getCurrentMarketRates(organizationId);
   const { listPrice } = computeListPriceBreakdownForProduct(product, marketRates);
 
   if (input.paymentMode === "UPI") {

@@ -4,6 +4,7 @@ import {
   isValidMotifPurityForMetal,
 } from "../designs/validation.js";
 import { safeRecordCatalogAudit } from "../catalog/audit.js";
+import { organizationBranchFilter } from "../branches/access.js";
 import { resolveMarketRateForMetalPurity } from "../pricing/metal-rate.js";
 import type {
   Motif,
@@ -290,8 +291,12 @@ const syncMotifStones = async (
   });
 };
 
-export const listMotifs = async (): Promise<Motif[]> => {
+export const listMotifs = async (
+  organizationId: string,
+  branchId?: string,
+): Promise<Motif[]> => {
   const rows = await prisma.motif.findMany({
+    where: organizationBranchFilter(organizationId, branchId),
     include: motifInclude,
     orderBy: [{ subCategory: "asc" }, { name: "asc" }],
   });

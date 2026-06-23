@@ -42,7 +42,26 @@ export const getBranchScope = async (
   return getUserBranch(userId, organizationId);
 };
 
-export const organizationBranchFilter = (organizationId: string, branchId?: string) =>
+export const organizationBranchFilter = (
+  organizationId: string,
+  branchId?: string,
+) =>
   branchId
     ? { branchId, branch: { organizationId } }
     : { branch: { organizationId } };
+
+export const organizationTransferFromFilter = (
+  organizationId: string,
+  fromBranchId?: string,
+) =>
+  fromBranchId
+    ? { fromBranchId, fromBranch: { organizationId } }
+    : { fromBranch: { organizationId } };
+
+export const organizationTransferToFilter = (
+  organizationId: string,
+  toBranchId: string,
+) => ({
+  toBranchId,
+  toBranch: { organizationId },
+});

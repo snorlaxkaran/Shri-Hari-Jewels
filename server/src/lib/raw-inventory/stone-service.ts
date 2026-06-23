@@ -1,5 +1,6 @@
 import { StoneLotStatus } from "@prisma/client";
 import { prisma } from "../db.js";
+import { organizationBranchFilter } from "../branches/access.js";
 import type {
   AdjustStoneLotInput,
   NewStoneLotInput,
@@ -21,8 +22,12 @@ const STONE_STATUSES: Array<StoneLot["status"]> = [
 
 type Actor = { id: string; name: string };
 
-export const listStoneLots = async (): Promise<StoneLot[]> => {
+export const listStoneLots = async (
+  organizationId: string,
+  branchId?: string,
+): Promise<StoneLot[]> => {
   const rows = await prisma.stoneLot.findMany({
+    where: organizationBranchFilter(organizationId, branchId),
     orderBy: { createdAt: "desc" },
   });
   return rows.map(toStoneLot);

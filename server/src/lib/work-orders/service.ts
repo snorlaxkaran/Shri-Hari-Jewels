@@ -8,6 +8,7 @@ import type {
   UpdateWorkOrderInput,
 } from "../../types.js";
 import { generateWorkOrderNo } from "./work-order-no.js";
+import { organizationBranchFilter } from "../branches/access.js";
 
 const WORK_ORDER_STATUSES: WorkOrderStatus[] = [
   "Open",
@@ -72,8 +73,12 @@ const toWorkOrder = (workOrder: {
   updatedAt: workOrder.updatedAt.toISOString(),
 });
 
-export const listWorkOrders = async (): Promise<WorkOrder[]> => {
+export const listWorkOrders = async (
+  organizationId: string,
+  branchId?: string,
+): Promise<WorkOrder[]> => {
   const workOrders = await prisma.workOrder.findMany({
+    where: organizationBranchFilter(organizationId, branchId),
     include: workOrderInclude,
     orderBy: { createdAt: "desc" },
   });

@@ -1,4 +1,5 @@
 import { prisma } from "../db.js";
+import { organizationBranchFilter } from "../branches/access.js";
 import { moneyToNumber } from "../money.js";
 import { MOTIF_STONE_TYPES } from "../motifs/service.js";
 import { recalculateMotifsForBulkStoneLot } from "../motifs/service.js";
@@ -71,8 +72,12 @@ const validateInput = (input: NewBulkStoneLotInput) => {
   };
 };
 
-export const listBulkStoneLots = async (): Promise<BulkStoneLot[]> => {
+export const listBulkStoneLots = async (
+  organizationId: string,
+  branchId?: string,
+): Promise<BulkStoneLot[]> => {
   const rows = await prisma.bulkStoneLot.findMany({
+    where: organizationBranchFilter(organizationId, branchId),
     orderBy: [{ stoneType: "asc" }, { sizeLabel: "asc" }],
   });
   return rows.map(toBulkStoneLot);

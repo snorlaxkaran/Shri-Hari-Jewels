@@ -33,7 +33,7 @@ salesRouter.get(
   async (req: AuthenticatedRequest, res) => {
     try {
       const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
-      const analytics = await getSalesAnalytics(branchId);
+      const analytics = await getSalesAnalytics(req.organizationId!, branchId);
       res.json(analytics);
     } catch (error) {
       console.error("GET /api/sales/analytics", error);
@@ -45,7 +45,7 @@ salesRouter.get(
 salesRouter.get("/", requireRole(canRecordSales), async (req: AuthenticatedRequest, res) => {
   try {
     const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
-    const sales = await listSales(branchId);
+    const sales = await listSales(req.organizationId!, branchId);
     res.json(sales);
   } catch (error) {
     console.error("GET /api/sales", error);
@@ -61,6 +61,7 @@ salesRouter.get(
       const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
       const unit = await lookupUnitForSale(
         routeParam(req.params.itemCode),
+        req.organizationId!,
         branchId,
       );
       res.json(unit);
@@ -81,7 +82,11 @@ salesRouter.post(
   async (req: AuthenticatedRequest, res) => {
     try {
       const branchId = await getUserBranch(req.user!.id, req.organizationId!);
-      const result = await recordSale(req.body as RecordSaleInput, branchId);
+      const result = await recordSale(
+        req.body as RecordSaleInput,
+        req.organizationId!,
+        branchId,
+      );
       res.status(201).json(result);
     } catch (error) {
       if (error instanceof SaleError) {
@@ -102,6 +107,7 @@ salesRouter.post("/cart", requireRole(canRecordSales), async (req: Authenticated
     }
     const result = await recordCartSale(
       req.body as RecordCartSaleInput,
+      req.organizationId!,
       branchId,
     );
     res.status(201).json(result);

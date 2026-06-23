@@ -6,6 +6,7 @@ import type {
   UpdateOrderInput,
 } from "../../types.js";
 import { generateOrderNo } from "./order-no.js";
+import { organizationBranchFilter } from "../branches/access.js";
 import { toOrder } from "./mappers.js";
 
 const ORDER_STATUSES: OrderStatus[] = [
@@ -102,12 +103,13 @@ export const updateOrder = async (
 };
 
 export const countPendingOrders = async (
+  organizationId: string,
   branchId?: string,
 ): Promise<number> => {
   return prisma.order.count({
     where: {
       status: { notIn: ["Delivered", "Cancelled"] },
-      ...(branchId && { branchId }),
+      ...organizationBranchFilter(organizationId, branchId),
     },
   });
 };

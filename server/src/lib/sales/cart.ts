@@ -1,3 +1,4 @@
+import { organizationBranchFilter } from "../branches/access.js";
 import { randomUUID } from "crypto";
 import { prisma } from "../db.js";
 import { toInvoice } from "../invoices/mappers.js";
@@ -33,9 +34,16 @@ type ValidatedCartItem = {
   dealPrice: number;
 };
 
-const loadUnit = async (itemCode: string, branchId?: string) => {
-  const unit = await prisma.inventoryUnit.findUnique({
-    where: { itemCode: itemCode.trim() },
+const loadUnit = async (
+  itemCode: string,
+  organizationId: string,
+  branchId?: string,
+) => {
+  const unit = await prisma.inventoryUnit.findFirst({
+    where: {
+      itemCode: itemCode.trim(),
+      ...organizationBranchFilter(organizationId, branchId),
+    },
     include: { product: true, sale: true },
   });
 
@@ -55,6 +63,7 @@ const loadUnit = async (itemCode: string, branchId?: string) => {
 
 const validateCartInput = async (
   input: RecordCartSaleInput,
+  organizationId: string,
   branchId?: string,
 ) => {
   if (!input.items?.length) {
@@ -65,12 +74,12 @@ const validateCartInput = async (
     throw new SaleError("Invalid payment mode.");
   }
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: input.customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: input.customerId, organizationId },
   });
   if (!customer) throw new SaleError("Customer not found.", 404);
 
-  const marketRates = await getCurrentMarketRates();
+  const marketRates = await getCurrentMarketRates(organizationId);
   const codes = new Set<string>();
   const validated: ValidatedCartItem[] = [];
 
@@ -86,7 +95,7 @@ const validateCartInput = async (
       throw new SaleError(`Invalid deal price for ${itemCode}.`);
     }
 
-    const unit = await loadUnit(itemCode, branchId);
+    const unit = await loadUnit(itemCode, organizationId, branchId);
     validated.push({
       itemCode,
       unit,
@@ -225,9 +234,14 @@ export const cancelCartGroup = async (cartGroupId: string): Promise<void> => {
 
 export const recordCartSale = async (
   input: RecordCartSaleInput,
+  organizationId: string,
   branchId: string,
 ): Promise<RecordCartSaleResult> => {
-  const { customer, items } = await validateCartInput(input, branchId);
+  const { customer, items } = await validateCartInput(
+    input,
+    organizationId,
+    branchId,
+  );
   const total = items.reduce((sum, i) => sum + i.dealPrice, 0);
   const cartGroupId = items.length > 1 ? randomUUID() : undefined;
 

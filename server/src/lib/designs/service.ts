@@ -11,6 +11,7 @@ import type {
   UpdateDesignInput,
 } from "../../types.js";
 import { safeRecordCatalogAudit } from "../catalog/audit.js";
+import { organizationBranchFilter } from "../branches/access.js";
 import { getMotif } from "../motifs/service.js";
 import {
   isValidDesignMetal,
@@ -169,8 +170,12 @@ const buildElementData = async (
   };
 };
 
-export const listDesigns = async (): Promise<Design[]> => {
+export const listDesigns = async (
+  organizationId: string,
+  branchId?: string,
+): Promise<Design[]> => {
   const designs = await prisma.design.findMany({
+    where: organizationBranchFilter(organizationId, branchId),
     include: designInclude,
     orderBy: { code: "asc" },
   });

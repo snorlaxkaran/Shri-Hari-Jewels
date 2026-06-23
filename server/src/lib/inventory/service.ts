@@ -20,6 +20,7 @@ import { getStockStatus } from "./status.js";
 import { syncProductStockInTx } from "./stock-sync.js";
 import { recordInventoryAudit } from "./audit.js";
 import { DEFAULT_BRANCH_ID } from "../branches/constants.js";
+import { organizationBranchFilter, organizationTransferFromFilter } from "../branches/access.js";
 import { moneyToNumber, sumMoney } from "../money.js";
 import { repairCompletedRunInventorySkus } from "../production-runs/run-completion.js";
 import { toStockTransferDto } from "./transfer-actions.js";
@@ -241,8 +242,16 @@ const nextTransferNo = async (): Promise<string> => {
   return `${prefix}${String(lastNumber + 1).padStart(4, "0")}`;
 };
 
-export const listStockTransfers = async (): Promise<StockTransfer[]> => {
+export const listStockTransfers = async (
+  organizationId: string,
+): Promise<StockTransfer[]> => {
   const transfers = await prisma.stockTransfer.findMany({
+    where: {
+      OR: [
+        { fromBranch: { organizationId } },
+        { toBranch: { organizationId } },
+      ],
+    },
     include: {
       fromBranch: true,
       toBranch: true,

@@ -19,6 +19,7 @@ import { countPendingOrders } from "../orders/service.js";
 import { getRawInventorySummary } from "../raw-inventory/metal-service.js";
 import { getCurrentMarketRates } from "../market-rates/service.js";
 import { computeLiveListPriceForProduct } from "../inventory/unit-pricing.js";
+import { organizationBranchFilter } from "../branches/access.js";
 import { prisma } from "../db.js";
 import { toSale } from "./mappers.js";
 
@@ -130,39 +131,44 @@ const uniqueCustomerIdsInRange = (
   ).size;
 
 export const getSalesAnalytics = async (
+  organizationId: string,
   branchId?: string,
 ): Promise<SalesAnalytics> => {
+  const branchFilter = organizationBranchFilter(organizationId, branchId);
   const [sales, products, customerCount, pendingOrders, rawSummary, activeWorkOrders, marketRates] =
     await Promise.all([
     prisma.sale.findMany({
-      where: { paymentStatus: SalePaymentStatus.Completed, ...(branchId && { branchId }) },
+      where: {
+        paymentStatus: SalePaymentStatus.Completed,
+        ...branchFilter,
+      },
       orderBy: { soldAt: "desc" },
     }),
     prisma.product.findMany({
-      where: branchId ? { units: { some: { branchId } } } : undefined,
+      where: branchFilter,
       select: {
         price: true,
         metal: true,
         purity: true,
         weightGrams: true,
         units: {
-          where: branchId ? { branchId } : undefined,
+          where: branchId ? { branchId } : { branch: { organizationId } },
           select: { status: true },
         },
       },
     }),
-    prisma.customer.count(),
-    countPendingOrders(branchId),
-    getRawInventorySummary(),
+    prisma.customer.count({ where: { organizationId } }),
+    countPendingOrders(organizationId, branchId),
+    getRawInventorySummary(organizationId, branchId),
     prisma.workOrder.count({
       where: {
         status: {
           in: [WorkOrderStatus.Open, WorkOrderStatus.InProduction, WorkOrderStatus.QC],
         },
-        ...(branchId && { branchId }),
+        ...branchFilter,
       },
     }),
-    getCurrentMarketRates(),
+    getCurrentMarketRates(organizationId),
   ]);
 
   const now = new Date();

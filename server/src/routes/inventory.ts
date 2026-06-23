@@ -178,7 +178,11 @@ inventoryRouter.get(
         )
           ? (statusParam as StockTransferStatus)
           : undefined;
-      const transfers = await listIncomingStockTransfers(branchId, status);
+      const transfers = await listIncomingStockTransfers(
+        req.organizationId!,
+        branchId,
+        status,
+      );
       res.json(transfers);
     } catch (error) {
       console.error("GET /api/inventory/transfers/incoming", error);
@@ -196,7 +200,10 @@ inventoryRouter.get(
         req.user!.role === "Admin"
           ? undefined
           : await getUserBranch(req.user!.id, req.organizationId!);
-      const transfers = await listSentStockTransfers(fromBranchId);
+      const transfers = await listSentStockTransfers(
+        req.organizationId!,
+        fromBranchId,
+      );
       res.json(transfers);
     } catch (error) {
       console.error("GET /api/inventory/transfers/sent", error);
@@ -353,9 +360,9 @@ inventoryRouter.post(
 inventoryRouter.get(
   "/transfers",
   requireRole(canViewStockTransfers),
-  async (_req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const transfers = await listStockTransfers();
+      const transfers = await listStockTransfers(req.organizationId!);
       res.json(transfers);
     } catch (error) {
       console.error("GET /api/inventory/transfers", error);

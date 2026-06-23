@@ -4,6 +4,10 @@ import {
   type Prisma,
 } from "@prisma/client";
 import { prisma } from "../db.js";
+import {
+  organizationTransferFromFilter,
+  organizationTransferToFilter,
+} from "../branches/access.js";
 import type { Branch, StockTransfer as DbStockTransfer, StockTransferItem as DbStockTransferItem } from "@prisma/client";
 import type { StockTransfer } from "../../types.js";
 import { moneyToNumber } from "../money.js";
@@ -108,12 +112,13 @@ export const getStockTransferById = async (
 };
 
 export const listIncomingStockTransfers = async (
+  organizationId: string,
   branchId: string,
   status?: StockTransferStatus,
 ): Promise<StockTransfer[]> => {
   const transfers = await prisma.stockTransfer.findMany({
     where: {
-      toBranchId: branchId,
+      ...organizationTransferToFilter(organizationId, branchId),
       ...(status ? { status } : {}),
     },
     include: transferInclude,
@@ -124,10 +129,11 @@ export const listIncomingStockTransfers = async (
 };
 
 export const listSentStockTransfers = async (
+  organizationId: string,
   fromBranchId?: string,
 ): Promise<StockTransfer[]> => {
   const transfers = await prisma.stockTransfer.findMany({
-    where: fromBranchId ? { fromBranchId } : undefined,
+    where: organizationTransferFromFilter(organizationId, fromBranchId),
     include: transferInclude,
     orderBy: { createdAt: "desc" },
     take: 500,

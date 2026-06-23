@@ -15,8 +15,7 @@ import {
 import { getMotifPriceDrift } from "../lib/catalog/price-drift.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
 import { attachOrganization } from "../middleware/organization.js";
-import { prisma } from "../lib/db.js";
-import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
+import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
 import { routeParam } from "../lib/route-param.js";
 import type { NewMotifInput, UpdateMotifInput } from "../types.js";
 
@@ -25,25 +24,15 @@ export const motifsRouter = Router();
 motifsRouter.use(authenticate);
 motifsRouter.use(attachOrganization);
 
-const getUserBranch = async (userId: string): Promise<string> => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { branches: { take: 1 } },
-  });
-
-  if (user?.defaultBranchId) return user.defaultBranchId;
-  if (user?.branches.length) return user.branches[0].branchId;
-  return DEFAULT_BRANCH_ID;
-};
-
 const actorFrom = (req: AuthenticatedRequest) => ({
   id: req.user!.id,
   name: req.user!.name,
 });
 
-motifsRouter.get("/", requireRole(canViewMotifs), async (_req, res) => {
+motifsRouter.get("/", requireRole(canViewMotifs), async (req: AuthenticatedRequest, res) => {
   try {
-    const motifs = await listMotifs();
+    const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
+    const motifs = await listMotifs(req.organizationId!, branchId);
     res.json(motifs);
   } catch (error) {
     console.error("GET /api/motifs", error);
@@ -93,7 +82,7 @@ motifsRouter.post(
 
 motifsRouter.post("/", requireRole(canManageMotifs), async (req: AuthenticatedRequest, res) => {
   try {
-    const branchId = await getUserBranch(req.user!.id);
+    const branchId = await getUserBranch(req.user!.id, req.organizationId!);
     const motif = await createMotif(
       req.body as NewMotifInput,
       branchId,
@@ -112,7 +101,7 @@ motifsRouter.post("/", requireRole(canManageMotifs), async (req: AuthenticatedRe
 
 motifsRouter.post("/bulk", requireRole(canManageMotifs), async (req: AuthenticatedRequest, res) => {
   try {
-    const branchId = await getUserBranch(req.user!.id);
+    const branchId = await getUserBranch(req.user!.id, req.organizationId!);
     const items = req.body as NewMotifInput[];
     if (!Array.isArray(items) || items.length === 0) {
       res.status(400).json({ error: "Provide an array of motifs." });

@@ -12,8 +12,7 @@ import {
 } from "../lib/work-orders/service.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
 import { attachOrganization } from "../middleware/organization.js";
-import { prisma } from "../lib/db.js";
-import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
+import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
 import { routeParam } from "../lib/route-param.js";
 import type { NewWorkOrderInput, UpdateWorkOrderInput } from "../types.js";
 
@@ -22,26 +21,10 @@ export const workOrdersRouter = Router();
 workOrdersRouter.use(authenticate);
 workOrdersRouter.use(attachOrganization);
 
-const getUserBranch = async (userId: string): Promise<string> => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { branches: { take: 1 } },
-  });
-
-  if (user?.defaultBranchId) {
-    return user.defaultBranchId;
-  }
-
-  if (user?.branches.length) {
-    return user.branches[0].branchId;
-  }
-
-  return DEFAULT_BRANCH_ID;
-};
-
-workOrdersRouter.get("/", requireRole(canViewWorkOrders), async (_req, res) => {
+workOrdersRouter.get("/", requireRole(canViewWorkOrders), async (req: AuthenticatedRequest, res) => {
   try {
-    const workOrders = await listWorkOrders();
+    const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
+    const workOrders = await listWorkOrders(req.organizationId!, branchId);
     res.json(workOrders);
   } catch (error) {
     console.error("GET /api/work-orders", error);
@@ -54,7 +37,7 @@ workOrdersRouter.post(
   requireRole(canCreateWorkOrders),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getUserBranch(req.user!.id);
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
       const workOrder = await createWorkOrder(
         req.body as NewWorkOrderInput,
         branchId,

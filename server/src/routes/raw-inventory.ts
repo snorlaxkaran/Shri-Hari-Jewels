@@ -30,7 +30,7 @@ import {
   type AuthenticatedRequest,
 } from "../middleware/auth.js";
 import { attachOrganization } from "../middleware/organization.js";
-import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
+import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
 import { routeParam } from "../lib/route-param.js";
 import type {
   AdjustMetalLotInput,
@@ -52,23 +52,6 @@ const actorFrom = (req: AuthenticatedRequest) => ({
   id: req.user!.id,
   name: req.user!.name,
 });
-
-const getUserBranch = async (userId: string): Promise<string> => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { branches: { take: 1 } },
-  });
-
-  if (user?.defaultBranchId) {
-    return user.defaultBranchId;
-  }
-
-  if (user?.branches.length) {
-    return user.branches[0].branchId;
-  }
-
-  return DEFAULT_BRANCH_ID;
-};
 
 const mapRawInventoryError = (error: unknown): RawInventoryError | null => {
   if (error instanceof RawInventoryError) return error;
@@ -97,9 +80,10 @@ const mapRawInventoryError = (error: unknown): RawInventoryError | null => {
 rawInventoryRouter.get(
   "/summary",
   requireRole(canReadRawInventory),
-  async (_req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const summary = await getRawInventorySummary();
+      const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
+      const summary = await getRawInventorySummary(req.organizationId!, branchId);
       res.json(summary);
     } catch (error) {
       console.error("GET /api/raw-inventory/summary", error);
@@ -127,9 +111,10 @@ rawInventoryRouter.get(
 rawInventoryRouter.get(
   "/metal",
   requireRole(canReadRawInventory),
-  async (_req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      res.json(await listMetalLots());
+      const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
+      res.json(await listMetalLots(req.organizationId!, branchId));
     } catch (error) {
       console.error("GET /api/raw-inventory/metal", error);
       res.status(500).json({ error: "Failed to fetch metal lots" });
@@ -159,7 +144,7 @@ rawInventoryRouter.post(
   requireRole(canWriteRawInventory),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getUserBranch(req.user!.id);
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
       const lot = await createMetalLot(
         req.body as NewMetalLotInput,
         actorFrom(req),
@@ -247,9 +232,10 @@ rawInventoryRouter.post(
 rawInventoryRouter.get(
   "/stones",
   requireRole(canReadRawInventory),
-  async (_req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      res.json(await listStoneLots());
+      const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
+      res.json(await listStoneLots(req.organizationId!, branchId));
     } catch (error) {
       console.error("GET /api/raw-inventory/stones", error);
       res.status(500).json({ error: "Failed to fetch stone lots" });
@@ -279,7 +265,7 @@ rawInventoryRouter.post(
   requireRole(canWriteRawInventory),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getUserBranch(req.user!.id);
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
       const lot = await createStoneLot(
         req.body as NewStoneLotInput,
         actorFrom(req),

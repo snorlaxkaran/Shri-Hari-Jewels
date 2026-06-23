@@ -19,8 +19,7 @@ import { completeProductionRunStage } from "../lib/production-runs/stage-service
 import { slugToStage } from "../lib/production-runs/stages.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
 import { attachOrganization } from "../middleware/organization.js";
-import { prisma } from "../lib/db.js";
-import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
+import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
 import { routeParam } from "../lib/route-param.js";
 import type {
   NewProductionRunInput,
@@ -34,23 +33,13 @@ export const productionRunsRouter = Router();
 productionRunsRouter.use(authenticate);
 productionRunsRouter.use(attachOrganization);
 
-const getUserBranch = async (userId: string): Promise<string> => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { branches: { take: 1 } },
-  });
-
-  if (user?.defaultBranchId) return user.defaultBranchId;
-  if (user?.branches.length) return user.branches[0].branchId;
-  return DEFAULT_BRANCH_ID;
-};
-
 productionRunsRouter.get(
   "/",
   requireRole(canViewProductionRuns),
-  async (_req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const runs = await listProductionRuns();
+      const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
+      const runs = await listProductionRuns(req.organizationId!, branchId);
       res.json(runs);
     } catch (error) {
       console.error("GET /api/production-runs", error);
@@ -125,7 +114,7 @@ productionRunsRouter.post(
   requireRole(canManageProductionRuns),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getUserBranch(req.user!.id);
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
       const run = await createProductionRun(
         req.body as NewProductionRunInput,
         branchId,

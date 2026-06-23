@@ -30,8 +30,8 @@ import { getDesignPriceDrift } from "../lib/catalog/price-drift.js";
 import { listCatalogAuditLogs } from "../lib/catalog/audit.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
 import { attachOrganization } from "../middleware/organization.js";
+import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
 import { prisma } from "../lib/db.js";
-import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
 import { routeParam } from "../lib/route-param.js";
 import type {
   ConfirmedDesignImportRow,
@@ -47,25 +47,15 @@ export const designsRouter = Router();
 designsRouter.use(authenticate);
 designsRouter.use(attachOrganization);
 
-const getUserBranch = async (userId: string): Promise<string> => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { branches: { take: 1 } },
-  });
-
-  if (user?.defaultBranchId) return user.defaultBranchId;
-  if (user?.branches.length) return user.branches[0].branchId;
-  return DEFAULT_BRANCH_ID;
-};
-
 const actorFrom = (req: AuthenticatedRequest) => ({
   id: req.user!.id,
   name: req.user!.name,
 });
 
-designsRouter.get("/", requireRole(canViewDesigns), async (_req, res) => {
+designsRouter.get("/", requireRole(canViewDesigns), async (req: AuthenticatedRequest, res) => {
   try {
-    const designs = await listDesigns();
+    const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
+    const designs = await listDesigns(req.organizationId!, branchId);
     res.json(designs);
   } catch (error) {
     console.error("GET /api/designs", error);
@@ -78,7 +68,7 @@ designsRouter.post(
   requireRole(canManageDesigns),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getUserBranch(req.user!.id);
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
       const design = await createDesign(
         req.body as NewDesignInput,
         branchId,
@@ -244,7 +234,7 @@ designsRouter.post(
 designsRouter.post(
   "/:id/import/preview",
   requireRole(canManageDesigns),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
       const designId = routeParam(req.params.id);
       const { rows, sheetName } = req.body as {
@@ -270,7 +260,7 @@ designsRouter.post(
         rows,
         sheetName,
       );
-      const motifs = await listMotifs();
+      const motifs = await listMotifs(req.organizationId!);
 
       const preview = buildImportPreview(
         designCode,

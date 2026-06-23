@@ -1,5 +1,6 @@
 import { StoneLotStatus } from "@prisma/client";
 import { prisma } from "../db.js";
+import { organizationBranchFilter } from "../branches/access.js";
 import { moneyToNumber, multiplyMoney } from "../money.js";
 import type {
   AdjustMetalLotInput,
@@ -26,8 +27,12 @@ const PURITIES = ["24K", "22K", "18K", "14K", "925"] as const;
 
 type Actor = { id: string; name: string };
 
-export const listMetalLots = async (): Promise<MetalLot[]> => {
+export const listMetalLots = async (
+  organizationId: string,
+  branchId?: string,
+): Promise<MetalLot[]> => {
   const rows = await prisma.metalLot.findMany({
+    where: organizationBranchFilter(organizationId, branchId),
     orderBy: { createdAt: "desc" },
   });
   return rows.map(toMetalLot);
@@ -226,12 +231,17 @@ export const adjustMetalLot = async (
   return toMetalLot(row);
 };
 
-export const getRawInventorySummary =
-  async (): Promise<RawInventorySummary> => {
-    const [metalLots, stoneLots] = await Promise.all([
-      prisma.metalLot.findMany(),
-      prisma.stoneLot.findMany({ where: { status: StoneLotStatus.InStock } }),
-    ]);
+export const getRawInventorySummary = async (
+  organizationId: string,
+  branchId?: string,
+): Promise<RawInventorySummary> => {
+  const branchFilter = organizationBranchFilter(organizationId, branchId);
+  const [metalLots, stoneLots] = await Promise.all([
+    prisma.metalLot.findMany({ where: branchFilter }),
+    prisma.stoneLot.findMany({
+      where: { ...branchFilter, status: StoneLotStatus.InStock },
+    }),
+  ]);
 
     const summary: RawInventorySummary = {
       goldGrams: 0,

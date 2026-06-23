@@ -36,6 +36,7 @@ import {
   requireWeightOverrideNote,
 } from "../weight-reconciliation.js";
 import { toApiProductionRunStage } from "./stages.js";
+import { organizationBranchFilter } from "../branches/access.js";
 
 export { ProductionRunError } from "./errors.js";
 
@@ -242,13 +243,17 @@ export const syncCompletedRunsInventory = async (
   return synced;
 };
 
-export const listProductionRuns = async (): Promise<ProductionRun[]> => {
+export const listProductionRuns = async (
+  organizationId: string,
+  branchId?: string,
+): Promise<ProductionRun[]> => {
   await syncCompletedRunsInventory({
     id: "system",
     name: "Production completion sync",
   });
 
   const runs = await prisma.productionRun.findMany({
+    where: organizationBranchFilter(organizationId, branchId),
     include: runInclude,
     orderBy: { createdAt: "desc" },
   });
