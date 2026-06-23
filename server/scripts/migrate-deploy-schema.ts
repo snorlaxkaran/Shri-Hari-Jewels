@@ -160,11 +160,112 @@ const ensureInventoryUnitListPrice = async () => {
   );
 };
 
+const DEFAULT_ORG_ID = "org-shree-hari-jewels";
+
+const ensureMultiTenantOrganizations = async () => {
+  await run(
+    "Ensure Organization table and tenant columns…",
+    `
+    CREATE TABLE IF NOT EXISTS "Organization" (
+      "id" TEXT NOT NULL,
+      "name" TEXT NOT NULL,
+      "slug" TEXT NOT NULL,
+      "emailDomain" TEXT,
+      "active" BOOLEAN NOT NULL DEFAULT true,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "Organization_pkey" PRIMARY KEY ("id")
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS "Organization_slug_key" ON "Organization"("slug");
+
+    INSERT INTO "Organization" ("id", "name", "slug", "emailDomain", "active", "createdAt", "updatedAt")
+    VALUES (
+      '${DEFAULT_ORG_ID}',
+      'Shree Hari Jewels',
+      'shree-hari-jewels',
+      'shreehari.com',
+      true,
+      CURRENT_TIMESTAMP,
+      CURRENT_TIMESTAMP
+    )
+    ON CONFLICT ("id") DO NOTHING;
+
+    ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+    UPDATE "Branch" SET "organizationId" = '${DEFAULT_ORG_ID}' WHERE "organizationId" IS NULL;
+    ALTER TABLE "Branch" ALTER COLUMN "organizationId" SET NOT NULL;
+
+    ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+    UPDATE "User"
+    SET "organizationId" = '${DEFAULT_ORG_ID}'
+    WHERE "organizationId" IS NULL AND "role" <> 'SuperAdmin';
+
+    ALTER TABLE "Customer" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+    UPDATE "Customer" SET "organizationId" = '${DEFAULT_ORG_ID}' WHERE "organizationId" IS NULL;
+    ALTER TABLE "Customer" ALTER COLUMN "organizationId" SET NOT NULL;
+
+    ALTER TABLE "ShopSettings" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+    UPDATE "ShopSettings" SET "organizationId" = '${DEFAULT_ORG_ID}' WHERE "organizationId" IS NULL;
+    ALTER TABLE "ShopSettings" ALTER COLUMN "organizationId" SET NOT NULL;
+    ALTER TABLE "ShopSettings" ALTER COLUMN "id" DROP DEFAULT;
+
+    DROP INDEX IF EXISTS "Customer_mobile_key";
+    CREATE UNIQUE INDEX IF NOT EXISTS "Customer_organizationId_mobile_key"
+      ON "Customer"("organizationId", "mobile");
+    CREATE UNIQUE INDEX IF NOT EXISTS "ShopSettings_organizationId_key"
+      ON "ShopSettings"("organizationId");
+    CREATE INDEX IF NOT EXISTS "Branch_organizationId_idx" ON "Branch"("organizationId");
+    CREATE INDEX IF NOT EXISTS "User_organizationId_idx" ON "User"("organizationId");
+    CREATE INDEX IF NOT EXISTS "Customer_organizationId_idx" ON "Customer"("organizationId");
+
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'Branch_organizationId_fkey'
+      ) THEN
+        ALTER TABLE "Branch"
+          ADD CONSTRAINT "Branch_organizationId_fkey"
+          FOREIGN KEY ("organizationId") REFERENCES "Organization"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'User_organizationId_fkey'
+      ) THEN
+        ALTER TABLE "User"
+          ADD CONSTRAINT "User_organizationId_fkey"
+          FOREIGN KEY ("organizationId") REFERENCES "Organization"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'ShopSettings_organizationId_fkey'
+      ) THEN
+        ALTER TABLE "ShopSettings"
+          ADD CONSTRAINT "ShopSettings_organizationId_fkey"
+          FOREIGN KEY ("organizationId") REFERENCES "Organization"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'Customer_organizationId_fkey'
+      ) THEN
+        ALTER TABLE "Customer"
+          ADD CONSTRAINT "Customer_organizationId_fkey"
+          FOREIGN KEY ("organizationId") REFERENCES "Organization"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+    END $$;
+    `,
+  );
+};
+
 const main = async () => {
   await ensureProductStockStatusEnum();
   await ensureInventoryUnitInTransit();
   await ensureStockTransferStatus();
   await ensureInventoryUnitListPrice();
+  await ensureMultiTenantOrganizations();
   console.log("Deploy schema migration complete.");
 };
 

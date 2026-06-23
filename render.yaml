@@ -12,7 +12,7 @@ services:
     rootDir: server
     branch: main
     autoDeploy: true
-    buildCommand: npm install --include=dev && npm run build && npm run db:push && npm run db:seed-if-empty
+    buildCommand: npm install --include=dev && npm run build && npm run db:push:deploy && npm run db:seed-if-empty
     startCommand: npm run start:prod
     healthCheckPath: /api/health
     envVars:
