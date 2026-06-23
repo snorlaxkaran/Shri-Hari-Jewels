@@ -30,13 +30,13 @@ export type UpdateOrganizationInput = {
 };
 
 export const fetchOrganizations = () =>
-  api.get<OrganizationSummary[]>("/organizations").then((r) => r.data);
+  api.get<OrganizationSummary[]>("/api/organizations").then((r) => r.data);
 
 export const createOrganization = (input: CreateOrganizationInput) =>
-  api.post<OrganizationSummary>("/organizations", input).then((r) => r.data);
+  api.post<OrganizationSummary>("/api/organizations", input).then((r) => r.data);
 
 export const updateOrganization = (id: string, input: UpdateOrganizationInput) =>
-  api.patch<OrganizationSummary>(`/organizations/${id}`, input).then((r) => r.data);
+  api.patch<OrganizationSummary>(`/api/organizations/${id}`, input).then((r) => r.data);
 
 export const deleteOrganization = (id: string) =>
-  api.delete(`/organizations/${id}`);
+  api.delete(`/api/organizations/${id}`);
