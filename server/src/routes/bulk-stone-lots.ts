@@ -11,6 +11,7 @@ import {
   updateBulkStoneLot,
 } from "../lib/bulk-stone-lots/service.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
+import { attachOrganization } from "../middleware/organization.js";
 import { prisma } from "../lib/db.js";
 import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
 import { routeParam } from "../lib/route-param.js";
@@ -22,6 +23,7 @@ import type {
 export const bulkStoneLotsRouter = Router();
 
 bulkStoneLotsRouter.use(authenticate);
+bulkStoneLotsRouter.use(attachOrganization);
 
 const getUserBranch = async (userId: string): Promise<string> => {
   const user = await prisma.user.findUnique({

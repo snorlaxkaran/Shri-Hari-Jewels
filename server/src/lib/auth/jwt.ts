@@ -9,6 +9,8 @@ export type AuthTokenPayload = {
   email: string;
   name: string;
   role: UserRole;
+  organizationId?: string;
+  organizationName?: string;
 };
 
 export const signToken = (payload: AuthTokenPayload): string =>
@@ -19,9 +21,10 @@ export const verifyToken = (token: string): AuthTokenPayload => {
   if (typeof decoded !== "object" || decoded === null) {
     throw new Error("Invalid token");
   }
-  const { sub, email, name, role } = decoded as AuthTokenPayload;
+  const { sub, email, name, role, organizationId, organizationName } =
+    decoded as AuthTokenPayload;
   if (!sub || !email || !name || !role) {
     throw new Error("Invalid token payload");
   }
-  return { sub, email, name, role };
+  return { sub, email, name, role, organizationId, organizationName };
 };

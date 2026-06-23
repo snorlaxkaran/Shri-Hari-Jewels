@@ -35,14 +35,17 @@ const productInclude = {
 };
 
 export const listProducts = async (
+  organizationId: string,
   branchId?: string,
 ): Promise<InventoryItem[]> => {
   await repairCompletedRunInventorySkus();
 
   const stockBranchId = branchId ?? DEFAULT_BRANCH_ID;
-  const marketRates = await getCurrentMarketRates();
+  const marketRates = await getCurrentMarketRates(organizationId);
   const products = await prisma.product.findMany({
-    where: branchId ? { units: { some: { branchId } } } : undefined,
+    where: branchId
+      ? { branchId, branch: { organizationId } }
+      : { branch: { organizationId } },
     include: branchId
       ? {
           units: {

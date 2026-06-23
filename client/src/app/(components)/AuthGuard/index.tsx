@@ -18,7 +18,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
     if (!canAccessRoute(user.role, pathname)) {
-      router.replace("/dashboard");
+      router.replace(user.role === "SuperAdmin" ? "/platform/companies" : "/dashboard");
     }
   }, [user, loading, pathname, router]);
 

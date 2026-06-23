@@ -29,6 +29,7 @@ import {
   requireRole,
   type AuthenticatedRequest,
 } from "../middleware/auth.js";
+import { attachOrganization } from "../middleware/organization.js";
 import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
 import { routeParam } from "../lib/route-param.js";
 import type {
@@ -45,6 +46,7 @@ import type {
 export const rawInventoryRouter = Router();
 
 rawInventoryRouter.use(authenticate);
+rawInventoryRouter.use(attachOrganization);
 
 const actorFrom = (req: AuthenticatedRequest) => ({
   id: req.user!.id,

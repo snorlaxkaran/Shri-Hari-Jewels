@@ -18,6 +18,7 @@ import {
 import { completeProductionRunStage } from "../lib/production-runs/stage-service.js";
 import { slugToStage } from "../lib/production-runs/stages.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
+import { attachOrganization } from "../middleware/organization.js";
 import { prisma } from "../lib/db.js";
 import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
 import { routeParam } from "../lib/route-param.js";
@@ -31,6 +32,7 @@ import type {
 export const productionRunsRouter = Router();
 
 productionRunsRouter.use(authenticate);
+productionRunsRouter.use(attachOrganization);
 
 const getUserBranch = async (userId: string): Promise<string> => {
   const user = await prisma.user.findUnique({

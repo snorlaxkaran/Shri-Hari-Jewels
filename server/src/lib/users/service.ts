@@ -42,8 +42,9 @@ const toAppUser = (user: {
   createdAt: user.createdAt.toISOString(),
 });
 
-export const listUsers = async (): Promise<AppUser[]> => {
+export const listUsers = async (organizationId: string): Promise<AppUser[]> => {
   const users = await prisma.user.findMany({
+    where: { organizationId },
     orderBy: { createdAt: "asc" },
   });
   return users.map(toAppUser);
@@ -57,7 +58,10 @@ export type CreateUserInput = {
   branchId?: string;
 };
 
-export const createUser = async (input: CreateUserInput): Promise<AppUser> => {
+export const createUser = async (
+  organizationId: string,
+  input: CreateUserInput,
+): Promise<AppUser> => {
   const userId = input.userId.trim().toLowerCase();
   const name = input.name.trim();
   const password = input.password;
@@ -70,22 +74,45 @@ export const createUser = async (input: CreateUserInput): Promise<AppUser> => {
   if (!USER_ROLES.includes(input.role)) {
     throw new UserError("Invalid role.");
   }
-  if (!isAuthenticatedRole(input.role)) {
+  if (!isAuthenticatedRole(input.role) || input.role === "SuperAdmin") {
     throw new UserError("Role is not configured.");
   }
 
-  const email = userId.includes("@") ? userId : `${userId}@shreehari.com`;
-  const branchId = input.branchId ?? DEFAULT_BRANCH_ID;
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { emailDomain: true },
+  });
+  if (!org) throw new UserError("Company not found.", 404);
+
+  const email = userId.includes("@")
+    ? userId
+    : org.emailDomain
+      ? `${userId}@${org.emailDomain}`
+      : `${userId}@shreehari.com`;
+
+  const orgBranches = await prisma.branch.findMany({
+    where: { organizationId, active: true },
+    select: { id: true },
+  });
+  const branchId =
+    input.branchId ??
+    orgBranches.find((b) => b.id === DEFAULT_BRANCH_ID)?.id ??
+    orgBranches[0]?.id;
+
+  if (!branchId) throw new UserError("No branch available for this company.", 404);
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw new UserError("A user with this ID already exists.");
 
-  const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+  const branch = await prisma.branch.findFirst({
+    where: { id: branchId, organizationId },
+  });
   if (!branch) throw new UserError("Branch not found.", 404);
 
   const hashed = await hashPassword(password);
   const user = await prisma.user.create({
     data: {
+      organizationId,
       email,
       name,
       password: hashed,

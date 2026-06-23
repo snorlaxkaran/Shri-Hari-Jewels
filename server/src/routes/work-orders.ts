@@ -11,6 +11,7 @@ import {
   WorkOrderError,
 } from "../lib/work-orders/service.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
+import { attachOrganization } from "../middleware/organization.js";
 import { prisma } from "../lib/db.js";
 import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
 import { routeParam } from "../lib/route-param.js";
@@ -19,6 +20,7 @@ import type { NewWorkOrderInput, UpdateWorkOrderInput } from "../types.js";
 export const workOrdersRouter = Router();
 
 workOrdersRouter.use(authenticate);
+workOrdersRouter.use(attachOrganization);
 
 const getUserBranch = async (userId: string): Promise<string> => {
   const user = await prisma.user.findUnique({

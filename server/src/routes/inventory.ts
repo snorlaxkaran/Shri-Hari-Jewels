@@ -35,6 +35,7 @@ import {
   requireRole,
   type AuthenticatedRequest,
 } from "../middleware/auth.js";
+import { attachOrganization } from "../middleware/organization.js";
 import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
 import { routeParam } from "../lib/route-param.js";
 import type {
@@ -49,6 +50,7 @@ import { StockTransferStatus } from "@prisma/client";
 export const inventoryRouter = Router();
 
 inventoryRouter.use(authenticate);
+inventoryRouter.use(attachOrganization);
 
 inventoryRouter.post(
   "/repair",
@@ -70,8 +72,8 @@ inventoryRouter.post(
 inventoryRouter.get("/", requireRole(canReadInventory), async (req: AuthenticatedRequest, res) => {
   try {
     res.set("Cache-Control", "no-store");
-    const branchId = await getBranchScope(req.user!.id, req.user!.role);
-    const items = await listProducts(branchId);
+    const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
+    const items = await listProducts(req.organizationId!, branchId);
     res.json(items);
   } catch (error) {
     console.error("GET /api/inventory", error);
@@ -95,7 +97,7 @@ inventoryRouter.post(
         return;
       }
 
-      const branchId = await getUserBranch(req.user!.id);
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
 
       const product = await createProduct(
         {
@@ -130,7 +132,7 @@ inventoryRouter.post(
         return;
       }
 
-      const branchId = await getUserBranch(req.user!.id);
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
       const result = await importLegacyStock(rows, branchId, {
         id: req.user!.id,
         name: req.user!.name,
@@ -152,7 +154,7 @@ inventoryRouter.get(
   requireRole(canViewStockTransfers),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getUserBranch(req.user!.id);
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
       const count = await countPendingIncomingTransfers(branchId);
       res.json({ count });
     } catch (error) {
@@ -167,7 +169,7 @@ inventoryRouter.get(
   requireRole(canViewStockTransfers),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getUserBranch(req.user!.id);
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
       const statusParam = req.query.status;
       const status =
         typeof statusParam === "string" &&
@@ -193,7 +195,7 @@ inventoryRouter.get(
       const fromBranchId =
         req.user!.role === "Admin"
           ? undefined
-          : await getUserBranch(req.user!.id);
+          : await getUserBranch(req.user!.id, req.organizationId!);
       const transfers = await listSentStockTransfers(fromBranchId);
       res.json(transfers);
     } catch (error) {
@@ -226,7 +228,7 @@ inventoryRouter.post(
   requireRole(canManageStockTransfers),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getUserBranch(req.user!.id);
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
       const transfer = await acceptStockTransfer(
         routeParam(req.params.id),
         branchId,
@@ -249,7 +251,7 @@ inventoryRouter.post(
   requireRole(canManageStockTransfers),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getUserBranch(req.user!.id);
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
       const reason =
         typeof req.body.reason === "string" ? req.body.reason : "";
       const transfer = await rejectStockTransfer(
@@ -275,7 +277,7 @@ inventoryRouter.post(
   requireRole(canManageStockTransfers),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getUserBranch(req.user!.id);
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
       const transfer = await partialAcceptStockTransfer(
         routeParam(req.params.id),
         branchId,
@@ -302,7 +304,7 @@ inventoryRouter.post(
       const fromBranchId =
         req.user!.role === "Admin"
           ? undefined
-          : await getUserBranch(req.user!.id);
+          : await getUserBranch(req.user!.id, req.organizationId!);
       const transferId = routeParam(req.params.id);
       const existing = await getStockTransferById(transferId);
       if (!existing) {

@@ -1,6 +1,7 @@
 import type { UserRole } from "../../types.js";
 
 export const USER_ROLES: UserRole[] = [
+  "SuperAdmin",
   "Admin",
   "ProductionManager",
   "SalesManager",
@@ -12,6 +13,7 @@ export const USER_ROLES: UserRole[] = [
 const ALL_ROLES = USER_ROLES;
 
 export const ROUTE_ACCESS: Record<UserRole, string[]> = {
+  SuperAdmin: ["/platform"],
   Admin: ["*"],
   ProductionManager: [
     "/dashboard",
@@ -104,6 +106,9 @@ export const canViewAnalytics = (role: UserRole): boolean =>
   role === "Accountant" ||
   role === "ProductionManager" ||
   role === "Karigar";
+
+export const canManageOrganizations = (role: UserRole): boolean =>
+  role === "SuperAdmin";
 
 export const canManageSettings = (role: UserRole): boolean => role === "Admin";
 

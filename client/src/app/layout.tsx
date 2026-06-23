@@ -3,8 +3,8 @@ import "./globals.css";
 import DashboardWrapper from "./dashboardWrapper";
 
 export const metadata: Metadata = {
-  title: "Shree Hari Jewels — ERP",
-  description: "Jewelry inventory, orders, and business management",
+  title: "Jewellery ERP",
+  description: "Multi-company jewellery inventory, orders, and business management",
 };
 
 export default function RootLayout({

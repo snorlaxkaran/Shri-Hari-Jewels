@@ -8,30 +8,37 @@ export class BranchError extends Error {
   }
 }
 
-export const listBranches = async (): Promise<Branch[]> => {
+export const listBranches = async (organizationId: string): Promise<Branch[]> => {
   const branches = await prisma.branch.findMany({
-    where: { active: true },
+    where: { organizationId, active: true },
     orderBy: { name: "asc" },
   });
 
   return branches.map(formatBranch);
 };
 
-export const getBranchDetail = async (id: string): Promise<Branch | null> => {
-  const branch = await prisma.branch.findUnique({
-    where: { id },
+export const getBranchDetail = async (
+  id: string,
+  organizationId: string,
+): Promise<Branch | null> => {
+  const branch = await prisma.branch.findFirst({
+    where: { id, organizationId },
   });
 
   return branch ? formatBranch(branch) : null;
 };
 
-export const createBranch = async (input: NewBranchInput): Promise<Branch> => {
+export const createBranch = async (
+  organizationId: string,
+  input: NewBranchInput,
+): Promise<Branch> => {
   if (!input.name?.trim()) {
     throw new BranchError("Branch name is required");
   }
 
   const branch = await prisma.branch.create({
     data: {
+      organizationId,
       name: input.name.trim(),
       address: input.address?.trim() || null,
       phone: input.phone?.trim() || null,
@@ -46,10 +53,11 @@ export const createBranch = async (input: NewBranchInput): Promise<Branch> => {
 
 export const updateBranch = async (
   id: string,
+  organizationId: string,
   input: UpdateBranchInput,
 ): Promise<Branch> => {
-  const branch = await prisma.branch.findUnique({
-    where: { id },
+  const branch = await prisma.branch.findFirst({
+    where: { id, organizationId },
   });
 
   if (!branch) {
@@ -75,9 +83,12 @@ export const updateBranch = async (
   return formatBranch(updated);
 };
 
-export const deactivateBranch = async (id: string): Promise<Branch> => {
-  const branch = await prisma.branch.findUnique({
-    where: { id },
+export const deactivateBranch = async (
+  id: string,
+  organizationId: string,
+): Promise<Branch> => {
+  const branch = await prisma.branch.findFirst({
+    where: { id, organizationId },
   });
 
   if (!branch) {
@@ -95,11 +106,11 @@ export const deactivateBranch = async (id: string): Promise<Branch> => {
 export const assignUserToBranch = async (
   userId: string,
   branchId: string,
+  organizationId: string,
 ): Promise<void> => {
-  // Check if both user and branch exist
   const [user, branch] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId } }),
-    prisma.branch.findUnique({ where: { id: branchId } }),
+    prisma.user.findFirst({ where: { id: userId, organizationId } }),
+    prisma.branch.findFirst({ where: { id: branchId, organizationId } }),
   ]);
 
   if (!user) {
@@ -127,9 +138,12 @@ export const removeUserFromBranch = async (
   });
 };
 
-export const getUserBranches = async (userId: string): Promise<Branch[]> => {
+export const getUserBranches = async (
+  userId: string,
+  organizationId: string,
+): Promise<Branch[]> => {
   const userBranches = await prisma.userBranch.findMany({
-    where: { userId },
+    where: { userId, branch: { organizationId } },
     include: { branch: true },
   });
 

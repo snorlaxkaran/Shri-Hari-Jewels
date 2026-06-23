@@ -5,19 +5,63 @@ import {
   SEED_BRANCHES,
 } from "../src/lib/branches/constants.js";
 
+const DEFAULT_ORG_ID = "org-shree-hari-jewels";
+
 async function seedDatabase() {
   const hashedPassword = await hashPassword("admin123");
   const storePassword = await hashPassword("store123");
+  const superAdminPassword = await hashPassword("admin123");
+
+  const organization = await prisma.organization.upsert({
+    where: { id: DEFAULT_ORG_ID },
+    update: {
+      name: "Shree Hari Jewels",
+      slug: "shree-hari-jewels",
+      emailDomain: "shreehari.com",
+      active: true,
+    },
+    create: {
+      id: DEFAULT_ORG_ID,
+      name: "Shree Hari Jewels",
+      slug: "shree-hari-jewels",
+      emailDomain: "shreehari.com",
+      active: true,
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: "admin@karan.com" },
+    update: {
+      name: "Platform Admin",
+      password: superAdminPassword,
+      role: "SuperAdmin",
+      active: true,
+      organizationId: null,
+      defaultBranchId: null,
+    },
+    create: {
+      id: "super-admin-karan",
+      email: "admin@karan.com",
+      name: "Platform Admin",
+      password: superAdminPassword,
+      role: "SuperAdmin",
+      active: true,
+      organizationId: null,
+    },
+  });
 
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@shreehari.com" },
-    update: {},
+    update: {
+      organizationId: organization.id,
+    },
     create: {
       email: "admin@shreehari.com",
       name: "Admin",
       password: hashedPassword,
       role: "Admin",
       active: true,
+      organizationId: organization.id,
     },
   });
 
@@ -26,6 +70,7 @@ async function seedDatabase() {
       prisma.branch.upsert({
         where: { id: seedBranch.id },
         update: {
+          organizationId: organization.id,
           name: seedBranch.name,
           address: seedBranch.address,
           phone: seedBranch.phone,
@@ -35,6 +80,7 @@ async function seedDatabase() {
         },
         create: {
           id: seedBranch.id,
+          organizationId: organization.id,
           name: seedBranch.name,
           address: seedBranch.address,
           phone: seedBranch.phone,
@@ -50,7 +96,6 @@ async function seedDatabase() {
   const jaipurStore = branches.find((b) => b.id === "jaipur")!;
   const delhiStore = branches.find((b) => b.id === "delhi")!;
 
-  // Retire the old single-branch seed id so only the new stores stay active.
   await prisma.branch.updateMany({
     where: { id: "main" },
     data: { active: false },
@@ -91,6 +136,7 @@ async function seedDatabase() {
     const user = await prisma.user.upsert({
       where: { email: storeUser.email },
       update: {
+        organizationId: organization.id,
         name: storeUser.name,
         password: storePassword,
         role: "Store",
@@ -103,6 +149,7 @@ async function seedDatabase() {
         password: storePassword,
         role: "Store",
         active: true,
+        organizationId: organization.id,
         defaultBranchId: storeUser.branch.id,
       },
     });
@@ -123,6 +170,7 @@ async function seedDatabase() {
   const workerUser = await prisma.user.upsert({
     where: { email: "workerkaran@shreehari.com" },
     update: {
+      organizationId: organization.id,
       name: "Worker Karan",
       password: workerPassword,
       role: "Karigar",
@@ -135,6 +183,7 @@ async function seedDatabase() {
       password: workerPassword,
       role: "Karigar",
       active: true,
+      organizationId: organization.id,
       defaultBranchId: headOffice.id,
     },
   });
@@ -151,10 +200,10 @@ async function seedDatabase() {
   });
 
   await prisma.shopSettings.upsert({
-    where: { id: "default" },
+    where: { organizationId: organization.id },
     update: {},
     create: {
-      id: "default",
+      organizationId: organization.id,
       businessName: "Shree Hari Jewels",
       address: headOffice.address,
       phone: headOffice.phone,
@@ -163,9 +212,15 @@ async function seedDatabase() {
   });
 
   const customer = await prisma.customer.upsert({
-    where: { mobile: "9876543210" },
+    where: {
+      organizationId_mobile: {
+        organizationId: organization.id,
+        mobile: "9876543210",
+      },
+    },
     update: {},
     create: {
+      organizationId: organization.id,
       name: "Sample Customer",
       mobile: "9876543210",
       email: "customer@example.com",
@@ -278,7 +333,10 @@ async function seedDatabase() {
   }
 
   console.log("Seeded database successfully!");
-  console.log(`\nDefault Admin Account:`);
+  console.log(`\nPlatform Super Admin:`);
+  console.log(`Email: admin@karan.com`);
+  console.log(`Password: admin123`);
+  console.log(`\nDefault Company Admin (${organization.name}):`);
   console.log(`Email: ${adminUser.email}`);
   console.log(`Password: admin123`);
   console.log(`\nStore Accounts:`);

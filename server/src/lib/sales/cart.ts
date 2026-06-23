@@ -9,7 +9,7 @@ import {
   isRazorpayEnabled,
 } from "../payments/razorpay.js";
 import { buildUpiPaymentString } from "../payments/upi.js";
-import { getShopSettings } from "../settings/service.js";
+import { getShopSettingsByBranchId } from "../settings/service.js";
 import { getCurrentMarketRates } from "../market-rates/service.js";
 import { computeLiveListPriceForProduct } from "../inventory/unit-pricing.js";
 import { moneyToNumber, sumMoney } from "../money.js";
@@ -225,7 +225,7 @@ export const cancelCartGroup = async (cartGroupId: string): Promise<void> => {
 
 export const recordCartSale = async (
   input: RecordCartSaleInput,
-  branchId?: string,
+  branchId: string,
 ): Promise<RecordCartSaleResult> => {
   const { customer, items } = await validateCartInput(input, branchId);
   const total = items.reduce((sum, i) => sum + i.dealPrice, 0);
@@ -234,7 +234,7 @@ export const recordCartSale = async (
   if (input.paymentMode === "UPI") {
     const useRazorpay = isRazorpayEnabled();
     if (!useRazorpay) {
-      const settings = await getShopSettings();
+      const settings = await getShopSettingsByBranchId(branchId);
       if (!settings.upiVpa) {
         throw new SaleError(
           "UPI is not configured. Add Razorpay API keys or set a UPI ID in Settings.",
@@ -303,7 +303,7 @@ export const recordCartSale = async (
       };
     }
 
-    const settings = await getShopSettings();
+    const settings = await getShopSettingsByBranchId(branchId);
     const upiQrString = buildUpiPaymentString({
       vpa: settings.upiVpa!,
       payeeName: settings.businessName,

@@ -11,7 +11,7 @@ import {
   isRazorpayEnabled,
 } from "../payments/razorpay.js";
 import { buildUpiPaymentString } from "../payments/upi.js";
-import { getShopSettings } from "../settings/service.js";
+import { getShopSettingsByBranchId } from "../settings/service.js";
 import { getCurrentMarketRates } from "../market-rates/service.js";
 import {
   computeListPriceBreakdownForProduct,
@@ -285,7 +285,7 @@ export const recordSale = async (
     const useRazorpay = isRazorpayEnabled();
 
     if (!useRazorpay) {
-      const settings = await getShopSettings();
+      const settings = await getShopSettingsByBranchId(branchId);
       if (!settings.upiVpa) {
         throw new SaleError(
           "UPI is not configured. Add Razorpay API keys in server .env for automatic payments, or set a UPI ID in Settings for manual mode.",
@@ -352,7 +352,7 @@ export const recordSale = async (
       };
     }
 
-    const settings = await getShopSettings();
+    const settings = await getShopSettingsByBranchId(branchId);
     const upiQrString = buildUpiPaymentString({
       vpa: settings.upiVpa!,
       payeeName: settings.businessName,

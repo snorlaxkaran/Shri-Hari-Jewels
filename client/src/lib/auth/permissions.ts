@@ -1,6 +1,7 @@
 import type { UserRole } from "@/lib/types";
 
 export const ROUTE_ACCESS: Record<UserRole, string[]> = {
+  SuperAdmin: ["/platform"],
   Admin: ["*"],
   ProductionManager: [
     "/dashboard",
@@ -44,6 +45,7 @@ export const canAccessRoute = (role: UserRole, pathname: string): boolean => {
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {
+  SuperAdmin: "Platform Admin",
   Admin: "Admin",
   ProductionManager: "Production Manager",
   SalesManager: "Sales Manager",

@@ -1,16 +1,18 @@
 import { Router } from "express";
 import { canManageSettings } from "../lib/auth/permissions.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
+import { attachOrganization } from "../middleware/organization.js";
 import { createUser, listUsers, UserError } from "../lib/users/service.js";
 import type { CreateUserInput, UserRole } from "../types.js";
 
 export const usersRouter = Router();
 
 usersRouter.use(authenticate);
+usersRouter.use(attachOrganization);
 
-usersRouter.get("/", requireRole(canManageSettings), async (_req, res) => {
+usersRouter.get("/", requireRole(canManageSettings), async (req: AuthenticatedRequest, res) => {
   try {
-    const users = await listUsers();
+    const users = await listUsers(req.organizationId!);
     res.json(users);
   } catch (error) {
     console.error("GET /api/users", error);
@@ -24,7 +26,7 @@ usersRouter.post(
   async (req: AuthenticatedRequest, res) => {
     try {
       const body = req.body as CreateUserInput;
-      const user = await createUser({
+      const user = await createUser(req.organizationId!, {
         userId: body.userId,
         name: body.name,
         password: body.password,

@@ -8,15 +8,18 @@ import { routeParam } from "../lib/route-param.js";
 import {
   authenticate,
   requireRole,
+  type AuthenticatedRequest,
 } from "../middleware/auth.js";
+import { attachOrganization } from "../middleware/organization.js";
 
 export const invoicesRouter = Router();
 
 invoicesRouter.use(authenticate);
+invoicesRouter.use(attachOrganization);
 
-invoicesRouter.get("/", requireRole(canViewInvoices), async (_req, res) => {
+invoicesRouter.get("/", requireRole(canViewInvoices), async (req: AuthenticatedRequest, res) => {
   try {
-    const invoices = await listInvoices();
+    const invoices = await listInvoices(req.organizationId!);
     res.json(invoices);
   } catch (error) {
     console.error("GET /api/invoices", error);
@@ -27,17 +30,17 @@ invoicesRouter.get("/", requireRole(canViewInvoices), async (_req, res) => {
 invoicesRouter.get(
   "/:id/pdf",
   requireRole(canViewInvoices),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const invoice = await getInvoice(routeParam(req.params.id));
+      const invoice = await getInvoice(routeParam(req.params.id), req.organizationId!);
       if (!invoice) {
         res.status(404).json({ error: "Invoice not found" });
         return;
       }
 
-      const settings = await getShopSettings();
+      const settings = await getShopSettings(req.organizationId!);
       const customerBilling = invoice.customerId
-        ? await getCustomer(invoice.customerId)
+        ? await getCustomer(invoice.customerId, req.organizationId!)
         : null;
       const pdf = await generateInvoicePdf(invoice, settings, customerBilling);
 
@@ -57,9 +60,9 @@ invoicesRouter.get(
 invoicesRouter.get(
   "/:id",
   requireRole(canViewInvoices),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const invoice = await getInvoice(routeParam(req.params.id));
+      const invoice = await getInvoice(routeParam(req.params.id), req.organizationId!);
       if (!invoice) {
         res.status(404).json({ error: "Invoice not found" });
         return;

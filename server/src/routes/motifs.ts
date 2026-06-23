@@ -14,6 +14,7 @@ import {
 } from "../lib/motifs/service.js";
 import { getMotifPriceDrift } from "../lib/catalog/price-drift.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
+import { attachOrganization } from "../middleware/organization.js";
 import { prisma } from "../lib/db.js";
 import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
 import { routeParam } from "../lib/route-param.js";
@@ -22,6 +23,7 @@ import type { NewMotifInput, UpdateMotifInput } from "../types.js";
 export const motifsRouter = Router();
 
 motifsRouter.use(authenticate);
+motifsRouter.use(attachOrganization);
 
 const getUserBranch = async (userId: string): Promise<string> => {
   const user = await prisma.user.findUnique({

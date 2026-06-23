@@ -84,14 +84,14 @@ const SidebarContent = ({
 
         <div>
           <p className="text-sm font-display text-white leading-tight">
-            Shree Hari
+            {user?.organizationName ?? "Jewellery"}
           </p>
 
           <p
             className="text-[10px] tracking-[0.14em] uppercase"
             style={{ color: "var(--sidebar-text)" }}
           >
-            Jewels ERP
+            ERP
           </p>
         </div>
 

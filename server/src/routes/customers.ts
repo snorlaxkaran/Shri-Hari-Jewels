@@ -11,18 +11,23 @@ import {
 import {
   authenticate,
   requireRole,
+  type AuthenticatedRequest,
 } from "../middleware/auth.js";
+import { attachOrganization } from "../middleware/organization.js";
 import { routeParam } from "../lib/route-param.js";
 import type { NewCustomerInput, UpdateCustomerInput } from "../types.js";
 
 export const customersRouter = Router();
 
 customersRouter.use(authenticate);
+customersRouter.use(attachOrganization);
 
-customersRouter.get("/", requireRole(canManageCustomers), async (req, res) => {
+customersRouter.get("/", requireRole(canManageCustomers), async (req: AuthenticatedRequest, res) => {
   try {
     const q = typeof req.query.q === "string" ? req.query.q : "";
-    const customers = q ? await searchCustomers(q) : await listCustomers();
+    const customers = q
+      ? await searchCustomers(req.organizationId!, q)
+      : await listCustomers(req.organizationId!);
     res.json(customers);
   } catch (error) {
     console.error("GET /api/customers", error);
@@ -33,9 +38,12 @@ customersRouter.get("/", requireRole(canManageCustomers), async (req, res) => {
 customersRouter.get(
   "/:id",
   requireRole(canManageCustomers),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const customer = await getCustomerDetail(routeParam(req.params.id));
+      const customer = await getCustomerDetail(
+        routeParam(req.params.id),
+        req.organizationId!,
+      );
       if (!customer) {
         res.status(404).json({ error: "Customer not found" });
         return;
@@ -51,9 +59,12 @@ customersRouter.get(
 customersRouter.post(
   "/",
   requireRole(canManageCustomers),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const customer = await createCustomer(req.body as NewCustomerInput);
+      const customer = await createCustomer(
+        req.organizationId!,
+        req.body as NewCustomerInput,
+      );
       res.status(201).json(customer);
     } catch (error) {
       if (error instanceof CustomerError) {
@@ -69,10 +80,11 @@ customersRouter.post(
 customersRouter.patch(
   "/:id",
   requireRole(canManageCustomers),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
       const customer = await updateCustomer(
         routeParam(req.params.id),
+        req.organizationId!,
         req.body as UpdateCustomerInput,
       );
       res.json(customer);

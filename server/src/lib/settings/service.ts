@@ -8,7 +8,7 @@ import {
 } from "../validation/india.js";
 
 const DEFAULT_SETTINGS: ShopSettings = {
-  businessName: "Shree Hari Jewels",
+  businessName: "Jewellery Business",
   address: null,
   addressLine1: null,
   addressLine2: null,
@@ -96,14 +96,24 @@ const validateSettingsInput = (input: UpdateShopSettingsInput) => {
   }
 };
 
-export const getShopSettings = async (): Promise<ShopSettings> => {
+export const getShopSettingsByBranchId = async (
+  branchId: string,
+): Promise<ShopSettings> => {
+  const branch = await prisma.branch.findUniqueOrThrow({
+    where: { id: branchId },
+    select: { organizationId: true },
+  });
+  return getShopSettings(branch.organizationId);
+};
+
+export const getShopSettings = async (organizationId: string): Promise<ShopSettings> => {
   const settings = await prisma.shopSettings.findUnique({
-    where: { id: "default" },
+    where: { organizationId },
   });
 
   if (!settings) {
     const created = await prisma.shopSettings.create({
-      data: { id: "default" },
+      data: { organizationId },
     });
     return toShopSettings(created);
   }
@@ -112,14 +122,15 @@ export const getShopSettings = async (): Promise<ShopSettings> => {
 };
 
 export const updateShopSettings = async (
+  organizationId: string,
   input: UpdateShopSettingsInput,
 ): Promise<ShopSettings> => {
   const validated = validateSettingsInput(input);
 
   const settings = await prisma.shopSettings.upsert({
-    where: { id: "default" },
+    where: { organizationId },
     create: {
-      id: "default",
+      organizationId,
       businessName: input.businessName?.trim() || DEFAULT_SETTINGS.businessName,
       address: trimOrNull(input.address),
       addressLine1: trimOrNull(input.addressLine1),

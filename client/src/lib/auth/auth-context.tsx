@@ -37,16 +37,25 @@ function getUserFromToken(token: string): AuthUser | null {
   const exp = typeof payload.exp === "number" ? payload.exp : 0;
   if (exp * 1000 < Date.now()) return null;
 
-  const { sub, email, name, role } = payload as {
+  const { sub, email, name, role, organizationId, organizationName } = payload as {
     sub?: string;
     email?: string;
     name?: string;
     role?: string;
+    organizationId?: string;
+    organizationName?: string;
   };
 
   if (!sub || !email || !name || !role) return null;
 
-  return { id: sub, email, name, role: role as AuthUser["role"] };
+  return {
+    id: sub,
+    email,
+    name,
+    role: role as AuthUser["role"],
+    organizationId,
+    organizationName,
+  };
 }
 
 type AuthContextValue = {
@@ -103,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       getAuthStorage()?.setItem(TOKEN_KEY, token);
       setAuthToken(token);
       setUser(loggedIn);
-      router.replace("/dashboard");
+      router.replace(loggedIn.role === "SuperAdmin" ? "/platform/companies" : "/dashboard");
     },
     [router],
   );

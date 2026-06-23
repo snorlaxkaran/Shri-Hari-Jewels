@@ -107,9 +107,18 @@ export const getLatestRates = async () => {
   return { gold, silver };
 };
 
-export const getCurrentMarketRates = async (): Promise<MarketRatesCurrent> => {
+const DEFAULT_MAKING_CHARGES = {
+  goldMakingChargesPct: 17,
+  silverMakingChargesPct: 17,
+};
+
+export const getCurrentMarketRates = async (
+  organizationId?: string,
+): Promise<MarketRatesCurrent> => {
   const [settings, { gold, silver }] = await Promise.all([
-    getShopSettings(),
+    organizationId
+      ? getShopSettings(organizationId)
+      : Promise.resolve(DEFAULT_MAKING_CHARGES),
     getLatestRates(),
   ]);
 
@@ -140,6 +149,7 @@ export const refreshMarketRates = async (): Promise<MarketRatesCurrent> => {
 };
 
 export const overrideMarketRates = async (
+  organizationId: string,
   input: OverrideMarketRatesInput,
 ): Promise<MarketRatesCurrent> => {
   if (input.gold22k <= 0 || input.silver925 <= 0) {
@@ -174,9 +184,9 @@ export const overrideMarketRates = async (
       ],
     }),
     prisma.shopSettings.upsert({
-      where: { id: "default" },
+      where: { organizationId },
       create: {
-        id: "default",
+        organizationId,
         goldMakingChargesPct: input.goldMakingChargesPct,
         silverMakingChargesPct: input.silverMakingChargesPct,
         makingChargesOverrideNote: input.note?.trim() || null,
@@ -192,7 +202,7 @@ export const overrideMarketRates = async (
   const { recalculateAllMotifPrices } = await import("../motifs/service.js");
   await recalculateAllMotifPrices(undefined, "Market rates updated");
 
-  return getCurrentMarketRates();
+  return getCurrentMarketRates(organizationId);
 };
 
 export const getMarketRateHistory = async (): Promise<

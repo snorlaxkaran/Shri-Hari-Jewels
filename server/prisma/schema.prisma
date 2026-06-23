@@ -91,17 +91,34 @@ enum ProductionRunStage {
   Packaging       @map("Packaging")
 }
 
-model Branch {
+model Organization {
   id          String   @id @default(uuid())
   name        String
-  address     String?
-  phone       String?
-  email       String?
-  manager     String?
+  slug        String   @unique
+  emailDomain String?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  branches     Branch[]
+  users        User[]
+  shopSettings ShopSettings?
+  customers    Customer[]
+}
+
+model Branch {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  address        String?
+  phone          String?
+  email          String?
+  manager        String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   users       UserBranch[]
   products    Product[]
   inventoryUnits InventoryUnit[]
@@ -117,21 +134,27 @@ model Branch {
   bulkStoneLots BulkStoneLot[]
   stockTransfersFrom StockTransfer[] @relation("StockTransferFromBranch")
   stockTransfersTo   StockTransfer[] @relation("StockTransferToBranch")
+
+  @@index([organizationId])
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  password  String
-  role      String
-  active    Boolean  @default(true)
+  id              String   @id @default(uuid())
+  organizationId  String?
+  email           String   @unique
+  name            String
+  password        String
+  role            String
+  active          Boolean  @default(true)
   defaultBranchId String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   branches   UserBranch[]
   assignedWorkOrders WorkOrder[]
+
+  @@index([organizationId])
 }
 
 model UserBranch {
@@ -149,8 +172,9 @@ model UserBranch {
 }
 
 model ShopSettings {
-  id           String   @id @default("default")
-  businessName String   @default("Shree Hari Jewels")
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  businessName   String   @default("Jewellery Business")
   address      String?
   addressLine1 String?
   addressLine2 String?
@@ -171,6 +195,8 @@ model ShopSettings {
   silverMakingChargesPct    Decimal @default(17.00) @db.Decimal(5, 2)
   makingChargesOverrideNote String?
   updatedAt    DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 model Product {
@@ -268,9 +294,10 @@ model StockTransferItem {
 }
 
 model Customer {
-  id          String    @id @default(uuid())
-  name        String
-  mobile      String    @unique
+  id             String    @id @default(uuid())
+  organizationId String
+  name           String
+  mobile         String
   email       String?
   address     String?
   city        String?
@@ -294,9 +321,13 @@ model Customer {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   sales    Sale[]
   orders   Order[]
   invoices Invoice[]
+
+  @@unique([organizationId, mobile])
+  @@index([organizationId])
 }
 
 model Order {

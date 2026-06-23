@@ -29,6 +29,7 @@ import { listMotifs } from "../lib/motifs/service.js";
 import { getDesignPriceDrift } from "../lib/catalog/price-drift.js";
 import { listCatalogAuditLogs } from "../lib/catalog/audit.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
+import { attachOrganization } from "../middleware/organization.js";
 import { prisma } from "../lib/db.js";
 import { DEFAULT_BRANCH_ID } from "../lib/branches/constants.js";
 import { routeParam } from "../lib/route-param.js";
@@ -44,6 +45,7 @@ import type {
 export const designsRouter = Router();
 
 designsRouter.use(authenticate);
+designsRouter.use(attachOrganization);
 
 const getUserBranch = async (userId: string): Promise<string> => {
   const user = await prisma.user.findUnique({

@@ -8,7 +8,10 @@ export type AuthenticatedRequest = Request & {
     email: string;
     name: string;
     role: UserRole;
+    organizationId?: string;
+    organizationName?: string;
   };
+  organizationId?: string;
 };
 
 export const authenticate = (
@@ -29,6 +32,8 @@ export const authenticate = (
       email: payload.email,
       name: payload.name,
       role: payload.role,
+      organizationId: payload.organizationId,
+      organizationName: payload.organizationName,
     };
     next();
   } catch {
@@ -43,7 +48,7 @@ export const requireRole =
       res.status(401).json({ error: "Authentication required." });
       return;
     }
-    if (req.user.role === "Admin" || check.some((fn) => fn(req.user!.role))) {
+    if (req.user.role === "Admin" || req.user.role === "SuperAdmin" || check.some((fn) => fn(req.user!.role))) {
       next();
       return;
     }

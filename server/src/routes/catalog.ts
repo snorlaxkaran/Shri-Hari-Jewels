@@ -5,10 +5,12 @@ import {
 import { listCatalogAuditLogs } from "../lib/catalog/audit.js";
 import type { CatalogEntityType } from "../lib/catalog/audit.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
+import { attachOrganization } from "../middleware/organization.js";
 
 export const catalogRouter = Router();
 
 catalogRouter.use(authenticate);
+catalogRouter.use(attachOrganization);
 
 catalogRouter.get(
   "/audit-log",

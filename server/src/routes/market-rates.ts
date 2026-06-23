@@ -12,15 +12,18 @@ import {
   overrideMarketRates,
   refreshMarketRates,
 } from "../lib/market-rates/service.js";
+import { attachOrganization } from "../middleware/organization.js";
+
 import type { OverrideMarketRatesInput } from "../types.js";
 
 export const marketRatesRouter = Router();
 
 marketRatesRouter.use(authenticate);
+marketRatesRouter.use(attachOrganization);
 
-marketRatesRouter.get("/current", async (_req, res) => {
+marketRatesRouter.get("/current", async (req: AuthenticatedRequest, res) => {
   try {
-    const rates = await getCurrentMarketRates();
+    const rates = await getCurrentMarketRates(req.organizationId!);
     res.json(rates);
   } catch (error) {
     console.error("GET /api/market-rates/current", error);
@@ -34,6 +37,7 @@ marketRatesRouter.post(
   async (req: AuthenticatedRequest, res) => {
     try {
       const rates = await overrideMarketRates(
+        req.organizationId!,
         req.body as OverrideMarketRatesInput,
       );
       res.json(rates);

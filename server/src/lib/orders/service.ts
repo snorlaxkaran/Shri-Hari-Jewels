@@ -30,8 +30,9 @@ export class OrderError extends Error {
 
 const orderInclude = { customer: true };
 
-export const listOrders = async (): Promise<Order[]> => {
+export const listOrders = async (organizationId: string): Promise<Order[]> => {
   const orders = await prisma.order.findMany({
+    where: { branch: { organizationId } },
     include: orderInclude,
     orderBy: { createdAt: "desc" },
   });

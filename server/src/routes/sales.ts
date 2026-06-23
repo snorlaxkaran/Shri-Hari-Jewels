@@ -16,6 +16,7 @@ import {
   requireRole,
   type AuthenticatedRequest,
 } from "../middleware/auth.js";
+import { attachOrganization } from "../middleware/organization.js";
 import { prisma } from "../lib/db.js";
 import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
 import { routeParam } from "../lib/route-param.js";
@@ -24,13 +25,14 @@ import type { RecordCartSaleInput, RecordSaleInput } from "../types.js";
 export const salesRouter = Router();
 
 salesRouter.use(authenticate);
+salesRouter.use(attachOrganization);
 
 salesRouter.get(
   "/analytics",
   requireRole(canViewAnalytics),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getBranchScope(req.user!.id, req.user!.role);
+      const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
       const analytics = await getSalesAnalytics(branchId);
       res.json(analytics);
     } catch (error) {
@@ -42,7 +44,7 @@ salesRouter.get(
 
 salesRouter.get("/", requireRole(canRecordSales), async (req: AuthenticatedRequest, res) => {
   try {
-    const branchId = await getBranchScope(req.user!.id, req.user!.role);
+    const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
     const sales = await listSales(branchId);
     res.json(sales);
   } catch (error) {
@@ -56,7 +58,7 @@ salesRouter.get(
   requireRole(canRecordSales),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getBranchScope(req.user!.id, req.user!.role);
+      const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
       const unit = await lookupUnitForSale(
         routeParam(req.params.itemCode),
         branchId,
@@ -78,7 +80,7 @@ salesRouter.post(
   requireRole(canRecordSales),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getUserBranch(req.user!.id);
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
       const result = await recordSale(req.body as RecordSaleInput, branchId);
       res.status(201).json(result);
     } catch (error) {
@@ -94,7 +96,10 @@ salesRouter.post(
 
 salesRouter.post("/cart", requireRole(canRecordSales), async (req: AuthenticatedRequest, res) => {
   try {
-    const branchId = await getBranchScope(req.user!.id, req.user!.role);
+    let branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
+    if (!branchId) {
+      branchId = await getUserBranch(req.user!.id, req.organizationId!);
+    }
     const result = await recordCartSale(
       req.body as RecordCartSaleInput,
       branchId,

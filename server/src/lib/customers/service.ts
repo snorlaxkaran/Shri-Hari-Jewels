@@ -37,17 +37,21 @@ const validateFinancialFields = (input: NewCustomerInput | UpdateCustomerInput) 
   }
 };
 
-export const listCustomers = async (): Promise<Customer[]> => {
+export const listCustomers = async (organizationId: string): Promise<Customer[]> => {
   const customers = await prisma.customer.findMany({
+    where: { organizationId },
     include: customerInclude,
     orderBy: { createdAt: "desc" },
   });
   return customers.map(toCustomer);
 };
 
-export const getCustomer = async (id: string): Promise<Customer | null> => {
-  const customer = await prisma.customer.findUnique({
-    where: { id },
+export const getCustomer = async (
+  id: string,
+  organizationId: string,
+): Promise<Customer | null> => {
+  const customer = await prisma.customer.findFirst({
+    where: { id, organizationId },
     include: customerInclude,
   });
   return customer ? toCustomer(customer) : null;
@@ -55,9 +59,10 @@ export const getCustomer = async (id: string): Promise<Customer | null> => {
 
 export const getCustomerDetail = async (
   id: string,
+  organizationId: string,
 ): Promise<CustomerDetail | null> => {
-  const customer = await prisma.customer.findUnique({
-    where: { id },
+  const customer = await prisma.customer.findFirst({
+    where: { id, organizationId },
     include: {
       sales: { orderBy: { soldAt: "desc" } },
     },
@@ -72,6 +77,7 @@ export const getCustomerDetail = async (
 };
 
 export const createCustomer = async (
+  organizationId: string,
   input: NewCustomerInput,
 ): Promise<Customer> => {
   const name = input.name.trim();
@@ -80,7 +86,9 @@ export const createCustomer = async (
   if (!name) throw new CustomerError("Customer name is required.");
   if (!mobile) throw new CustomerError("Mobile number is required.");
 
-  const existing = await prisma.customer.findUnique({ where: { mobile } });
+  const existing = await prisma.customer.findUnique({
+    where: { organizationId_mobile: { organizationId, mobile } },
+  });
   if (existing) {
     throw new CustomerError("A customer with this mobile number already exists.");
   }
@@ -89,6 +97,7 @@ export const createCustomer = async (
 
   const customer = await prisma.customer.create({
     data: {
+      organizationId,
       name,
       mobile,
       email: trimOrNull(input.email),
@@ -118,12 +127,16 @@ export const createCustomer = async (
   return toCustomer(customer);
 };
 
-export const searchCustomers = async (query: string): Promise<Customer[]> => {
+export const searchCustomers = async (
+  organizationId: string,
+  query: string,
+): Promise<Customer[]> => {
   const q = query.trim();
-  if (!q) return listCustomers();
+  if (!q) return listCustomers(organizationId);
 
   const customers = await prisma.customer.findMany({
     where: {
+      organizationId,
       OR: [
         { name: { contains: q } },
         { mobile: { contains: q } },
@@ -143,16 +156,19 @@ export const searchCustomers = async (query: string): Promise<Customer[]> => {
 
 export const updateCustomer = async (
   id: string,
+  organizationId: string,
   input: UpdateCustomerInput,
 ): Promise<Customer> => {
-  const existing = await prisma.customer.findUnique({ where: { id } });
+  const existing = await prisma.customer.findFirst({ where: { id, organizationId } });
   if (!existing) throw new CustomerError("Customer not found.", 404);
 
   if (input.mobile !== undefined) {
     const mobile = input.mobile.trim();
     if (!mobile) throw new CustomerError("Mobile number is required.");
     if (mobile !== existing.mobile) {
-      const clash = await prisma.customer.findUnique({ where: { mobile } });
+      const clash = await prisma.customer.findUnique({
+        where: { organizationId_mobile: { organizationId, mobile } },
+      });
       if (clash) {
         throw new CustomerError(
           "A customer with this mobile number already exists.",

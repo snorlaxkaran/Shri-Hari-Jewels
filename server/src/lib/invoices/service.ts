@@ -4,15 +4,21 @@ import type { Invoice } from "../../types.js";
 import { generateInvoiceNo } from "./invoice-no.js";
 import { toInvoice } from "./mappers.js";
 
-export const listInvoices = async (): Promise<Invoice[]> => {
+export const listInvoices = async (organizationId: string): Promise<Invoice[]> => {
   const invoices = await prisma.invoice.findMany({
+    where: { branch: { organizationId } },
     orderBy: { createdAt: "desc" },
   });
   return invoices.map(toInvoice);
 };
 
-export const getInvoice = async (id: string): Promise<Invoice | null> => {
-  const invoice = await prisma.invoice.findUnique({ where: { id } });
+export const getInvoice = async (
+  id: string,
+  organizationId: string,
+): Promise<Invoice | null> => {
+  const invoice = await prisma.invoice.findFirst({
+    where: { id, branch: { organizationId } },
+  });
   return invoice ? toInvoice(invoice) : null;
 };
 

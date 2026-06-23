@@ -4,16 +4,19 @@ import { getShopSettings, updateShopSettings } from "../lib/settings/service.js"
 import {
   authenticate,
   requireRole,
+  type AuthenticatedRequest,
 } from "../middleware/auth.js";
+import { attachOrganization } from "../middleware/organization.js";
 import type { UpdateShopSettingsInput } from "../types.js";
 
 export const settingsRouter = Router();
 
 settingsRouter.use(authenticate);
+settingsRouter.use(attachOrganization);
 
-settingsRouter.get("/", async (_req, res) => {
+settingsRouter.get("/", async (req: AuthenticatedRequest, res) => {
   try {
-    const settings = await getShopSettings();
+    const settings = await getShopSettings(req.organizationId!);
     res.json(settings);
   } catch (error) {
     console.error("GET /api/settings", error);
@@ -24,9 +27,10 @@ settingsRouter.get("/", async (_req, res) => {
 settingsRouter.patch(
   "/",
   requireRole(canManageSettings),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
       const settings = await updateShopSettings(
+        req.organizationId!,
         req.body as UpdateShopSettingsInput,
       );
       res.json(settings);

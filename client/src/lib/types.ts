@@ -1,4 +1,5 @@
 export type UserRole =
+  | "SuperAdmin"
   | "Admin"
   | "ProductionManager"
   | "SalesManager"
@@ -11,6 +12,8 @@ export type AuthUser = {
   email: string;
   name: string;
   role: UserRole;
+  organizationId?: string;
+  organizationName?: string;
 };
 
 export type AppUser = {

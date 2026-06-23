@@ -338,7 +338,11 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) router.replace("/dashboard");
+    if (!loading && user) {
+      router.replace(
+        user.role === "SuperAdmin" ? "/platform/companies" : "/dashboard",
+      );
+    }
   }, [loading, user, router]);
 
   if (!loading && user) return null;
@@ -559,7 +563,7 @@ export default function LoginPage() {
                     lineHeight: 1,
                   }}
                 >
-                  Shree Hari Jewels
+                  Jewellery ERP
                 </p>
                 <p
                   style={{
@@ -662,7 +666,7 @@ export default function LoginPage() {
                     fontWeight: 600,
                   }}
                 >
-                  Shree Hari Jewels
+                  Jewellery ERP
                 </h1>
               </div>
             </div>
@@ -836,7 +840,7 @@ export default function LoginPage() {
                   whiteSpace: "nowrap",
                 }}
               >
-                Shree Hari Jewels ERP
+                Jewellery ERP
               </p>
               <div className="divider-line" />
             </div>
