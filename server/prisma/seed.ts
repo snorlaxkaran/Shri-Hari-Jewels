@@ -309,12 +309,12 @@ async function seedDatabase() {
     });
   }
 
-  const existingDiamondLot = await prisma.stoneLot.findFirst({
+  const existingDiamondLot = await prisma.certifiedStoneLot.findFirst({
     where: { certificateNumber: "DIA-SEED-001" },
   });
 
   if (!existingDiamondLot) {
-    await prisma.stoneLot.create({
+    await prisma.certifiedStoneLot.create({
       data: {
         branchId: headOffice.id,
         certificateNumber: "DIA-SEED-001",
