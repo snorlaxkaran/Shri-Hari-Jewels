@@ -1,11 +1,11 @@
 import { prisma } from "../db.js";
 import { moneyToNumber } from "../money.js";
-import type { BulkStoneStockWarning } from "../../types.js";
+import type { StoneStockWarning } from "../../types.js";
 
-export const computeBulkStoneRequirements = async (
+export const computeStoneRequirements = async (
   designId: string,
   setsOrdered: number,
-): Promise<Map<string, { sizeLabel: string; required: number }>> => {
+): Promise<Map<string, { stoneMasterId: string; stoneName: string; required: number }>> => {
   const design = await prisma.design.findUnique({
     where: { id: designId },
     include: {
@@ -13,7 +13,9 @@ export const computeBulkStoneRequirements = async (
         include: {
           motif: {
             include: {
-              stones: true,
+              stones: {
+                include: { stoneMaster: true },
+              },
             },
           },
         },
@@ -21,7 +23,10 @@ export const computeBulkStoneRequirements = async (
     },
   });
 
-  const requirements = new Map<string, { sizeLabel: string; required: number }>();
+  const requirements = new Map<
+    string,
+    { stoneMasterId: string; stoneName: string; required: number }
+  >();
 
   if (!design) return requirements;
 
@@ -31,15 +36,13 @@ export const computeBulkStoneRequirements = async (
     for (const motifStone of element.motif.stones) {
       const needed =
         motifStone.qtyPerMotif * element.qtyPerSet * setsOrdered;
-      const existing = requirements.get(motifStone.bulkStoneLotId);
+      const existing = requirements.get(motifStone.stoneMasterId);
       if (existing) {
         existing.required += needed;
       } else {
-        const lot = await prisma.bulkStoneLot.findUnique({
-          where: { id: motifStone.bulkStoneLotId },
-        });
-        requirements.set(motifStone.bulkStoneLotId, {
-          sizeLabel: lot?.sizeLabel ?? motifStone.bulkStoneLotId,
+        requirements.set(motifStone.stoneMasterId, {
+          stoneMasterId: motifStone.stoneMasterId,
+          stoneName: motifStone.stoneMaster.stoneName,
           required: needed,
         });
       }
@@ -49,23 +52,28 @@ export const computeBulkStoneRequirements = async (
   return requirements;
 };
 
-export const checkBulkStoneStock = async (
+export const checkStoneStock = async (
   designId: string,
   setsOrdered: number,
-): Promise<BulkStoneStockWarning[]> => {
-  const requirements = await computeBulkStoneRequirements(designId, setsOrdered);
-  const warnings: BulkStoneStockWarning[] = [];
+  branchId: string,
+): Promise<StoneStockWarning[]> => {
+  const requirements = await computeStoneRequirements(designId, setsOrdered);
+  const warnings: StoneStockWarning[] = [];
 
-  for (const [bulkStoneLotId, { sizeLabel, required }] of requirements) {
-    const lot = await prisma.bulkStoneLot.findUnique({
-      where: { id: bulkStoneLotId },
+  for (const [, { stoneMasterId, stoneName, required }] of requirements) {
+    const lots = await prisma.stoneLot.findMany({
+      where: {
+        stoneMasterId,
+        branchId,
+        status: "Active",
+        currentQty: { gt: 0 },
+      },
     });
-    const available = lot?.quantity ?? 0;
+    const available = lots.reduce((sum, lot) => sum + lot.currentQty, 0);
     if (available < required) {
       warnings.push({
-        bulkStoneLotId,
-        sizeLabel,
-        stoneType: lot?.stoneType,
+        stoneMasterId,
+        stoneName,
         required,
         available,
         shortfall: required - available,
@@ -76,63 +84,22 @@ export const checkBulkStoneStock = async (
   return warnings;
 };
 
-export const deductBulkStonesForProductionRun = async (
+/** @deprecated Use checkStoneStock */
+export const checkBulkStoneStock = async (
   designId: string,
   setsOrdered: number,
-): Promise<void> => {
-  const requirements = await computeBulkStoneRequirements(designId, setsOrdered);
-
-  for (const [bulkStoneLotId, { required, sizeLabel }] of requirements) {
-    const lot = await prisma.bulkStoneLot.findUnique({
-      where: { id: bulkStoneLotId },
-    });
-    if (!lot) continue;
-    if (lot.quantity < required) {
-      throw new Error(
-        `Insufficient bulk stones for "${sizeLabel}": need ${required}, have ${lot.quantity}.`,
-      );
-    }
-    await prisma.bulkStoneLot.update({
-      where: { id: bulkStoneLotId },
-      data: { quantity: lot.quantity - required },
-    });
-  }
-};
-
-export const motifStoneCostForDesign = async (
-  designId: string,
-): Promise<number> => {
+): Promise<StoneStockWarning[]> => {
   const design = await prisma.design.findUnique({
     where: { id: designId },
-    include: {
-      elements: {
-        include: {
-          motif: {
-            include: {
-              stones: {
-                include: { bulkStoneLot: true },
-              },
-            },
-          },
-        },
-      },
-    },
+    select: { branchId: true },
   });
-
-  if (!design) return 0;
-
-  let total = 0;
-  for (const element of design.elements) {
-    const elementCost = element.unitValue
-      ? moneyToNumber(String(element.unitValue)) * element.qtyPerSet
-      : 0;
-
-    if (element.motifId && element.motif?.price) {
-      total += moneyToNumber(String(element.motif.price)) * element.qtyPerSet;
-    } else {
-      total += elementCost;
-    }
-  }
-
-  return total;
+  if (!design) return [];
+  return checkStoneStock(designId, setsOrdered, design.branchId);
 };
+
+/** @deprecated Stone consumption now via issue/settle flow */
+export const deductBulkStonesForProductionRun = async (): Promise<void> => {
+  // No-op: stones are issued and settled during Stone Setting stage
+};
+
+export const computeBulkStoneRequirements = computeStoneRequirements;

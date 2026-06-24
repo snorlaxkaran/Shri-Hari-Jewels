@@ -43,6 +43,8 @@ export const navSections: NavSection[] = [
       { label: "Sent to Stores", href: "/stock-transfer/sent", icon: icon(List) },
       { label: "Incoming Stock", href: "/stock-transfer/incoming", icon: icon(PackageOpen) },
       { label: "Raw Stock", href: "/raw-inventory", icon: icon(Gem) },
+      { label: "Stone Master", href: "/stone-master", icon: icon(Gem) },
+      { label: "Stone Lots", href: "/stone-master/lots", icon: icon(Gem) },
       { label: "Bulk Stone Lots", href: "/bulk-stone-lots", icon: icon(Gem) },
       { label: "Sales", href: "/sales", icon: icon(ShoppingCart) },
       { label: "Orders", href: "/orders", icon: icon(ShoppingBag) },
@@ -88,6 +90,8 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname.startsWith("/stock-transfer/incoming")) return "Incoming Stock";
   if (pathname.startsWith("/stock-transfer/sent")) return "Sent to Stores";
   if (pathname === "/stock-transfer") return "Scan Transfer";
+  if (pathname.startsWith("/stone-master/lots")) return "Stone Lots";
+  if (pathname === "/stone-master") return "Stone Master";
   if (pathname === "/designs/new") return "New Design";
   if (pathname.includes("/designs/") && pathname.includes("/builder/")) {
     return "Design Builder";

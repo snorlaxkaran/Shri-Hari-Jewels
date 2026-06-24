@@ -1,14 +1,14 @@
-import { StoneLotStatus } from "@prisma/client";
+import { CertifiedStoneLotStatus } from "@prisma/client";
 import type { StoneLotStatus as ApiStoneLotStatus } from "../../types.js";
 
 /** Map DB enum to API string values the client expects */
 export const toApiStoneLotStatus = (
-  status: StoneLotStatus,
+  status: CertifiedStoneLotStatus,
 ): ApiStoneLotStatus => {
   switch (status) {
-    case StoneLotStatus.InStock:
+    case CertifiedStoneLotStatus.InStock:
       return "In Stock";
-    case StoneLotStatus.Reserved:
+    case CertifiedStoneLotStatus.Reserved:
       return "Reserved";
     default:
       return "Issued";

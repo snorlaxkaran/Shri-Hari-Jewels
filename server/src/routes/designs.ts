@@ -129,9 +129,12 @@ designsRouter.delete(
 designsRouter.get(
   "/:id/price-drift",
   requireRole(canViewDesigns),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const drifts = await getDesignPriceDrift(routeParam(req.params.id));
+      const drifts = await getDesignPriceDrift(
+        routeParam(req.params.id),
+        req.organizationId!,
+      );
       res.json(drifts);
     } catch (error) {
       console.error("GET /api/designs/:id/price-drift", error);

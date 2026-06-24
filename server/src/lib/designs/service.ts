@@ -127,7 +127,12 @@ export { toDesign };
 const resolveMotifSnapshot = async (
   motifId: string,
 ): Promise<{ name: string; unitValue: number; weightGramsPerPc?: number }> => {
-  const motif = await getMotif(motifId);
+  const motifRow = await prisma.motif.findUnique({
+    where: { id: motifId },
+    include: { branch: { select: { organizationId: true } } },
+  });
+  if (!motifRow) throw new DesignError("Motif not found.", 404);
+  const motif = await getMotif(motifId, motifRow.branch.organizationId);
   return {
     name: motif.name,
     unitValue: motif.price ?? 0,
@@ -587,7 +592,12 @@ const validateElementInput = async (input: NewDesignElementInput) => {
     if (input.type !== "Motif") {
       throw new DesignError("motifId is only valid for Motif element type.");
     }
-    await getMotif(input.motifId);
+    const motifRow = await prisma.motif.findUnique({
+      where: { id: input.motifId },
+      include: { branch: { select: { organizationId: true } } },
+    });
+    if (!motifRow) throw new DesignError("Motif not found.", 404);
+    await getMotif(input.motifId, motifRow.branch.organizationId);
     if (input.qtyPerSet === undefined || input.qtyPerSet < 1) {
       throw new DesignError("Quantity per set must be at least 1.");
     }

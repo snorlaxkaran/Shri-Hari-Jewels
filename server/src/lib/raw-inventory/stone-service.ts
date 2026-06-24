@@ -1,4 +1,4 @@
-import { StoneLotStatus } from "@prisma/client";
+import { CertifiedStoneLotStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import { organizationBranchFilter } from "../branches/access.js";
 import type {
@@ -26,7 +26,7 @@ export const listStoneLots = async (
   organizationId: string,
   branchId?: string,
 ): Promise<StoneLot[]> => {
-  const rows = await prisma.stoneLot.findMany({
+  const rows = await prisma.certifiedStoneLot.findMany({
     where: organizationBranchFilter(organizationId, branchId),
     orderBy: { createdAt: "desc" },
   });
@@ -34,7 +34,7 @@ export const listStoneLots = async (
 };
 
 export const getStoneLot = async (id: string): Promise<StoneLot> => {
-  const row = await prisma.stoneLot.findUnique({ where: { id } });
+  const row = await prisma.certifiedStoneLot.findUnique({ where: { id } });
   if (!row) throw new RawInventoryError("Stone lot not found.", 404);
   return toStoneLot(row);
 };
@@ -61,7 +61,8 @@ export const createStoneLot = async (
     );
   }
 
-  const existingCerts = await prisma.stoneLot.findMany({
+  const existingCerts = await prisma.certifiedStoneLot.findMany({
+    where: { branchId },
     select: { certificateNumber: true },
   });
   const certNumbers = existingCerts.map((r) => r.certificateNumber);
@@ -78,7 +79,7 @@ export const createStoneLot = async (
     );
   }
 
-  const row = await prisma.stoneLot.create({
+  const row = await prisma.certifiedStoneLot.create({
     data: {
       branchId,
       certificateNumber,
@@ -117,7 +118,7 @@ export const updateStoneLot = async (
   input: UpdateStoneLotInput,
   actor: Actor,
 ): Promise<StoneLot> => {
-  const existing = await prisma.stoneLot.findUnique({ where: { id } });
+  const existing = await prisma.certifiedStoneLot.findUnique({ where: { id } });
   if (!existing) throw new RawInventoryError("Stone lot not found.", 404);
 
   if (input.status && !STONE_STATUSES.includes(input.status)) {
@@ -126,14 +127,14 @@ export const updateStoneLot = async (
 
   const statusValue =
     input.status === "In Stock"
-      ? StoneLotStatus.InStock
+      ? CertifiedStoneLotStatus.InStock
       : input.status === "Reserved"
-        ? StoneLotStatus.Reserved
+        ? CertifiedStoneLotStatus.Reserved
         : input.status === "Issued"
-          ? StoneLotStatus.Issued
+          ? CertifiedStoneLotStatus.Issued
           : undefined;
 
-  const row = await prisma.stoneLot.update({
+  const row = await prisma.certifiedStoneLot.update({
     where: { id },
     data: {
       color: input.color === null ? null : input.color?.trim(),
@@ -181,7 +182,7 @@ export const transferStoneLot = async (
   input: TransferStoneLotInput,
   actor: Actor,
 ): Promise<StoneLot> => {
-  const existing = await prisma.stoneLot.findUnique({ where: { id } });
+  const existing = await prisma.certifiedStoneLot.findUnique({ where: { id } });
   if (!existing) throw new RawInventoryError("Stone lot not found.", 404);
 
   const toLocation = input.toLocation.trim();
@@ -191,7 +192,7 @@ export const transferStoneLot = async (
     throw new RawInventoryError("Stone is already at that location.");
   }
 
-  const row = await prisma.stoneLot.update({
+  const row = await prisma.certifiedStoneLot.update({
     where: { id },
     data: { location: toLocation },
   });
@@ -216,7 +217,7 @@ export const adjustStoneLot = async (
   input: AdjustStoneLotInput,
   actor: Actor,
 ): Promise<StoneLot> => {
-  const existing = await prisma.stoneLot.findUnique({ where: { id } });
+  const existing = await prisma.certifiedStoneLot.findUnique({ where: { id } });
   if (!existing) throw new RawInventoryError("Stone lot not found.", 404);
 
   if (!input.carat || input.carat <= 0) {
@@ -226,7 +227,7 @@ export const adjustStoneLot = async (
     throw new RawInventoryError("Reason is required for stock adjustment.");
   }
 
-  const row = await prisma.stoneLot.update({
+  const row = await prisma.certifiedStoneLot.update({
     where: { id },
     data: { carat: input.carat },
   });

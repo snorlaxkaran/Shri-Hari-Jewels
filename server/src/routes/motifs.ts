@@ -43,9 +43,9 @@ motifsRouter.get("/", requireRole(canViewMotifs), async (req: AuthenticatedReque
 motifsRouter.get(
   "/:id/price-drift",
   requireRole(canViewMotifs),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const drift = await getMotifPriceDrift(routeParam(req.params.id));
+      const drift = await getMotifPriceDrift(routeParam(req.params.id), req.organizationId!);
       if (!drift) {
         res.status(404).json({ error: "Motif not found." });
         return;
@@ -65,6 +65,7 @@ motifsRouter.post(
     try {
       const price = await recalculateMotifPriceById(
         routeParam(req.params.id),
+        req.organizationId!,
         actorFrom(req),
         "Manual price recalculation",
       );
@@ -86,6 +87,7 @@ motifsRouter.post("/", requireRole(canManageMotifs), async (req: AuthenticatedRe
     const motif = await createMotif(
       req.body as NewMotifInput,
       branchId,
+      req.organizationId!,
       actorFrom(req),
     );
     res.status(201).json(motif);
@@ -107,7 +109,7 @@ motifsRouter.post("/bulk", requireRole(canManageMotifs), async (req: Authenticat
       res.status(400).json({ error: "Provide an array of motifs." });
       return;
     }
-    const result = await createMotifsBulk(items, branchId, actorFrom(req));
+    const result = await createMotifsBulk(items, branchId, req.organizationId!, actorFrom(req));
     res.status(201).json(result);
   } catch (error) {
     console.error("POST /api/motifs/bulk", error);
@@ -120,6 +122,7 @@ motifsRouter.patch("/:id", requireRole(canManageMotifs), async (req: Authenticat
     const motif = await updateMotif(
       routeParam(req.params.id),
       req.body as UpdateMotifInput,
+      req.organizationId!,
       actorFrom(req),
     );
     res.json(motif);

@@ -1,4 +1,4 @@
-import type { MetalLot as DbMetalLot, StoneLot as DbStoneLot } from "@prisma/client";
+import type { MetalLot as DbMetalLot, CertifiedStoneLot as DbCertifiedStoneLot } from "@prisma/client";
 import type { MetalLot, StoneLot } from "../../types.js";
 import { moneyToNumber, multiplyMoney } from "../money.js";
 import { toApiStoneLotStatus } from "./status.js";
@@ -19,7 +19,7 @@ export const toMetalLot = (row: DbMetalLot): MetalLot => ({
   updatedAt: row.updatedAt.toISOString(),
 });
 
-export const toStoneLot = (row: DbStoneLot): StoneLot => ({
+export const toStoneLot = (row: DbCertifiedStoneLot): StoneLot => ({
   id: row.id,
   certificateNumber: row.certificateNumber,
   stoneType: row.stoneType as StoneLot["stoneType"],

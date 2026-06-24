@@ -200,7 +200,7 @@ export const overrideMarketRates = async (
   ]);
 
   const { recalculateAllMotifPrices } = await import("../motifs/service.js");
-  await recalculateAllMotifPrices(undefined, "Market rates updated");
+  await recalculateAllMotifPrices(organizationId, "Market rates updated");
 
   return getCurrentMarketRates(organizationId);
 };

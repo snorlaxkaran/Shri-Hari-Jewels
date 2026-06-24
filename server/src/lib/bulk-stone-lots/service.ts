@@ -2,7 +2,6 @@ import { prisma } from "../db.js";
 import { organizationBranchFilter } from "../branches/access.js";
 import { moneyToNumber } from "../money.js";
 import { MOTIF_STONE_TYPES } from "../motifs/service.js";
-import { recalculateMotifsForBulkStoneLot } from "../motifs/service.js";
 import type {
   BulkStoneLot,
   MotifStoneType,
@@ -156,11 +155,7 @@ export const updateBulkStoneLot = async (
     moneyToNumber(String(existing.pricePerStone)) !== input.pricePerStone;
 
   if (priceChanged && actor) {
-    await recalculateMotifsForBulkStoneLot(
-      id,
-      actor,
-      `Bulk stone lot "${row.sizeLabel}" price per stone updated`,
-    );
+    // Bulk stone lots are deprecated; motif pricing uses stone master rates
   }
 
   return toBulkStoneLot(row);
@@ -169,14 +164,8 @@ export const updateBulkStoneLot = async (
 export const deleteBulkStoneLot = async (id: string): Promise<void> => {
   const existing = await prisma.bulkStoneLot.findUnique({
     where: { id },
-    include: { motifStones: { take: 1 } },
   });
   if (!existing) throw new BulkStoneLotError("Bulk stone lot not found.", 404);
-  if (existing.motifStones.length > 0) {
-    throw new BulkStoneLotError(
-      "Cannot delete a bulk stone lot referenced by motifs.",
-    );
-  }
   await prisma.bulkStoneLot.delete({ where: { id } });
 };
 

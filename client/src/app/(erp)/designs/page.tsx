@@ -525,7 +525,7 @@ export default function DesignsPage() {
       const summary = run.stoneStockWarnings
         .map(
           (w) =>
-            `${w.sizeLabel}: need ${w.required}, have ${w.available}`,
+            `${w.stoneName}: need ${w.required}, have ${w.available}`,
         )
         .join("; ");
       message += `. Stone stock warning: ${summary}`;

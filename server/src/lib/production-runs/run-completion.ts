@@ -1,7 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import type { FinishedGoodsInput } from "../../types.js";
 import { prisma } from "../db.js";
-import { deductBulkStonesForProductionRun } from "./bulk-stone-stock.js";
 import { ProductionRunError } from "./errors.js";
 import {
   assertPositiveFinishedGoodsWeight,
@@ -121,11 +120,8 @@ export const finalizeProductionRunInTx = async (
   }
 };
 
-export const finalizeProductionRunAfterTx = async (
-  designId: string,
-  setsOrdered: number,
-): Promise<void> => {
-  await deductBulkStonesForProductionRun(designId, setsOrdered);
+export const finalizeProductionRunAfterTx = async (): Promise<void> => {
+  // Stone consumption handled via issue/settle during Stone Setting stage
 };
 
 export const ensureCompletedRunInventory = async (

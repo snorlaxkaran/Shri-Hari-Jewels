@@ -104,7 +104,7 @@ export const completeProductionRunStage = async (
   });
 
   if (isLast) {
-    await finalizeProductionRunAfterTx(run.designId, run.setsOrdered);
+    await finalizeProductionRunAfterTx();
   }
 
   const logs = await listProductionRunStageLogs(runId);

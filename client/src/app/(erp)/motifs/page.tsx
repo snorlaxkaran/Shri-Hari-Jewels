@@ -10,7 +10,7 @@ import MotifImageUpload from "@/app/(components)/motifs/MotifImageUpload";
 import MotifStoneRows, {
   type MotifStoneRow,
 } from "@/app/(components)/motifs/MotifStoneRows";
-import { fetchBulkStoneLots } from "@/lib/api/bulk-stone-lots";
+import { fetchStoneMasters } from "@/lib/api/stone-master";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canManageMotifs } from "@/lib/auth/permissions";
 import {
@@ -27,7 +27,6 @@ import {
   puritiesForMotifMetal,
 } from "@/lib/motifs/constants";
 import type {
-  BulkStoneLot,
   Motif,
   MotifMetal,
   MotifStoneInput,
@@ -35,6 +34,7 @@ import type {
   MotifSubCategory,
   NewMotifInput,
   Purity,
+  StoneMaster,
 } from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/api/client";
 
@@ -57,7 +57,7 @@ export default function MotifsPage() {
   const [metal, setMetal] = useState<MotifMetal>("Gold");
   const [purity, setPurity] = useState<Purity>("22K");
   const [stoneRows, setStoneRows] = useState<MotifStoneRow[]>([]);
-  const [bulkStoneLots, setBulkStoneLots] = useState<BulkStoneLot[]>([]);
+  const [stoneMasters, setStoneMasters] = useState<StoneMaster[]>([]);
   const [subCategory, setSubCategory] = useState<MotifSubCategory>("Contemporary");
   const [imageUrl, setImageUrl] = useState<string | undefined>();
   const [formError, setFormError] = useState("");
@@ -67,17 +67,17 @@ export default function MotifsPage() {
   const [filterMetal, setFilterMetal] = useState<MotifMetal | "">("");
   const [filterPurity, setFilterPurity] = useState<Purity | "">("");
 
-  const loadBulkStoneLots = useCallback(async () => {
+  const loadStoneMasters = useCallback(async () => {
     try {
-      setBulkStoneLots(await fetchBulkStoneLots());
+      setStoneMasters(await fetchStoneMasters({ activeOnly: true }));
     } catch {
-      /* optional — form still works without lots */
+      /* optional */
     }
   }, []);
 
   useEffect(() => {
-    void loadBulkStoneLots();
-  }, [loadBulkStoneLots]);
+    void loadStoneMasters();
+  }, [loadStoneMasters]);
 
   const loadMotifs = useCallback(async () => {
     setLoading(true);
@@ -131,10 +131,10 @@ export default function MotifsPage() {
     purity,
     subCategory,
     stones: stoneRows
-      .filter((r) => r.bulkStoneLotId)
+      .filter((r) => r.stoneMasterId)
       .map(
         (r): MotifStoneInput => ({
-          bulkStoneLotId: r.bulkStoneLotId,
+          stoneMasterId: r.stoneMasterId,
           qtyPerMotif: r.qtyPerMotif,
         }),
       ),
@@ -330,7 +330,7 @@ export default function MotifsPage() {
           </div>
 
           <MotifStoneRows
-            lots={bulkStoneLots}
+            stones={stoneMasters}
             rows={stoneRows}
             onChange={setStoneRows}
             disabled={!canManage}

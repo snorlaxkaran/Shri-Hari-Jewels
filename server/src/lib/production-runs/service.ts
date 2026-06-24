@@ -20,7 +20,7 @@ import {
   deductRawMaterialForItemInTx,
   validateLotSelectionForItem,
 } from "./raw-material.js";
-import { checkBulkStoneStock } from "./bulk-stone-stock.js";
+import { checkStoneStock } from "./bulk-stone-stock.js";
 import {
   calculateFinishedGoodsForRunInTx,
 } from "./finished-goods.js";
@@ -356,9 +356,10 @@ export const createProductionRun = async (
   }
 
   const runNo = await generateProductionRunNo();
-  const stoneStockWarnings = await checkBulkStoneStock(
+  const stoneStockWarnings = await checkStoneStock(
     input.designId,
     input.setsOrdered,
+    branchId,
   );
 
   const run = await prisma.productionRun.create({
@@ -540,7 +541,7 @@ export const updateProductionRun = async (
   });
 
   if (completingRun) {
-    await finalizeProductionRunAfterTx(existing.designId, existing.setsOrdered);
+    await finalizeProductionRunAfterTx();
   }
 
   return getProductionRun(id);

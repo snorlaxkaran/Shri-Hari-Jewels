@@ -5,6 +5,7 @@ import {
 } from "../designs/validation.js";
 import { safeRecordCatalogAudit } from "../catalog/audit.js";
 import { organizationBranchFilter } from "../branches/access.js";
+import { getStoneMasterAvgRate } from "../stone-lots/service.js";
 import { resolveMarketRateForMetalPurity } from "../pricing/metal-rate.js";
 import type {
   Motif,
@@ -57,9 +58,10 @@ const motifSummary = (motif: Motif) => ({
   price: motif.price,
   makingCost: motif.makingCost,
   stones: motif.stones?.map((s) => ({
-    bulkStoneLotId: s.bulkStoneLotId,
+    stoneMasterId: s.stoneMasterId,
     qtyPerMotif: s.qtyPerMotif,
-    sizeLabel: s.bulkStoneLot?.sizeLabel,
+    stoneName: s.stoneMaster?.stoneName,
+    sizeMm: s.stoneMaster?.sizeMm,
   })),
 });
 
@@ -67,12 +69,15 @@ const motifInclude = {
   stones: {
     orderBy: { sortOrder: "asc" as const },
     include: {
-      bulkStoneLot: {
+      stoneMaster: {
         select: {
           id: true,
-          sizeLabel: true,
-          stoneType: true,
-          pricePerStone: true,
+          stoneCode: true,
+          stoneName: true,
+          stoneMaterial: true,
+          sizeMm: true,
+          shape: true,
+          uom: true,
         },
       },
     },
@@ -97,14 +102,17 @@ type MotifRow = {
   updatedAt: Date;
   stones?: Array<{
     id: string;
-    bulkStoneLotId: string;
+    stoneMasterId: string;
     qtyPerMotif: number;
     sortOrder: number;
-    bulkStoneLot: {
+    stoneMaster: {
       id: string;
-      sizeLabel: string;
-      stoneType: string;
-      pricePerStone: { toString(): string };
+      stoneCode: string;
+      stoneName: string;
+      stoneMaterial: string;
+      sizeMm: string;
+      shape: string;
+      uom: string;
     };
   }>;
 };
@@ -113,14 +121,17 @@ const toMotifStone = (
   row: NonNullable<MotifRow["stones"]>[number],
 ): MotifStone => ({
   id: row.id,
-  bulkStoneLotId: row.bulkStoneLotId,
+  stoneMasterId: row.stoneMasterId,
   qtyPerMotif: row.qtyPerMotif,
   sortOrder: row.sortOrder,
-  bulkStoneLot: {
-    id: row.bulkStoneLot.id,
-    sizeLabel: row.bulkStoneLot.sizeLabel,
-    stoneType: row.bulkStoneLot.stoneType as MotifStoneType,
-    pricePerStone: moneyToNumber(String(row.bulkStoneLot.pricePerStone)),
+  stoneMaster: {
+    id: row.stoneMaster.id,
+    stoneCode: row.stoneMaster.stoneCode,
+    stoneName: row.stoneMaster.stoneName,
+    stoneMaterial: row.stoneMaster.stoneMaterial,
+    sizeMm: row.stoneMaster.sizeMm,
+    shape: row.stoneMaster.shape,
+    uom: row.stoneMaster.uom,
   },
 });
 
@@ -151,6 +162,7 @@ export type MotifPriceInput = {
   metal: MotifMetal;
   purity: Purity;
   stones: MotifStoneInput[];
+  organizationId?: string;
 };
 
 export const calculateMotifPrice = async (
@@ -164,18 +176,19 @@ export const calculateMotifPrice = async (
   }
 
   for (const stone of input.stones) {
-    const lot = await prisma.bulkStoneLot.findUnique({
-      where: { id: stone.bulkStoneLotId },
+    const master = await prisma.stoneMaster.findUnique({
+      where: { id: stone.stoneMasterId },
     });
-    if (!lot) {
-      throw new MotifError(`Bulk stone lot not found: ${stone.bulkStoneLotId}`);
+    if (!master) {
+      throw new MotifError(`Stone master not found: ${stone.stoneMasterId}`);
     }
     if (stone.qtyPerMotif < 1) {
       throw new MotifError("Stone quantity per motif must be at least 1.");
     }
-    total += roundMoney(
-      moneyToNumber(String(lot.pricePerStone)) * stone.qtyPerMotif,
-    );
+    const rate = input.organizationId
+      ? await getStoneMasterAvgRate(stone.stoneMasterId, input.organizationId)
+      : 0;
+    total += roundMoney(rate * stone.qtyPerMotif);
   }
 
   return roundMoney(total);
@@ -185,7 +198,7 @@ const motifStonesFromRow = (
   row: Pick<MotifRow, "stones">,
 ): MotifStoneInput[] =>
   (row.stones ?? []).map((stone) => ({
-    bulkStoneLotId: stone.bulkStoneLotId,
+    stoneMasterId: stone.stoneMasterId,
     qtyPerMotif: stone.qtyPerMotif,
     sortOrder: stone.sortOrder,
   }));
@@ -193,12 +206,14 @@ const motifStonesFromRow = (
 /** Recompute and persist motif price when it no longer matches market metal + stone rates. */
 export const ensureMotifPriceCurrent = async (
   row: MotifRow,
+  organizationId: string,
 ): Promise<number> => {
   const price = await calculateMotifPrice({
     weightGrams: row.weightGrams,
     metal: row.metal as MotifMetal,
     purity: row.purity as Purity,
     stones: motifStonesFromRow(row),
+    organizationId,
   });
 
   const stored =
@@ -213,14 +228,25 @@ export const ensureMotifPriceCurrent = async (
   return price;
 };
 
-const validateMotifStones = (stones?: MotifStoneInput[]) => {
+const validateMotifStones = async (
+  stones: MotifStoneInput[] | undefined,
+  organizationId: string,
+) => {
   if (!stones?.length) return;
   for (const stone of stones) {
-    if (!stone.bulkStoneLotId) {
-      throw new MotifError("Each motif stone must reference a bulk stone lot.");
+    if (!stone.stoneMasterId) {
+      throw new MotifError("Each motif stone must reference a stone master entry.");
     }
     if (stone.qtyPerMotif < 1) {
       throw new MotifError("Stone quantity per motif must be at least 1.");
+    }
+    const master = await prisma.stoneMaster.findFirst({
+      where: { id: stone.stoneMasterId, organizationId },
+    });
+    if (!master) {
+      throw new MotifError(
+        "Stone master entry not found in your company catalog.",
+      );
     }
   }
 };
@@ -233,7 +259,10 @@ const validateMotifPurity = (metal: MotifMetal, purity: Purity) => {
   }
 };
 
-const validateMotifInput = (input: NewMotifInput) => {
+const validateMotifInput = async (
+  input: NewMotifInput,
+  organizationId: string,
+) => {
   const name = input.name?.trim();
   if (!name) throw new MotifError("Motif name is required.");
 
@@ -254,7 +283,7 @@ const validateMotifInput = (input: NewMotifInput) => {
     }
   }
 
-  validateMotifStones(input.stones);
+  await validateMotifStones(input.stones, organizationId);
 
   if (input.weightGrams != null && input.weightGrams < 0) {
     throw new MotifError("Weight must be zero or greater.");
@@ -284,7 +313,7 @@ const syncMotifStones = async (
   await prisma.motifStone.createMany({
     data: stones.map((stone, index) => ({
       motifId,
-      bulkStoneLotId: stone.bulkStoneLotId,
+      stoneMasterId: stone.stoneMasterId,
       qtyPerMotif: stone.qtyPerMotif,
       sortOrder: stone.sortOrder ?? index,
     })),
@@ -303,7 +332,7 @@ export const listMotifs = async (
 
   const motifs: Motif[] = [];
   for (const row of rows) {
-    const price = await ensureMotifPriceCurrent(row);
+    const price = await ensureMotifPriceCurrent(row, organizationId);
     motifs.push(
       toMotif({
         ...row,
@@ -314,13 +343,13 @@ export const listMotifs = async (
   return motifs;
 };
 
-export const getMotif = async (id: string): Promise<Motif> => {
-  const row = await prisma.motif.findUnique({
-    where: { id },
+export const getMotif = async (id: string, organizationId: string): Promise<Motif> => {
+  const row = await prisma.motif.findFirst({
+    where: { id, branch: { organizationId } },
     include: motifInclude,
   });
   if (!row) throw new MotifError("Motif not found.", 404);
-  const price = await ensureMotifPriceCurrent(row);
+  const price = await ensureMotifPriceCurrent(row, organizationId);
   return toMotif({
     ...row,
     price: { toString: () => String(price) },
@@ -330,10 +359,11 @@ export const getMotif = async (id: string): Promise<Motif> => {
 export const createMotif = async (
   input: NewMotifInput,
   branchId: string,
+  organizationId: string,
   actor?: Actor,
   auditOptions?: { skipAudit?: boolean },
 ): Promise<Motif> => {
-  const validated = validateMotifInput(input);
+  const validated = await validateMotifInput(input, organizationId);
 
   const duplicate = await prisma.motif.findFirst({
     where: {
@@ -354,6 +384,7 @@ export const createMotif = async (
     metal: validated.metal,
     purity: validated.purity,
     stones: validated.stones,
+    organizationId,
   });
 
   const row = await prisma.motif.create({
@@ -400,6 +431,7 @@ export const createMotif = async (
 export const createMotifsBulk = async (
   items: NewMotifInput[],
   branchId: string,
+  organizationId: string,
   actor?: Actor,
 ): Promise<{ created: Motif[]; errors: string[] }> => {
   const created: Motif[] = [];
@@ -407,7 +439,7 @@ export const createMotifsBulk = async (
 
   for (let i = 0; i < items.length; i++) {
     try {
-      const motif = await createMotif(items[i], branchId, actor, {
+      const motif = await createMotif(items[i], branchId, organizationId, actor, {
         skipAudit: true,
       });
       created.push(motif);
@@ -441,6 +473,7 @@ export const createMotifsBulk = async (
 export const updateMotif = async (
   id: string,
   input: UpdateMotifInput,
+  organizationId: string,
   actor?: Actor,
 ): Promise<Motif> => {
   const existingRow = await prisma.motif.findUnique({
@@ -468,7 +501,7 @@ export const updateMotif = async (
     }
   }
 
-  if (input.stones) validateMotifStones(input.stones);
+  if (input.stones) await validateMotifStones(input.stones, organizationId);
 
   const name = input.name?.trim() ?? existing.name;
   if (input.name !== undefined || input.metal !== undefined || input.purity !== undefined) {
@@ -491,7 +524,7 @@ export const updateMotif = async (
   const stones =
     input.stones ??
     existingRow.stones.map((s) => ({
-      bulkStoneLotId: s.bulkStoneLotId,
+      stoneMasterId: s.stoneMasterId,
       qtyPerMotif: s.qtyPerMotif,
       sortOrder: s.sortOrder,
     }));
@@ -511,6 +544,7 @@ export const updateMotif = async (
         metal,
         purity,
         stones,
+        organizationId,
       })
     : input.price ?? undefined;
 
@@ -591,6 +625,7 @@ export const deleteMotif = async (
 
 export const recalculateMotifPriceById = async (
   motifId: string,
+  organizationId: string,
   actor?: Actor,
   reason?: string,
 ): Promise<number> => {
@@ -608,6 +643,7 @@ export const recalculateMotifPriceById = async (
     metal: existingRow.metal as MotifMetal,
     purity: existingRow.purity as Purity,
     stones,
+    organizationId,
   });
   await prisma.motif.update({
     where: { id: motifId },
@@ -632,37 +668,53 @@ export const recalculateMotifPriceById = async (
   return price;
 };
 
-export const recalculateMotifsForBulkStoneLot = async (
-  bulkStoneLotId: string,
+export const recalculateMotifsForStoneMaster = async (
+  stoneMasterId: string,
+  organizationId: string,
   actor?: Actor,
   reason?: string,
 ): Promise<number> => {
   const links = await prisma.motifStone.findMany({
-    where: { bulkStoneLotId },
+    where: { stoneMasterId },
     select: { motifId: true },
     distinct: ["motifId"],
   });
 
   let updated = 0;
   for (const { motifId } of links) {
-    await recalculateMotifPriceById(motifId, actor, reason);
+    await recalculateMotifPriceById(motifId, organizationId, actor, reason);
     updated += 1;
   }
   return updated;
 };
 
+/** @deprecated Use recalculateMotifsForStoneMaster */
+export const recalculateMotifsForBulkStoneLot = recalculateMotifsForStoneMaster;
+
 export const recalculateAllMotifPrices = async (
-  actor?: Actor,
+  organizationId?: string,
   reason?: string,
+  actor?: Actor,
 ): Promise<number> => {
-  const motifs = await prisma.motif.findMany({
-    select: { id: true },
-  });
+  const orgIds = organizationId
+    ? [organizationId]
+    : (
+        await prisma.organization.findMany({
+          where: { active: true },
+          select: { id: true },
+        })
+      ).map((o) => o.id);
 
   let updated = 0;
-  for (const { id } of motifs) {
-    await recalculateMotifPriceById(id, actor, reason);
-    updated += 1;
+  for (const orgId of orgIds) {
+    const motifs = await prisma.motif.findMany({
+      where: { branch: { organizationId: orgId } },
+      select: { id: true },
+    });
+    for (const { id } of motifs) {
+      await recalculateMotifPriceById(id, orgId, actor, reason);
+      updated += 1;
+    }
   }
   return updated;
 };

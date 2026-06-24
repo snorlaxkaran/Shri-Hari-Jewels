@@ -1,12 +1,13 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import type { BulkStoneLot, MotifStoneInput } from "@/lib/types";
+import { formatStoneMasterLabel } from "@/lib/stones/materials";
+import type { MotifStoneInput, StoneMaster } from "@/lib/types";
 
 type MotifStoneRow = MotifStoneInput & { key: string };
 
 type Props = {
-  lots: BulkStoneLot[];
+  stones: StoneMaster[];
   rows: MotifStoneRow[];
   onChange: (rows: MotifStoneRow[]) => void;
   disabled?: boolean;
@@ -16,7 +17,7 @@ const fieldClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
 
 export default function MotifStoneRows({
-  lots,
+  stones,
   rows,
   onChange,
   disabled,
@@ -26,7 +27,7 @@ export default function MotifStoneRows({
       ...rows,
       {
         key: `stone-${Date.now()}`,
-        bulkStoneLotId: lots[0]?.id ?? "",
+        stoneMasterId: stones[0]?.id ?? "",
         qtyPerMotif: 1,
       },
     ]);
@@ -44,7 +45,7 @@ export default function MotifStoneRows({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className={labelClass}>Stones in motif</label>
-        {canAdd(disabled, lots) && (
+        {canAdd(disabled, stones) && (
           <button
             type="button"
             onClick={addRow}
@@ -55,37 +56,34 @@ export default function MotifStoneRows({
         )}
       </div>
 
-      {lots.length === 0 && (
+      {stones.length === 0 && (
         <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-          No bulk stone lots yet. Add lots under Bulk Stone Lots before linking stones to motifs.
+          No stone master entries yet. Add stones under Stone Master before linking them to motifs.
         </p>
       )}
 
       {rows.map((row) => {
-        const lot = lots.find((l) => l.id === row.bulkStoneLotId);
-        const lineCost =
-          lot != null ? lot.pricePerStone * row.qtyPerMotif : undefined;
+        const stone = stones.find((s) => s.id === row.stoneMasterId);
 
         return (
           <div
             key={row.key}
-            className="grid grid-cols-[1fr_100px_100px_auto] gap-2 items-end"
+            className="grid grid-cols-[1fr_100px_auto] gap-2 items-end"
           >
             <div>
-              <label className={labelClass}>Bulk stone lot</label>
+              <label className={labelClass}>Stone type</label>
               <select
-                value={row.bulkStoneLotId}
+                value={row.stoneMasterId}
                 onChange={(e) =>
-                  updateRow(row.key, { bulkStoneLotId: e.target.value })
+                  updateRow(row.key, { stoneMasterId: e.target.value })
                 }
                 className={fieldClass}
-                disabled={disabled || lots.length === 0}
+                disabled={disabled || stones.length === 0}
               >
-                <option value="">Select lot…</option>
-                {lots.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.sizeLabel} ({l.stoneType}) — ₹{l.pricePerStone}/pc ·{" "}
-                    {l.quantity} on hand
+                <option value="">Select stone…</option>
+                {stones.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {formatStoneMasterLabel(s)}
                   </option>
                 ))}
               </select>
@@ -105,12 +103,6 @@ export default function MotifStoneRows({
                 disabled={disabled}
               />
             </div>
-            <div>
-              <label className={labelClass}>Line cost</label>
-              <div className="text-sm text-zinc-600 py-2">
-                {lineCost != null ? `₹${lineCost.toLocaleString("en-IN")}` : "—"}
-              </div>
-            </div>
             <button
               type="button"
               onClick={() => removeRow(row.key)}
@@ -120,6 +112,12 @@ export default function MotifStoneRows({
             >
               <Trash2 size={16} />
             </button>
+            {stone && (
+              <p className="col-span-full text-xs text-zinc-500 -mt-1">
+                {stone.stoneMaterial} · {stone.uom}
+                {stone.unitWeightCt != null ? ` · ${stone.unitWeightCt} Ct/pc` : ""}
+              </p>
+            )}
           </div>
         );
       })}
@@ -127,7 +125,7 @@ export default function MotifStoneRows({
   );
 }
 
-const canAdd = (disabled?: boolean, lots?: BulkStoneLot[]) =>
-  !disabled && (lots?.length ?? 0) > 0;
+const canAdd = (disabled?: boolean, stones?: StoneMaster[]) =>
+  !disabled && (stones?.length ?? 0) > 0;
 
 export type { MotifStoneRow };

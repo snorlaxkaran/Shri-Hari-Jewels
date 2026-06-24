@@ -1,4 +1,4 @@
-import { StoneLotStatus } from "@prisma/client";
+import { CertifiedStoneLotStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import { organizationBranchFilter } from "../branches/access.js";
 import { moneyToNumber, multiplyMoney } from "../money.js";
@@ -238,8 +238,8 @@ export const getRawInventorySummary = async (
   const branchFilter = organizationBranchFilter(organizationId, branchId);
   const [metalLots, stoneLots] = await Promise.all([
     prisma.metalLot.findMany({ where: branchFilter }),
-    prisma.stoneLot.findMany({
-      where: { ...branchFilter, status: StoneLotStatus.InStock },
+    prisma.certifiedStoneLot.findMany({
+      where: { ...branchFilter, status: CertifiedStoneLotStatus.InStock },
     }),
   ]);
 

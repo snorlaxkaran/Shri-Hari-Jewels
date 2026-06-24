@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { StoneLotStatus } from "@prisma/client";
+import { CertifiedStoneLotStatus } from "@prisma/client";
 import { ProductionRunError } from "./errors.js";
 
 type TransactionClient = Prisma.TransactionClient;
@@ -109,7 +109,7 @@ export const deductRawMaterialForItemInTx = async (
 
   const reason = `Production run ${run.runNo} — ${item.elementName}`;
 
-  const lot = await tx.stoneLot.findUnique({
+  const lot = await tx.certifiedStoneLot.findUnique({
     where: { id: item.stoneLotId! },
   });
   if (!lot) {
@@ -120,7 +120,7 @@ export const deductRawMaterialForItemInTx = async (
       "Selected stone lot belongs to a different branch.",
     );
   }
-  if (lot.status !== StoneLotStatus.InStock) {
+  if (lot.status !== CertifiedStoneLotStatus.InStock) {
     throw new ProductionRunError(
       `Stone lot ${lot.certificateNumber} is ${lot.status} and cannot be consumed.`,
     );
@@ -134,7 +134,7 @@ export const deductRawMaterialForItemInTx = async (
   }
 
   const newCarat = lot.carat - carats;
-  await tx.stoneLot.update({
+  await tx.certifiedStoneLot.update({
     where: { id: lot.id },
     data: { carat: newCarat },
   });
