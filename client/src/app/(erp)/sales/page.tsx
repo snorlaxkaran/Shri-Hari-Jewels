@@ -5,7 +5,11 @@ import { useCallback, useState } from "react";
 import { ShoppingCart, Trash2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
+import CustomerLookupInput, {
+  type CustomerLookupSelection,
+} from "@/components/CustomerLookupInput";
 import { getApiErrorMessage } from "@/lib/api/client";
+import { updateCustomer } from "@/lib/api/customers";
 import { openInvoicePdf } from "@/lib/api/invoices";
 import { lookupSaleUnit, recordCartSale } from "@/lib/api/sales";
 import { useCustomers } from "@/lib/customers/customers-context";
@@ -35,7 +39,7 @@ const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
 const PAYMENT_MODES: PaymentMode[] = ["Cash", "UPI", "Card"];
 
 export default function SalesPage() {
-  const { customers, refresh: refreshCustomers } = useCustomers();
+  const { refresh: refreshCustomers } = useCustomers();
   const { refresh: refreshInventory, markUnitsSold, markUnitsReserved, markUnitsAvailable } =
     useInventory();
   const {
@@ -50,7 +54,8 @@ export default function SalesPage() {
   const [lookupError, setLookupError] = useState("");
   const [lookingUp, setLookingUp] = useState(false);
   const [cart, setCart] = useState<CartLineItem[]>([]);
-  const [customerId, setCustomerId] = useState("");
+  const [customerSelection, setCustomerSelection] =
+    useState<CustomerLookupSelection | null>(null);
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("Cash");
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -104,7 +109,7 @@ export default function SalesPage() {
 
   const resetCheckout = () => {
     setCart([]);
-    setCustomerId("");
+    setCustomerSelection(null);
     setPaymentMode("Cash");
     setFormError("");
   };
@@ -185,14 +190,19 @@ export default function SalesPage() {
       setFormError("Add at least one item to the cart.");
       return;
     }
-    if (!customerId) {
-      setFormError("Select a customer.");
+    if (!customerSelection?.customerId) {
+      setFormError("Select or create a customer.");
       return;
     }
 
     setSubmitting(true);
     const cartItemCodes = cart.map((item) => item.itemCode);
+    const { customerId, dirtyFields } = customerSelection;
     try {
+      if (Object.keys(dirtyFields).length > 0) {
+        await updateCustomer(customerId, dirtyFields);
+      }
+
       const result = await recordCartSale({
         customerId,
         paymentMode,
@@ -220,7 +230,7 @@ export default function SalesPage() {
         setUpiModalOpen(true);
         markUnitsReserved(cartItemCodes);
         setCart([]);
-        setCustomerId("");
+        setCustomerSelection(null);
         return;
       }
 
@@ -430,21 +440,11 @@ export default function SalesPage() {
               </div>
             )}
 
-            <div>
-              <label className={labelClass}>Customer *</label>
-              <select
-                value={customerId}
-                onChange={(e) => setCustomerId(e.target.value)}
-                className={fieldClass}
-              >
-                <option value="">Select customer…</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} — {c.mobile}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <CustomerLookupInput
+              onSelectionChange={setCustomerSelection}
+              paymentModeSet={paymentMode !== "Cash"}
+              onPaymentModeClear={() => setPaymentMode("Cash")}
+            />
 
             <div>
               <label className={labelClass}>Payment mode *</label>
@@ -468,7 +468,7 @@ export default function SalesPage() {
 
             <button
               type="submit"
-              disabled={submitting || cart.length === 0 || !customerId}
+              disabled={submitting || cart.length === 0 || !customerSelection?.customerId}
               className="btn-primary w-full px-4 py-2.5 text-sm disabled:opacity-50"
             >
               {submitting

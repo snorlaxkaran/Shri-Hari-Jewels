@@ -6,6 +6,20 @@ import type {
 } from "@/lib/types";
 import { api } from "./client";
 
+export type CustomerLookupResponse =
+  | { found: true; customer: Customer }
+  | { found: false };
+
+export const lookupCustomerByQuery = async (
+  query: string,
+): Promise<CustomerLookupResponse> => {
+  const { data } = await api.get<CustomerLookupResponse>(
+    "/api/customers/lookup",
+    { params: { q: query.trim() } },
+  );
+  return data;
+};
+
 export const fetchCustomers = async (query?: string): Promise<Customer[]> => {
   const { data } = await api.get<Customer[]>("/api/customers", {
     params: query ? { q: query } : undefined,

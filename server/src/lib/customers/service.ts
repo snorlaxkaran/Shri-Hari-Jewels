@@ -19,6 +19,68 @@ export class CustomerError extends Error {
   }
 }
 
+const GST_LOOKUP_REGEX =
+  /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i;
+
+export const detectQueryType = (
+  q: string,
+): "gstNumber" | "email" | "mobile" | "fuzzy" => {
+  const trimmed = q.trim();
+  if (GST_LOOKUP_REGEX.test(trimmed.toUpperCase())) return "gstNumber";
+  if (trimmed.includes("@")) return "email";
+  if (/^\d{10}$/.test(trimmed)) return "mobile";
+  return "fuzzy";
+};
+
+export type CustomerLookupResponse =
+  | { found: true; customer: Customer }
+  | { found: false };
+
+export const lookupCustomer = async (
+  organizationId: string,
+  q: string,
+): Promise<CustomerLookupResponse> => {
+  const trimmed = q.trim();
+  if (!trimmed) return { found: false };
+
+  const queryType = detectQueryType(trimmed);
+
+  if (queryType === "fuzzy") {
+    const customers = await prisma.customer.findMany({
+      where: {
+        organizationId,
+        OR: [
+          { name: { contains: trimmed } },
+          { mobile: { contains: trimmed } },
+          { email: { contains: trimmed } },
+        ],
+      },
+      include: customerInclude,
+      orderBy: { name: "asc" },
+      take: 5,
+    });
+    if (customers.length === 1) {
+      return { found: true, customer: toCustomer(customers[0]) };
+    }
+    return { found: false };
+  }
+
+  const customer = await prisma.customer.findFirst({
+    where: {
+      organizationId,
+      OR: [
+        { mobile: trimmed },
+        { email: trimmed },
+        { gstNumber: { equals: trimmed, mode: "insensitive" } },
+      ],
+    },
+    include: customerInclude,
+  });
+
+  if (!customer) return { found: false };
+  return { found: true, customer: toCustomer(customer) };
+};
+
 const customerInclude = { sales: true };
 
 const trimOrNull = (value: string | null | undefined): string | null => {
@@ -90,7 +152,10 @@ export const createCustomer = async (
     where: { organizationId_mobile: { organizationId, mobile } },
   });
   if (existing) {
-    throw new CustomerError("A customer with this mobile number already exists.");
+    throw new CustomerError(
+      "A customer with this mobile number already exists.",
+      409,
+    );
   }
 
   const financial = validateFinancialFields(input);

@@ -5,6 +5,7 @@ import {
   CustomerError,
   getCustomerDetail,
   listCustomers,
+  lookupCustomer,
   searchCustomers,
   updateCustomer,
 } from "../lib/customers/service.js";
@@ -34,6 +35,25 @@ customersRouter.get("/", requireRole(canManageCustomers), async (req: Authentica
     res.status(500).json({ error: "Failed to fetch customers" });
   }
 });
+
+customersRouter.get(
+  "/lookup",
+  requireRole(canManageCustomers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+      if (!q) {
+        res.status(400).json({ error: "Query parameter q is required." });
+        return;
+      }
+      const result = await lookupCustomer(req.organizationId!, q);
+      res.json(result);
+    } catch (error) {
+      console.error("GET /api/customers/lookup", error);
+      res.status(500).json({ error: "Failed to lookup customer" });
+    }
+  },
+);
 
 customersRouter.get(
   "/:id",
