@@ -8,7 +8,7 @@ If **Motif Library** shows "Could not load motifs" or Excel import returns **404
 
 1. Open [Render Dashboard](https://dashboard.render.com) → **shri-hari-jewels-api**
 2. Click **Manual Deploy** → **Deploy latest commit**
-3. Wait for the build to finish (watch logs for `db:push` success)
+3. Wait for the build to finish (watch logs for `Status enum migration complete` and `Deploy schema migration complete`)
 4. Verify: open `https://shri-hari-jewels-api.onrender.com/api/health` — you should see `"features": { "motifs": true }`
 5. Hard-refresh the app and open **Motifs** again
 
@@ -55,7 +55,7 @@ View data: `npm run db:studio`
 
    ```bash
    cd server
-   DATABASE_URL="your-postgres-url" npm run db:push
+   DATABASE_URL="your-postgres-url" npm run db:deploy
    DATABASE_URL="your-postgres-url" npm run db:seed
    ```
 
@@ -99,3 +99,19 @@ The repo includes a [`render.yaml`](../render.yaml) blueprint for one-click depl
 Admins can add more branches from **Branches** in the app sidebar.
 
 **Health check:** `GET /api/health`
+
+### Render build fails on `Product.status` type change
+
+If deploy logs show:
+
+> Changed the type of `status` on the `Product` table … column would be dropped and recreated
+
+The build is running plain `prisma db push` against a database that still has legacy **TEXT** (or old enum labels like `InStock`) in `Product.status`. **Do not use `--force-reset`** on production — it wipes all sales data.
+
+**Fix:** In Render → **shri-hari-jewels-api** → **Settings** → **Build Command**, set:
+
+```bash
+npm install --include=dev && npm run build && npm run db:deploy && npm run db:seed-if-empty
+```
+
+`npm run db:deploy` runs safe SQL migrations first (`migrate-status-enums.ts`, `migrate-deploy-schema.ts`), then `prisma db push`. Commit and redeploy after updating [`render.yaml`](../render.yaml) if you use the blueprint.

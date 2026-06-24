@@ -87,14 +87,21 @@ const CONVERSIONS: ColumnConversion[] = [
     usingSql: `TRIM("paymentStatus"::text)::"SalePaymentStatus"`,
   },
   {
-    table: "StoneLot",
+    table: "CertifiedStoneLot",
     column: "status",
-    enumName: "StoneLotStatus",
+    enumName: "CertifiedStoneLotStatus",
     values: ["In Stock", "Reserved", "Issued"],
     usingSql: `CASE TRIM("status"::text)
-      WHEN 'InStock' THEN 'In Stock'::"StoneLotStatus"
-      ELSE TRIM("status"::text)::"StoneLotStatus"
+      WHEN 'InStock' THEN 'In Stock'::"CertifiedStoneLotStatus"
+      ELSE TRIM("status"::text)::"CertifiedStoneLotStatus"
     END`,
+  },
+  {
+    table: "StoneLot",
+    column: "status",
+    enumName: "StonePurchaseLotStatus",
+    values: ["Active", "Depleted", "Closed"],
+    usingSql: `TRIM("status"::text)::"StonePurchaseLotStatus"`,
   },
 ];
 
