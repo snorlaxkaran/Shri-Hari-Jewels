@@ -4,10 +4,7 @@
  *
  * Run: npx tsx scripts/migrate-status-enums.ts
  */
-import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { migrationPrisma as prisma } from "./migration-prisma.js";
 
 type ColumnConversion = {
   table: string;
