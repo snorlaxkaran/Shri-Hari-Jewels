@@ -18,9 +18,11 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # Set DATABASE_URL manually in Render dashboard (Prisma Postgres URL).
-      # Do NOT use file:./dev.db — SQLite data is wiped when Render restarts.
+      # DATABASE_URL: pooled Supabase URL (port 6543) with ?pgbouncer=true for runtime.
+      # DIRECT_URL: direct Supabase URL (port 5432) for db:deploy / prisma db push during build.
       - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
         sync: false
       - key: CLIENT_URL
         value: https://shri-hari-jewels.vercel.app

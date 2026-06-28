@@ -1,3 +1,4 @@
+// Hell
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
@@ -28,15 +29,16 @@ import { startScheduledJobs } from "./jobs/scheduler.js";
 
 const syncMotifPricesOnStartup = async () => {
   try {
-    const { recalculateAllMotifPrices } = await import(
-      "./lib/motifs/service.js"
-    );
+    const { recalculateAllMotifPrices } =
+      await import("./lib/motifs/service.js");
     const count = await recalculateAllMotifPrices(
       undefined,
       "Startup sync from market rates",
     );
     if (count > 0) {
-      console.log(`[motifs] Synced ${count} motif price(s) to current market rates`);
+      console.log(
+        `[motifs] Synced ${count} motif price(s) to current market rates`,
+      );
     }
   } catch (error) {
     console.warn(

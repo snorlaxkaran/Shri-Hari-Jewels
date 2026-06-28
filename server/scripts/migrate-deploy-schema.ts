@@ -4,10 +4,28 @@
  *
  * Run: npx tsx scripts/migrate-deploy-schema.ts
  */
-import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
+import { migrationPrisma as prisma } from "./migration-prisma.js";
 
-const prisma = new PrismaClient();
+const tableExists = async (table: string): Promise<boolean> => {
+  const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND lower(table_name) = lower(${table})
+    ) AS exists
+  `;
+  return rows[0]?.exists ?? false;
+};
+
+const enumExists = async (enumName: string): Promise<boolean> => {
+  const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1 FROM pg_type WHERE lower(typname) = lower(${enumName})
+    ) AS exists
+  `;
+  return rows[0]?.exists ?? false;
+};
 
 const run = async (label: string, sql: string) => {
   console.log(label);
@@ -49,6 +67,13 @@ const ensureProductStockStatusEnum = async () => {
 };
 
 const ensureInventoryUnitInTransit = async () => {
+  if (!(await enumExists("InventoryUnitStatus"))) {
+    console.log(
+      "Skip InventoryUnitStatus.InTransit — enum not found yet (fresh DB; db push will create it).",
+    );
+    return;
+  }
+
   await run(
     "Ensure InventoryUnitStatus includes InTransit…",
     `
@@ -262,6 +287,13 @@ const ensureMultiTenantOrganizations = async () => {
 };
 
 const main = async () => {
+  if (!(await tableExists("Product"))) {
+    console.log(
+      "Fresh database detected — skipping legacy deploy migrations (prisma db push will create schema).",
+    );
+    return;
+  }
+
   await ensureProductStockStatusEnum();
   await ensureInventoryUnitInTransit();
   await ensureStockTransferStatus();
