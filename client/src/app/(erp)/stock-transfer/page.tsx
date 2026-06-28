@@ -43,7 +43,9 @@ export default function StockTransferScanPage() {
     fetchBranches()
       .then((data) =>
         setBranches(
-          data.filter((branch) => branch.active && branch.id !== "head-office"),
+          data.filter(
+            (branch) => branch.active && !/head office/i.test(branch.name),
+          ),
         ),
       )
       .catch((err) => setError(getApiErrorMessage(err, "Could not load stores.")));

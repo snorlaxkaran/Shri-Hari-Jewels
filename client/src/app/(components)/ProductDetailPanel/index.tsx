@@ -152,7 +152,7 @@ export default function ProductDetailPanel({
                     <div className="flex items-center gap-2 shrink-0">
                       {unit.status === "Transferred" && unit.branchName && (
                         <span className="text-[11px] text-zinc-500">
-                          to {unit.branchName}
+                          at {unit.branchName}
                         </span>
                       )}
                       <StatusBadge status={unit.status} />

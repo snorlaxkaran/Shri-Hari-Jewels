@@ -3,8 +3,41 @@ import { prisma } from "../db.js";
 import {
   assertBranchInOrganization,
   getOrganizationBranchIds,
+  OrganizationAccessError,
 } from "../organizations/access.js";
 import type { UserRole } from "../../types.js";
+
+/** Each company's admin / head-office branch (not a shared global id). */
+export const getOrganizationHeadOfficeBranchId = async (
+  organizationId: string,
+): Promise<string> => {
+  const legacyHo = await prisma.branch.findFirst({
+    where: { organizationId, id: DEFAULT_BRANCH_ID, active: true },
+    select: { id: true },
+  });
+  if (legacyHo) return legacyHo.id;
+
+  const namedHo = await prisma.branch.findFirst({
+    where: {
+      organizationId,
+      active: true,
+      name: { contains: "Head Office", mode: "insensitive" },
+    },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  if (namedHo) return namedHo.id;
+
+  const first = await prisma.branch.findFirst({
+    where: { organizationId, active: true },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  if (!first) {
+    throw new OrganizationAccessError("No branch available for this company.", 404);
+  }
+  return first.id;
+};
 
 export const getUserBranch = async (
   userId: string,
@@ -27,8 +60,9 @@ export const getUserBranch = async (
   }
 
   const orgBranches = await getOrganizationBranchIds(organizationId);
-  if (orgBranches.includes(DEFAULT_BRANCH_ID)) return DEFAULT_BRANCH_ID;
-  if (orgBranches.length > 0) return orgBranches[0];
+  if (orgBranches.length > 0) {
+    return getOrganizationHeadOfficeBranchId(organizationId);
+  }
 
   throw new Error("No branch available for this company.");
 };

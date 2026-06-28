@@ -2,7 +2,7 @@ import { prisma } from "../db.js";
 import { hashPassword } from "../auth/password.js";
 import { isAuthenticatedRole, USER_ROLES } from "../auth/permissions.js";
 import type { UserRole } from "../../types.js";
-import { DEFAULT_BRANCH_ID } from "../branches/constants.js";
+import { getOrganizationHeadOfficeBranchId } from "../branches/access.js";
 
 export class UserError extends Error {
   constructor(
@@ -90,14 +90,8 @@ export const createUser = async (
       ? `${userId}@${org.emailDomain}`
       : `${userId}@shreehari.com`;
 
-  const orgBranches = await prisma.branch.findMany({
-    where: { organizationId, active: true },
-    select: { id: true },
-  });
   const branchId =
-    input.branchId ??
-    orgBranches.find((b) => b.id === DEFAULT_BRANCH_ID)?.id ??
-    orgBranches[0]?.id;
+    input.branchId ?? (await getOrganizationHeadOfficeBranchId(organizationId));
 
   if (!branchId) throw new UserError("No branch available for this company.", 404);
 

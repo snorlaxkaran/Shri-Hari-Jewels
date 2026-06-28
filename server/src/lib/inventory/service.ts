@@ -19,8 +19,7 @@ import { reconcileInventoryWithSales } from "./reconcile.js";
 import { getStockStatus } from "./status.js";
 import { syncProductStockInTx } from "./stock-sync.js";
 import { recordInventoryAudit } from "./audit.js";
-import { DEFAULT_BRANCH_ID } from "../branches/constants.js";
-import { organizationBranchFilter, organizationTransferFromFilter } from "../branches/access.js";
+import { organizationBranchFilter, organizationTransferFromFilter, getOrganizationHeadOfficeBranchId } from "../branches/access.js";
 import { getBranchOrganizationId } from "../organizations/access.js";
 import { moneyToNumber, sumMoney } from "../money.js";
 import { repairCompletedRunInventorySkus } from "../production-runs/run-completion.js";
@@ -42,7 +41,8 @@ export const listProducts = async (
 ): Promise<InventoryItem[]> => {
   await repairCompletedRunInventorySkus();
 
-  const stockBranchId = branchId ?? DEFAULT_BRANCH_ID;
+  const stockBranchId =
+    branchId ?? (await getOrganizationHeadOfficeBranchId(organizationId));
   const marketRates = await getCurrentMarketRates(organizationId);
   const products = await prisma.product.findMany({
     where: branchId
@@ -346,10 +346,15 @@ export const createStockTransfer = async (
     throw new InventoryError("Scan at least one item to transfer.");
   }
 
-  const branch = await prisma.branch.findUnique({ where: { id: toBranchId } });
-  if (!branch || !branch.active) {
+  const branch = await prisma.branch.findFirst({
+    where: { id: toBranchId, organizationId, active: true },
+  });
+  if (!branch) {
     throw new InventoryError("Destination store is not active.", 404);
   }
+
+  const headOfficeBranchId =
+    await getOrganizationHeadOfficeBranchId(organizationId);
 
   const units = await prisma.inventoryUnit.findMany({
     where: { organizationId, itemCode: { in: cleanCodes } },
@@ -369,7 +374,9 @@ export const createStockTransfer = async (
     );
   }
 
-  const notInAdminStock = units.find((unit) => unit.branchId !== DEFAULT_BRANCH_ID);
+  const notInAdminStock = units.find(
+    (unit) => unit.branchId !== headOfficeBranchId,
+  );
   if (notInAdminStock) {
     throw new InventoryError(
       `${notInAdminStock.itemCode} is not available in admin stock.`,
@@ -377,7 +384,7 @@ export const createStockTransfer = async (
     );
   }
 
-  if (toBranchId === DEFAULT_BRANCH_ID) {
+  if (toBranchId === headOfficeBranchId) {
     throw new InventoryError("Cannot transfer to the same branch.");
   }
 
@@ -395,7 +402,7 @@ export const createStockTransfer = async (
     const created = await tx.stockTransfer.create({
       data: {
         transferNo,
-        fromBranchId: DEFAULT_BRANCH_ID,
+        fromBranchId: headOfficeBranchId,
         toBranchId,
         documentType: input.documentType,
         transferDate,
@@ -453,7 +460,7 @@ export const createStockTransfer = async (
     transfer: toStockTransfer(transfer),
     products: updatedProducts.map((product) =>
       toInventoryItem(product, {
-        stockBranchId: DEFAULT_BRANCH_ID,
+        stockBranchId: headOfficeBranchId,
         marketRates,
       }),
     ),
