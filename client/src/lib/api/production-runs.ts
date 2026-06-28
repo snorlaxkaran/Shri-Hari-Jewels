@@ -2,6 +2,7 @@ import type {
   CompleteProductionRunStageInput,
   NewProductionRunInput,
   ProductionRun,
+  ProductionRunPreview,
   ProductionRunStage,
   UpdateProductionRunInput,
   UpdateProductionRunItemInput,
@@ -21,6 +22,35 @@ export const fetchProductionRuns = async (): Promise<ProductionRun[]> => {
 export const fetchProductionRun = async (id: string): Promise<ProductionRun> => {
   const { data } = await api.get<ProductionRun>(`/api/production-runs/${id}`);
   return normalizeProductionRun(data);
+};
+
+export const fetchProductionRunPreview = async (
+  designId: string,
+  setsOrdered: number,
+): Promise<ProductionRunPreview> => {
+  const { data } = await api.get<ProductionRunPreview>(
+    "/api/production-runs/preview",
+    { params: { designId, setsOrdered } },
+  );
+  return data;
+};
+
+export const downloadProductionRunStagePdf = async (
+  runId: string,
+  runNo: string,
+  stageSlug: string,
+): Promise<void> => {
+  const { data } = await api.get<ArrayBuffer>(
+    `/api/production-runs/${runId}/stages/${stageSlug}/pdf`,
+    { responseType: "arraybuffer" },
+  );
+  const blob = new Blob([data], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${runNo}-${stageSlug}.pdf`;
+  link.click();
+  URL.revokeObjectURL(url);
 };
 
 export const createProductionRun = async (

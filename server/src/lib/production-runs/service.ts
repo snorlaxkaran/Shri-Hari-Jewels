@@ -6,6 +6,7 @@ import type {
   NewProductionRunInput,
   ProductionRun,
   ProductionRunItem,
+  ProductionRunPreview,
   ProductionRunStageLog,
   ProductionRunStatus,
   UpdateProductionRunInput,
@@ -20,7 +21,9 @@ import {
   deductRawMaterialForItemInTx,
   validateLotSelectionForItem,
 } from "./raw-material.js";
-import { checkStoneStock } from "./bulk-stone-stock.js";
+import { checkStoneStock, computeStoneRequirements } from "./bulk-stone-stock.js";
+import { checkMetalStock } from "./metal-stock.js";
+import { computeElementStoneDefaults } from "./stone-defaults.js";
 import {
   calculateFinishedGoodsForRunInTx,
 } from "./finished-goods.js";
@@ -127,6 +130,9 @@ const toProductionRunItem = (item: {
   stoneLotId: string | null;
   metalWeightGrams: number | null;
   rawMaterialDeducted: boolean;
+  stoneOrderDate: Date | null;
+  stoneDeliveryDate: Date | null;
+  stoneSignOff: string | null;
   sortOrder: number;
   motifId?: string | null;
   imageUrl?: string | null;
@@ -152,6 +158,9 @@ const toProductionRunItem = (item: {
   stoneLotId: item.stoneLotId ?? undefined,
   metalWeightGrams: item.metalWeightGrams ?? undefined,
   rawMaterialDeducted: item.rawMaterialDeducted,
+  stoneOrderDate: item.stoneOrderDate?.toISOString(),
+  stoneDeliveryDate: item.stoneDeliveryDate?.toISOString(),
+  stoneSignOff: item.stoneSignOff ?? undefined,
   sortOrder: item.sortOrder,
   motifId: item.motifId ?? undefined,
   imageUrl: item.imageUrl ?? undefined,
@@ -182,6 +191,7 @@ const toProductionRun = (run: {
   items?: Array<Parameters<typeof toProductionRunItem>[0]>;
   stageLogs?: Array<Parameters<typeof toStageLog>[0]>;
   stoneStockWarnings?: import("../../types.js").BulkStoneStockWarning[];
+  metalStockWarning?: import("../../types.js").MetalStockWarning;
 }): ProductionRun => {
   const items = (run.items ?? []).map(toProductionRunItem);
   const castingItems = items.filter((i) => i.elementType === "Casting");
@@ -221,6 +231,7 @@ const toProductionRun = (run: {
     castingsTotal: castingItems.length,
     finishedGoodsProductId: run.finishedGoodsProductId ?? undefined,
     stoneStockWarnings: run.stoneStockWarnings,
+    metalStockWarning: run.metalStockWarning,
     createdAt: run.createdAt.toISOString(),
     updatedAt: run.updatedAt.toISOString(),
   };
@@ -262,6 +273,21 @@ export const listProductionRuns = async (
     orderBy: { createdAt: "desc" },
   });
   return runs.map(toProductionRun);
+};
+
+const attachStockWarnings = async (run: {
+  designId: string;
+  setsOrdered: number;
+  branchId: string;
+}) => {
+  const [stoneStockWarnings, metalStockWarning] = await Promise.all([
+    checkStoneStock(run.designId, run.setsOrdered, run.branchId),
+    checkMetalStock(run.designId, run.setsOrdered, run.branchId),
+  ]);
+  return {
+    stoneStockWarnings,
+    metalStockWarning: metalStockWarning ?? undefined,
+  };
 };
 
 export const getProductionRun = async (
@@ -319,7 +345,8 @@ export const getProductionRun = async (
     );
   }
 
-  return toProductionRun(run);
+  const warnings = await attachStockWarnings(run);
+  return toProductionRun({ ...run, ...warnings });
 };
 
 export const createProductionRun = async (
@@ -368,11 +395,11 @@ export const createProductionRun = async (
   }
 
   const runNo = await generateProductionRunNo(organizationId);
-  const stoneStockWarnings = await checkStoneStock(
-    input.designId,
-    input.setsOrdered,
-    branchId,
-  );
+  const [stoneStockWarnings, metalStockWarning, stoneDefaults] = await Promise.all([
+    checkStoneStock(input.designId, input.setsOrdered, branchId),
+    checkMetalStock(input.designId, input.setsOrdered, branchId),
+    computeElementStoneDefaults(input.designId, input.setsOrdered),
+  ]);
 
   const run = await prisma.productionRun.create({
     data: {
@@ -383,24 +410,65 @@ export const createProductionRun = async (
       setsOrdered: input.setsOrdered,
       status: "Open",
       items: {
-        create: design.elements.map((el, index) => ({
-          elementName: el.name,
-          elementType: el.type,
-          qtyPerSet: el.qtyPerSet,
-          totalQty: el.qtyPerSet * input.setsOrdered,
-          unitValue: el.unitValue,
-          weightGramsPerPc: el.weightGramsPerPc,
-          sortOrder: index,
-          motifId: el.motifId,
-          imageUrl: el.motif?.imageUrl ?? null,
-          stageCheckoffs: {},
-        })),
+        create: design.elements.map((el, index) => {
+          const defaults = stoneDefaults.get(el.id);
+          return {
+            elementName: el.name,
+            elementType: el.type,
+            qtyPerSet: el.qtyPerSet,
+            totalQty: el.qtyPerSet * input.setsOrdered,
+            unitValue: el.unitValue,
+            weightGramsPerPc: el.weightGramsPerPc,
+            czStones: defaults?.czStones ?? undefined,
+            czWeight: defaults?.czWeight ?? undefined,
+            sortOrder: index,
+            motifId: el.motifId,
+            imageUrl: el.motif?.imageUrl ?? null,
+            stageCheckoffs: {},
+          };
+        }),
       },
     },
     include: runInclude,
   });
 
-  return toProductionRun({ ...run, stoneStockWarnings });
+  return toProductionRun({
+    ...run,
+    stoneStockWarnings,
+    metalStockWarning: metalStockWarning ?? undefined,
+  });
+};
+
+export const previewProductionRun = async (
+  designId: string,
+  setsOrdered: number,
+  branchId: string,
+  organizationId: string,
+): Promise<ProductionRunPreview> => {
+  await assertDesignInOrganization(designId, organizationId);
+
+  if (!setsOrdered || setsOrdered < 1) {
+    throw new ProductionRunError("Sets ordered must be at least 1.");
+  }
+
+  const [stoneStockWarnings, metalStockWarning, requirements] =
+    await Promise.all([
+      checkStoneStock(designId, setsOrdered, branchId),
+      checkMetalStock(designId, setsOrdered, branchId),
+      computeStoneRequirements(designId, setsOrdered),
+    ]);
+
+  return {
+    stoneStockWarnings,
+    metalStockWarning,
+    stoneRequirements: [...requirements.values()].map(
+      ({ stoneMasterId, stoneName, required }) => ({
+        stoneMasterId,
+        stoneName,
+        required,
+      }),
+    ),
+  };
 };
 
 export const getFinishedGoodsDefaults = async (
@@ -662,6 +730,20 @@ export const updateProductionRunItem = async (
           input.metalWeightGrams === undefined
             ? undefined
             : input.metalWeightGrams,
+        stoneOrderDate:
+          input.stoneOrderDate === undefined
+            ? undefined
+            : input.stoneOrderDate
+              ? new Date(input.stoneOrderDate)
+              : null,
+        stoneDeliveryDate:
+          input.stoneDeliveryDate === undefined
+            ? undefined
+            : input.stoneDeliveryDate
+              ? new Date(input.stoneDeliveryDate)
+              : null,
+        stoneSignOff:
+          input.stoneSignOff === undefined ? undefined : input.stoneSignOff,
         stageCheckoffs:
           mergedStageCheckoffs === undefined ? undefined : mergedStageCheckoffs,
       },

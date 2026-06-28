@@ -969,6 +969,27 @@ export type StoneStockWarning = {
   shortfall: number;
 };
 
+export type MetalStockWarning = {
+  metal: string;
+  purity: string;
+  requiredGrams: number;
+  availableGrams: number;
+  shortfallGrams: number;
+  perSetGrams: number;
+  requestedSets: number;
+  maxSets: number;
+};
+
+export type ProductionRunPreview = {
+  stoneStockWarnings: StoneStockWarning[];
+  metalStockWarning: MetalStockWarning | null;
+  stoneRequirements: Array<{
+    stoneMasterId: string;
+    stoneName: string;
+    required: number;
+  }>;
+};
+
 export type BulkStoneStockWarning = StoneStockWarning;
 
 export type MotifMetal = "Silver" | "Gold" | "Platinum";
@@ -1085,6 +1106,9 @@ export type ProductionRunItem = {
   stoneLotId?: string;
   metalWeightGrams?: number;
   rawMaterialDeducted: boolean;
+  stoneOrderDate?: string;
+  stoneDeliveryDate?: string;
+  stoneSignOff?: string;
   sortOrder: number;
   motifId?: string;
   imageUrl?: string;
@@ -1117,6 +1141,7 @@ export type ProductionRun = {
   castingsTotal: number;
   finishedGoodsProductId?: string;
   stoneStockWarnings?: BulkStoneStockWarning[];
+  metalStockWarning?: MetalStockWarning;
   createdAt: string;
   updatedAt: string;
 };
@@ -1185,6 +1210,9 @@ export type UpdateProductionRunItemInput = {
   stoneLotId?: string | null;
   metalWeightGrams?: number | null;
   metalWeightOverrideNote?: string;
+  stoneOrderDate?: string | null;
+  stoneDeliveryDate?: string | null;
+  stoneSignOff?: string | null;
   stageCheckoffs?: Partial<Record<ProductionRunStage, boolean>>;
 };
 

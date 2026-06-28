@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { X } from "lucide-react";
-import type { Design, NewProductionRunInput } from "@/lib/types";
+import { fetchProductionRunPreview } from "@/lib/api/production-runs";
+import type { Design, NewProductionRunInput, ProductionRunPreview } from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/api/client";
 
 type AddProductionRunModalProps = {
@@ -25,6 +26,8 @@ export default function AddProductionRunModal({
 }: AddProductionRunModalProps) {
   const [designId, setDesignId] = useState("");
   const [setsOrdered, setSetsOrdered] = useState("1");
+  const [preview, setPreview] = useState<ProductionRunPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -42,9 +45,42 @@ export default function AddProductionRunModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose, submitting, initialDesignId]);
 
+  const loadPreview = useCallback(async (selectedDesignId: string, sets: number) => {
+    if (!selectedDesignId || sets < 1) {
+      setPreview(null);
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const data = await fetchProductionRunPreview(selectedDesignId, sets);
+      setPreview(data);
+    } catch {
+      setPreview(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open || !designId) {
+      setPreview(null);
+      return;
+    }
+    const sets = parseInt(setsOrdered, 10);
+    if (!sets || sets < 1) {
+      setPreview(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void loadPreview(designId, sets);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [open, designId, setsOrdered, loadPreview]);
+
   const reset = () => {
     setDesignId("");
     setSetsOrdered("1");
+    setPreview(null);
     setError("");
   };
 
@@ -81,6 +117,10 @@ export default function AddProductionRunModal({
 
   if (!open) return null;
 
+  const metalWarning = preview?.metalStockWarning;
+  const stoneWarnings = preview?.stoneStockWarnings ?? [];
+  const stoneRequirements = preview?.stoneRequirements ?? [];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
@@ -88,7 +128,7 @@ export default function AddProductionRunModal({
         onClick={handleClose}
         aria-hidden
       />
-      <div className="relative w-full max-w-md rounded-xl border border-zinc-200 bg-white shadow-2xl">
+      <div className="relative w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200">
           <h2 className="text-base font-semibold text-zinc-900">
             New Production Run
@@ -135,6 +175,60 @@ export default function AddProductionRunModal({
               className={fieldClass}
             />
           </div>
+
+          {previewLoading && (
+            <p className="text-xs text-zinc-400">Checking raw inventory…</p>
+          )}
+
+          {metalWarning && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <p className="font-medium">Insufficient gold/metal stock</p>
+              <p className="mt-1">
+                You requested <strong>{metalWarning.requestedSets} sets</strong>{" "}
+                but only have enough {metalWarning.metal} {metalWarning.purity}{" "}
+                for <strong>{metalWarning.maxSets} set{metalWarning.maxSets !== 1 ? "s" : ""}</strong>.
+              </p>
+              <p className="mt-1 text-xs text-red-700">
+                Need {metalWarning.requiredGrams}g · Available{" "}
+                {metalWarning.availableGrams}g · Short by{" "}
+                {metalWarning.shortfallGrams}g ({metalWarning.perSetGrams}g per
+                set)
+              </p>
+            </div>
+          )}
+
+          {stoneRequirements.length > 0 && (
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
+              <p className="font-medium text-zinc-900">
+                Stone requirements (from design BOM)
+              </p>
+              <ul className="mt-2 space-y-1 text-xs">
+                {stoneRequirements.map((req) => (
+                  <li key={req.stoneMasterId}>
+                    {req.stoneName}: {req.required} pcs
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-zinc-500">
+                Stone counts and carat will be pre-filled on the production run
+                from this BOM.
+              </p>
+            </div>
+          )}
+
+          {stoneWarnings.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-medium">Stone stock warning</p>
+              <ul className="mt-1 space-y-1 text-xs">
+                {stoneWarnings.map((w) => (
+                  <li key={w.stoneMasterId}>
+                    {w.stoneName}: need {w.required}, have {w.available}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex gap-3">
             <button

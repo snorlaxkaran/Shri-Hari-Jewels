@@ -610,6 +610,9 @@ model ProductionRunItem {
   stoneLotId          String?
   metalWeightGrams    Float?
   rawMaterialDeducted Boolean   @default(false)
+  stoneOrderDate      DateTime?
+  stoneDeliveryDate   DateTime?
+  stoneSignOff        String?
   sortOrder           Int       @default(0)
   motifId             String?
   imageUrl            String?   @db.Text

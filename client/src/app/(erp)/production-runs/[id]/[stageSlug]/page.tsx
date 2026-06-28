@@ -228,6 +228,19 @@ export default function ProductionRunStagePage() {
         </div>
       )}
 
+      {run.metalStockWarning && (
+        <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-800">
+          <p className="font-medium">Metal stock was insufficient when this run was created</p>
+          <p className="mt-1">
+            Ordered {run.metalStockWarning.requestedSets} sets but raw inventory only
+            had enough {run.metalStockWarning.metal} {run.metalStockWarning.purity} for{" "}
+            {run.metalStockWarning.maxSets} set
+            {run.metalStockWarning.maxSets !== 1 ? "s" : ""}. Completion may fail at
+            packaging unless stock is replenished.
+          </p>
+        </div>
+      )}
+
       {stage === "Casting" && isCurrent && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-blue-200 bg-blue-50 text-blue-900">
           Marking casting received records the lot and weight for this element. Total metal

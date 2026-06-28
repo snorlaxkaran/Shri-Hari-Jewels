@@ -49,26 +49,24 @@ const buildWorksheetRows = (
       "Qty / Set": item.qtyPerSet,
       "Total Qty": item.totalQty,
       "Weight (g/pc)": item.weightGramsPerPc ?? "",
+      "Wax Moulds": item.waxCount ?? "",
+      "Production Date": item.productionDate
+        ? new Date(item.productionDate).toLocaleDateString("en-IN")
+        : "",
+      "Metal Weight (g)": item.metalWeightGrams ?? "",
+      "Casting Received": item.castingReceived ? "Yes" : "No",
+      "CZ Stones": item.czStones ?? "",
+      "CZ Weight (ct)": item.czWeight ?? "",
+      "Stone Order Date": item.stoneOrderDate
+        ? new Date(item.stoneOrderDate).toLocaleDateString("en-IN")
+        : "",
+      "Stone Delivery Date": item.stoneDeliveryDate
+        ? new Date(item.stoneDeliveryDate).toLocaleDateString("en-IN")
+        : "",
+      "Stone Sign-off": item.stoneSignOff ?? "",
       "Has Motif Image": item.imageUrl ? "Yes" : "No",
       "Image File": item.imageUrl ? `motif-${index + 1}-${slugify(item.elementName)}.png` : "",
     };
-
-    if (config.mode === "wax") {
-      base["Wax Moulds"] = item.waxCount ?? "";
-      base["Production Date"] = item.productionDate
-        ? new Date(item.productionDate).toLocaleDateString("en-IN")
-        : "";
-    }
-
-    if (config.mode === "casting") {
-      base["Metal Weight (g)"] = item.metalWeightGrams ?? "";
-      base["Casting Received"] = item.castingReceived ? "Yes" : "No";
-    }
-
-    if (config.mode === "stone-setting") {
-      base["CZ Stones"] = item.czStones ?? "";
-      base["CZ Weight (ct)"] = item.czWeight ?? "";
-    }
 
     if (config.mode === "checkoff" && config.checkoffStage) {
       base[`${stage} Complete`] = item.stageCheckoffs?.[config.checkoffStage]

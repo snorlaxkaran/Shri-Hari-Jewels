@@ -521,6 +521,9 @@ export default function DesignsPage() {
   const handleCreateProductionRun = async (input: NewProductionRunInput) => {
     const run = await createProductionRun(input);
     let message = `Production run ${run.runNo} created`;
+    if (run.metalStockWarning) {
+      message += `. Metal stock warning: only enough ${run.metalStockWarning.metal} for ${run.metalStockWarning.maxSets} of ${run.metalStockWarning.requestedSets} sets`;
+    }
     if (run.stoneStockWarnings?.length) {
       const summary = run.stoneStockWarnings
         .map(

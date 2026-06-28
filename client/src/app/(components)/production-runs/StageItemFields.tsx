@@ -21,6 +21,92 @@ import { isItemStageDone } from "@/lib/production-runs/item-helpers";
 const inputClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
 
+function StoneTrackingFields({
+  item,
+  canEdit,
+  onPatch,
+}: {
+  item: ProductionRunItem;
+  canEdit: boolean;
+  onPatch: PatchHandler;
+}) {
+  const [stoneOrderDate, setStoneOrderDate] = useState(
+    item.stoneOrderDate ? item.stoneOrderDate.slice(0, 10) : "",
+  );
+  const [stoneDeliveryDate, setStoneDeliveryDate] = useState(
+    item.stoneDeliveryDate ? item.stoneDeliveryDate.slice(0, 10) : "",
+  );
+  const [stoneSignOff, setStoneSignOff] = useState(item.stoneSignOff ?? "");
+
+  useEffect(() => {
+    setStoneOrderDate(
+      item.stoneOrderDate ? item.stoneOrderDate.slice(0, 10) : "",
+    );
+    setStoneDeliveryDate(
+      item.stoneDeliveryDate ? item.stoneDeliveryDate.slice(0, 10) : "",
+    );
+    setStoneSignOff(item.stoneSignOff ?? "");
+  }, [item.stoneOrderDate, item.stoneDeliveryDate, item.stoneSignOff]);
+
+  const save = async (input: UpdateProductionRunItemInput) => {
+    try {
+      await onPatch(input);
+    } catch {
+      // Parent surfaces errors
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-zinc-100">
+      <div>
+        <label className={labelClass}>Stone order date</label>
+        <input
+          type="date"
+          value={stoneOrderDate}
+          onChange={(e) => setStoneOrderDate(e.target.value)}
+          onBlur={() => {
+            const current = item.stoneOrderDate?.slice(0, 10) ?? "";
+            if (stoneOrderDate === current) return;
+            void save({ stoneOrderDate: stoneOrderDate || null });
+          }}
+          disabled={!canEdit}
+          className={inputClass}
+        />
+      </div>
+      <div>
+        <label className={labelClass}>Stone delivery date</label>
+        <input
+          type="date"
+          value={stoneDeliveryDate}
+          onChange={(e) => setStoneDeliveryDate(e.target.value)}
+          onBlur={() => {
+            const current = item.stoneDeliveryDate?.slice(0, 10) ?? "";
+            if (stoneDeliveryDate === current) return;
+            void save({ stoneDeliveryDate: stoneDeliveryDate || null });
+          }}
+          disabled={!canEdit}
+          className={inputClass}
+        />
+      </div>
+      <div>
+        <label className={labelClass}>Sign / received by</label>
+        <input
+          type="text"
+          value={stoneSignOff}
+          onChange={(e) => setStoneSignOff(e.target.value)}
+          onBlur={() => {
+            if (stoneSignOff === (item.stoneSignOff ?? "")) return;
+            void save({ stoneSignOff: stoneSignOff.trim() || null });
+          }}
+          disabled={!canEdit}
+          className={inputClass}
+          placeholder="Initials or name"
+        />
+      </div>
+    </div>
+  );
+}
+
 type PatchHandler = (input: UpdateProductionRunItemInput) => Promise<void>;
 
 export function WaxPatternFields({
@@ -323,6 +409,10 @@ export function CastingFields({
         </div>
       )}
 
+      {needsStoneLot && (
+        <StoneTrackingFields item={item} canEdit={canEdit} onPatch={onPatch} />
+      )}
+
       {isCastingElement && (
         <div className="space-y-2">
           {item.castingReceived || item.rawMaterialDeducted ? (
@@ -395,7 +485,14 @@ export function StoneSettingFields({
   };
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="space-y-3">
+      {(item.czStones != null || item.czWeight != null) && (
+        <p className="text-xs text-zinc-500 bg-zinc-50 px-2 py-1.5 rounded">
+          Pre-filled from design BOM at run start. Adjust only if actual usage
+          differs.
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-3">
       <div>
         <label className={labelClass}>CZ stones</label>
         <input
@@ -421,6 +518,8 @@ export function StoneSettingFields({
           className={inputClass}
         />
       </div>
+      </div>
+      <StoneTrackingFields item={item} canEdit={canEdit} onPatch={onPatch} />
     </div>
   );
 }
