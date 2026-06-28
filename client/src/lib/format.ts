@@ -60,3 +60,15 @@ export const formatNumber = (value: number, decimals = 2) => {
     maximumFractionDigits: decimals,
   });
 };
+
+/** Round to 2 decimal places for currency fields (avoids float drift in POS). */
+export const roundMoney = (value: number): number =>
+  Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
+
+export const parseMoneyInput = (raw: string): number => {
+  const trimmed = raw.trim();
+  if (!trimmed) return 0;
+  const parsed = Number.parseFloat(trimmed);
+  if (!Number.isFinite(parsed)) return 0;
+  return roundMoney(parsed);
+};

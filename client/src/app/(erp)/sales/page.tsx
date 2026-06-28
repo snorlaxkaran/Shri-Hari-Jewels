@@ -22,7 +22,7 @@ import type {
   RecordSaleResult,
   Sale,
 } from "@/lib/types";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, parseMoneyInput, roundMoney } from "@/lib/format";
 import {
   cancelPendingSale,
   confirmSalePayment,
@@ -93,7 +93,12 @@ export default function SalesPage() {
       const result = await lookupSaleUnit(trimmed);
       setCart((prev) => [
         ...prev,
-        { ...result, discount: 0, dealPrice: result.listPrice },
+        {
+          ...result,
+          listPrice: roundMoney(result.listPrice),
+          discount: 0,
+          dealPrice: roundMoney(result.listPrice),
+        },
       ]);
       setItemCode("");
     } catch (err) {
@@ -192,6 +197,10 @@ export default function SalesPage() {
     }
     if (!customerSelection?.customerId) {
       setFormError("Select or create a customer.");
+      return;
+    }
+    if (cart.some((item) => item.dealPrice <= 0)) {
+      setFormError("Each item needs a deal price greater than zero.");
       return;
     }
 
@@ -407,12 +416,16 @@ export default function SalesPage() {
                         <input
                           type="number"
                           min="0"
+                          step="0.01"
+                          inputMode="decimal"
                           value={item.discount}
                           onChange={(e) => {
-                            const discount = parseFloat(e.target.value) || 0;
+                            const discount = parseMoneyInput(e.target.value);
                             updateCartItem(item.itemCode, {
                               discount,
-                              dealPrice: Math.max(0, item.listPrice - discount),
+                              dealPrice: roundMoney(
+                                Math.max(0, item.listPrice - discount),
+                              ),
                             });
                           }}
                           className={fieldClass}
@@ -423,12 +436,16 @@ export default function SalesPage() {
                         <input
                           type="number"
                           min="0"
+                          step="0.01"
+                          inputMode="decimal"
                           value={item.dealPrice}
                           onChange={(e) => {
-                            const dealPrice = parseFloat(e.target.value) || 0;
+                            const dealPrice = parseMoneyInput(e.target.value);
                             updateCartItem(item.itemCode, {
                               dealPrice,
-                              discount: Math.max(0, item.listPrice - dealPrice),
+                              discount: roundMoney(
+                                Math.max(0, item.listPrice - dealPrice),
+                              ),
                             });
                           }}
                           className={fieldClass}
