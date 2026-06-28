@@ -61,3 +61,40 @@ export const getOrganizationBranchIds = async (
   });
   return branches.map((b) => b.id);
 };
+
+export const getBranchOrganizationId = async (branchId: string): Promise<string> => {
+  const branch = await prisma.branch.findUnique({
+    where: { id: branchId },
+    select: { organizationId: true },
+  });
+  if (!branch) {
+    throw new OrganizationAccessError("Branch not found.", 404);
+  }
+  return branch.organizationId;
+};
+
+export const assertProductionRunInOrganization = async (
+  runId: string,
+  organizationId: string,
+): Promise<void> => {
+  const run = await prisma.productionRun.findFirst({
+    where: { id: runId, organizationId },
+    select: { id: true },
+  });
+  if (!run) {
+    throw new OrganizationAccessError("Production run not found.", 404);
+  }
+};
+
+export const assertDesignInOrganization = async (
+  designId: string,
+  organizationId: string,
+): Promise<void> => {
+  const design = await prisma.design.findFirst({
+    where: { id: designId, organizationId },
+    select: { id: true },
+  });
+  if (!design) {
+    throw new OrganizationAccessError("Design not found.", 404);
+  }
+};

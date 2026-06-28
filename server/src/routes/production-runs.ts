@@ -20,6 +20,7 @@ import { slugToStage } from "../lib/production-runs/stages.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
 import { attachOrganization } from "../middleware/organization.js";
 import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
+import { OrganizationAccessError } from "../lib/organizations/access.js";
 import { routeParam } from "../lib/route-param.js";
 import type {
   NewProductionRunInput,
@@ -51,11 +52,18 @@ productionRunsRouter.get(
 productionRunsRouter.get(
   "/:id/finished-goods-defaults",
   requireRole(canManageProductionRuns),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const defaults = await getFinishedGoodsDefaults(routeParam(req.params.id));
+      const defaults = await getFinishedGoodsDefaults(
+        routeParam(req.params.id),
+        req.organizationId!,
+      );
       res.json(defaults);
     } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
       if (error instanceof ProductionRunError) {
         res.status(error.statusCode).json({ error: error.message });
         return;
@@ -69,11 +77,18 @@ productionRunsRouter.get(
 productionRunsRouter.get(
   "/:id",
   requireRole(canViewProductionRuns),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      const run = await getProductionRun(routeParam(req.params.id));
+      const run = await getProductionRun(
+        routeParam(req.params.id),
+        req.organizationId!,
+      );
       res.json(run);
     } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
       if (error instanceof ProductionRunError) {
         res.status(error.statusCode).json({ error: error.message });
         return;
@@ -87,11 +102,12 @@ productionRunsRouter.get(
 productionRunsRouter.get(
   "/:id/export",
   requireRole(canViewProductionRuns),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
       const id = routeParam(req.params.id);
-      const run = await getProductionRun(id);
-      const csv = await exportProductionRunCsv(id);
+      const organizationId = req.organizationId!;
+      const run = await getProductionRun(id, organizationId);
+      const csv = await exportProductionRunCsv(id, organizationId);
       res.setHeader("Content-Type", "text/csv");
       res.setHeader(
         "Content-Disposition",
@@ -99,6 +115,10 @@ productionRunsRouter.get(
       );
       res.send(csv);
     } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
       if (error instanceof ProductionRunError) {
         res.status(error.statusCode).json({ error: error.message });
         return;
@@ -118,9 +138,14 @@ productionRunsRouter.post(
       const run = await createProductionRun(
         req.body as NewProductionRunInput,
         branchId,
+        req.organizationId!,
       );
       res.status(201).json(run);
     } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
       if (error instanceof ProductionRunError) {
         res.status(error.statusCode).json({ error: error.message });
         return;
@@ -140,9 +165,14 @@ productionRunsRouter.patch(
         routeParam(req.params.id),
         req.body as UpdateProductionRunInput,
         { id: req.user!.id, name: req.user!.name },
+        req.organizationId!,
       );
       res.json(run);
     } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
       if (error instanceof ProductionRunError) {
         res.status(error.statusCode).json({ error: error.message });
         return;
@@ -163,9 +193,14 @@ productionRunsRouter.patch(
         routeParam(req.params.itemId),
         req.body as UpdateProductionRunItemInput,
         { id: req.user!.id, name: req.user!.name },
+        req.organizationId!,
       );
       res.json(run);
     } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
       if (error instanceof ProductionRunError) {
         res.status(error.statusCode).json({ error: error.message });
         return;
@@ -191,9 +226,14 @@ productionRunsRouter.post(
         stage,
         req.body as CompleteProductionRunStageInput,
         { id: req.user!.id, name: req.user!.name },
+        req.organizationId!,
       );
       res.json(result);
     } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
       if (error instanceof ProductionRunError) {
         res.status(error.statusCode).json({ error: error.message });
         return;
@@ -207,11 +247,15 @@ productionRunsRouter.post(
 productionRunsRouter.delete(
   "/:id",
   requireRole(canManageProductionRuns),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
-      await deleteProductionRun(routeParam(req.params.id));
+      await deleteProductionRun(routeParam(req.params.id), req.organizationId!);
       res.status(204).send();
     } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
       if (error instanceof ProductionRunError) {
         res.status(error.statusCode).json({ error: error.message });
         return;

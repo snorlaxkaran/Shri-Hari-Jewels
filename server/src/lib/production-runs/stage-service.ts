@@ -1,6 +1,7 @@
 import { ProductionRunStatusEnum } from "@prisma/client";
 import { prisma } from "../db.js";
 import { ProductionRunError } from "./errors.js";
+import { assertProductionRunInOrganization } from "../organizations/access.js";
 import {
   finalizeProductionRunAfterTx,
   finalizeProductionRunInTx,
@@ -50,10 +51,13 @@ export const completeProductionRunStage = async (
   stage: ProductionRunStage,
   input: CompleteProductionRunStageInput,
   actor: Actor,
+  organizationId: string,
 ): Promise<{
   currentStage: ProductionRunStage;
   stageLogs: ProductionRunStageLog[];
 }> => {
+  await assertProductionRunInOrganization(runId, organizationId);
+
   const run = await prisma.productionRun.findUnique({
     where: { id: runId },
     include: { items: true },

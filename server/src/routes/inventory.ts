@@ -344,6 +344,7 @@ inventoryRouter.post(
       const result = await createStockTransfer(
         req.body as CreateStockTransferInput,
         { id: req.user!.id, name: req.user!.name },
+        req.organizationId!,
       );
       res.status(201).json(result);
     } catch (error) {

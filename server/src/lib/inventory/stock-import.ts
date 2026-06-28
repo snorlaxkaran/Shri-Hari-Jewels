@@ -6,6 +6,7 @@ import type {
 import { InventoryError } from "./service.js";
 import { createProduct } from "./service.js";
 import { prisma } from "../db.js";
+import { getBranchOrganizationId } from "../organizations/access.js";
 import { getCurrentMarketRates } from "../market-rates/service.js";
 import { computeLiveListPriceForProduct } from "./unit-pricing.js";
 import { recordInventoryAudit } from "./audit.js";
@@ -76,7 +77,8 @@ export const importLegacyStock = async (
     throw new InventoryError("No rows to import.");
   }
 
-  const marketRates = await getCurrentMarketRates();
+  const organizationId = await getBranchOrganizationId(branchId);
+  const marketRates = await getCurrentMarketRates(organizationId);
   const grouped = new Map<string, LegacyStockImportRow[]>();
 
   for (const row of rows) {
@@ -93,15 +95,18 @@ export const importLegacyStock = async (
   for (const [catalogNo, groupRows] of grouped) {
     try {
       const existing = await prisma.product.findUnique({
-        where: { sku: catalogNo },
+        where: {
+          organizationId_sku: { organizationId, sku: catalogNo },
+        },
         include: productInclude,
       });
 
       if (existing) {
-        const allUnits = await prisma.inventoryUnit.findMany({
+        const orgUnits = await prisma.inventoryUnit.findMany({
+          where: { organizationId },
           select: { itemCode: true },
         });
-        const existingCodes = new Set(allUnits.map((u) => u.itemCode));
+        const existingCodes = new Set(orgUnits.map((u) => u.itemCode));
         const newRows = groupRows.filter(
           (row) => !existingCodes.has(row.itemCode.trim()),
         );
@@ -119,6 +124,7 @@ export const importLegacyStock = async (
         await prisma.$transaction(async (tx) => {
           await tx.inventoryUnit.createMany({
             data: newRows.map((row) => ({
+              organizationId,
               branchId: existing.branchId,
               itemCode: row.itemCode.trim(),
               productId: existing.id,

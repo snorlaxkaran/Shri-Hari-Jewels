@@ -37,6 +37,10 @@ import {
 } from "../weight-reconciliation.js";
 import { toApiProductionRunStage } from "./stages.js";
 import { organizationBranchFilter } from "../branches/access.js";
+import {
+  assertDesignInOrganization,
+  assertProductionRunInOrganization,
+} from "../organizations/access.js";
 
 export { ProductionRunError } from "./errors.js";
 
@@ -260,7 +264,12 @@ export const listProductionRuns = async (
   return runs.map(toProductionRun);
 };
 
-export const getProductionRun = async (id: string): Promise<ProductionRun> => {
+export const getProductionRun = async (
+  id: string,
+  organizationId: string,
+): Promise<ProductionRun> => {
+  await assertProductionRunInOrganization(id, organizationId);
+
   let run = await prisma.productionRun.findUnique({
     where: { id },
     include: runInclude,
@@ -316,6 +325,7 @@ export const getProductionRun = async (id: string): Promise<ProductionRun> => {
 export const createProductionRun = async (
   input: NewProductionRunInput,
   branchId: string,
+  organizationId: string,
 ): Promise<ProductionRun> => {
   if (!input.designId) {
     throw new ProductionRunError("Design is required.");
@@ -324,8 +334,10 @@ export const createProductionRun = async (
     throw new ProductionRunError("Sets ordered must be at least 1.");
   }
 
-  const design = await prisma.design.findUnique({
-    where: { id: input.designId },
+  await assertDesignInOrganization(input.designId, organizationId);
+
+  const design = await prisma.design.findFirst({
+    where: { id: input.designId, organizationId },
     include: {
       elements: {
         orderBy: { sortOrder: "asc" },
@@ -355,7 +367,7 @@ export const createProductionRun = async (
     );
   }
 
-  const runNo = await generateProductionRunNo();
+  const runNo = await generateProductionRunNo(organizationId);
   const stoneStockWarnings = await checkStoneStock(
     input.designId,
     input.setsOrdered,
@@ -364,6 +376,7 @@ export const createProductionRun = async (
 
   const run = await prisma.productionRun.create({
     data: {
+      organizationId,
       branchId,
       runNo,
       designId: input.designId,
@@ -392,7 +405,10 @@ export const createProductionRun = async (
 
 export const getFinishedGoodsDefaults = async (
   id: string,
+  organizationId: string,
 ): Promise<FinishedGoodsDefaults> => {
+  await assertProductionRunInOrganization(id, organizationId);
+
   const run = await prisma.productionRun.findUnique({
     where: { id },
     select: {
@@ -459,7 +475,10 @@ export const updateProductionRun = async (
   id: string,
   input: UpdateProductionRunInput,
   actor: { id: string; name: string },
+  organizationId: string,
 ): Promise<ProductionRun> => {
+  await assertProductionRunInOrganization(id, organizationId);
+
   const existing = await prisma.productionRun.findUnique({
     where: { id },
     include: { items: true },
@@ -544,7 +563,7 @@ export const updateProductionRun = async (
     await finalizeProductionRunAfterTx();
   }
 
-  return getProductionRun(id);
+  return getProductionRun(id, organizationId);
 };
 
 export const updateProductionRunItem = async (
@@ -552,7 +571,10 @@ export const updateProductionRunItem = async (
   itemId: string,
   input: UpdateProductionRunItemInput,
   actor: { id: string; name: string },
+  organizationId: string,
 ): Promise<ProductionRun> => {
+  await assertProductionRunInOrganization(runId, organizationId);
+
   const run = await prisma.productionRun.findUnique({
     where: { id: runId },
     include: { items: true },
@@ -659,17 +681,25 @@ export const updateProductionRunItem = async (
     }
   });
 
-  return getProductionRun(runId);
+  return getProductionRun(runId, organizationId);
 };
 
-export const deleteProductionRun = async (id: string): Promise<void> => {
+export const deleteProductionRun = async (
+  id: string,
+  organizationId: string,
+): Promise<void> => {
+  await assertProductionRunInOrganization(id, organizationId);
+
   const existing = await prisma.productionRun.findUnique({ where: { id } });
   if (!existing) throw new ProductionRunError("Production run not found.", 404);
   await prisma.productionRun.delete({ where: { id } });
 };
 
-export const exportProductionRunCsv = async (id: string): Promise<string> => {
-  const run = await getProductionRun(id);
+export const exportProductionRunCsv = async (
+  id: string,
+  organizationId: string,
+): Promise<string> => {
+  const run = await getProductionRun(id, organizationId);
 
   const headers = [
     "Element",

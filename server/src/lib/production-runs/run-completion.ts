@@ -110,6 +110,7 @@ export const finalizeProductionRunInTx = async (
       {
         id: run.id,
         runNo: run.runNo,
+        organizationId: run.organizationId,
         branchId: run.branchId,
         setsOrdered: run.setsOrdered,
         designCode: run.design.code,
@@ -153,6 +154,7 @@ export const repairCompletedRunInventorySkus = async (): Promise<number> => {
     where: { finishedGoodsProductId: { not: null } },
     select: {
       id: true,
+      organizationId: true,
       branchId: true,
       finishedGoodsProductId: true,
       design: { select: { code: true } },
@@ -167,6 +169,7 @@ export const repairCompletedRunInventorySkus = async (): Promise<number> => {
       const skuRepaired = await repairProductSkuFromDesignInTx(
         tx,
         run.finishedGoodsProductId!,
+        run.organizationId,
         run.design.code,
       );
       const weightRepaired = await repairProductWeightFromProductionRunInTx(

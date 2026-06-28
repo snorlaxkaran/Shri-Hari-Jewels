@@ -1,12 +1,14 @@
 import { prisma } from "../db.js";
 
-export const generateProductionRunNo = async (): Promise<string> => {
+export const generateProductionRunNo = async (
+  organizationId: string,
+): Promise<string> => {
   const year = new Date().getFullYear();
   const prefix = `PR-${year}-`;
 
   const existing = await prisma.productionRun.findMany({
     select: { runNo: true },
-    where: { runNo: { startsWith: prefix } },
+    where: { organizationId, runNo: { startsWith: prefix } },
   });
 
   const sequences = existing

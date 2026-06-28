@@ -302,19 +302,22 @@ export const buildFinishedGoodsDefaults = buildFinishedGoodsFromRun;
 const addUnitsToExistingProductInTx = async (
   tx: TransactionClient,
   productId: string,
+  organizationId: string,
   branchId: string,
   sku: string,
   quantity: number,
   listPrice: number,
 ): Promise<void> => {
-  const allUnits = await tx.inventoryUnit.findMany({
+  const orgUnits = await tx.inventoryUnit.findMany({
+    where: { organizationId },
     select: { itemCode: true },
   });
-  const existingUnitCodes = allUnits.map((unit) => unit.itemCode);
+  const existingUnitCodes = orgUnits.map((unit) => unit.itemCode);
   const unitCodes = generateUnitCodes(sku, quantity, existingUnitCodes);
 
   await tx.inventoryUnit.createMany({
     data: unitCodes.map((itemCode) => ({
+      organizationId,
       branchId,
       itemCode,
       productId,
@@ -331,6 +334,7 @@ export const createFinishedGoodsInTx = async (
   run: {
     id: string;
     runNo: string;
+    organizationId: string;
     branchId: string;
     setsOrdered: number;
     designCode: string;
@@ -348,13 +352,19 @@ export const createFinishedGoodsInTx = async (
   const quantity = run.setsOrdered;
   const sku = normalizeDesignSku(run.designCode);
 
-  const allUnits = await tx.inventoryUnit.findMany({
+  const orgUnits = await tx.inventoryUnit.findMany({
+    where: { organizationId: run.organizationId },
     select: { itemCode: true },
   });
-  const existingUnitCodes = allUnits.map((unit) => unit.itemCode);
+  const existingUnitCodes = orgUnits.map((unit) => unit.itemCode);
 
   const existingProduct = await tx.product.findUnique({
-    where: { sku },
+    where: {
+      organizationId_sku: {
+        organizationId: run.organizationId,
+        sku,
+      },
+    },
     select: { id: true, branchId: true, productionRunId: true },
   });
 
@@ -368,6 +378,7 @@ export const createFinishedGoodsInTx = async (
     await addUnitsToExistingProductInTx(
       tx,
       existingProduct.id,
+      run.organizationId,
       run.branchId,
       sku,
       quantity,
@@ -398,6 +409,7 @@ export const createFinishedGoodsInTx = async (
 
   const product = await tx.product.create({
     data: {
+      organizationId: run.organizationId,
       branchId: run.branchId,
       sku,
       name: input.name.trim(),
@@ -414,6 +426,7 @@ export const createFinishedGoodsInTx = async (
       productionRunId: run.id,
       units: {
         create: unitCodes.map((itemCode) => ({
+          organizationId: run.organizationId,
           branchId: run.branchId,
           itemCode,
           status: "Available",
@@ -443,6 +456,7 @@ export const createFinishedGoodsInTx = async (
 export const repairProductSkuFromDesignInTx = async (
   tx: TransactionClient,
   productId: string,
+  organizationId: string,
   designCode: string,
 ): Promise<boolean> => {
   const expectedSku = normalizeDesignSku(designCode);
@@ -457,7 +471,9 @@ export const repairProductSkuFromDesignInTx = async (
   }
 
   const conflicting = await tx.product.findUnique({
-    where: { sku: expectedSku },
+    where: {
+      organizationId_sku: { organizationId, sku: expectedSku },
+    },
     select: { id: true },
   });
   if (conflicting && conflicting.id !== productId) {
@@ -472,7 +488,7 @@ export const repairProductSkuFromDesignInTx = async (
 
   const otherUnitCodes = (
     await tx.inventoryUnit.findMany({
-      where: { productId: { not: productId } },
+      where: { organizationId, productId: { not: productId } },
       select: { itemCode: true },
     })
   ).map((unit) => unit.itemCode);

@@ -232,12 +232,18 @@ async function seedDatabase() {
   });
 
   const existingProduct = await prisma.product.findUnique({
-    where: { sku: "RG-26-0001" },
+    where: {
+      organizationId_sku: {
+        organizationId: organization.id,
+        sku: "RG-26-0001",
+      },
+    },
   });
 
   if (!existingProduct) {
     await prisma.product.create({
       data: {
+        organizationId: organization.id,
         branchId: headOffice.id,
         sku: "RG-26-0001",
         name: "Classic Gold Ring",
@@ -254,11 +260,13 @@ async function seedDatabase() {
         units: {
           create: [
             {
+              organizationId: organization.id,
               branchId: headOffice.id,
               itemCode: "RG-26-0001-001",
               status: "Available",
             },
             {
+              organizationId: organization.id,
               branchId: headOffice.id,
               itemCode: "RG-26-0001-002",
               status: "Available",

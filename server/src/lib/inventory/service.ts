@@ -21,6 +21,7 @@ import { syncProductStockInTx } from "./stock-sync.js";
 import { recordInventoryAudit } from "./audit.js";
 import { DEFAULT_BRANCH_ID } from "../branches/constants.js";
 import { organizationBranchFilter, organizationTransferFromFilter } from "../branches/access.js";
+import { getBranchOrganizationId } from "../organizations/access.js";
 import { moneyToNumber, sumMoney } from "../money.js";
 import { repairCompletedRunInventorySkus } from "../production-runs/run-completion.js";
 import { toStockTransferDto } from "./transfer-actions.js";
@@ -71,7 +72,8 @@ export const createProduct = async (
   branchId: string,
 ): Promise<InventoryItem> => {
   const category = input.category as ProductCategory;
-  const marketRates = await getCurrentMarketRates();
+  const organizationId = await getBranchOrganizationId(branchId);
+  const marketRates = await getCurrentMarketRates(organizationId);
   const unitListPrice = computeLiveListPriceForProduct(
     {
       metal: input.metal,
@@ -83,7 +85,7 @@ export const createProduct = async (
   );
 
   const existing = await prisma.product.findMany({
-    where: { branchId },
+    where: { organizationId },
     select: {
       sku: true,
       units: { select: { itemCode: true } },
@@ -131,6 +133,7 @@ export const createProduct = async (
 
   const product = await prisma.product.create({
     data: {
+      organizationId,
       branchId,
       sku,
       name: input.name.trim(),
@@ -146,6 +149,7 @@ export const createProduct = async (
       imageColor: CATEGORY_COLORS[category] ?? "#a1a1aa",
       units: {
         create: unitCodes.map((itemCode) => ({
+          organizationId,
           branchId,
           itemCode,
           status: "Available",
@@ -177,18 +181,20 @@ export const addQuantityToProduct = async (
 
   if (!product) return null;
 
-  const marketRates = await getCurrentMarketRates();
+  const marketRates = await getCurrentMarketRates(product.organizationId);
   const unitListPrice = computeLiveListPriceForProduct(product, marketRates);
 
-  const allUnits = await prisma.inventoryUnit.findMany({
+  const orgUnits = await prisma.inventoryUnit.findMany({
+    where: { organizationId: product.organizationId },
     select: { itemCode: true },
   });
-  const existingUnitCodes = allUnits.map((u) => u.itemCode);
+  const existingUnitCodes = orgUnits.map((u) => u.itemCode);
   const newCodes = generateUnitCodes(product.sku, quantity, existingUnitCodes);
 
   const updated = await prisma.$transaction(async (tx) => {
     await tx.inventoryUnit.createMany({
       data: newCodes.map((itemCode) => ({
+        organizationId: product.organizationId,
         branchId: product.branchId,
         itemCode,
         productId: product.id,
@@ -322,6 +328,7 @@ export const transferInventoryUnits = async (
 export const createStockTransfer = async (
   input: CreateStockTransferInput,
   createdBy: { id: string; name: string },
+  organizationId: string,
 ): Promise<{ transfer: StockTransfer; products: InventoryItem[] }> => {
   if (!TRANSFER_DOC_TYPES.includes(input.documentType)) {
     throw new InventoryError("Select a valid transfer document type.");
@@ -345,7 +352,7 @@ export const createStockTransfer = async (
   }
 
   const units = await prisma.inventoryUnit.findMany({
-    where: { itemCode: { in: cleanCodes } },
+    where: { organizationId, itemCode: { in: cleanCodes } },
     include: { product: true },
   });
 

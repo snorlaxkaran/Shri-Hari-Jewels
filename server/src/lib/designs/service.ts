@@ -12,6 +12,7 @@ import type {
 } from "../../types.js";
 import { safeRecordCatalogAudit } from "../catalog/audit.js";
 import { organizationBranchFilter } from "../branches/access.js";
+import { getBranchOrganizationId } from "../organizations/access.js";
 import { getMotif } from "../motifs/service.js";
 import {
   isValidDesignMetal,
@@ -195,7 +196,11 @@ export const createDesign = async (
   const code = input.code?.trim().toUpperCase();
   if (!code) throw new DesignError("Design code is required.");
 
-  const existing = await prisma.design.findUnique({ where: { code } });
+  const organizationId = await getBranchOrganizationId(branchId);
+
+  const existing = await prisma.design.findUnique({
+    where: { organizationId_code: { organizationId, code } },
+  });
   if (existing) throw new DesignError("A design with this code already exists.");
 
   if (input.category && !DESIGN_CATEGORIES.includes(input.category)) {
@@ -219,6 +224,7 @@ export const createDesign = async (
 
   const design = await prisma.design.create({
     data: {
+      organizationId,
       branchId,
       code,
       name: input.name?.trim() || null,
