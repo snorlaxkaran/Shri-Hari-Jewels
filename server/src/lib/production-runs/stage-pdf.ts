@@ -9,9 +9,13 @@ import { formatStructuredAddress } from "../validation/india.js";
 import { STAGE_WORKSHEET_CONFIG } from "./stage-config.js";
 import { PRODUCTION_RUN_STAGES } from "./stages.js";
 
+const DASH = "-";
+
 const formatDate = (value?: string | null): string => {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString("en-IN");
+  if (!value) return DASH;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return DASH;
+  return parsed.toLocaleDateString("en-IN");
 };
 
 const formatShopAddress = (settings: ShopSettings): string | null =>
@@ -25,7 +29,8 @@ const formatShopAddress = (settings: ShopSettings): string | null =>
   }) ?? settings.address;
 
 const cell = (value: string | number | boolean | null | undefined): string => {
-  if (value == null || value === "") return "—";
+  if (value == null || value === "") return DASH;
+  if (typeof value === "number" && Number.isNaN(value)) return DASH;
   if (typeof value === "boolean") return value ? "Yes" : "No";
   return String(value);
 };
@@ -40,13 +45,52 @@ type StagePdfInput = {
   settings: ShopSettings;
 };
 
+const renderItemBlock = (
+  doc: PDFKit.PDFDocument,
+  item: ProductionRunItem,
+  index: number,
+) => {
+  doc.fontSize(10).fillColor("#000").text(`${index + 1}. ${item.elementName}`, {
+    continued: false,
+  });
+  doc.fontSize(8).fillColor("#444");
+  doc.text(
+    [
+      `Type: ${item.elementType}`,
+      `Qty/set: ${cell(item.qtyPerSet)}`,
+      `Total: ${cell(item.totalQty)}`,
+      item.weightGramsPerPc != null ? `Weight: ${item.weightGramsPerPc}g/pc` : null,
+    ]
+      .filter(Boolean)
+      .join("  |  "),
+  );
+
+  const lines = [
+    `Wax moulds: ${cell(item.waxCount)}`,
+    `Production date: ${formatDate(item.productionDate)}`,
+    `Casting received: ${cell(item.castingReceived)}`,
+    `Metal weight (g): ${cell(item.metalWeightGrams)}`,
+    `CZ stones: ${cell(item.czStones)}`,
+    `CZ weight (ct): ${cell(item.czWeight)}`,
+    `Stone order date: ${formatDate(item.stoneOrderDate)}`,
+    `Stone delivery date: ${formatDate(item.stoneDeliveryDate)}`,
+    `Sign / received by: ${cell(item.stoneSignOff)}`,
+  ];
+
+  for (const line of lines) {
+    doc.text(`  ${line}`);
+  }
+
+  doc.moveDown(0.35);
+};
+
 export const generateProductionRunStagePdf = ({
   run,
   stage,
   settings,
 }: StagePdfInput): Promise<Buffer> =>
   new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 40, size: "A4" });
+    const doc = new PDFDocument({ margin: 50, size: "A4" });
     const chunks: Buffer[] = [];
 
     doc.on("data", (chunk: Buffer) => chunks.push(chunk));
@@ -54,9 +98,8 @@ export const generateProductionRunStagePdf = ({
     doc.on("error", reject);
 
     const stageIndex = PRODUCTION_RUN_STAGES.indexOf(stage);
-    const completedStages = new Set(run.stageLogs.map((log) => log.stage));
 
-    doc.fontSize(18).text(settings.businessName, { align: "center" });
+    doc.fontSize(18).fillColor("#000").text(settings.businessName, { align: "center" });
     const shopAddress = formatShopAddress(settings);
     if (shopAddress) {
       doc.fontSize(9).fillColor("#666").text(shopAddress, { align: "center" });
@@ -71,121 +114,54 @@ export const generateProductionRunStagePdf = ({
     });
     doc.moveDown(0.75);
 
-    doc.fontSize(10);
-    const leftX = 40;
-    const rightX = 300;
-    let y = doc.y;
-    doc.text(`Run No: ${run.runNo}`, leftX, y);
-    doc.text(`Stage: ${stage}`, rightX, y);
-    y += 14;
+    doc.fontSize(10).fillColor("#000");
+    doc.text(`Run No: ${run.runNo}`);
+    doc.text(`Stage: ${stage}`);
     doc.text(
-      `Design: ${run.designCode}${run.designName ? ` — ${run.designName}` : ""}`,
-      leftX,
-      y,
+      `Design: ${run.designCode}${run.designName ? ` - ${run.designName}` : ""}`,
     );
-    doc.text(`Date: ${formatDate(new Date().toISOString())}`, rightX, y);
-    y += 14;
-    doc.text(`Sets Ordered: ${run.setsOrdered}`, leftX, y);
+    doc.text(`Date: ${formatDate(new Date().toISOString())}`);
+    doc.text(`Sets Ordered: ${run.setsOrdered}`);
     doc.text(
-      `Metal: ${run.designMetal ?? "—"} ${run.designPurity ?? ""}`.trim(),
-      rightX,
-      y,
+      `Metal: ${run.designMetal ?? DASH} ${run.designPurity ?? ""}`.trim(),
     );
-    y += 14;
-    doc.text(`Status: ${run.status}`, leftX, y);
+    doc.text(`Status: ${run.status}`);
     if (stageIndex >= 0 && stageIndex < PRODUCTION_RUN_STAGES.length - 1) {
-      doc.text(`Next Step: ${PRODUCTION_RUN_STAGES[stageIndex + 1]}`, rightX, y);
+      doc.text(`Next Step: ${PRODUCTION_RUN_STAGES[stageIndex + 1]}`);
     }
-    doc.y = y + 20;
 
+    doc.moveDown(0.5);
     doc.fontSize(9).fillColor("#333");
-    doc.text(STAGE_WORKSHEET_CONFIG[stage].instructions, { align: "left" });
+    doc.text(STAGE_WORKSHEET_CONFIG[stage].instructions);
     doc.moveDown(0.75);
 
-    const tableTop = doc.y;
-    const columns = [
-      { label: "#", width: 18 },
-      { label: "Element", width: 72 },
-      { label: "Type", width: 42 },
-      { label: "Qty/Set", width: 36 },
-      { label: "Total", width: 32 },
-      { label: "Wax", width: 28 },
-      { label: "Prod Date", width: 52 },
-      { label: "Cast Rcvd", width: 42 },
-      { label: "Metal g", width: 38 },
-      { label: "Stones", width: 36 },
-      { label: "Carat", width: 36 },
-      { label: "Ord Date", width: 52 },
-      { label: "Del Date", width: 52 },
-      { label: "Sign", width: 36 },
-    ];
+    doc.fontSize(11).fillColor("#000").text("Elements");
+    doc.moveDown(0.25);
 
-    let x = 40;
-    doc.fontSize(7).fillColor("#000");
-    for (const col of columns) {
-      doc.text(col.label, x, tableTop, { width: col.width, lineBreak: false });
-      x += col.width;
-    }
-
-    doc
-      .moveTo(40, tableTop + 12)
-      .lineTo(555, tableTop + 12)
-      .strokeColor("#ccc")
-      .stroke();
-
-    let rowY = tableTop + 16;
     run.items.forEach((item, index) => {
-      if (rowY > 720) {
+      if (doc.y > 700) {
         doc.addPage();
-        rowY = 40;
       }
-
-      x = 40;
-      const row = [
-        String(index + 1),
-        item.elementName.slice(0, 18),
-        item.elementType.slice(0, 8),
-        cell(item.qtyPerSet),
-        cell(item.totalQty),
-        cell(item.waxCount),
-        formatDate(item.productionDate),
-        cell(item.castingReceived),
-        cell(item.metalWeightGrams),
-        cell(item.czStones),
-        cell(item.czWeight),
-        formatDate(item.stoneOrderDate),
-        formatDate(item.stoneDeliveryDate),
-        cell(item.stoneSignOff),
-      ];
-
-      doc.fontSize(7).fillColor("#222");
-      columns.forEach((col, colIndex) => {
-        doc.text(row[colIndex], x, rowY, { width: col.width, lineBreak: false });
-        x += col.width;
-      });
-      rowY += 14;
+      renderItemBlock(doc, item, index);
     });
-
-    doc.y = rowY + 10;
 
     const stoneItems = run.items.filter(
       (item) => item.elementType === "Stone" || item.elementType === "Motif",
     );
     if (stoneItems.length > 0) {
-      doc.fontSize(11).fillColor("#000").text("Stone Requirements (from design BOM)", {
-        underline: true,
-      });
+      doc.moveDown(0.5);
+      doc.fontSize(11).fillColor("#000").text("Stone Requirements (from design BOM)");
       doc.moveDown(0.25);
       doc.fontSize(9);
       for (const item of stoneItems) {
         doc.text(
-          `• ${item.elementName}: ${item.czStones ?? "—"} stones, ${item.czWeight ?? "—"} ct total`,
+          `- ${item.elementName}: ${cell(item.czStones)} stones, ${cell(item.czWeight)} ct total`,
         );
       }
-      doc.moveDown(0.5);
     }
 
-    doc.fontSize(11).fillColor("#000").text("Stage Progress", { underline: true });
+    doc.moveDown(0.75);
+    doc.fontSize(11).fillColor("#000").text("Stage Progress");
     doc.moveDown(0.25);
     doc.fontSize(9);
     for (const stageName of PRODUCTION_RUN_STAGES) {
@@ -196,24 +172,23 @@ export const generateProductionRunStagePdf = ({
         return parseCheckoffs(item)[config.checkoffStage];
       });
       const marker = log
-        ? `✓ ${formatDate(log.createdAt)} — ${log.performedByName}`
-        : completedStages.has(stageName) || checkoffDone
-          ? "✓"
+        ? `[Done] ${formatDate(log.createdAt)} - ${log.performedByName}`
+        : checkoffDone
+          ? "[Done]"
           : stageName === stage
-            ? "→ Current"
-            : "—";
+            ? "[Current]"
+            : DASH;
       doc.text(`${stageName}: ${marker}`);
     }
 
-    if (run.stageLogs.length > 0) {
+    const notes = run.stageLogs.filter((log) => log.notes?.trim());
+    if (notes.length > 0) {
       doc.moveDown(0.5);
-      doc.fontSize(11).text("Stage Notes", { underline: true });
+      doc.fontSize(11).fillColor("#000").text("Stage Notes");
       doc.moveDown(0.25);
       doc.fontSize(9);
-      for (const log of run.stageLogs) {
-        if (log.notes) {
-          doc.text(`${log.stage} (${log.performedByName}): ${log.notes}`);
-        }
+      for (const log of notes) {
+        doc.text(`${log.stage} (${log.performedByName}): ${log.notes}`);
       }
     }
 
