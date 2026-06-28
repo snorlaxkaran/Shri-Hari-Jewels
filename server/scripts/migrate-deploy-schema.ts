@@ -286,6 +286,115 @@ const ensureMultiTenantOrganizations = async () => {
   );
 };
 
+const ensureOrgScopedInventoryIdentifiers = async () => {
+  console.log(
+    "Ensure org-scoped design codes, SKUs, barcodes, and run numbers…",
+  );
+
+  const tenantTables = ["Design", "Product", "InventoryUnit", "ProductionRun"];
+
+  for (const table of tenantTables) {
+    await run(
+      `Add ${table}.organizationId if missing…`,
+      `ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS "organizationId" TEXT`,
+    );
+    await run(
+      `Backfill ${table}.organizationId from branch…`,
+      `
+      UPDATE "${table}" AS t
+      SET "organizationId" = b."organizationId"
+      FROM "Branch" AS b
+      WHERE t."branchId" = b."id"
+        AND t."organizationId" IS NULL
+      `,
+    );
+    await run(
+      `Fallback ${table}.organizationId for orphaned rows…`,
+      `
+      UPDATE "${table}"
+      SET "organizationId" = '${DEFAULT_ORG_ID}'
+      WHERE "organizationId" IS NULL
+      `,
+    );
+    await run(
+      `Set ${table}.organizationId NOT NULL…`,
+      `ALTER TABLE "${table}" ALTER COLUMN "organizationId" SET NOT NULL`,
+    );
+  }
+
+  const dropLegacyIndexes = [
+    "Design_code_key",
+    "Product_sku_key",
+    "InventoryUnit_itemCode_key",
+    "ProductionRun_runNo_key",
+  ];
+  for (const index of dropLegacyIndexes) {
+    await run(`Drop legacy index ${index}…`, `DROP INDEX IF EXISTS "${index}"`);
+  }
+
+  const compositeIndexes = [
+    `CREATE UNIQUE INDEX IF NOT EXISTS "Design_organizationId_code_key"
+       ON "Design"("organizationId", "code")`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "Product_organizationId_sku_key"
+       ON "Product"("organizationId", "sku")`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "InventoryUnit_organizationId_itemCode_key"
+       ON "InventoryUnit"("organizationId", "itemCode")`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "ProductionRun_organizationId_runNo_key"
+       ON "ProductionRun"("organizationId", "runNo")`,
+    `CREATE INDEX IF NOT EXISTS "Design_organizationId_idx" ON "Design"("organizationId")`,
+    `CREATE INDEX IF NOT EXISTS "Product_organizationId_idx" ON "Product"("organizationId")`,
+    `CREATE INDEX IF NOT EXISTS "InventoryUnit_organizationId_idx" ON "InventoryUnit"("organizationId")`,
+    `CREATE INDEX IF NOT EXISTS "ProductionRun_organizationId_idx" ON "ProductionRun"("organizationId")`,
+  ];
+  for (const sql of compositeIndexes) {
+    await run(`Apply: ${sql.slice(0, 72).replace(/\s+/g, " ")}…`, sql);
+  }
+
+  await run(
+    "Ensure org-scoped inventory foreign keys…",
+    `
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'Design_organizationId_fkey'
+      ) THEN
+        ALTER TABLE "Design"
+          ADD CONSTRAINT "Design_organizationId_fkey"
+          FOREIGN KEY ("organizationId") REFERENCES "Organization"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'Product_organizationId_fkey'
+      ) THEN
+        ALTER TABLE "Product"
+          ADD CONSTRAINT "Product_organizationId_fkey"
+          FOREIGN KEY ("organizationId") REFERENCES "Organization"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'InventoryUnit_organizationId_fkey'
+      ) THEN
+        ALTER TABLE "InventoryUnit"
+          ADD CONSTRAINT "InventoryUnit_organizationId_fkey"
+          FOREIGN KEY ("organizationId") REFERENCES "Organization"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'ProductionRun_organizationId_fkey'
+      ) THEN
+        ALTER TABLE "ProductionRun"
+          ADD CONSTRAINT "ProductionRun_organizationId_fkey"
+          FOREIGN KEY ("organizationId") REFERENCES "Organization"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+    END $$;
+    `,
+  );
+};
+
 const main = async () => {
   if (!(await tableExists("Product"))) {
     console.log(
@@ -299,6 +408,7 @@ const main = async () => {
   await ensureStockTransferStatus();
   await ensureInventoryUnitListPrice();
   await ensureMultiTenantOrganizations();
+  await ensureOrgScopedInventoryIdentifiers();
   console.log("Deploy schema migration complete.");
 };
 
