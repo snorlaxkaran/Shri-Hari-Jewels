@@ -2,7 +2,6 @@ import PDFDocument from "pdfkit";
 import type { Customer, Invoice, ShopSettings } from "../../types.js";
 import { drawDocumentHeader } from "../pdf/document-header.js";
 import { amountInIndianWords, formatDateIn, formatRupee } from "../pdf/format.js";
-import { drawProductionProcessTrackingSheet } from "../pdf/process-tracking-sheet.js";
 import {
   drawBorderedTable,
   drawLabelValueBox,
@@ -226,9 +225,6 @@ export const generateInvoicePdf = (
         drawLabelValueBox(doc, left, doc.y, contentWidth, "Payment Information", bankLines) +
         12;
     }
-
-    ensureSpace(doc, 220);
-    drawProductionProcessTrackingSheet(doc);
 
     ensureSpace(doc, 40);
     doc.font("Helvetica").fontSize(8).fillColor("#6b7280");
