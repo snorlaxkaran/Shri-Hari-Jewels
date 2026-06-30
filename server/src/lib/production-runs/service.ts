@@ -28,9 +28,11 @@ import {
   calculateFinishedGoodsForRunInTx,
 } from "./finished-goods.js";
 import {
+  buildAutoFinishedGoodsInput,
   ensureCompletedRunInventory,
   finalizeProductionRunAfterTx,
   finalizeProductionRunInTx,
+  PRODUCTION_RUN_COMPLETION_TX_OPTIONS,
   repairCompletedRunInventorySkus,
 } from "./run-completion.js";
 import { ProductionRunError } from "./errors.js";
@@ -599,33 +601,41 @@ export const updateProductionRun = async (
     }
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.productionRun.update({
-      where: { id },
-      data: {
-        status: toDbRunStatus(input.status),
-        setsOrdered: input.setsOrdered,
-      },
-    });
+  const autoFinishedGoods =
+    completingRun && !input.finishedGoods
+      ? await buildAutoFinishedGoodsInput(id)
+      : undefined;
 
-    if (setsChanged && input.setsOrdered !== undefined) {
-      for (const item of existing.items) {
-        await tx.productionRunItem.update({
-          where: { id: item.id },
-          data: { totalQty: item.qtyPerSet * input.setsOrdered! },
-        });
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.productionRun.update({
+        where: { id },
+        data: {
+          status: toDbRunStatus(input.status),
+          setsOrdered: input.setsOrdered,
+        },
+      });
+
+      if (setsChanged && input.setsOrdered !== undefined) {
+        for (const item of existing.items) {
+          await tx.productionRunItem.update({
+            where: { id: item.id },
+            data: { totalQty: item.qtyPerSet * input.setsOrdered! },
+          });
+        }
       }
-    }
 
-    if (completingRun) {
-      await finalizeProductionRunInTx(
-        tx,
-        id,
-        actor,
-        input.finishedGoods,
-      );
-    }
-  });
+      if (completingRun) {
+        await finalizeProductionRunInTx(
+          tx,
+          id,
+          actor,
+          input.finishedGoods ?? autoFinishedGoods,
+        );
+      }
+    },
+    PRODUCTION_RUN_COMPLETION_TX_OPTIONS,
+  );
 
   if (completingRun) {
     await finalizeProductionRunAfterTx();

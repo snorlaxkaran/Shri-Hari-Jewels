@@ -16,6 +16,12 @@ import { deductPendingRawMaterialForRunInTx } from "./raw-material.js";
 type TransactionClient = Prisma.TransactionClient;
 type Actor = { id: string; name: string };
 
+/** Run completion touches many tables over the network — default 5s Prisma tx timeout is too low. */
+export const PRODUCTION_RUN_COMPLETION_TX_OPTIONS = {
+  maxWait: 10_000,
+  timeout: 30_000,
+} as const;
+
 const designPhotosToImages = (design: {
   finishedPhotoUrl: string | null;
   finishedPhotoUrls: string[];
@@ -103,7 +109,7 @@ export const finalizeProductionRunInTx = async (
 
   if (!run.finishedGoodsProductId) {
     const input =
-      finishedGoods ?? (await buildAutoFinishedGoodsInput(runId, tx));
+      finishedGoods ?? (await buildAutoFinishedGoodsInput(runId));
     assertPositiveFinishedGoodsWeight(input.weightGrams);
     await createFinishedGoodsInTx(
       tx,
@@ -143,9 +149,14 @@ export const ensureCompletedRunInventory = async (
     return false;
   }
 
-  await prisma.$transaction(async (tx) => {
-    await finalizeProductionRunInTx(tx, runId, actor);
-  });
+  const finishedGoods = await buildAutoFinishedGoodsInput(runId);
+
+  await prisma.$transaction(
+    async (tx) => {
+      await finalizeProductionRunInTx(tx, runId, actor, finishedGoods);
+    },
+    PRODUCTION_RUN_COMPLETION_TX_OPTIONS,
+  );
   return true;
 };
 

@@ -3,8 +3,10 @@ import { prisma } from "../db.js";
 import { ProductionRunError } from "./errors.js";
 import { assertProductionRunInOrganization } from "../organizations/access.js";
 import {
+  buildAutoFinishedGoodsInput,
   finalizeProductionRunAfterTx,
   finalizeProductionRunInTx,
+  PRODUCTION_RUN_COMPLETION_TX_OPTIONS,
 } from "./run-completion.js";
 import { CHECKOFF_STAGES, STAGE_WORKSHEET_CONFIG } from "./stage-config.js";
 import {
@@ -77,35 +79,42 @@ export const completeProductionRunStage = async (
   const next = nextProductionRunStage(stage);
   const isLast = next === null;
 
-  await prisma.$transaction(async (tx) => {
-    await tx.productionRunStageLog.create({
-      data: {
-        productionRunId: runId,
-        stage: toDbProductionRunStage(stage),
-        notes: input.notes?.trim() || null,
-        performedById: actor.id,
-        performedByName: actor.name,
-      },
-    });
+  const finishedGoodsInput = isLast
+    ? await buildAutoFinishedGoodsInput(runId)
+    : undefined;
 
-    await tx.productionRun.update({
-      where: { id: runId },
-      data: {
-        currentStage: next
-          ? toDbProductionRunStage(next)
-          : run.currentStage,
-        status: isLast
-          ? ProductionRunStatusEnum.Completed
-          : run.status === ProductionRunStatusEnum.Open
-            ? ProductionRunStatusEnum.InProgress
-            : run.status,
-      },
-    });
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.productionRunStageLog.create({
+        data: {
+          productionRunId: runId,
+          stage: toDbProductionRunStage(stage),
+          notes: input.notes?.trim() || null,
+          performedById: actor.id,
+          performedByName: actor.name,
+        },
+      });
 
-    if (isLast) {
-      await finalizeProductionRunInTx(tx, runId, actor);
-    }
-  });
+      await tx.productionRun.update({
+        where: { id: runId },
+        data: {
+          currentStage: next
+            ? toDbProductionRunStage(next)
+            : run.currentStage,
+          status: isLast
+            ? ProductionRunStatusEnum.Completed
+            : run.status === ProductionRunStatusEnum.Open
+              ? ProductionRunStatusEnum.InProgress
+              : run.status,
+        },
+      });
+
+      if (isLast) {
+        await finalizeProductionRunInTx(tx, runId, actor, finishedGoodsInput);
+      }
+    },
+    PRODUCTION_RUN_COMPLETION_TX_OPTIONS,
+  );
 
   if (isLast) {
     await finalizeProductionRunAfterTx();
