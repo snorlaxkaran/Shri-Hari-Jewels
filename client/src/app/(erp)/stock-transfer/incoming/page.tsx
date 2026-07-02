@@ -162,7 +162,14 @@ export default function IncomingStockPage() {
                     </span>
                   </div>
                   <p className="text-sm text-zinc-700">
-                    From: {transfer.fromBranchName} → To: {transfer.toBranchName}
+                    From: {transfer.fromBranchName} → To:{" "}
+                    {transfer.customerBranchName ?? transfer.toBranchName}
+                    {transfer.customerName && (
+                      <span className="text-zinc-400">
+                        {" "}
+                        ({transfer.customerName})
+                      </span>
+                    )}
                   </p>
                   <p className="text-sm text-zinc-500">
                     Sent: {formatDateTime(transfer.createdAt)} · {transfer.itemCount}{" "}

@@ -188,7 +188,22 @@ export default function SentStockPage() {
                         <td className="px-5 py-3">
                           {formatDate(transfer.transferDate)}
                         </td>
-                        <td className="px-5 py-3">{transfer.toBranchName}</td>
+                        <td className="px-5 py-3">
+                          {transfer.customerBranchName ? (
+                            <span>
+                              <span className="block text-zinc-900">
+                                {transfer.customerBranchName}
+                              </span>
+                              {transfer.customerName && (
+                                <span className="text-xs text-zinc-400">
+                                  {transfer.customerName}
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            transfer.toBranchName
+                          )}
+                        </td>
                         <td className="px-5 py-3">{transfer.documentType}</td>
                         <td className="px-5 py-3">{transfer.itemCount}</td>
                         <td className="px-5 py-3">

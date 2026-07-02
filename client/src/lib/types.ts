@@ -122,6 +122,10 @@ export type StockTransfer = {
   fromBranchName: string;
   toBranchId: string;
   toBranchName: string;
+  customerId?: string;
+  customerName?: string;
+  customerBranchId?: string;
+  customerBranchName?: string;
   documentType: StockTransferDocumentType;
   transferDate: string;
   itemCount: number;
@@ -288,6 +292,40 @@ export type UpdateCustomerInput = {
 
 export type CustomerDetail = Customer & {
   sales: Sale[];
+};
+
+export type CustomerBranch = {
+  id: string;
+  customerId: string;
+  branchId?: string;
+  branchName?: string;
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewCustomerBranchInput = {
+  name: string;
+  branchId?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+};
+
+export type UpdateCustomerBranchInput = {
+  name?: string;
+  branchId?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  active?: boolean;
 };
 
 export type Order = {

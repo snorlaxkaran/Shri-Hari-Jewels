@@ -199,6 +199,7 @@ model Branch {
   bulkStoneLots BulkStoneLot[]
   stockTransfersFrom StockTransfer[] @relation("StockTransferFromBranch")
   stockTransfersTo   StockTransfer[] @relation("StockTransferToBranch")
+  customerBranches   CustomerBranch[]
 
   @@index([organizationId])
 }
@@ -321,6 +322,8 @@ model StockTransfer {
   transferNo   String   @unique
   fromBranchId String
   toBranchId   String
+  customerId        String?
+  customerBranchId  String?
   documentType String
   transferDate DateTime
   itemCount    Int
@@ -335,12 +338,16 @@ model StockTransfer {
   createdByName String
   createdAt    DateTime @default(now())
 
-  fromBranch Branch @relation("StockTransferFromBranch", fields: [fromBranchId], references: [id], onDelete: Cascade)
-  toBranch   Branch @relation("StockTransferToBranch", fields: [toBranchId], references: [id], onDelete: Cascade)
+  fromBranch     Branch          @relation("StockTransferFromBranch", fields: [fromBranchId], references: [id], onDelete: Cascade)
+  toBranch       Branch          @relation("StockTransferToBranch", fields: [toBranchId], references: [id], onDelete: Cascade)
+  customer       Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerBranch CustomerBranch? @relation(fields: [customerBranchId], references: [id], onDelete: SetNull)
   items      StockTransferItem[]
 
   @@index([fromBranchId])
   @@index([toBranchId])
+  @@index([customerId])
+  @@index([customerBranchId])
   @@index([status])
   @@index([toBranchId, status])
   @@index([createdAt])
@@ -398,9 +405,33 @@ model Customer {
   sales    Sale[]
   orders   Order[]
   invoices Invoice[]
+  branches CustomerBranch[]
+  stockTransfers StockTransfer[]
 
   @@unique([organizationId, mobile])
   @@index([organizationId])
+}
+
+model CustomerBranch {
+  id         String   @id @default(uuid())
+  customerId String
+  branchId   String?
+  name       String
+  address    String?
+  city       String?
+  state      String?
+  pincode    String?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  linkedBranch   Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  stockTransfers StockTransfer[]
+
+  @@index([customerId])
+  @@index([branchId])
+  @@index([customerId, active])
 }
 
 model Order {

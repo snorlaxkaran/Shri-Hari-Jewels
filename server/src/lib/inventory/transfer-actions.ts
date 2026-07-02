@@ -18,6 +18,8 @@ import { InventoryError } from "./service.js";
 type StockTransferWithRelations = DbStockTransfer & {
   fromBranch: Branch;
   toBranch: Branch;
+  customer?: { name: string } | null;
+  customerBranch?: { name: string } | null;
   items: DbStockTransferItem[];
 };
 
@@ -30,6 +32,10 @@ export const toStockTransferDto = (
   fromBranchName: transfer.fromBranch.name,
   toBranchId: transfer.toBranchId,
   toBranchName: transfer.toBranch.name,
+  customerId: transfer.customerId ?? undefined,
+  customerName: transfer.customer?.name,
+  customerBranchId: transfer.customerBranchId ?? undefined,
+  customerBranchName: transfer.customerBranch?.name,
   documentType: transfer.documentType as StockTransfer["documentType"],
   transferDate: transfer.transferDate.toISOString(),
   itemCount: transfer.itemCount,
@@ -58,6 +64,8 @@ export const toStockTransferDto = (
 const transferInclude = {
   fromBranch: true,
   toBranch: true,
+  customer: true,
+  customerBranch: true,
   items: { orderBy: { itemCode: "asc" as const } },
 };
 

@@ -1,17 +1,19 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRightLeft, Calendar, ScanLine, Trash2 } from "lucide-react";
 import Link from "next/link";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
+import BranchAutocomplete from "@/app/(components)/BranchAutocomplete";
 import TransferTabs from "@/app/(components)/stock-transfer/TransferTabs";
-import { fetchBranches } from "@/lib/api/branches";
+import { fetchCustomerBranches, fetchCustomers } from "@/lib/api/customers";
 import { createStockTransfer } from "@/lib/api/inventory";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import type {
-  Branch,
+  Customer,
+  CustomerBranch,
   InventoryItem,
   InventoryUnit,
   StockTransferDocumentType,
@@ -27,8 +29,12 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 export default function StockTransferScanPage() {
   const { items, hydrated, loading, refresh } = useInventory();
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [toBranchId, setToBranchId] = useState("");
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerId, setCustomerId] = useState("");
+  const [customerBranches, setCustomerBranches] = useState<CustomerBranch[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<CustomerBranch | null>(null);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [branchQuery, setBranchQuery] = useState("");
   const [transferDate, setTransferDate] = useState(today());
   const [docType, setDocType] =
     useState<StockTransferDocumentType>("Wholesale GST Invoice");
@@ -40,16 +46,41 @@ export default function StockTransferScanPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchBranches()
-      .then((data) =>
-        setBranches(
-          data.filter(
-            (branch) => branch.active && !/head office/i.test(branch.name),
-          ),
-        ),
-      )
-      .catch((err) => setError(getApiErrorMessage(err, "Could not load stores.")));
+    fetchCustomers()
+      .then(setCustomers)
+      .catch((err) => setError(getApiErrorMessage(err, "Could not load customers.")));
   }, []);
+
+  const loadBranches = useCallback(
+    async (id: string, query?: string) => {
+      setBranchesLoading(true);
+      try {
+        const branches = await fetchCustomerBranches(id, query);
+        setCustomerBranches(branches);
+      } catch (err) {
+        setError(getApiErrorMessage(err, "Could not load customer branches."));
+      } finally {
+        setBranchesLoading(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!customerId) {
+      setCustomerBranches([]);
+      setSelectedBranch(null);
+      return;
+    }
+    loadBranches(customerId, branchQuery || undefined);
+  }, [customerId, branchQuery, loadBranches]);
+
+  const handleCustomerChange = (id: string) => {
+    setCustomerId(id);
+    setSelectedBranch(null);
+    setBranchQuery("");
+    setError("");
+  };
 
   const allUnits = useMemo(
     () =>
@@ -66,6 +97,12 @@ export default function StockTransferScanPage() {
     (sum, item) => sum + item.product.price,
     0,
   );
+
+  const canSubmit =
+    Boolean(customerId) &&
+    Boolean(selectedBranch?.id) &&
+    Boolean(selectedBranch?.branchId) &&
+    scanned.length > 0;
 
   const addBarcode = () => {
     const code = barcode.trim();
@@ -102,8 +139,16 @@ export default function StockTransferScanPage() {
     setError("");
     setSuccess("");
 
-    if (!toBranchId) {
-      setError("Select a store first.");
+    if (!customerId) {
+      setError("Select a customer first.");
+      return;
+    }
+    if (!selectedBranch) {
+      setError("Select a customer branch.");
+      return;
+    }
+    if (!selectedBranch.branchId) {
+      setError("This branch is not linked to a store. Update it in customer settings.");
       return;
     }
     if (scanned.length === 0) {
@@ -114,7 +159,8 @@ export default function StockTransferScanPage() {
     setSaving(true);
     try {
       const result = await createStockTransfer({
-        toBranchId,
+        customerId,
+        customerBranchId: selectedBranch.id,
         documentType: docType,
         transferDate,
         itemCodes: scanned.map((item) => item.unit.itemCode),
@@ -143,6 +189,8 @@ export default function StockTransferScanPage() {
     }
   };
 
+  const selectedCustomer = customers.find((c) => c.id === customerId);
+
   if (!hydrated || loading) {
     return <PageSkeleton />;
   }
@@ -151,7 +199,7 @@ export default function StockTransferScanPage() {
     <div>
       <PageHeader
         title="Scan & Send"
-        subtitle="Scan item tags and send stock from admin to a store"
+        subtitle="Scan item tags and send stock from admin to a customer branch"
       />
 
       <TransferTabs />
@@ -172,20 +220,49 @@ export default function StockTransferScanPage() {
         <div className="surface-card p-5 space-y-4">
           <div>
             <label className="text-xs block mb-1 text-zinc-500 font-medium">
-              Store
+              Customer
             </label>
             <select
-              value={toBranchId}
-              onChange={(event) => setToBranchId(event.target.value)}
+              value={customerId}
+              onChange={(event) => handleCustomerChange(event.target.value)}
               className="input-field w-full px-3 py-2 text-sm"
             >
-              <option value="">Select store</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
+              <option value="">Select customer</option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.name}
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="text-xs block mb-1 text-zinc-500 font-medium">
+              Branch
+            </label>
+            <BranchAutocomplete
+              branches={customerBranches}
+              value={selectedBranch}
+              onChange={setSelectedBranch}
+              disabled={!customerId}
+              loading={branchesLoading}
+              placeholder={
+                customerId
+                  ? `Search ${selectedCustomer?.name ?? "customer"} branch…`
+                  : "Select a customer first"
+              }
+              onQueryChange={setBranchQuery}
+            />
+            {selectedBranch && !selectedBranch.branchId && (
+              <p className="text-xs text-amber-600 mt-1">
+                This branch is not linked to a store. Link it under Customers → Branches.
+              </p>
+            )}
+            {selectedBranch?.branchName && (
+              <p className="text-xs text-zinc-400 mt-1">
+                Receiving store: {selectedBranch.branchName}
+              </p>
+            )}
           </div>
 
           <div>
@@ -298,11 +375,11 @@ export default function StockTransferScanPage() {
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={saving || !toBranchId || scanned.length === 0}
+                disabled={saving || !canSubmit}
                 className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
               >
                 <ArrowRightLeft size={16} />
-                {saving ? "Saving..." : "Send to Store"}
+                {saving ? "Saving..." : "Send to Branch"}
               </button>
             </div>
 

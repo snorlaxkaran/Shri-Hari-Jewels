@@ -83,7 +83,8 @@ export const transferInventoryUnits = async (
 };
 
 export const createStockTransfer = async (input: {
-  toBranchId: string;
+  customerId: string;
+  customerBranchId: string;
   documentType: StockTransferDocumentType;
   transferDate: string;
   itemCodes: string[];

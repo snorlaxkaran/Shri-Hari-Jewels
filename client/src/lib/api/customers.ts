@@ -1,7 +1,10 @@
 import type {
   Customer,
+  CustomerBranch,
   CustomerDetail,
+  NewCustomerBranchInput,
   NewCustomerInput,
+  UpdateCustomerBranchInput,
   UpdateCustomerInput,
 } from "@/lib/types";
 import { api } from "./client";
@@ -45,4 +48,45 @@ export const updateCustomer = async (
 ): Promise<Customer> => {
   const { data } = await api.patch<Customer>(`/api/customers/${id}`, input);
   return data;
+};
+
+export const fetchCustomerBranches = async (
+  customerId: string,
+  query?: string,
+): Promise<CustomerBranch[]> => {
+  const { data } = await api.get<CustomerBranch[]>(
+    `/api/customers/${customerId}/branches`,
+    { params: query ? { q: query } : undefined },
+  );
+  return data;
+};
+
+export const createCustomerBranch = async (
+  customerId: string,
+  input: NewCustomerBranchInput,
+): Promise<CustomerBranch> => {
+  const { data } = await api.post<CustomerBranch>(
+    `/api/customers/${customerId}/branches`,
+    input,
+  );
+  return data;
+};
+
+export const updateCustomerBranch = async (
+  customerId: string,
+  branchId: string,
+  input: UpdateCustomerBranchInput,
+): Promise<CustomerBranch> => {
+  const { data } = await api.patch<CustomerBranch>(
+    `/api/customers/${customerId}/branches/${branchId}`,
+    input,
+  );
+  return data;
+};
+
+export const deleteCustomerBranch = async (
+  customerId: string,
+  branchId: string,
+): Promise<void> => {
+  await api.delete(`/api/customers/${customerId}/branches/${branchId}`);
 };

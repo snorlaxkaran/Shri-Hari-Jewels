@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { canManageBranches } from "../lib/auth/permissions.js";
+import { canManageBranches, canManageCustomers, canManageStockTransfers } from "../lib/auth/permissions.js";
 import {
   createBranch,
   BranchError,
@@ -25,8 +25,13 @@ export const branchesRouter = Router();
 branchesRouter.use(authenticate);
 branchesRouter.use(attachOrganization);
 
+const canViewBranches = (role: Parameters<typeof canManageBranches>[0]) =>
+  canManageBranches(role) ||
+  canManageCustomers(role) ||
+  canManageStockTransfers(role);
+
 // List all branches
-branchesRouter.get("/", requireRole(canManageBranches), async (req: AuthenticatedRequest, res) => {
+branchesRouter.get("/", requireRole(canViewBranches), async (req: AuthenticatedRequest, res) => {
   try {
     const branches = await listBranches(req.organizationId!);
     res.json(branches);

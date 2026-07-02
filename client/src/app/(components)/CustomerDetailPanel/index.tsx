@@ -11,12 +11,15 @@ import { useCustomers } from "@/lib/customers/customers-context";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api/client";
 import StatusBadge from "@/app/(components)/StatusBadge";
+import CustomerBranchesTab from "@/app/(components)/CustomerDetailPanel/CustomerBranchesTab";
 import {
   formatCustomerBillingAddress,
   hasCustomerFinancialData,
 } from "@/app/(components)/CustomerFinancialFields";
 
 const EditCustomerModal = dynamic(() => import("@/app/(components)/EditCustomerModal"), { ssr: false });
+
+type PanelTab = "profile" | "branches";
 
 type CustomerDetailPanelProps = {
   customerId: string | null;
@@ -35,6 +38,7 @@ export default function CustomerDetailPanel({
   const [error, setError] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [financialOpen, setFinancialOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<PanelTab>("profile");
 
   useEffect(() => {
     if (!customerId) return;
@@ -82,6 +86,29 @@ export default function CustomerDetailPanel({
                   <StatusBadge status={detail.tier} />
                 </div>
 
+                <div className="flex gap-2 border-b border-zinc-200">
+                  {(["profile", "branches"] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setActiveTab(tab)}
+                      className={`tab-btn capitalize ${
+                        activeTab === tab ? "tab-btn-active" : "tab-btn-inactive"
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+
+                {activeTab === "branches" ? (
+                  <CustomerBranchesTab
+                    customerId={detail.id}
+                    customerName={detail.name}
+                    canManage={canManage}
+                  />
+                ) : (
+                  <>
                 {canManage && (
                   <button
                     type="button"
@@ -176,6 +203,8 @@ export default function CustomerDetailPanel({
                     </div>
                   )}
                 </div>
+                  </>
+                )}
               </>
             )}
           </div>

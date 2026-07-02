@@ -24,6 +24,8 @@ import { getBranchOrganizationId } from "../organizations/access.js";
 import { moneyToNumber, sumMoney } from "../money.js";
 import { repairCompletedRunInventorySkus } from "../production-runs/run-completion.js";
 import { toStockTransferDto } from "./transfer-actions.js";
+import { resolveCustomerBranchForTransfer } from "../customers/branches.js";
+import { CustomerError } from "../customers/service.js";
 import { getCurrentMarketRates } from "../market-rates/service.js";
 import { computeLiveListPriceForProduct } from "./unit-pricing.js";
 
@@ -261,6 +263,8 @@ export const listStockTransfers = async (
     include: {
       fromBranch: true,
       toBranch: true,
+      customer: true,
+      customerBranch: true,
       items: { orderBy: { itemCode: "asc" } },
     },
     orderBy: { createdAt: "desc" },
@@ -340,10 +344,24 @@ export const createStockTransfer = async (
   }
 
   const itemCodes = input.itemCodes;
-  const toBranchId = input.toBranchId;
   const cleanCodes = [...new Set(itemCodes.map((code) => code.trim()).filter(Boolean))];
   if (cleanCodes.length === 0) {
     throw new InventoryError("Scan at least one item to transfer.");
+  }
+
+  let toBranchId: string;
+  try {
+    const resolved = await resolveCustomerBranchForTransfer(
+      input.customerId,
+      input.customerBranchId,
+      organizationId,
+    );
+    toBranchId = resolved.toBranchId;
+  } catch (error) {
+    if (error instanceof CustomerError) {
+      throw new InventoryError(error.message, error.statusCode);
+    }
+    throw error;
   }
 
   const branch = await prisma.branch.findFirst({
@@ -404,6 +422,8 @@ export const createStockTransfer = async (
         transferNo,
         fromBranchId: headOfficeBranchId,
         toBranchId,
+        customerId: input.customerId,
+        customerBranchId: input.customerBranchId,
         documentType: input.documentType,
         transferDate,
         itemCount: units.length,
@@ -444,6 +464,8 @@ export const createStockTransfer = async (
       include: {
         fromBranch: true,
         toBranch: true,
+        customer: true,
+        customerBranch: true,
         items: { orderBy: { itemCode: "asc" } },
       },
     });
