@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ArrowRightLeft, Calendar, ScanLine, Trash2 } from "lucide-react";
 import Link from "next/link";
 import PageHeader from "@/app/(components)/PageHeader";
@@ -27,7 +28,10 @@ type ScannedItem = {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export default function StockTransferScanPage() {
+function StockTransferScanPageContent() {
+  const searchParams = useSearchParams();
+  const presetCustomerId = searchParams.get("customerId") ?? "";
+  const presetCustomerBranchId = searchParams.get("customerBranchId") ?? "";
   const { items, hydrated, loading, refresh } = useInventory();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerId, setCustomerId] = useState("");
@@ -51,19 +55,37 @@ export default function StockTransferScanPage() {
       .catch((err) => setError(getApiErrorMessage(err, "Could not load customers.")));
   }, []);
 
+  useEffect(() => {
+    if (presetCustomerId) {
+      setCustomerId(presetCustomerId);
+    }
+  }, [presetCustomerId]);
+
   const loadBranches = useCallback(
     async (id: string, query?: string) => {
       setBranchesLoading(true);
       try {
         const branches = await fetchCustomerBranches(id, query);
         setCustomerBranches(branches);
+        if (presetCustomerBranchId) {
+          const presetBranch = branches.find(
+            (branch) => branch.id === presetCustomerBranchId,
+          );
+          if (presetBranch) {
+            setSelectedBranch(presetBranch);
+            setBranchQuery(presetBranch.name);
+          }
+        } else if (!query?.trim() && branches.length === 1 && branches[0].branchId) {
+          setSelectedBranch(branches[0]);
+          setBranchQuery(branches[0].name);
+        }
       } catch (err) {
         setError(getApiErrorMessage(err, "Could not load customer branches."));
       } finally {
         setBranchesLoading(false);
       }
     },
-    [],
+    [presetCustomerBranchId],
   );
 
   useEffect(() => {
@@ -222,18 +244,24 @@ export default function StockTransferScanPage() {
             <label className="text-xs block mb-1 text-zinc-500 font-medium">
               Customer
             </label>
-            <select
-              value={customerId}
-              onChange={(event) => handleCustomerChange(event.target.value)}
-              className="input-field w-full px-3 py-2 text-sm"
-            >
-              <option value="">Select customer</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name}
-                </option>
-              ))}
-            </select>
+            {presetCustomerId && selectedCustomer ? (
+              <div className="input-field w-full px-3 py-2 text-sm bg-zinc-50 text-zinc-900">
+                {selectedCustomer.name}
+              </div>
+            ) : (
+              <select
+                value={customerId}
+                onChange={(event) => handleCustomerChange(event.target.value)}
+                className="input-field w-full px-3 py-2 text-sm"
+              >
+                <option value="">Select customer</option>
+                {customers.map((customer) => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div>
@@ -444,5 +472,13 @@ export default function StockTransferScanPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function StockTransferScanPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <StockTransferScanPageContent />
+    </Suspense>
   );
 }

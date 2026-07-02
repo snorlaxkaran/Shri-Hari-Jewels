@@ -403,7 +403,9 @@ export const createStockTransfer = async (
   }
 
   if (toBranchId === headOfficeBranchId) {
-    throw new InventoryError("Cannot transfer to the same branch.");
+    throw new InventoryError(
+      "This customer branch is linked to Head Office. Edit the branch under Customers and link it to a store location (e.g. Jaipur Store) — stock is sent from Head Office to stores.",
+    );
   }
 
   const transferNo = await nextTransferNo();

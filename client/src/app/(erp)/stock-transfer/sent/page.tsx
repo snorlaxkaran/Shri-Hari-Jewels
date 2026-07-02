@@ -37,15 +37,26 @@ export default function SentStockPage() {
   }, []);
 
   const stores = useMemo(() => {
-    const names = [...new Set(transfers.map((t) => t.toBranchName))].sort();
+    const names = [
+      ...new Set(
+        transfers.map((t) =>
+          t.customerBranchName
+            ? `${t.customerBranchName}${t.customerName ? ` (${t.customerName})` : ""}`
+            : t.toBranchName,
+        ),
+      ),
+    ].sort();
     return ["All", ...names];
   }, [transfers]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return transfers.filter((transfer) => {
+      const storeLabel = transfer.customerBranchName
+        ? `${transfer.customerBranchName}${transfer.customerName ? ` (${transfer.customerName})` : ""}`
+        : transfer.toBranchName;
       const matchesStore =
-        storeFilter === "All" || transfer.toBranchName === storeFilter;
+        storeFilter === "All" || storeLabel === storeFilter;
       const matchesSearch =
         !q ||
         transfer.transferNo.toLowerCase().includes(q) ||

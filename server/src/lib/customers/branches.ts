@@ -4,6 +4,8 @@ import type {
   NewCustomerBranchInput,
   UpdateCustomerBranchInput,
 } from "../../types.js";
+import { assertNotHeadOfficeBranch } from "../branches/access.js";
+import { OrganizationAccessError } from "../organizations/access.js";
 import { CustomerError } from "./service.js";
 
 const trimOrNull = (value: string | null | undefined): string | null => {
@@ -119,6 +121,14 @@ export const createCustomerBranch = async (
     if (!linked) {
       throw new CustomerError("Linked store branch is not active.", 404);
     }
+    try {
+      await assertNotHeadOfficeBranch(input.branchId, organizationId);
+    } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        throw new CustomerError(error.message, error.statusCode);
+      }
+      throw error;
+    }
   }
 
   const branch = await prisma.customerBranch.create({
@@ -162,6 +172,14 @@ export const updateCustomerBranch = async (
     });
     if (!linked) {
       throw new CustomerError("Linked store branch is not active.", 404);
+    }
+    try {
+      await assertNotHeadOfficeBranch(input.branchId, organizationId);
+    } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        throw new CustomerError(error.message, error.statusCode);
+      }
+      throw error;
     }
   }
 
