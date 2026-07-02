@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRightLeft, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import {
@@ -9,10 +9,8 @@ import {
   fetchCustomerBranches,
   updateCustomerBranch,
 } from "@/lib/api/customers";
-import { fetchBranches } from "@/lib/api/branches";
-import { getStoreBranchesForTransfer, isHeadOfficeBranch } from "@/lib/branches/utils";
 import { getApiErrorMessage } from "@/lib/api/client";
-import type { Branch, CustomerBranch, NewCustomerBranchInput } from "@/lib/types";
+import type { CustomerBranch, NewCustomerBranchInput } from "@/lib/types";
 
 type CustomerBranchesTabProps = {
   customerId: string;
@@ -22,7 +20,6 @@ type CustomerBranchesTabProps = {
 
 const emptyForm = (): NewCustomerBranchInput => ({
   name: "",
-  branchId: "",
   address: "",
   city: "",
   state: "",
@@ -35,7 +32,6 @@ export default function CustomerBranchesTab({
   canManage,
 }: CustomerBranchesTabProps) {
   const [branches, setBranches] = useState<CustomerBranch[]>([]);
-  const [storeBranches, setStoreBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -47,12 +43,8 @@ export default function CustomerBranchesTab({
     setLoading(true);
     setError("");
     try {
-      const [customerBranches, stores] = await Promise.all([
-        fetchCustomerBranches(customerId),
-        fetchBranches(),
-      ]);
+      const customerBranches = await fetchCustomerBranches(customerId);
       setBranches(customerBranches);
-      setStoreBranches(getStoreBranchesForTransfer(stores));
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to load branches."));
     } finally {
@@ -74,7 +66,6 @@ export default function CustomerBranchesTab({
     setEditingId(branch.id);
     setForm({
       name: branch.name,
-      branchId: branch.branchId ?? "",
       address: branch.address ?? "",
       city: branch.city ?? "",
       state: branch.state ?? "",
@@ -83,26 +74,14 @@ export default function CustomerBranchesTab({
     setFormOpen(true);
   };
 
-  const linkedStoreInvalid = useMemo(
-    () =>
-      form.branchId
-        ? storeBranches.every((store) => store.id !== form.branchId)
-        : false,
-    [form.branchId, storeBranches],
-  );
-
   const handleSubmit = async () => {
     setSaving(true);
     setError("");
     try {
-      const payload = {
-        ...form,
-        branchId: form.branchId || undefined,
-      };
       if (editingId) {
-        await updateCustomerBranch(customerId, editingId, payload);
+        await updateCustomerBranch(customerId, editingId, form);
       } else {
-        await createCustomerBranch(customerId, payload);
+        await createCustomerBranch(customerId, form);
       }
       await loadBranches();
       resetForm();
@@ -130,7 +109,8 @@ export default function CustomerBranchesTab({
         <div>
           <p className="text-sm font-semibold text-zinc-900">Branches</p>
           <p className="text-xs text-zinc-500">
-            Outlets for {customerName} used in stock transfers
+            Outlets for {customerName} — stock is sent from Head Office to these
+            branches
           </p>
         </div>
         {canManage && (
@@ -148,9 +128,7 @@ export default function CustomerBranchesTab({
         )}
       </div>
 
-      {error && (
-        <p className="text-xs text-red-600">{error}</p>
-      )}
+      {error && <p className="text-xs text-red-600">{error}</p>}
 
       {formOpen && canManage && (
         <div className="rounded-lg border border-zinc-200 p-4 space-y-3 bg-zinc-50">
@@ -166,33 +144,6 @@ export default function CustomerBranchesTab({
             placeholder={`e.g. ${customerName} Malviya Nagar Jaipur`}
             className="input-field w-full px-3 py-2 text-sm"
           />
-          <div>
-            <label className="text-xs block mb-1 text-zinc-500 font-medium">
-              Receiving store
-            </label>
-            <select
-              value={form.branchId ?? ""}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, branchId: event.target.value }))
-              }
-              className="input-field w-full px-3 py-2 text-sm"
-            >
-              <option value="">Select store that will receive stock</option>
-              {storeBranches.map((store) => (
-                <option key={store.id} value={store.id}>
-                  {store.name}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-zinc-400 mt-1">
-              Stock is sent from Head Office to this store. Head Office cannot be selected.
-            </p>
-            {linkedStoreInvalid && (
-              <p className="text-xs text-amber-600 mt-1">
-                Current link is to Head Office — choose a store location instead.
-              </p>
-            )}
-          </div>
           <div className="grid grid-cols-2 gap-2">
             <input
               type="text"
@@ -226,7 +177,7 @@ export default function CustomerBranchesTab({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={saving || !form.name.trim() || !form.branchId?.trim()}
+              disabled={saving || !form.name.trim()}
               className="btn-primary px-3 py-1.5 text-xs disabled:opacity-50"
             >
               {saving ? "Saving…" : editingId ? "Update" : "Add Branch"}
@@ -266,59 +217,34 @@ export default function CustomerBranchesTab({
                         .join(", ")}
                     </p>
                   )}
-                  {branch.branchName && (
-                    <p className="text-xs text-zinc-400 mt-1">
-                      Store: {branch.branchName}
-                    </p>
-                  )}
-                  {branch.branchId && branch.branchName && isHeadOfficeBranch({
-                    id: branch.branchId,
-                    name: branch.branchName,
-                  }) && (
-                    <p className="text-xs text-amber-600 mt-1">
-                      Linked to Head Office — edit and choose a store location to enable transfers.
-                    </p>
-                  )}
-                  {!branch.branchId && (
-                    <p className="text-xs text-amber-600 mt-1">
-                      Not linked to a store — cannot use in stock transfer
-                    </p>
-                  )}
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  {branch.branchId &&
-                    branch.branchName &&
-                    !isHeadOfficeBranch({
-                      id: branch.branchId,
-                      name: branch.branchName,
-                    }) && (
-                      <Link
-                        href={`/stock-transfer?customerId=${customerId}&customerBranchId=${branch.id}`}
-                        className="btn-secondary inline-flex items-center gap-1 px-2 py-1 text-xs"
-                      >
-                        <ArrowRightLeft size={12} />
-                        Send Stock
-                      </Link>
-                    )}
+                  <Link
+                    href={`/stock-transfer?customerId=${customerId}&customerBranchId=${branch.id}`}
+                    className="btn-secondary inline-flex items-center gap-1 px-2 py-1 text-xs"
+                  >
+                    <ArrowRightLeft size={12} />
+                    Send Stock
+                  </Link>
                   {canManage && (
                     <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(branch)}
-                      className="p-1 text-zinc-400 hover:text-zinc-700"
-                      aria-label="Edit branch"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(branch.id)}
-                      className="p-1 text-zinc-400 hover:text-red-600"
-                      aria-label="Remove branch"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => startEdit(branch)}
+                        className="p-1 text-zinc-400 hover:text-zinc-700"
+                        aria-label="Edit branch"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(branch.id)}
+                        className="p-1 text-zinc-400 hover:text-red-600"
+                        aria-label="Remove branch"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

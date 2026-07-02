@@ -8,20 +8,6 @@ import {
 import type { UserRole } from "../../types.js";
 
 /** Each company's admin / head-office branch (not a shared global id). */
-export const assertNotHeadOfficeBranch = async (
-  branchId: string,
-  organizationId: string,
-): Promise<void> => {
-  const headOfficeBranchId =
-    await getOrganizationHeadOfficeBranchId(organizationId);
-  if (branchId === headOfficeBranchId) {
-    throw new OrganizationAccessError(
-      "Customer branches must link to a store location (e.g. Jaipur Store), not Head Office. Stock is sent from Head Office to stores.",
-      400,
-    );
-  }
-};
-
 export const getOrganizationHeadOfficeBranchId = async (
   organizationId: string,
 ): Promise<string> => {

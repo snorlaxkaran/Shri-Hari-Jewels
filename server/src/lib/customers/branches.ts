@@ -4,8 +4,6 @@ import type {
   NewCustomerBranchInput,
   UpdateCustomerBranchInput,
 } from "../../types.js";
-import { assertNotHeadOfficeBranch } from "../branches/access.js";
-import { OrganizationAccessError } from "../organizations/access.js";
 import { CustomerError } from "./service.js";
 
 const trimOrNull = (value: string | null | undefined): string | null => {
@@ -114,27 +112,10 @@ export const createCustomerBranch = async (
   const name = input.name.trim();
   if (!name) throw new CustomerError("Branch name is required.");
 
-  if (input.branchId) {
-    const linked = await prisma.branch.findFirst({
-      where: { id: input.branchId, organizationId, active: true },
-    });
-    if (!linked) {
-      throw new CustomerError("Linked store branch is not active.", 404);
-    }
-    try {
-      await assertNotHeadOfficeBranch(input.branchId, organizationId);
-    } catch (error) {
-      if (error instanceof OrganizationAccessError) {
-        throw new CustomerError(error.message, error.statusCode);
-      }
-      throw error;
-    }
-  }
-
   const branch = await prisma.customerBranch.create({
     data: {
       customerId,
-      branchId: input.branchId ?? null,
+      branchId: null,
       name,
       address: trimOrNull(input.address),
       city: trimOrNull(input.city),
@@ -166,28 +147,10 @@ export const updateCustomerBranch = async (
     throw new CustomerError("Branch name is required.");
   }
 
-  if (input.branchId) {
-    const linked = await prisma.branch.findFirst({
-      where: { id: input.branchId, organizationId, active: true },
-    });
-    if (!linked) {
-      throw new CustomerError("Linked store branch is not active.", 404);
-    }
-    try {
-      await assertNotHeadOfficeBranch(input.branchId, organizationId);
-    } catch (error) {
-      if (error instanceof OrganizationAccessError) {
-        throw new CustomerError(error.message, error.statusCode);
-      }
-      throw error;
-    }
-  }
-
   const branch = await prisma.customerBranch.update({
     where: { id: branchId },
     data: {
       ...(input.name !== undefined && { name: input.name.trim() }),
-      ...(input.branchId !== undefined && { branchId: input.branchId }),
       ...(input.address !== undefined && { address: trimOrNull(input.address) }),
       ...(input.city !== undefined && { city: trimOrNull(input.city) }),
       ...(input.state !== undefined && { state: trimOrNull(input.state) }),
@@ -224,7 +187,7 @@ export const resolveCustomerBranchForTransfer = async (
   customerId: string,
   customerBranchId: string,
   organizationId: string,
-): Promise<{ toBranchId: string; customerBranch: CustomerBranch }> => {
+): Promise<{ customerBranch: CustomerBranch }> => {
   const customerBranch = await prisma.customerBranch.findFirst({
     where: {
       id: customerBranchId,
@@ -239,14 +202,7 @@ export const resolveCustomerBranchForTransfer = async (
     throw new CustomerError("Customer branch not found.", 404);
   }
 
-  if (!customerBranch.branchId) {
-    throw new CustomerError(
-      "This customer branch is not linked to a store. Link it in customer settings first.",
-    );
-  }
-
   return {
-    toBranchId: customerBranch.branchId,
     customerBranch: toCustomerBranch(customerBranch),
   };
 };

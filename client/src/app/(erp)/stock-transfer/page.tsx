@@ -75,7 +75,7 @@ function StockTransferScanPageContent() {
             setSelectedBranch(presetBranch);
             setBranchQuery(presetBranch.name);
           }
-        } else if (!query?.trim() && branches.length === 1 && branches[0].branchId) {
+        } else if (!query?.trim() && branches.length === 1) {
           setSelectedBranch(branches[0]);
           setBranchQuery(branches[0].name);
         }
@@ -123,7 +123,6 @@ function StockTransferScanPageContent() {
   const canSubmit =
     Boolean(customerId) &&
     Boolean(selectedBranch?.id) &&
-    Boolean(selectedBranch?.branchId) &&
     scanned.length > 0;
 
   const addBarcode = () => {
@@ -169,10 +168,6 @@ function StockTransferScanPageContent() {
       setError("Select a customer branch.");
       return;
     }
-    if (!selectedBranch.branchId) {
-      setError("This branch is not linked to a store. Update it in customer settings.");
-      return;
-    }
     if (scanned.length === 0) {
       setError("Scan at least one item.");
       return;
@@ -191,8 +186,9 @@ function StockTransferScanPageContent() {
       await refresh({ silent: true });
       setSuccess(
         <>
-          {result.transfer.transferNo} saved for {scanned.length} item
-          {scanned.length === 1 ? "" : "s"} — awaiting store acceptance.{" "}
+          {result.transfer.transferNo} sent {scanned.length} item
+          {scanned.length === 1 ? "" : "s"} to{" "}
+          {result.transfer.customerBranchName ?? selectedBranch.name}.{" "}
           <Link
             href="/stock-transfer/sent"
             className="font-medium underline underline-offset-2"
@@ -221,7 +217,7 @@ function StockTransferScanPageContent() {
     <div>
       <PageHeader
         title="Scan & Send"
-        subtitle="Scan item tags and send stock from admin to a customer branch"
+        subtitle="Scan item tags and send stock from Head Office to a customer branch"
       />
 
       <TransferTabs />
@@ -281,16 +277,6 @@ function StockTransferScanPageContent() {
               }
               onQueryChange={setBranchQuery}
             />
-            {selectedBranch && !selectedBranch.branchId && (
-              <p className="text-xs text-amber-600 mt-1">
-                This branch is not linked to a store. Link it under Customers → Branches.
-              </p>
-            )}
-            {selectedBranch?.branchName && (
-              <p className="text-xs text-zinc-400 mt-1">
-                Receiving store: {selectedBranch.branchName}
-              </p>
-            )}
           </div>
 
           <div>
@@ -407,7 +393,7 @@ function StockTransferScanPageContent() {
                 className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
               >
                 <ArrowRightLeft size={16} />
-                {saving ? "Saving..." : "Send to Branch"}
+                {saving ? "Saving..." : "Send to Customer Branch"}
               </button>
             </div>
 

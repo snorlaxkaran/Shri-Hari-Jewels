@@ -31,7 +31,10 @@ export const toStockTransferDto = (
   fromBranchId: transfer.fromBranchId,
   fromBranchName: transfer.fromBranch.name,
   toBranchId: transfer.toBranchId,
-  toBranchName: transfer.toBranch.name,
+  toBranchName:
+    transfer.customerBranch?.name ??
+    transfer.customer?.name ??
+    transfer.toBranch.name,
   customerId: transfer.customerId ?? undefined,
   customerName: transfer.customer?.name,
   customerBranchId: transfer.customerBranchId ?? undefined,
@@ -127,6 +130,7 @@ export const listIncomingStockTransfers = async (
   const transfers = await prisma.stockTransfer.findMany({
     where: {
       ...organizationTransferToFilter(organizationId, branchId),
+      customerBranchId: null,
       ...(status ? { status } : {}),
     },
     include: transferInclude,
@@ -425,5 +429,9 @@ export const countPendingIncomingTransfers = async (
   branchId: string,
 ): Promise<number> =>
   prisma.stockTransfer.count({
-    where: { toBranchId: branchId, status: StockTransferStatus.Pending },
+    where: {
+      toBranchId: branchId,
+      customerBranchId: null,
+      status: StockTransferStatus.Pending,
+    },
   });

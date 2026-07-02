@@ -1,4 +1,4 @@
-import { InventoryUnitStatus } from "@prisma/client";
+import { InventoryUnitStatus, StockTransferStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import type {
   Branch,
@@ -349,26 +349,17 @@ export const createStockTransfer = async (
     throw new InventoryError("Scan at least one item to transfer.");
   }
 
-  let toBranchId: string;
   try {
-    const resolved = await resolveCustomerBranchForTransfer(
+    await resolveCustomerBranchForTransfer(
       input.customerId,
       input.customerBranchId,
       organizationId,
     );
-    toBranchId = resolved.toBranchId;
   } catch (error) {
     if (error instanceof CustomerError) {
       throw new InventoryError(error.message, error.statusCode);
     }
     throw error;
-  }
-
-  const branch = await prisma.branch.findFirst({
-    where: { id: toBranchId, organizationId, active: true },
-  });
-  if (!branch) {
-    throw new InventoryError("Destination store is not active.", 404);
   }
 
   const headOfficeBranchId =
@@ -402,12 +393,6 @@ export const createStockTransfer = async (
     );
   }
 
-  if (toBranchId === headOfficeBranchId) {
-    throw new InventoryError(
-      "This customer branch is linked to Head Office. Edit the branch under Customers and link it to a store location (e.g. Jaipur Store) — stock is sent from Head Office to stores.",
-    );
-  }
-
   const transferNo = await nextTransferNo();
   const marketRates = await getCurrentMarketRates();
   const totalValue = moneyToNumber(
@@ -423,13 +408,17 @@ export const createStockTransfer = async (
       data: {
         transferNo,
         fromBranchId: headOfficeBranchId,
-        toBranchId,
+        toBranchId: headOfficeBranchId,
         customerId: input.customerId,
         customerBranchId: input.customerBranchId,
         documentType: input.documentType,
         transferDate,
         itemCount: units.length,
         totalValue,
+        status: StockTransferStatus.Accepted,
+        acceptedById: createdBy.id,
+        acceptedByName: createdBy.name,
+        acceptedAt: new Date(),
         createdById: createdBy.id,
         createdByName: createdBy.name,
         notes: input.notes?.trim() || null,
@@ -449,7 +438,7 @@ export const createStockTransfer = async (
 
     await tx.inventoryUnit.updateMany({
       where: { itemCode: { in: cleanCodes } },
-      data: { status: InventoryUnitStatus.InTransit },
+      data: { status: InventoryUnitStatus.Sold },
     });
 
     const productIds = [...new Set(units.map((unit) => unit.productId))];

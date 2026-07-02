@@ -141,9 +141,9 @@ export default function BranchAutocomplete({
                   }`}
                 >
                   <span className="text-zinc-900">{branch.name}</span>
-                  {(branch.city || branch.branchName) && (
+                  {(branch.city || branch.state) && (
                     <span className="block text-xs text-zinc-400 mt-0.5">
-                      {[branch.city, branch.branchName].filter(Boolean).join(" · ")}
+                      {[branch.city, branch.state].filter(Boolean).join(", ")}
                     </span>
                   )}
                 </button>
