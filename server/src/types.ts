@@ -947,44 +947,6 @@ export type UpdateDesignElementInput = {
   sortOrder?: number;
 };
 
-export type BulkStoneLot = {
-  id: string;
-  sizeLabel: string;
-  stoneType: MotifStoneType;
-  quantity: number;
-  pricePerStone: number;
-  vendor?: string;
-  lotReference?: string;
-  purchaseDate?: string;
-  location: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type NewBulkStoneLotInput = {
-  sizeLabel: string;
-  stoneType: MotifStoneType;
-  quantity: number;
-  pricePerStone: number;
-  vendor?: string;
-  lotReference?: string;
-  purchaseDate?: string;
-  location?: string;
-};
-
-export type UpdateBulkStoneLotInput = {
-  sizeLabel?: string;
-  stoneType?: MotifStoneType;
-  quantity?: number;
-  pricePerStone?: number;
-  vendor?: string | null;
-  lotReference?: string | null;
-  purchaseDate?: string | null;
-  location?: string;
-};
-
-export type BulkStoneStockWarning = StoneStockWarning;
-
 export type StoneStockWarning = {
   stoneMasterId: string;
   stoneName: string;
@@ -1502,7 +1464,7 @@ export type ProductionRun = {
   castingsReceived: number;
   castingsTotal: number;
   finishedGoodsProductId?: string;
-  stoneStockWarnings?: BulkStoneStockWarning[];
+  stoneStockWarnings?: StoneStockWarning[];
   metalStockWarning?: MetalStockWarning;
   createdAt: string;
   updatedAt: string;

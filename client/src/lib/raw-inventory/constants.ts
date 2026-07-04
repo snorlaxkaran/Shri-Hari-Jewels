@@ -1,4 +1,9 @@
-import type { Purity, RawMetalType, RawStoneType, StoneLotStatus } from "@/lib/types";
+import type {
+  CertifiedStoneLotStatus,
+  Purity,
+  RawMetalType,
+  RawStoneType,
+} from "@/lib/types";
 
 export const RAW_METAL_TYPES: RawMetalType[] = ["Gold", "Silver", "Platinum"];
 export const RAW_STONE_TYPES: RawStoneType[] = [
@@ -7,7 +12,11 @@ export const RAW_STONE_TYPES: RawStoneType[] = [
   "SemiPrecious",
 ];
 export const RAW_PURITIES: Purity[] = ["24K", "22K", "18K", "14K", "925"];
-export const STONE_STATUSES: StoneLotStatus[] = ["In Stock", "Reserved", "Issued"];
+export const STONE_STATUSES: CertifiedStoneLotStatus[] = [
+  "In Stock",
+  "Reserved",
+  "Issued",
+];
 export const STOCK_LOCATIONS = [
   "Main Vault",
   "Workshop",

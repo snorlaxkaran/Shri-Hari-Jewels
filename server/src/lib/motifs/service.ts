@@ -688,9 +688,6 @@ export const recalculateMotifsForStoneMaster = async (
   return updated;
 };
 
-/** @deprecated Use recalculateMotifsForStoneMaster */
-export const recalculateMotifsForBulkStoneLot = recalculateMotifsForStoneMaster;
-
 export const recalculateAllMotifPrices = async (
   organizationId?: string,
   reason?: string,

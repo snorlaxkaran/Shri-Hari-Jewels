@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import ConfirmDialog from "@/app/(components)/ConfirmDialog";
 import type {
+  CertifiedStoneLot,
   MetalLot,
   ProductionRunItem,
   ProductionRunStage,
-  StoneLot,
   UpdateProductionRunItemInput,
 } from "@/lib/types";
 import {
@@ -220,7 +220,7 @@ export function CastingFields({
   item: ProductionRunItem;
   canEdit: boolean;
   metalLots: MetalLot[];
-  stoneLots: StoneLot[];
+  stoneLots: CertifiedStoneLot[];
   onPatch: PatchHandler;
 }) {
   const isCastingElement = item.elementType === "Casting";

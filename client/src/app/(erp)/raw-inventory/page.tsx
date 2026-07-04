@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatCard from "@/app/(components)/StatCard";
@@ -10,7 +11,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { canWriteRawInventory } from "@/lib/auth/permissions";
 import { useRawInventory } from "@/lib/raw-inventory/raw-inventory-context";
 import { STONE_TYPE_LABELS } from "@/lib/raw-inventory/constants";
-import type { MetalLot, StoneLot } from "@/lib/types";
+import type { CertifiedStoneLot, MetalLot } from "@/lib/types";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { ArrowLeftRight, Gem, Pencil, Plus, Scale, Search } from "lucide-react";
 
@@ -18,36 +19,58 @@ const AddMetalLotModal = dynamic(
   () => import("@/app/(components)/AddMetalLotModal"),
   { ssr: false },
 );
-const AddStoneLotModal = dynamic(
-  () => import("@/app/(components)/AddStoneLotModal"),
+const AddCertifiedStoneModal = dynamic(
+  () => import("@/app/(components)/AddCertifiedStoneModal"),
   { ssr: false },
 );
 const EditMetalLotModal = dynamic(
   () => import("@/app/(components)/EditMetalLotModal"),
   { ssr: false },
 );
-const EditStoneLotModal = dynamic(
-  () => import("@/app/(components)/EditStoneLotModal"),
+const EditCertifiedStoneModal = dynamic(
+  () => import("@/app/(components)/EditCertifiedStoneModal"),
   { ssr: false },
 );
 const RawStockActionModal = dynamic(
   () => import("@/app/(components)/RawStockActionModal"),
   { ssr: false },
 );
+const StoneLotsPanel = dynamic(
+  () => import("@/app/(components)/StoneLotsPanel"),
+  { ssr: false },
+);
 
-type Tab = "metal" | "stones" | "audit";
+type Tab = "metal" | "stones" | "certified" | "audit";
+
+const isTab = (value: string | null): value is Tab =>
+  value === "metal" ||
+  value === "stones" ||
+  value === "certified" ||
+  value === "audit";
 
 type ActionState =
   | { kind: "metal"; mode: "transfer" | "adjust"; lot: MetalLot }
-  | { kind: "stone"; mode: "transfer" | "adjust"; lot: StoneLot }
+  | { kind: "stone"; mode: "transfer" | "adjust"; lot: CertifiedStoneLot }
   | null;
 
 export default function RawInventoryPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <RawInventoryPageContent />
+    </Suspense>
+  );
+}
+
+function RawInventoryPageContent() {
   const { user } = useAuth();
   const canWrite = user ? canWriteRawInventory(user.role) : false;
+  const searchParams = useSearchParams();
+  const initialTab: Tab = isTab(searchParams.get("tab"))
+    ? (searchParams.get("tab") as Tab)
+    : "metal";
   const {
     metalLots,
-    stoneLots,
+    certifiedStoneLots,
     auditLogs,
     summary,
     hydrated,
@@ -57,18 +80,18 @@ export default function RawInventoryPage() {
     updateMetalLot,
     transferMetalLot,
     adjustMetalLot,
-    addStoneLot,
-    updateStoneLot,
-    transferStoneLot,
-    adjustStoneLot,
+    addCertifiedStoneLot,
+    updateCertifiedStoneLot,
+    transferCertifiedStoneLot,
+    adjustCertifiedStoneLot,
   } = useRawInventory();
 
-  const [tab, setTab] = useState<Tab>("metal");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [search, setSearch] = useState("");
   const [metalModalOpen, setMetalModalOpen] = useState(false);
   const [stoneModalOpen, setStoneModalOpen] = useState(false);
   const [editMetal, setEditMetal] = useState<MetalLot | null>(null);
-  const [editStone, setEditStone] = useState<StoneLot | null>(null);
+  const [editStone, setEditStone] = useState<CertifiedStoneLot | null>(null);
   const [action, setAction] = useState<ActionState>(null);
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -85,14 +108,14 @@ export default function RawInventoryPage() {
 
   const filteredStones = useMemo(() => {
     const q = search.toLowerCase();
-    return stoneLots.filter(
+    return certifiedStoneLots.filter(
       (lot) =>
         lot.certificateNumber.toLowerCase().includes(q) ||
         lot.stoneType.toLowerCase().includes(q) ||
         lot.vendor.toLowerCase().includes(q) ||
         (lot.color ?? "").toLowerCase().includes(q),
     );
-  }, [stoneLots, search]);
+  }, [certifiedStoneLots, search]);
 
   const showSuccess = (msg: string) => {
     setSuccessMessage(msg);
@@ -106,10 +129,10 @@ export default function RawInventoryPage() {
   return (
     <div>
       <PageHeader
-        title="Raw Stock"
+        title="Raw Materials"
         subtitle="Metal and stone inventory ledger"
         action={
-          canWrite && tab !== "audit" ? (
+          canWrite && (tab === "metal" || tab === "certified") ? (
             <button
               onClick={() =>
                 tab === "metal" ? setMetalModalOpen(true) : setStoneModalOpen(true)
@@ -117,7 +140,7 @@ export default function RawInventoryPage() {
               className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
             >
               <Plus size={16} />
-              {tab === "metal" ? "Add Metal Lot" : "Add Stone"}
+              {tab === "metal" ? "Add Metal Lot" : "Add Certified Stone"}
             </button>
           ) : undefined
         }
@@ -167,8 +190,9 @@ export default function RawInventoryPage() {
       <div className="flex flex-wrap gap-2 mb-4">
         {(
           [
-            ["metal", "Metal Inventory"],
-            ["stones", "Stone Inventory"],
+            ["metal", "Metal"],
+            ["stones", "Stones"],
+            ["certified", "Certified Stones"],
             ["audit", "Audit Trail"],
           ] as const
         ).map(([key, label]) => (
@@ -183,7 +207,7 @@ export default function RawInventoryPage() {
         ))}
       </div>
 
-      {tab !== "audit" && (
+      {(tab === "metal" || tab === "certified") && (
         <div className="relative mb-4 max-w-md">
           <Search
             size={16}
@@ -202,6 +226,8 @@ export default function RawInventoryPage() {
           />
         </div>
       )}
+
+      {tab === "stones" && <StoneLotsPanel canManage={canWrite} />}
 
       {tab === "metal" && (
         <div className="surface-card overflow-x-auto">
@@ -281,7 +307,7 @@ export default function RawInventoryPage() {
         </div>
       )}
 
-      {tab === "stones" && (
+      {tab === "certified" && (
         <div className="surface-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -300,7 +326,7 @@ export default function RawInventoryPage() {
               {filteredStones.length === 0 ? (
                 <tr>
                   <td colSpan={canWrite ? 8 : 7} className="px-4 py-8 text-center text-zinc-400">
-                    No stone lots found.
+                    No certified stones found.
                   </td>
                 </tr>
               ) : (
@@ -433,12 +459,12 @@ export default function RawInventoryPage() {
       )}
 
       {stoneModalOpen && (
-        <AddStoneLotModal
+        <AddCertifiedStoneModal
           open={stoneModalOpen}
           onClose={() => setStoneModalOpen(false)}
           onSubmit={async (input) => {
-            const lot = await addStoneLot(input);
-            showSuccess(`Added stone ${lot.certificateNumber}`);
+            const lot = await addCertifiedStoneLot(input);
+            showSuccess(`Added certified stone ${lot.certificateNumber}`);
           }}
         />
       )}
@@ -456,13 +482,13 @@ export default function RawInventoryPage() {
       )}
 
       {editStone && (
-        <EditStoneLotModal
+        <EditCertifiedStoneModal
           open={Boolean(editStone)}
           lot={editStone}
           onClose={() => setEditStone(null)}
           onSubmit={async (id, input) => {
-            await updateStoneLot(id, input);
-            showSuccess("Stone lot updated");
+            await updateCertifiedStoneLot(id, input);
+            showSuccess("Certified stone updated");
           }}
         />
       )}
@@ -502,13 +528,13 @@ export default function RawInventoryPage() {
           unitLabel="Carat"
           onClose={() => setAction(null)}
           onTransfer={async (input) => {
-            await transferStoneLot(action.lot.id, input);
+            await transferCertifiedStoneLot(action.lot.id, input);
             showSuccess(
               `Transferred ${action.lot.certificateNumber} to ${input.toLocation}`,
             );
           }}
           onAdjust={async ({ value, reason }) => {
-            await adjustStoneLot(action.lot.id, { carat: value, reason });
+            await adjustCertifiedStoneLot(action.lot.id, { carat: value, reason });
             showSuccess(`Adjusted ${action.lot.certificateNumber}`);
           }}
         />

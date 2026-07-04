@@ -9,37 +9,37 @@ import {
   useState,
 } from "react";
 import type {
+  AdjustCertifiedStoneLotInput,
   AdjustMetalLotInput,
-  AdjustStoneLotInput,
+  CertifiedStoneLot,
   MetalLot,
+  NewCertifiedStoneLotInput,
   NewMetalLotInput,
-  NewStoneLotInput,
   RawInventorySummary,
   RawStockAuditLog,
-  StoneLot,
+  TransferCertifiedStoneLotInput,
   TransferMetalLotInput,
-  TransferStoneLotInput,
+  UpdateCertifiedStoneLotInput,
   UpdateMetalLotInput,
-  UpdateStoneLotInput,
 } from "@/lib/types";
 import {
+  adjustCertifiedStoneLot as adjustCertifiedStoneLotApi,
   adjustMetalLot as adjustMetalLotApi,
-  adjustStoneLot as adjustStoneLotApi,
+  createCertifiedStoneLot as createCertifiedStoneLotApi,
   createMetalLot as createMetalLotApi,
-  createStoneLot as createStoneLotApi,
+  fetchCertifiedStoneLots,
   fetchMetalLots,
   fetchRawInventorySummary,
   fetchRawStockAuditLogs,
-  fetchStoneLots,
+  transferCertifiedStoneLot as transferCertifiedStoneLotApi,
   transferMetalLot as transferMetalLotApi,
-  transferStoneLot as transferStoneLotApi,
+  updateCertifiedStoneLot as updateCertifiedStoneLotApi,
   updateMetalLot as updateMetalLotApi,
-  updateStoneLot as updateStoneLotApi,
 } from "@/lib/api/raw-inventory";
 
 type RawInventoryContextValue = {
   metalLots: MetalLot[];
-  stoneLots: StoneLot[];
+  certifiedStoneLots: CertifiedStoneLot[];
   auditLogs: RawStockAuditLog[];
   summary: RawInventorySummary | null;
   hydrated: boolean;
@@ -54,20 +54,30 @@ type RawInventoryContextValue = {
     input: TransferMetalLotInput,
   ) => Promise<MetalLot>;
   adjustMetalLot: (id: string, input: AdjustMetalLotInput) => Promise<MetalLot>;
-  addStoneLot: (input: NewStoneLotInput) => Promise<StoneLot>;
-  updateStoneLot: (id: string, input: UpdateStoneLotInput) => Promise<StoneLot>;
-  transferStoneLot: (
+  addCertifiedStoneLot: (
+    input: NewCertifiedStoneLotInput,
+  ) => Promise<CertifiedStoneLot>;
+  updateCertifiedStoneLot: (
     id: string,
-    input: TransferStoneLotInput,
-  ) => Promise<StoneLot>;
-  adjustStoneLot: (id: string, input: AdjustStoneLotInput) => Promise<StoneLot>;
+    input: UpdateCertifiedStoneLotInput,
+  ) => Promise<CertifiedStoneLot>;
+  transferCertifiedStoneLot: (
+    id: string,
+    input: TransferCertifiedStoneLotInput,
+  ) => Promise<CertifiedStoneLot>;
+  adjustCertifiedStoneLot: (
+    id: string,
+    input: AdjustCertifiedStoneLotInput,
+  ) => Promise<CertifiedStoneLot>;
 };
 
 const RawInventoryContext = createContext<RawInventoryContextValue | null>(null);
 
 export function RawInventoryProvider({ children }: { children: React.ReactNode }) {
   const [metalLots, setMetalLots] = useState<MetalLot[]>([]);
-  const [stoneLots, setStoneLots] = useState<StoneLot[]>([]);
+  const [certifiedStoneLots, setCertifiedStoneLots] = useState<CertifiedStoneLot[]>(
+    [],
+  );
   const [auditLogs, setAuditLogs] = useState<RawStockAuditLog[]>([]);
   const [summary, setSummary] = useState<RawInventorySummary | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -88,12 +98,12 @@ export function RawInventoryProvider({ children }: { children: React.ReactNode }
     try {
       const [metal, stones, summaryData, logs] = await Promise.all([
         fetchMetalLots(),
-        fetchStoneLots(),
+        fetchCertifiedStoneLots(),
         fetchRawInventorySummary(),
         fetchRawStockAuditLogs(),
       ]);
       setMetalLots(metal);
-      setStoneLots(stones);
+      setCertifiedStoneLots(stones);
       setSummary(summaryData);
       setAuditLogs(logs);
     } catch {
@@ -143,35 +153,47 @@ export function RawInventoryProvider({ children }: { children: React.ReactNode }
     [refresh],
   );
 
-  const addStoneLot = useCallback(async (input: NewStoneLotInput) => {
-    const lot = await createStoneLotApi(input);
-    setStoneLots((prev) => [lot, ...prev]);
-    await refresh();
-    return lot;
-  }, [refresh]);
+  const addCertifiedStoneLot = useCallback(
+    async (input: NewCertifiedStoneLotInput) => {
+      const lot = await createCertifiedStoneLotApi(input);
+      setCertifiedStoneLots((prev) => [lot, ...prev]);
+      await refresh();
+      return lot;
+    },
+    [refresh],
+  );
 
-  const updateStoneLot = useCallback(async (id: string, input: UpdateStoneLotInput) => {
-    const lot = await updateStoneLotApi(id, input);
-    setStoneLots((prev) => prev.map((item) => (item.id === id ? lot : item)));
-    await refreshAudit();
-    await refresh();
-    return lot;
-  }, [refresh, refreshAudit]);
+  const updateCertifiedStoneLot = useCallback(
+    async (id: string, input: UpdateCertifiedStoneLotInput) => {
+      const lot = await updateCertifiedStoneLotApi(id, input);
+      setCertifiedStoneLots((prev) =>
+        prev.map((item) => (item.id === id ? lot : item)),
+      );
+      await refreshAudit();
+      await refresh();
+      return lot;
+    },
+    [refresh, refreshAudit],
+  );
 
-  const transferStoneLot = useCallback(
-    async (id: string, input: TransferStoneLotInput) => {
-      const lot = await transferStoneLotApi(id, input);
-      setStoneLots((prev) => prev.map((item) => (item.id === id ? lot : item)));
+  const transferCertifiedStoneLot = useCallback(
+    async (id: string, input: TransferCertifiedStoneLotInput) => {
+      const lot = await transferCertifiedStoneLotApi(id, input);
+      setCertifiedStoneLots((prev) =>
+        prev.map((item) => (item.id === id ? lot : item)),
+      );
       await refreshAudit();
       return lot;
     },
     [refreshAudit],
   );
 
-  const adjustStoneLot = useCallback(
-    async (id: string, input: AdjustStoneLotInput) => {
-      const lot = await adjustStoneLotApi(id, input);
-      setStoneLots((prev) => prev.map((item) => (item.id === id ? lot : item)));
+  const adjustCertifiedStoneLot = useCallback(
+    async (id: string, input: AdjustCertifiedStoneLotInput) => {
+      const lot = await adjustCertifiedStoneLotApi(id, input);
+      setCertifiedStoneLots((prev) =>
+        prev.map((item) => (item.id === id ? lot : item)),
+      );
       await refresh();
       return lot;
     },
@@ -181,7 +203,7 @@ export function RawInventoryProvider({ children }: { children: React.ReactNode }
   const value = useMemo(
     () => ({
       metalLots,
-      stoneLots,
+      certifiedStoneLots,
       auditLogs,
       summary,
       hydrated,
@@ -193,14 +215,14 @@ export function RawInventoryProvider({ children }: { children: React.ReactNode }
       updateMetalLot,
       transferMetalLot,
       adjustMetalLot,
-      addStoneLot,
-      updateStoneLot,
-      transferStoneLot,
-      adjustStoneLot,
+      addCertifiedStoneLot,
+      updateCertifiedStoneLot,
+      transferCertifiedStoneLot,
+      adjustCertifiedStoneLot,
     }),
     [
       metalLots,
-      stoneLots,
+      certifiedStoneLots,
       auditLogs,
       summary,
       hydrated,
@@ -212,10 +234,10 @@ export function RawInventoryProvider({ children }: { children: React.ReactNode }
       updateMetalLot,
       transferMetalLot,
       adjustMetalLot,
-      addStoneLot,
-      updateStoneLot,
-      transferStoneLot,
-      adjustStoneLot,
+      addCertifiedStoneLot,
+      updateCertifiedStoneLot,
+      transferCertifiedStoneLot,
+      adjustCertifiedStoneLot,
     ],
   );
 

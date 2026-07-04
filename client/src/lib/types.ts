@@ -683,42 +683,6 @@ export type UpdateDesignElementInput = {
   sortOrder?: number;
 };
 
-export type BulkStoneLot = {
-  id: string;
-  sizeLabel: string;
-  stoneType: MotifStoneType;
-  quantity: number;
-  pricePerStone: number;
-  vendor?: string;
-  lotReference?: string;
-  purchaseDate?: string;
-  location: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type NewBulkStoneLotInput = {
-  sizeLabel: string;
-  stoneType: MotifStoneType;
-  quantity: number;
-  pricePerStone: number;
-  vendor?: string;
-  lotReference?: string;
-  purchaseDate?: string;
-  location?: string;
-};
-
-export type UpdateBulkStoneLotInput = {
-  sizeLabel?: string;
-  stoneType?: MotifStoneType;
-  quantity?: number;
-  pricePerStone?: number;
-  vendor?: string | null;
-  lotReference?: string | null;
-  purchaseDate?: string | null;
-  location?: string;
-};
-
 export type MotifStone = {
   id: string;
   stoneMasterId: string;
@@ -1062,8 +1026,6 @@ export type ProductionRunPreview = {
   }>;
 };
 
-export type BulkStoneStockWarning = StoneStockWarning;
-
 export type MotifMetal = "Silver" | "Gold" | "Platinum";
 
 export type MotifStoneType =
@@ -1212,7 +1174,7 @@ export type ProductionRun = {
   castingsReceived: number;
   castingsTotal: number;
   finishedGoodsProductId?: string;
-  stoneStockWarnings?: BulkStoneStockWarning[];
+  stoneStockWarnings?: StoneStockWarning[];
   metalStockWarning?: MetalStockWarning;
   createdAt: string;
   updatedAt: string;
@@ -1393,7 +1355,7 @@ export type SalesAnalytics = {
 export type RawMetalType = "Gold" | "Silver" | "Platinum";
 export type RawStoneType = "Diamond" | "Precious" | "SemiPrecious";
 export type RawStockAction = "Create" | "Update" | "Transfer" | "Adjustment";
-export type StoneLotStatus = "In Stock" | "Reserved" | "Issued";
+export type CertifiedStoneLotStatus = "In Stock" | "Reserved" | "Issued";
 
 export type MetalLot = {
   id: string;
@@ -1441,7 +1403,7 @@ export type AdjustMetalLotInput = {
   reason: string;
 };
 
-export type StoneLot = {
+export type CertifiedStoneLot = {
   id: string;
   certificateNumber: string;
   stoneType: RawStoneType;
@@ -1453,14 +1415,14 @@ export type StoneLot = {
   purchaseRate?: number;
   currentRate?: number;
   location: string;
-  status: StoneLotStatus;
+  status: CertifiedStoneLotStatus;
   notes?: string;
   stockValue?: number;
   createdAt: string;
   updatedAt: string;
 };
 
-export type NewStoneLotInput = {
+export type NewCertifiedStoneLotInput = {
   certificateNumber?: string;
   stoneType: RawStoneType;
   carat: number;
@@ -1474,7 +1436,7 @@ export type NewStoneLotInput = {
   notes?: string;
 };
 
-export type UpdateStoneLotInput = {
+export type UpdateCertifiedStoneLotInput = {
   color?: string | null;
   clarity?: string | null;
   cut?: string | null;
@@ -1482,16 +1444,16 @@ export type UpdateStoneLotInput = {
   purchaseRate?: number | null;
   currentRate?: number | null;
   location?: string;
-  status?: StoneLotStatus;
+  status?: CertifiedStoneLotStatus;
   notes?: string | null;
 };
 
-export type TransferStoneLotInput = {
+export type TransferCertifiedStoneLotInput = {
   toLocation: string;
   reason?: string;
 };
 
-export type AdjustStoneLotInput = {
+export type AdjustCertifiedStoneLotInput = {
   carat: number;
   reason: string;
 };

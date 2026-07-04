@@ -23,7 +23,7 @@ import {
   fetchProductionRun,
   updateProductionRunItem,
 } from "@/lib/api/production-runs";
-import { fetchMetalLots, fetchStoneLots } from "@/lib/api/raw-inventory";
+import { fetchMetalLots, fetchCertifiedStoneLots } from "@/lib/api/raw-inventory";
 import {
   getStageItems,
   getStageProgress,
@@ -38,11 +38,11 @@ import {
 } from "@/lib/production-runs/stages";
 import { getApiErrorMessage } from "@/lib/api/client";
 import type {
+  CertifiedStoneLot,
   MetalLot,
   ProductionRun,
   ProductionRunItem,
   ProductionRunStage,
-  StoneLot,
   UpdateProductionRunItemInput,
 } from "@/lib/types";
 
@@ -77,7 +77,7 @@ function renderStageFields(
   item: ProductionRunItem,
   canEdit: boolean,
   metalLots: MetalLot[],
-  stoneLots: StoneLot[],
+  stoneLots: CertifiedStoneLot[],
   onPatch: (input: UpdateProductionRunItemInput) => Promise<void>,
 ) {
   const config = getStageWorksheetConfig(stage);
@@ -125,7 +125,7 @@ export default function ProductionRunStagePage() {
 
   const [run, setRun] = useState<ProductionRun | null>(null);
   const [metalLots, setMetalLots] = useState<MetalLot[]>([]);
-  const [stoneLots, setStoneLots] = useState<StoneLot[]>([]);
+  const [stoneLots, setStoneLots] = useState<CertifiedStoneLot[]>([]);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -138,7 +138,7 @@ export default function ProductionRunStagePage() {
       const [runData, metals, stones] = await Promise.all([
         fetchProductionRun(runId),
         fetchMetalLots(),
-        fetchStoneLots(),
+        fetchCertifiedStoneLots(),
       ]);
       setRun(runData);
       setMetalLots(metals);

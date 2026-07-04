@@ -1,5 +1,4 @@
 import { prisma } from "../db.js";
-import { moneyToNumber } from "../money.js";
 import type { StoneStockWarning } from "../../types.js";
 
 export const computeStoneRequirements = async (
@@ -83,23 +82,3 @@ export const checkStoneStock = async (
 
   return warnings;
 };
-
-/** @deprecated Use checkStoneStock */
-export const checkBulkStoneStock = async (
-  designId: string,
-  setsOrdered: number,
-): Promise<StoneStockWarning[]> => {
-  const design = await prisma.design.findUnique({
-    where: { id: designId },
-    select: { branchId: true },
-  });
-  if (!design) return [];
-  return checkStoneStock(designId, setsOrdered, design.branchId);
-};
-
-/** @deprecated Stone consumption now via issue/settle flow */
-export const deductBulkStonesForProductionRun = async (): Promise<void> => {
-  // No-op: stones are issued and settled during Stone Setting stage
-};
-
-export const computeBulkStoneRequirements = computeStoneRequirements;

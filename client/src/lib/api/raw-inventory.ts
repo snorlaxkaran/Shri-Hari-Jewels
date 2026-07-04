@@ -1,16 +1,16 @@
 import type {
+  AdjustCertifiedStoneLotInput,
   AdjustMetalLotInput,
-  AdjustStoneLotInput,
+  CertifiedStoneLot,
   MetalLot,
+  NewCertifiedStoneLotInput,
   NewMetalLotInput,
-  NewStoneLotInput,
   RawInventorySummary,
   RawStockAuditLog,
-  StoneLot,
+  TransferCertifiedStoneLotInput,
   TransferMetalLotInput,
-  TransferStoneLotInput,
+  UpdateCertifiedStoneLotInput,
   UpdateMetalLotInput,
-  UpdateStoneLotInput,
 } from "@/lib/types";
 import { api } from "./client";
 
@@ -61,43 +61,51 @@ export const adjustMetalLot = async (
   return data;
 };
 
-export const fetchStoneLots = async (): Promise<StoneLot[]> => {
-  const { data } = await api.get<StoneLot[]>("/api/raw-inventory/stones");
+export const fetchCertifiedStoneLots = async (): Promise<CertifiedStoneLot[]> => {
+  const { data } = await api.get<CertifiedStoneLot[]>(
+    "/api/raw-inventory/certified-stones",
+  );
   return data;
 };
 
-export const createStoneLot = async (
-  input: NewStoneLotInput,
-): Promise<StoneLot> => {
-  const { data } = await api.post<StoneLot>("/api/raw-inventory/stones", input);
-  return data;
-};
-
-export const updateStoneLot = async (
-  id: string,
-  input: UpdateStoneLotInput,
-): Promise<StoneLot> => {
-  const { data } = await api.patch<StoneLot>(`/api/raw-inventory/stones/${id}`, input);
-  return data;
-};
-
-export const transferStoneLot = async (
-  id: string,
-  input: TransferStoneLotInput,
-): Promise<StoneLot> => {
-  const { data } = await api.post<StoneLot>(
-    `/api/raw-inventory/stones/${id}/transfer`,
+export const createCertifiedStoneLot = async (
+  input: NewCertifiedStoneLotInput,
+): Promise<CertifiedStoneLot> => {
+  const { data } = await api.post<CertifiedStoneLot>(
+    "/api/raw-inventory/certified-stones",
     input,
   );
   return data;
 };
 
-export const adjustStoneLot = async (
+export const updateCertifiedStoneLot = async (
   id: string,
-  input: AdjustStoneLotInput,
-): Promise<StoneLot> => {
-  const { data } = await api.post<StoneLot>(
-    `/api/raw-inventory/stones/${id}/adjust`,
+  input: UpdateCertifiedStoneLotInput,
+): Promise<CertifiedStoneLot> => {
+  const { data } = await api.patch<CertifiedStoneLot>(
+    `/api/raw-inventory/certified-stones/${id}`,
+    input,
+  );
+  return data;
+};
+
+export const transferCertifiedStoneLot = async (
+  id: string,
+  input: TransferCertifiedStoneLotInput,
+): Promise<CertifiedStoneLot> => {
+  const { data } = await api.post<CertifiedStoneLot>(
+    `/api/raw-inventory/certified-stones/${id}/transfer`,
+    input,
+  );
+  return data;
+};
+
+export const adjustCertifiedStoneLot = async (
+  id: string,
+  input: AdjustCertifiedStoneLotInput,
+): Promise<CertifiedStoneLot> => {
+  const { data } = await api.post<CertifiedStoneLot>(
+    `/api/raw-inventory/certified-stones/${id}/adjust`,
     input,
   );
   return data;

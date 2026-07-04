@@ -17,7 +17,7 @@ import {
   fetchFinishedGoodsDefaults,
   fetchProductionRun,
 } from "@/lib/api/production-runs";
-import { fetchMetalLots, fetchStoneLots } from "@/lib/api/raw-inventory";
+import { fetchMetalLots, fetchCertifiedStoneLots } from "@/lib/api/raw-inventory";
 import { PRODUCT_CATEGORIES, type ProductCategory } from "@/lib/inventory/categories";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api/client";
@@ -37,7 +37,7 @@ import type {
   ProductionRunItem,
   ProductionRunStatus,
   Purity,
-  StoneLot,
+  CertifiedStoneLot,
   UpdateProductionRunItemInput,
 } from "@/lib/types";
 
@@ -66,7 +66,7 @@ function RunItemCard({
   item: ProductionRunItem;
   canEditItems: boolean;
   metalLots: MetalLot[];
-  stoneLots: StoneLot[];
+  stoneLots: CertifiedStoneLot[];
   onPatchItem: (
     runId: string,
     itemId: string,
@@ -767,7 +767,7 @@ export default function ProductionRunDetailPage() {
   const [pageError, setPageError] = useState("");
   const [statusError, setStatusError] = useState("");
   const [metalLots, setMetalLots] = useState<MetalLot[]>([]);
-  const [stoneLots, setStoneLots] = useState<StoneLot[]>([]);
+  const [stoneLots, setStoneLots] = useState<CertifiedStoneLot[]>([]);
   const [exporting, setExporting] = useState(false);
 
   const [statusDraft, setStatusDraft] = useState<ProductionRunStatus | null>(
@@ -809,7 +809,7 @@ export default function ProductionRunDetailPage() {
 
   useEffect(() => {
     if (!canEditItems) return;
-    void Promise.all([fetchMetalLots(), fetchStoneLots()])
+    void Promise.all([fetchMetalLots(), fetchCertifiedStoneLots()])
       .then(([metal, stone]) => {
         setMetalLots(metal);
         setStoneLots(stone);

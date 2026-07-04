@@ -13,7 +13,6 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/work-orders",
     "/designs",
     "/motifs",
-    "/bulk-stone-lots",
     "/production-runs",
     "/sales-analytics",
   ],
@@ -29,11 +28,10 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/invoices",
     "/designs",
     "/motifs",
-    "/bulk-stone-lots",
     "/production-runs",
   ],
   Store: ["/dashboard", "/inventory", "/stock-transfer", "/sales", "/customers"],
-  Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/bulk-stone-lots", "/production-runs"],
+  Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs"],
   Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory", "/stone-master"],
 };
 

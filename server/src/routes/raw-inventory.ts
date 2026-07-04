@@ -230,21 +230,21 @@ rawInventoryRouter.post(
 );
 
 rawInventoryRouter.get(
-  "/stones",
+  "/certified-stones",
   requireRole(canReadRawInventory),
   async (req: AuthenticatedRequest, res) => {
     try {
       const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
       res.json(await listStoneLots(req.organizationId!, branchId));
     } catch (error) {
-      console.error("GET /api/raw-inventory/stones", error);
-      res.status(500).json({ error: "Failed to fetch stone lots" });
+      console.error("GET /api/raw-inventory/certified-stones", error);
+      res.status(500).json({ error: "Failed to fetch certified stones" });
     }
   },
 );
 
 rawInventoryRouter.get(
-  "/stones/:id",
+  "/certified-stones/:id",
   requireRole(canReadRawInventory),
   async (req, res) => {
     try {
@@ -254,14 +254,14 @@ rawInventoryRouter.get(
         res.status(error.status).json({ error: error.message });
         return;
       }
-      console.error("GET /api/raw-inventory/stones/:id", error);
-      res.status(500).json({ error: "Failed to fetch stone lot" });
+      console.error("GET /api/raw-inventory/certified-stones/:id", error);
+      res.status(500).json({ error: "Failed to fetch certified stone" });
     }
   },
 );
 
 rawInventoryRouter.post(
-  "/stones",
+  "/certified-stones",
   requireRole(canWriteRawInventory),
   async (req: AuthenticatedRequest, res) => {
     try {
@@ -277,14 +277,14 @@ rawInventoryRouter.post(
         res.status(error.status).json({ error: error.message });
         return;
       }
-      console.error("POST /api/raw-inventory/stones", error);
-      res.status(500).json({ error: "Failed to create stone lot" });
+      console.error("POST /api/raw-inventory/certified-stones", error);
+      res.status(500).json({ error: "Failed to create certified stone" });
     }
   },
 );
 
 rawInventoryRouter.patch(
-  "/stones/:id",
+  "/certified-stones/:id",
   requireRole(canWriteRawInventory),
   async (req: AuthenticatedRequest, res) => {
     try {
@@ -299,14 +299,14 @@ rawInventoryRouter.patch(
         res.status(error.status).json({ error: error.message });
         return;
       }
-      console.error("PATCH /api/raw-inventory/stones/:id", error);
-      res.status(500).json({ error: "Failed to update stone lot" });
+      console.error("PATCH /api/raw-inventory/certified-stones/:id", error);
+      res.status(500).json({ error: "Failed to update certified stone" });
     }
   },
 );
 
 rawInventoryRouter.post(
-  "/stones/:id/transfer",
+  "/certified-stones/:id/transfer",
   requireRole(canWriteRawInventory),
   async (req: AuthenticatedRequest, res) => {
     try {
@@ -321,14 +321,14 @@ rawInventoryRouter.post(
         res.status(error.status).json({ error: error.message });
         return;
       }
-      console.error("POST /api/raw-inventory/stones/:id/transfer", error);
-      res.status(500).json({ error: "Failed to transfer stone lot" });
+      console.error("POST /api/raw-inventory/certified-stones/:id/transfer", error);
+      res.status(500).json({ error: "Failed to transfer certified stone" });
     }
   },
 );
 
 rawInventoryRouter.post(
-  "/stones/:id/adjust",
+  "/certified-stones/:id/adjust",
   requireRole(canWriteRawInventory),
   async (req: AuthenticatedRequest, res) => {
     try {
@@ -343,8 +343,8 @@ rawInventoryRouter.post(
         res.status(error.status).json({ error: error.message });
         return;
       }
-      console.error("POST /api/raw-inventory/stones/:id/adjust", error);
-      res.status(500).json({ error: "Failed to adjust stone lot" });
+      console.error("POST /api/raw-inventory/certified-stones/:id/adjust", error);
+      res.status(500).json({ error: "Failed to adjust certified stone" });
     }
   },
 );

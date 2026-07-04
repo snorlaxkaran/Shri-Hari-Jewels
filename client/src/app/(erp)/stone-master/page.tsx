@@ -195,8 +195,11 @@ export default function StoneMasterPage() {
 
       <p className="text-sm text-zinc-500">
         Manage purchase receipts in{" "}
-        <Link href="/stone-master/lots" className="text-amber-700 hover:underline">
-          Stone Lots
+        <Link
+          href="/raw-inventory?tab=stones"
+          className="text-amber-700 hover:underline"
+        >
+          Raw Materials → Stones
         </Link>
         .
       </p>

@@ -3,10 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import PageHeader from "@/app/(components)/PageHeader";
-import PageSkeleton from "@/app/(components)/PageSkeleton";
-import { useAuth } from "@/lib/auth/auth-context";
-import { canWriteRawInventory } from "@/lib/auth/permissions";
 import { fetchStoneMasters } from "@/lib/api/stone-master";
 import {
   fetchStoneLots,
@@ -25,10 +21,12 @@ import { getApiErrorMessage } from "@/lib/api/client";
 const fieldClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
 
-export default function StoneLotsPage() {
-  const { user } = useAuth();
+type StoneLotsPanelProps = {
+  canManage: boolean;
+};
+
+export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
   const router = useRouter();
-  const canManage = user ? canWriteRawInventory(user.role) : false;
 
   const [lots, setLots] = useState<StonePurchaseLotWithMaster[]>([]);
   const [summary, setSummary] = useState<StonePurchaseLotSummaryCards | null>(null);
@@ -118,21 +116,22 @@ export default function StoneLotsPage() {
     }
   };
 
-  if (loading && lots.length === 0) return <PageSkeleton />;
-
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Stone Lots"
-        subtitle="Purchase receipts and live stock by lot"
-        action={
-          canManage ? (
-            <button type="button" onClick={openReceive} className="btn-primary px-4 py-2 text-sm">
-              + Receive Stone Lot
-            </button>
-          ) : undefined
-        }
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-zinc-500">
+          Purchase receipts and live stock by lot, tied to Stone Master specs.
+        </p>
+        {canManage && (
+          <button
+            type="button"
+            onClick={openReceive}
+            className="btn-primary px-4 py-2 text-sm"
+          >
+            + Receive Stone Lot
+          </button>
+        )}
+      </div>
 
       {summary && <SummaryCards summary={summary} />}
 
@@ -206,7 +205,7 @@ export default function StoneLotsPage() {
                 </tr>
               );
             })}
-            {lots.length === 0 && (
+            {lots.length === 0 && !loading && (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-zinc-400">
                   No stone lots received yet.

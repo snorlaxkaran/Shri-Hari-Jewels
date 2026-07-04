@@ -197,7 +197,6 @@ model Branch {
   stoneLots   StoneLot[]
   stoneMovements StoneMovement[]
   stoneIssues ProductionRunStoneIssue[]
-  bulkStoneLots BulkStoneLot[]
   stockTransfersFrom StockTransfer[] @relation("StockTransferFromBranch")
   stockTransfersTo   StockTransfer[] @relation("StockTransferToBranch")
   customerBranches   CustomerBranch[]
@@ -563,27 +562,6 @@ model Motif {
   @@index([metal])
   @@index([purity])
   @@index([name])
-}
-
-model BulkStoneLot {
-  id            String    @id @default(uuid())
-  branchId      String
-  sizeLabel     String
-  stoneType     String
-  quantity      Int
-  pricePerStone Decimal   @db.Decimal(12, 4)
-  vendor        String?
-  lotReference  String?
-  purchaseDate  DateTime?
-  location      String    @default("Main Vault")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  branch      Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
-
-  @@index([branchId])
-  @@index([stoneType])
-  @@index([sizeLabel])
 }
 
 model MotifStone {

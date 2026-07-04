@@ -21,7 +21,7 @@ import {
   deductRawMaterialForItemInTx,
   validateLotSelectionForItem,
 } from "./raw-material.js";
-import { checkStoneStock, computeStoneRequirements } from "./bulk-stone-stock.js";
+import { checkStoneStock, computeStoneRequirements } from "./stone-requirement-check.js";
 import { checkMetalStock } from "./metal-stock.js";
 import { computeElementStoneDefaults } from "./stone-defaults.js";
 import {
@@ -192,7 +192,7 @@ const toProductionRun = (run: {
   };
   items?: Array<Parameters<typeof toProductionRunItem>[0]>;
   stageLogs?: Array<Parameters<typeof toStageLog>[0]>;
-  stoneStockWarnings?: import("../../types.js").BulkStoneStockWarning[];
+  stoneStockWarnings?: import("../../types.js").StoneStockWarning[];
   metalStockWarning?: import("../../types.js").MetalStockWarning;
 }): ProductionRun => {
   const items = (run.items ?? []).map(toProductionRunItem);

@@ -77,8 +77,11 @@ export default function StoneLotDetailPage() {
     return (
       <div className="space-y-4">
         <p className="text-red-500">{error ?? "Stone lot not found."}</p>
-        <Link href="/stone-master/lots" className="text-amber-700 hover:underline text-sm">
-          ← Back to Stone Lots
+        <Link
+          href="/raw-inventory?tab=stones"
+          className="text-amber-700 hover:underline text-sm"
+        >
+          ← Back to Stones
         </Link>
       </div>
     );
@@ -89,8 +92,11 @@ export default function StoneLotDetailPage() {
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/stone-master/lots" className="text-sm text-amber-700 hover:underline">
-          ← Stone Lots
+        <Link
+          href="/raw-inventory?tab=stones"
+          className="text-sm text-amber-700 hover:underline"
+        >
+          ← Stones
         </Link>
       </div>
 
