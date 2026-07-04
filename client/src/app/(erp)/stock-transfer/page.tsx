@@ -8,9 +8,17 @@ import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import BranchAutocomplete from "@/app/(components)/BranchAutocomplete";
 import TransferTabs from "@/app/(components)/stock-transfer/TransferTabs";
+import TransferCustomerDetailsCard, {
+  type TransferBillingFormState,
+} from "@/app/(components)/stock-transfer/TransferCustomerDetailsCard";
 import { fetchCustomerBranches, fetchCustomers } from "@/lib/api/customers";
 import { createStockTransfer } from "@/lib/api/inventory";
 import { getApiErrorMessage } from "@/lib/api/client";
+import {
+  getTransferBillingWarnings,
+  resolveBranchBillingDetails,
+  toTransferBillingInput,
+} from "@/lib/customers/resolve-branch-details";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import type {
   Customer,
@@ -48,6 +56,17 @@ function StockTransferScanPageContent() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<React.ReactNode>("");
   const [saving, setSaving] = useState(false);
+  const [billingForm, setBillingForm] = useState<TransferBillingFormState>({
+    gstNumber: "",
+    panNumber: "",
+    email: "",
+    phone: "",
+    address: "",
+    placeOfSupplyState: "",
+    placeOfSupplyStateCode: "",
+    placeOfDeliveryState: "",
+    placeOfDeliveryStateCode: "",
+  });
 
   useEffect(() => {
     fetchCustomers()
@@ -182,6 +201,7 @@ function StockTransferScanPageContent() {
         transferDate,
         itemCodes: scanned.map((item) => item.unit.itemCode),
         notes: notes.trim() || undefined,
+        billing: billingInput,
       });
       await refresh({ silent: true });
       setSuccess(
@@ -209,6 +229,43 @@ function StockTransferScanPageContent() {
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
 
+  const resolvedBilling = useMemo(() => {
+    if (!selectedCustomer || !selectedBranch) return null;
+    return resolveBranchBillingDetails(selectedCustomer, selectedBranch);
+  }, [selectedCustomer, selectedBranch]);
+
+  useEffect(() => {
+    if (!resolvedBilling) return;
+    setBillingForm({
+      gstNumber: resolvedBilling.gstNumber ?? "",
+      panNumber: resolvedBilling.panNumber ?? "",
+      email: resolvedBilling.email ?? "",
+      phone: resolvedBilling.phone ?? "",
+      address: resolvedBilling.address ?? "",
+      placeOfSupplyState: resolvedBilling.state ?? "",
+      placeOfSupplyStateCode: resolvedBilling.stateCode ?? "",
+      placeOfDeliveryState: resolvedBilling.state ?? "",
+      placeOfDeliveryStateCode: resolvedBilling.stateCode ?? "",
+    });
+  }, [resolvedBilling]);
+
+  const billingInput = useMemo(() => {
+    if (!resolvedBilling) return undefined;
+    return toTransferBillingInput(resolvedBilling, billingForm);
+  }, [resolvedBilling, billingForm]);
+
+  const billingWarnings = useMemo(() => {
+    if (!billingInput) return [];
+    return getTransferBillingWarnings(docType, billingInput);
+  }, [billingInput, docType]);
+
+  const updateBillingField = (
+    field: keyof TransferBillingFormState,
+    value: string,
+  ) => {
+    setBillingForm((prev) => ({ ...prev, [field]: value }));
+  };
+
   if (!hydrated || loading) {
     return <PageSkeleton />;
   }
@@ -234,8 +291,9 @@ function StockTransferScanPageContent() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-5">
-        <div className="surface-card p-5 space-y-4">
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-5">
+          <div className="surface-card p-5 space-y-4">
           <div>
             <label className="text-xs block mb-1 text-zinc-500 font-medium">
               Customer
@@ -339,6 +397,20 @@ function StockTransferScanPageContent() {
             </p>
             <p className="text-sm text-zinc-500">{formatCurrency(totalValue)}</p>
           </div>
+          </div>
+
+          {resolvedBilling && selectedBranch ? (
+            <TransferCustomerDetailsCard
+              resolved={resolvedBilling}
+              form={billingForm}
+              warnings={billingWarnings}
+              onChange={updateBillingField}
+            />
+          ) : (
+            <div className="surface-card flex items-center justify-center p-8 text-sm text-zinc-400">
+              Select a customer and branch to view billing details.
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">

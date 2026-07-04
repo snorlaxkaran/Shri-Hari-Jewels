@@ -5,11 +5,24 @@ import type {
   UpdateCustomerBranchInput,
 } from "../../types.js";
 import { CustomerError } from "./service.js";
+import { validateCustomerBranchFinancialFields } from "./validation.js";
 
 const trimOrNull = (value: string | null | undefined): string | null => {
   if (value == null) return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+};
+
+const validateBranchFinancials = (
+  input: NewCustomerBranchInput | UpdateCustomerBranchInput,
+) => {
+  try {
+    return validateCustomerBranchFinancialFields(input);
+  } catch (error) {
+    throw new CustomerError(
+      error instanceof Error ? error.message : "Invalid branch billing details.",
+    );
+  }
 };
 
 const toCustomerBranch = (
@@ -22,6 +35,11 @@ const toCustomerBranch = (
     city: string | null;
     state: string | null;
     pincode: string | null;
+    gstNumber: string | null;
+    gstRegisteredName: string | null;
+    panNumber: string | null;
+    email: string | null;
+    phone: string | null;
     active: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -37,6 +55,11 @@ const toCustomerBranch = (
   city: row.city ?? undefined,
   state: row.state ?? undefined,
   pincode: row.pincode ?? undefined,
+  gstNumber: row.gstNumber ?? undefined,
+  gstRegisteredName: row.gstRegisteredName ?? undefined,
+  panNumber: row.panNumber ?? undefined,
+  email: row.email ?? undefined,
+  phone: row.phone ?? undefined,
   active: row.active,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
@@ -80,6 +103,7 @@ export const listCustomerBranches = async (
               { name: { contains: query.trim(), mode: "insensitive" } },
               { city: { contains: query.trim(), mode: "insensitive" } },
               { address: { contains: query.trim(), mode: "insensitive" } },
+              { gstNumber: { contains: query.trim(), mode: "insensitive" } },
             ],
           }
         : {}),
@@ -112,6 +136,8 @@ export const createCustomerBranch = async (
   const name = input.name.trim();
   if (!name) throw new CustomerError("Branch name is required.");
 
+  const financial = validateBranchFinancials(input);
+
   const branch = await prisma.customerBranch.create({
     data: {
       customerId,
@@ -120,7 +146,12 @@ export const createCustomerBranch = async (
       address: trimOrNull(input.address),
       city: trimOrNull(input.city),
       state: trimOrNull(input.state),
-      pincode: trimOrNull(input.pincode),
+      pincode: financial.pincode,
+      gstNumber: financial.gstNumber,
+      gstRegisteredName: financial.gstRegisteredName,
+      panNumber: financial.panNumber,
+      email: trimOrNull(input.email),
+      phone: trimOrNull(input.phone),
     },
     include: branchInclude,
   });
@@ -147,6 +178,21 @@ export const updateCustomerBranch = async (
     throw new CustomerError("Branch name is required.");
   }
 
+  const hasFinancialUpdate =
+    input.gstNumber !== undefined ||
+    input.gstRegisteredName !== undefined ||
+    input.panNumber !== undefined ||
+    input.pincode !== undefined;
+
+  const financial = hasFinancialUpdate
+    ? validateBranchFinancials({
+        gstNumber: input.gstNumber ?? existing.gstNumber,
+        gstRegisteredName: input.gstRegisteredName ?? existing.gstRegisteredName,
+        panNumber: input.panNumber ?? existing.panNumber,
+        pincode: input.pincode ?? existing.pincode,
+      })
+    : null;
+
   const branch = await prisma.customerBranch.update({
     where: { id: branchId },
     data: {
@@ -154,7 +200,16 @@ export const updateCustomerBranch = async (
       ...(input.address !== undefined && { address: trimOrNull(input.address) }),
       ...(input.city !== undefined && { city: trimOrNull(input.city) }),
       ...(input.state !== undefined && { state: trimOrNull(input.state) }),
-      ...(input.pincode !== undefined && { pincode: trimOrNull(input.pincode) }),
+      ...(financial && {
+        pincode: financial.pincode,
+        gstNumber: financial.gstNumber,
+        gstRegisteredName: financial.gstRegisteredName,
+        panNumber: financial.panNumber,
+      }),
+      ...(input.pincode !== undefined &&
+        !financial && { pincode: trimOrNull(input.pincode) }),
+      ...(input.email !== undefined && { email: trimOrNull(input.email) }),
+      ...(input.phone !== undefined && { phone: trimOrNull(input.phone) }),
       ...(input.active !== undefined && { active: input.active }),
     },
     include: branchInclude,

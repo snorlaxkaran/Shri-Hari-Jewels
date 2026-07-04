@@ -470,6 +470,20 @@ export const createStockTransfer = async (
         createdById: createdBy.id,
         createdByName: createdBy.name,
         notes: input.notes?.trim() || null,
+        recipientGstNumber: input.billing?.recipientGstNumber?.trim() || null,
+        recipientGstRegisteredName:
+          input.billing?.recipientGstRegisteredName?.trim() || null,
+        recipientPanNumber: input.billing?.recipientPanNumber?.trim() || null,
+        recipientEmail: input.billing?.recipientEmail?.trim() || null,
+        recipientPhone: input.billing?.recipientPhone?.trim() || null,
+        recipientAddress: input.billing?.recipientAddress?.trim() || null,
+        placeOfSupplyState: input.billing?.placeOfSupplyState?.trim() || null,
+        placeOfSupplyStateCode:
+          input.billing?.placeOfSupplyStateCode?.trim() || null,
+        placeOfDeliveryState:
+          input.billing?.placeOfDeliveryState?.trim() || null,
+        placeOfDeliveryStateCode:
+          input.billing?.placeOfDeliveryStateCode?.trim() || null,
         items: {
           create: units.map((unit) => ({
             itemCode: unit.itemCode,

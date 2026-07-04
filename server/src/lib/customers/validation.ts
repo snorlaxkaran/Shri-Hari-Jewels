@@ -44,3 +44,19 @@ export const validateCustomerFinancialFields = (
   bankIfsc: validateIfscIfPresent(input.bankIfsc),
   bankName: trimOrNull(input.bankName),
 });
+
+export type CustomerBranchFinancialFields = {
+  gstNumber?: string | null;
+  gstRegisteredName?: string | null;
+  panNumber?: string | null;
+  pincode?: string | null;
+};
+
+export const validateCustomerBranchFinancialFields = (
+  input: CustomerBranchFinancialFields,
+): CustomerBranchFinancialFields => ({
+  gstNumber: validateGstIfPresent(input.gstNumber),
+  gstRegisteredName: trimOrNull(input.gstRegisteredName),
+  panNumber: validatePanIfPresent(input.panNumber),
+  pincode: validatePincodeIfPresent(input.pincode),
+});

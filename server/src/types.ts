@@ -134,6 +134,16 @@ export type StockTransfer = {
   totalValue: number;
   status: StockTransferStatus;
   notes?: string;
+  recipientGstNumber?: string;
+  recipientGstRegisteredName?: string;
+  recipientPanNumber?: string;
+  recipientEmail?: string;
+  recipientPhone?: string;
+  recipientAddress?: string;
+  placeOfSupplyState?: string;
+  placeOfSupplyStateCode?: string;
+  placeOfDeliveryState?: string;
+  placeOfDeliveryStateCode?: string;
   acceptedById?: string;
   acceptedByName?: string;
   acceptedAt?: string;
@@ -162,6 +172,18 @@ export type CreateStockTransferInput = {
   transferDate: string;
   itemCodes: string[];
   notes?: string;
+  billing?: {
+    recipientGstNumber?: string;
+    recipientGstRegisteredName?: string;
+    recipientPanNumber?: string;
+    recipientEmail?: string;
+    recipientPhone?: string;
+    recipientAddress?: string;
+    placeOfSupplyState?: string;
+    placeOfSupplyStateCode?: string;
+    placeOfDeliveryState?: string;
+    placeOfDeliveryStateCode?: string;
+  };
 };
 
 export type PartialAcceptTransferInput = {
@@ -363,6 +385,11 @@ export type CustomerBranch = {
   city?: string;
   state?: string;
   pincode?: string;
+  gstNumber?: string;
+  gstRegisteredName?: string;
+  panNumber?: string;
+  email?: string;
+  phone?: string;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -375,6 +402,11 @@ export type NewCustomerBranchInput = {
   city?: string;
   state?: string;
   pincode?: string;
+  gstNumber?: string;
+  gstRegisteredName?: string;
+  panNumber?: string;
+  email?: string;
+  phone?: string;
 };
 
 export type UpdateCustomerBranchInput = {
@@ -384,6 +416,11 @@ export type UpdateCustomerBranchInput = {
   city?: string | null;
   state?: string | null;
   pincode?: string | null;
+  gstNumber?: string | null;
+  gstRegisteredName?: string | null;
+  panNumber?: string | null;
+  email?: string | null;
+  phone?: string | null;
   active?: boolean;
 };
 

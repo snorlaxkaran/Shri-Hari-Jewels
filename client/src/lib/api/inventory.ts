@@ -96,6 +96,18 @@ export const createStockTransfer = async (input: {
   transferDate: string;
   itemCodes: string[];
   notes?: string;
+  billing?: {
+    recipientGstNumber?: string;
+    recipientGstRegisteredName?: string;
+    recipientPanNumber?: string;
+    recipientEmail?: string;
+    recipientPhone?: string;
+    recipientAddress?: string;
+    placeOfSupplyState?: string;
+    placeOfSupplyStateCode?: string;
+    placeOfDeliveryState?: string;
+    placeOfDeliveryStateCode?: string;
+  };
 }): Promise<{ transfer: StockTransfer; products: InventoryItem[] }> => {
   const { data } = await api.post<{
     transfer: StockTransfer;

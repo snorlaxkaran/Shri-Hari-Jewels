@@ -24,7 +24,14 @@ const emptyForm = (): NewCustomerBranchInput => ({
   city: "",
   state: "",
   pincode: "",
+  gstNumber: "",
+  gstRegisteredName: "",
+  panNumber: "",
+  email: "",
+  phone: "",
 });
+
+const labelClass = "text-[11px] font-medium uppercase tracking-wide text-zinc-400";
 
 export default function CustomerBranchesTab({
   customerId,
@@ -70,6 +77,11 @@ export default function CustomerBranchesTab({
       city: branch.city ?? "",
       state: branch.state ?? "",
       pincode: branch.pincode ?? "",
+      gstNumber: branch.gstNumber ?? "",
+      gstRegisteredName: branch.gstRegisteredName ?? "",
+      panNumber: branch.panNumber ?? "",
+      email: branch.email ?? "",
+      phone: branch.phone ?? "",
     });
     setFormOpen(true);
   };
@@ -109,8 +121,8 @@ export default function CustomerBranchesTab({
         <div>
           <p className="text-sm font-semibold text-zinc-900">Branches</p>
           <p className="text-xs text-zinc-500">
-            Outlets for {customerName} — stock is sent from Head Office to these
-            branches
+            Outlets for {customerName} — each branch can have its own GST/PAN
+            and contact details for transfers and invoices
           </p>
         </div>
         {canManage && (
@@ -141,7 +153,7 @@ export default function CustomerBranchesTab({
             onChange={(event) =>
               setForm((prev) => ({ ...prev, name: event.target.value }))
             }
-            placeholder={`e.g. ${customerName} Malviya Nagar Jaipur`}
+            placeholder={`e.g. ${customerName} Alkapuri`}
             className="input-field w-full px-3 py-2 text-sm"
           />
           <div className="grid grid-cols-2 gap-2">
@@ -173,6 +185,88 @@ export default function CustomerBranchesTab({
             placeholder="Address (optional)"
             className="input-field w-full px-3 py-2 text-sm"
           />
+          <input
+            type="text"
+            value={form.pincode ?? ""}
+            onChange={(event) =>
+              setForm((prev) => ({ ...prev, pincode: event.target.value }))
+            }
+            placeholder="Pincode"
+            className="input-field w-full px-3 py-2 text-sm"
+          />
+
+          <div className="border-t border-zinc-200 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className={labelClass}>GSTN</label>
+              <input
+                type="text"
+                value={form.gstNumber ?? ""}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    gstNumber: event.target.value.toUpperCase(),
+                  }))
+                }
+                placeholder="Branch GSTIN (optional)"
+                className="input-field w-full px-3 py-2 text-sm mt-1"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>GST Registered Name</label>
+              <input
+                type="text"
+                value={form.gstRegisteredName ?? ""}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    gstRegisteredName: event.target.value,
+                  }))
+                }
+                placeholder="Legal name on GST"
+                className="input-field w-full px-3 py-2 text-sm mt-1"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>PAN</label>
+              <input
+                type="text"
+                value={form.panNumber ?? ""}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    panNumber: event.target.value.toUpperCase(),
+                  }))
+                }
+                placeholder="Branch PAN (optional)"
+                className="input-field w-full px-3 py-2 text-sm mt-1"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Email</label>
+              <input
+                type="email"
+                value={form.email ?? ""}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, email: event.target.value }))
+                }
+                placeholder="Branch email"
+                className="input-field w-full px-3 py-2 text-sm mt-1"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelClass}>Phone</label>
+              <input
+                type="text"
+                value={form.phone ?? ""}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, phone: event.target.value }))
+                }
+                placeholder="Branch phone (falls back to customer mobile)"
+                className="input-field w-full px-3 py-2 text-sm mt-1"
+              />
+            </div>
+          </div>
+
           <div className="flex gap-2">
             <button
               type="button"
@@ -216,6 +310,14 @@ export default function CustomerBranchesTab({
                         .filter(Boolean)
                         .join(", ")}
                     </p>
+                  )}
+                  {(branch.gstNumber || branch.panNumber || branch.phone) && (
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-500">
+                      {branch.gstNumber && <span>GST: {branch.gstNumber}</span>}
+                      {branch.panNumber && <span>PAN: {branch.panNumber}</span>}
+                      {branch.phone && <span>Phone: {branch.phone}</span>}
+                      {branch.email && <span>{branch.email}</span>}
+                    </div>
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1">

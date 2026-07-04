@@ -334,6 +334,16 @@ model StockTransfer {
   acceptedAt      DateTime?
   rejectionReason String?
   notes           String?
+  recipientGstNumber         String?
+  recipientGstRegisteredName String?
+  recipientPanNumber         String?
+  recipientEmail             String?
+  recipientPhone             String?
+  recipientAddress           String?
+  placeOfSupplyState         String?
+  placeOfSupplyStateCode     String?
+  placeOfDeliveryState       String?
+  placeOfDeliveryStateCode   String?
   createdById   String?
   createdByName String
   createdAt    DateTime @default(now())
@@ -421,6 +431,11 @@ model CustomerBranch {
   city       String?
   state      String?
   pincode    String?
+  gstNumber         String?
+  gstRegisteredName String?
+  panNumber         String?
+  email             String?
+  phone             String?
   active     Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
