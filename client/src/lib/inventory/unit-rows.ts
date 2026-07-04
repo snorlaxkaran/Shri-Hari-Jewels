@@ -1,0 +1,58 @@
+import type {
+  InventoryItem,
+  InventoryUnitPriceSource,
+  InventoryUnitStatus,
+  MetalType,
+  Purity,
+} from "@/lib/types";
+
+export type InventoryUnitRow = {
+  unitId: string;
+  productId: string;
+  itemCode: string;
+  sku: string;
+  name: string;
+  category: string;
+  metal: MetalType;
+  purity: Purity;
+  weightGrams: number;
+  makingCharges: number;
+  price: number;
+  priceSource: InventoryUnitPriceSource;
+  status: InventoryUnitStatus;
+  branchId?: string;
+  branchName?: string;
+  createdAt: string;
+  imageUrl?: string;
+};
+
+export const flattenInventoryToUnitRows = (
+  items: InventoryItem[],
+): InventoryUnitRow[] =>
+  items.flatMap((product) =>
+    product.units.map((unit) => ({
+      unitId: unit.id,
+      productId: product.id,
+      itemCode: unit.itemCode,
+      sku: product.sku,
+      name: product.name,
+      category: product.category,
+      metal: product.metal,
+      purity: product.purity,
+      weightGrams: product.weightGrams,
+      makingCharges: product.makingCharges,
+      price: unit.price,
+      priceSource: unit.priceSource,
+      status: unit.status,
+      branchId: unit.branchId,
+      branchName: unit.branchName ?? product.branchName,
+      createdAt: unit.createdAt,
+      imageUrl: product.images?.[0]?.url,
+    })),
+  );
+
+export const findProductForUnitRow = (
+  items: InventoryItem[],
+  row: InventoryUnitRow,
+): InventoryItem | undefined =>
+  items.find((item) => item.id === row.productId);

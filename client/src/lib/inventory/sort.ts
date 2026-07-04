@@ -1,32 +1,50 @@
 import { getAgeInDays } from "./ageing";
-import type { InventoryItem } from "@/lib/types";
+import type { InventoryUnitRow } from "./unit-rows";
 
 export type InventorySortField =
-  | "createdAt"
+  | "itemCode"
+  | "sku"
+  | "name"
+  | "category"
+  | "metal"
+  | "purity"
   | "weightGrams"
   | "price"
-  | "category"
+  | "status"
+  | "branchName"
+  | "createdAt"
   | "ageing";
 
 export type InventorySortOrder = "asc" | "desc";
 
-export const sortInventoryItems = (
-  items: InventoryItem[],
+export const sortInventoryUnitRows = (
+  rows: InventoryUnitRow[],
   sortBy: InventorySortField,
   sortOrder: InventorySortOrder,
-): InventoryItem[] => {
+): InventoryUnitRow[] => {
   const direction = sortOrder === "asc" ? 1 : -1;
 
-  return [...items].sort((a, b) => {
+  return [...rows].sort((a, b) => {
     let comparison = 0;
 
     switch (sortBy) {
-      case "createdAt":
-        comparison =
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      case "itemCode":
+        comparison = a.itemCode.localeCompare(b.itemCode, "en-IN");
         break;
-      case "ageing":
-        comparison = getAgeInDays(a.createdAt) - getAgeInDays(b.createdAt);
+      case "sku":
+        comparison = a.sku.localeCompare(b.sku, "en-IN");
+        break;
+      case "name":
+        comparison = a.name.localeCompare(b.name, "en-IN");
+        break;
+      case "category":
+        comparison = a.category.localeCompare(b.category, "en-IN");
+        break;
+      case "metal":
+        comparison = a.metal.localeCompare(b.metal, "en-IN");
+        break;
+      case "purity":
+        comparison = a.purity.localeCompare(b.purity, "en-IN");
         break;
       case "weightGrams":
         comparison = a.weightGrams - b.weightGrams;
@@ -34,13 +52,26 @@ export const sortInventoryItems = (
       case "price":
         comparison = a.price - b.price;
         break;
-      case "category":
-        comparison = a.category.localeCompare(b.category, "en-IN");
+      case "status":
+        comparison = a.status.localeCompare(b.status, "en-IN");
+        break;
+      case "branchName":
+        comparison = (a.branchName ?? "").localeCompare(
+          b.branchName ?? "",
+          "en-IN",
+        );
+        break;
+      case "createdAt":
+        comparison =
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        break;
+      case "ageing":
+        comparison = getAgeInDays(a.createdAt) - getAgeInDays(b.createdAt);
         break;
     }
 
     if (comparison === 0) {
-      return a.name.localeCompare(b.name, "en-IN") * direction;
+      return a.itemCode.localeCompare(b.itemCode, "en-IN") * direction;
     }
 
     return comparison * direction;

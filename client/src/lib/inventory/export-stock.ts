@@ -1,4 +1,5 @@
 import type { InventoryItem } from "@/lib/types";
+import type { InventoryUnitRow } from "./unit-rows";
 
 const csvCell = (value: string | number | null | undefined) => {
   const text = value == null || value === "" ? "-" : String(value);
@@ -15,6 +16,60 @@ const formatDateForFilename = () => {
   ].join("-");
 };
 
+const downloadCsv = (filename: string, headers: string[], rows: string[]) => {
+  const csv = [headers.map(csvCell).join(","), ...rows].join("\r\n");
+  const blob = new Blob([`\uFEFF${csv}`], {
+    type: "text/csv;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
+export const downloadUnitStockExcel = (rows: InventoryUnitRow[]) => {
+  const headers = [
+    "Item Code",
+    "Product",
+    "SKU",
+    "Category",
+    "Metal",
+    "Purity",
+    "Weight (g)",
+    "Price",
+    "Making Charges",
+    "Status",
+    "Location",
+    "Created Date",
+  ];
+
+  const csvRows = rows.map((row) =>
+    [
+      row.itemCode,
+      row.name,
+      row.sku,
+      row.category,
+      row.metal,
+      row.purity,
+      row.weightGrams,
+      row.price,
+      row.makingCharges,
+      row.status,
+      row.branchName,
+      new Date(row.createdAt).toLocaleDateString("en-IN"),
+    ]
+      .map(csvCell)
+      .join(","),
+  );
+
+  downloadCsv(`stock-${formatDateForFilename()}.csv`, headers, csvRows);
+};
+
+/** @deprecated Use downloadUnitStockExcel for item-level exports. */
 export const downloadStockExcel = (items: InventoryItem[]) => {
   const headers = [
     "Item Code",
@@ -56,20 +111,5 @@ export const downloadStockExcel = (items: InventoryItem[]) => {
     );
   });
 
-  const csv = [
-    headers.map(csvCell).join(","),
-    ...rows,
-  ].join("\r\n");
-
-  const blob = new Blob([`\uFEFF${csv}`], {
-    type: "text/csv;charset=utf-8",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `stock-${formatDateForFilename()}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  downloadCsv(`stock-${formatDateForFilename()}.csv`, headers, rows);
 };
