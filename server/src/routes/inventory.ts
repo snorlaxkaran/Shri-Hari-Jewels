@@ -30,6 +30,7 @@ import {
   partialAcceptStockTransfer,
   rejectStockTransfer,
   saveTransferShipping,
+  saveTransferShippingAndGenerateInvoice,
 } from "../lib/inventory/transfer-actions.js";
 import {
   authenticate,
@@ -47,6 +48,7 @@ import type {
   UpdateProductInput,
 } from "../types.js";
 import { StockTransferStatus } from "@prisma/client";
+import { getShopSettings } from "../lib/settings/service.js";
 
 export const inventoryRouter = Router();
 
@@ -394,6 +396,58 @@ inventoryRouter.patch(
       }
       console.error("PATCH /api/inventory/transfers/:id/shipping", error);
       res.status(500).json({ error: "Failed to save shipping details" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/transfers/:id/invoice",
+  requireRole(canManageStockTransfers),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const { contactPersonName, contactPersonPhone, courierCompany, dispatchDate } =
+        req.body;
+      if (!contactPersonName?.trim()) {
+        res.status(400).json({ error: "Contact person name is required." });
+        return;
+      }
+      if (!contactPersonPhone?.trim()) {
+        res.status(400).json({ error: "Contact person phone is required." });
+        return;
+      }
+      if (!courierCompany?.trim()) {
+        res.status(400).json({ error: "Courier company is required." });
+        return;
+      }
+      if (!dispatchDate) {
+        res.status(400).json({ error: "Dispatch date is required." });
+        return;
+      }
+
+      const settings = await getShopSettings(req.organizationId!);
+      const { transfer, pdfBuffer } = await saveTransferShippingAndGenerateInvoice(
+        routeParam(req.params.id),
+        { contactPersonName, contactPersonPhone, courierCompany, dispatchDate },
+        settings.state ?? "",
+      );
+
+      const isInvoice = transfer.documentType === "Wholesale GST Invoice";
+      const filename = isInvoice
+        ? `invoice-${transfer.invoiceNo ?? transfer.transferNo}.pdf`
+        : `challan-${transfer.transferNo}.pdf`;
+
+      res.set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "X-Transfer-Data": JSON.stringify(transfer),
+      });
+      res.send(pdfBuffer);
+    } catch (err) {
+      if (err instanceof InventoryError) {
+        res.status(err.statusCode).json({ error: err.message });
+        return;
+      }
+      next(err);
     }
   },
 );

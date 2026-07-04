@@ -14,6 +14,9 @@ import { moneyToNumber } from "../money.js";
 import { syncProductStockInTx } from "./stock-sync.js";
 import { recordInventoryAuditInTx } from "./audit.js";
 import { InventoryError } from "./service.js";
+import { generateTransferInvoiceNo } from "../invoices/transfer-invoice-no.js";
+import { generateTransferInvoicePdf } from "../invoices/transfer-invoice-pdf.js";
+import { getShopSettings } from "../settings/service.js";
 
 type StockTransferWithRelations = DbStockTransfer & {
   fromBranch: Branch;
@@ -59,6 +62,8 @@ export const toStockTransferDto = (
   contactPersonPhone: transfer.contactPersonPhone ?? undefined,
   courierCompany: transfer.courierCompany ?? undefined,
   dispatchDate: transfer.dispatchDate?.toISOString(),
+  invoiceNo: transfer.invoiceNo ?? undefined,
+  invoicedAt: transfer.invoicedAt?.toISOString(),
   acceptedById: transfer.acceptedById ?? undefined,
   acceptedByName: transfer.acceptedByName ?? undefined,
   acceptedAt: transfer.acceptedAt?.toISOString(),
@@ -468,6 +473,55 @@ export const saveTransferShipping = async (
     },
   });
   return toStockTransferDto(updated);
+};
+
+export const saveTransferShippingAndGenerateInvoice = async (
+  transferId: string,
+  input: {
+    contactPersonName: string;
+    contactPersonPhone: string;
+    courierCompany: string;
+    dispatchDate: string;
+  },
+  shopState: string,
+): Promise<{ transfer: StockTransfer; pdfBuffer: Buffer }> => {
+  const transfer = await loadTransfer(transferId);
+  if (!transfer) throw new InventoryError("Transfer not found.", 404);
+
+  let invoiceNo = transfer.invoiceNo;
+  if (transfer.documentType === "Wholesale GST Invoice" && !invoiceNo) {
+    const existing = await prisma.stockTransfer.findMany({
+      where: { invoiceNo: { not: null } },
+      select: { invoiceNo: true },
+    });
+    invoiceNo = generateTransferInvoiceNo(
+      existing.map((t) => t.invoiceNo!).filter(Boolean),
+    );
+  }
+
+  const updated = await prisma.stockTransfer.update({
+    where: { id: transferId },
+    data: {
+      contactPersonName: input.contactPersonName.trim(),
+      contactPersonPhone: input.contactPersonPhone.trim(),
+      courierCompany: input.courierCompany.trim(),
+      dispatchDate: new Date(input.dispatchDate),
+      invoiceNo: invoiceNo ?? undefined,
+      invoicedAt: new Date(),
+    },
+    include: {
+      fromBranch: true,
+      toBranch: true,
+      customer: true,
+      customerBranch: true,
+      items: { orderBy: { itemCode: "asc" } },
+    },
+  });
+
+  const settings = await getShopSettings(updated.fromBranch.organizationId);
+  const pdfBuffer = await generateTransferInvoicePdf(updated, settings, shopState);
+
+  return { transfer: toStockTransferDto(updated), pdfBuffer };
 };
 
 export const countPendingIncomingTransfers = async (

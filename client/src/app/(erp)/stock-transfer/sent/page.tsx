@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { ChevronDown, ChevronRight, Download, Search } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
@@ -11,7 +12,6 @@ import { canManageStockTransfers } from "@/lib/auth/permissions";
 import { useAuth } from "@/lib/auth/auth-context";
 import TransferStatusBadge from "@/app/(components)/stock-transfer/TransferStatusBadge";
 import {
-  downloadTransferCsv,
   downloadTransfersCsv,
 } from "@/lib/inventory/export-transfer";
 import type { StockTransfer } from "@/lib/types";
@@ -154,6 +154,7 @@ export default function SentStockPage() {
                 <th className="text-left px-5 py-3 font-medium">Date</th>
                 <th className="text-left px-5 py-3 font-medium">Store</th>
                 <th className="text-left px-5 py-3 font-medium">Document</th>
+                <th className="text-left px-5 py-3 font-medium">Invoice No.</th>
                 <th className="text-left px-5 py-3 font-medium">Items</th>
                 <th className="text-left px-5 py-3 font-medium">Value</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
@@ -165,7 +166,7 @@ export default function SentStockPage() {
               {filtered.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={11}
                     className="px-5 py-10 text-center text-sm text-zinc-400"
                   >
                     No transfers sent yet. Use Scan &amp; Send to transfer stock.
@@ -216,6 +217,9 @@ export default function SentStockPage() {
                           )}
                         </td>
                         <td className="px-5 py-3">{transfer.documentType}</td>
+                        <td className="px-5 py-3 font-mono text-xs">
+                          {transfer.invoiceNo ?? "—"}
+                        </td>
                         <td className="px-5 py-3">{transfer.itemCount}</td>
                         <td className="px-5 py-3">
                           {formatCurrency(transfer.totalValue)}
@@ -226,14 +230,12 @@ export default function SentStockPage() {
                         <td className="px-5 py-3">{transfer.createdByName}</td>
                         <td className="px-5 py-3">
                           <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => downloadTransferCsv(transfer)}
+                            <Link
+                              href={`/stock-transfer/sent/${transfer.id}`}
                               className="btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
                             >
-                              <Download size={14} />
-                              CSV
-                            </button>
+                              View / Invoice
+                            </Link>
                             {canAct && transfer.status === "Pending" && (
                               <button
                                 type="button"
@@ -248,7 +250,15 @@ export default function SentStockPage() {
                       </tr>
                       {expanded && (
                         <tr className="bg-zinc-50/80">
-                          <td colSpan={10} className="px-5 py-4">
+                          <td colSpan={11} className="px-5 py-4">
+                            <div className="mb-3 flex justify-end">
+                              <Link
+                                href={`/stock-transfer/sent/${transfer.id}`}
+                                className="btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                              >
+                                View / Invoice
+                              </Link>
+                            </div>
                             <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
                               <table className="w-full min-w-[720px] text-sm">
                                 <thead>

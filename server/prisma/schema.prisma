@@ -19,6 +19,7 @@ enum InventoryUnitStatus {
   Reserved
   Sold
   InTransit
+  Transferred
 }
 
 enum StockTransferStatus {
@@ -348,6 +349,8 @@ model StockTransfer {
   contactPersonPhone String?
   courierCompany     String?
   dispatchDate       DateTime?
+  invoiceNo          String?
+  invoicedAt         DateTime?
   createdById   String?
   createdByName String
   createdAt    DateTime @default(now())
@@ -721,6 +724,8 @@ model Sale {
   customerPhone String
   customerName  String?
   soldAt        DateTime @default(now())
+  stockTransferId  String?
+  saleSource       String  @default("Direct")
 
   branch   Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
   unit     InventoryUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)

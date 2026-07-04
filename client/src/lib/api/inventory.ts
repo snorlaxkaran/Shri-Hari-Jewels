@@ -9,7 +9,7 @@ import type {
   StockTransferStatus,
   UpdateProductInput,
 } from "@/lib/types";
-import { api } from "./client";
+import { api, API_BASE_URL, getAuthToken } from "./client";
 
 export const fetchInventory = async (options?: {
   sortBy?: "createdAt" | "weightGrams" | "price" | "category";
@@ -203,4 +203,39 @@ export const saveTransferShipping = async (
     input,
   );
   return data;
+};
+
+export const generateTransferInvoice = async (
+  id: string,
+  input: {
+    contactPersonName: string;
+    contactPersonPhone: string;
+    courierCompany: string;
+    dispatchDate: string;
+  },
+): Promise<{ transfer: StockTransfer; pdfBlob: Blob }> => {
+  const response = await fetch(
+    `${API_BASE_URL}/api/inventory/transfers/${id}/invoice`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+      body: JSON.stringify(input),
+    },
+  );
+  if (!response.ok) {
+    const err = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error ?? "Failed to generate invoice.");
+  }
+  const transferHeader = response.headers.get("X-Transfer-Data");
+  const transfer = transferHeader
+    ? (JSON.parse(transferHeader) as StockTransfer)
+    : null;
+  const pdfBlob = await response.blob();
+  if (!transfer) {
+    throw new Error("Failed to read updated transfer data.");
+  }
+  return { transfer, pdfBlob };
 };

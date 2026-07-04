@@ -1,4 +1,4 @@
-import { InventoryUnitStatus, StockTransferStatus } from "@prisma/client";
+import { InventoryUnitStatus, SalePaymentStatus, StockTransferStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import type {
   Branch,
@@ -451,6 +451,16 @@ export const createStockTransfer = async (
     ),
   );
 
+  const customer = await prisma.customer.findUnique({
+    where: { id: input.customerId },
+    select: { name: true, mobile: true },
+  });
+
+  const isWholesaleInvoice = input.documentType === "Wholesale GST Invoice";
+  const unitStatus = isWholesaleInvoice
+    ? InventoryUnitStatus.Sold
+    : InventoryUnitStatus.Transferred;
+
   const transfer = await prisma.$transaction(async (tx) => {
     const created = await tx.stockTransfer.create({
       data: {
@@ -501,8 +511,36 @@ export const createStockTransfer = async (
 
     await tx.inventoryUnit.updateMany({
       where: { itemCode: { in: cleanCodes } },
-      data: { status: InventoryUnitStatus.Sold },
+      data: { status: unitStatus },
     });
+
+    if (isWholesaleInvoice) {
+      for (const unit of units) {
+        const listPrice = computeLiveListPriceForProduct(unit.product, marketRates);
+        await tx.sale.create({
+          data: {
+            branchId: headOfficeBranchId,
+            unitId: unit.id,
+            itemCode: unit.itemCode,
+            productId: unit.productId,
+            productName: unit.product.name,
+            sku: unit.product.sku,
+            category: unit.product.category,
+            listPrice,
+            discount: 0,
+            dealPrice: listPrice,
+            paymentMode: "Transfer",
+            paymentStatus: SalePaymentStatus.Completed,
+            customerPhone: customer?.mobile ?? "",
+            customerName: customer?.name,
+            customerId: input.customerId,
+            soldAt: transferDate,
+            saleSource: "WholesaleTransfer",
+            stockTransferId: created.id,
+          },
+        });
+      }
+    }
 
     const productIds = [...new Set(units.map((unit) => unit.productId))];
     for (const productId of productIds) {

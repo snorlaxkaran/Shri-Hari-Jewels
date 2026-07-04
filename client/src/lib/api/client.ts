@@ -29,6 +29,15 @@ export const clearAuthToken = () => {
   delete api.defaults.headers.common.Authorization;
 };
 
+export const getAuthToken = (): string => {
+  if (typeof window === "undefined") return "";
+  return (
+    window.sessionStorage.getItem("shj_auth_token") ??
+    window.localStorage.getItem("shj_auth_token") ??
+    ""
+  );
+};
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {

@@ -148,6 +148,8 @@ export type StockTransfer = {
   contactPersonPhone?: string;
   courierCompany?: string;
   dispatchDate?: string;
+  invoiceNo?: string;
+  invoicedAt?: string;
   acceptedById?: string;
   acceptedByName?: string;
   acceptedAt?: string;
