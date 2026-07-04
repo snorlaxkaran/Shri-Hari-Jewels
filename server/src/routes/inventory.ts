@@ -439,7 +439,9 @@ inventoryRouter.post(
       res.set({
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
-        "X-Transfer-Data": JSON.stringify(transfer),
+        "X-Transfer-Data": Buffer.from(JSON.stringify(transfer), "utf8").toString(
+          "base64",
+        ),
       });
       res.send(pdfBuffer);
     } catch (error) {

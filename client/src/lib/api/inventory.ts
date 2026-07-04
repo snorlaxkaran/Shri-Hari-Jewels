@@ -237,9 +237,17 @@ export const generateTransferInvoice = async (
     );
   }
   const transferHeader = response.headers.get("X-Transfer-Data");
-  let transfer: StockTransfer | null = transferHeader
-    ? (JSON.parse(transferHeader) as StockTransfer)
-    : null;
+  let transfer: StockTransfer | null = null;
+  if (transferHeader) {
+    try {
+      const json = new TextDecoder().decode(
+        Uint8Array.from(atob(transferHeader), (c) => c.charCodeAt(0)),
+      );
+      transfer = JSON.parse(json) as StockTransfer;
+    } catch {
+      transfer = null;
+    }
+  }
   const pdfBlob = await response.blob();
   if (!transfer) {
     transfer = await fetchStockTransferById(id);
