@@ -403,7 +403,7 @@ inventoryRouter.patch(
 inventoryRouter.post(
   "/transfers/:id/invoice",
   requireRole(canManageStockTransfers),
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
       const { contactPersonName, contactPersonPhone, courierCompany, dispatchDate } =
         req.body;
@@ -442,12 +442,15 @@ inventoryRouter.post(
         "X-Transfer-Data": JSON.stringify(transfer),
       });
       res.send(pdfBuffer);
-    } catch (err) {
-      if (err instanceof InventoryError) {
-        res.status(err.statusCode).json({ error: err.message });
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
         return;
       }
-      next(err);
+      console.error("POST /api/inventory/transfers/:id/invoice", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to generate invoice.";
+      res.status(500).json({ error: message });
     }
   },
 );

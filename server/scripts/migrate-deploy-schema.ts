@@ -87,6 +87,45 @@ const ensureInventoryUnitInTransit = async () => {
   );
 };
 
+const ensureInventoryUnitTransferred = async () => {
+  if (!(await enumExists("InventoryUnitStatus"))) {
+    console.log(
+      "Skip InventoryUnitStatus.Transferred — enum not found yet (fresh DB; db push will create it).",
+    );
+    return;
+  }
+
+  await run(
+    "Ensure InventoryUnitStatus includes Transferred…",
+    `
+    DO $$
+    BEGIN
+      ALTER TYPE "InventoryUnitStatus" ADD VALUE 'Transferred';
+    EXCEPTION
+      WHEN duplicate_object THEN NULL;
+    END $$;
+    `,
+  );
+};
+
+const ensureTransferInvoiceSchema = async () => {
+  const alters = [
+    `ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "contactPersonName" TEXT`,
+    `ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "contactPersonPhone" TEXT`,
+    `ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "courierCompany" TEXT`,
+    `ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "dispatchDate" TIMESTAMP(3)`,
+    `ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "invoiceNo" TEXT`,
+    `ALTER TABLE "StockTransfer" ADD COLUMN IF NOT EXISTS "invoicedAt" TIMESTAMP(3)`,
+    `ALTER TABLE "StockTransferItem" ADD COLUMN IF NOT EXISTS "weightGrams" DECIMAL(10,3)`,
+    `ALTER TABLE "Sale" ADD COLUMN IF NOT EXISTS "stockTransferId" TEXT`,
+    `ALTER TABLE "Sale" ADD COLUMN IF NOT EXISTS "saleSource" TEXT NOT NULL DEFAULT 'Direct'`,
+  ];
+
+  for (const sql of alters) {
+    await run(`Apply: ${sql.slice(0, 72).replace(/\s+/g, " ")}…`, sql);
+  }
+};
+
 const ensureStockTransferStatus = async () => {
   await run(
     "Ensure StockTransferStatus enum…",
@@ -405,7 +444,9 @@ const main = async () => {
 
   await ensureProductStockStatusEnum();
   await ensureInventoryUnitInTransit();
+  await ensureInventoryUnitTransferred();
   await ensureStockTransferStatus();
+  await ensureTransferInvoiceSchema();
   await ensureInventoryUnitListPrice();
   await ensureMultiTenantOrganizations();
   await ensureOrgScopedInventoryIdentifiers();

@@ -31,7 +31,7 @@ const CONVERSIONS: ColumnConversion[] = [
     table: "InventoryUnit",
     column: "status",
     enumName: "InventoryUnitStatus",
-    values: ["Available", "Reserved", "Sold", "InTransit"],
+    values: ["Available", "Reserved", "Sold", "InTransit", "Transferred"],
     usingSql: `TRIM("status"::text)::"InventoryUnitStatus"`,
   },
   {
@@ -300,8 +300,10 @@ const main = async () => {
       "Reserved",
       "Sold",
       "InTransit",
+      "Transferred",
     ]);
     await addEnumValueIfMissing("InventoryUnitStatus", "InTransit");
+    await addEnumValueIfMissing("InventoryUnitStatus", "Transferred");
   }
 
   await verifyEnumColumns();

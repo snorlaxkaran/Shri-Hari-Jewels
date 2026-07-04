@@ -83,6 +83,7 @@ app.use(
       callback(new Error(`Origin not allowed by CORS: ${origin}`));
     },
     credentials: true,
+    exposedHeaders: ["X-Transfer-Data"],
   }),
 );
 

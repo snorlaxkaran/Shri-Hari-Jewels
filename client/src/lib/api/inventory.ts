@@ -226,16 +226,23 @@ export const generateTransferInvoice = async (
     },
   );
   if (!response.ok) {
-    const err = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new Error(err.error ?? "Failed to generate invoice.");
+    const contentType = response.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const err = (await response.json()) as { error?: string };
+      throw new Error(err.error ?? `Failed to generate invoice (${response.status}).`);
+    }
+    const text = await response.text();
+    throw new Error(
+      text.trim().slice(0, 200) || `Failed to generate invoice (${response.status}).`,
+    );
   }
   const transferHeader = response.headers.get("X-Transfer-Data");
-  const transfer = transferHeader
+  let transfer: StockTransfer | null = transferHeader
     ? (JSON.parse(transferHeader) as StockTransfer)
     : null;
   const pdfBlob = await response.blob();
   if (!transfer) {
-    throw new Error("Failed to read updated transfer data.");
+    transfer = await fetchStockTransferById(id);
   }
   return { transfer, pdfBlob };
 };
