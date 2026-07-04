@@ -26,3 +26,12 @@ export const CATEGORY_COLORS: Record<ProductCategory, string> = {
   Anklets: "#78716c",
   Others: "#d4d4d8",
 };
+
+/** Single-letter metal codes embedded in auto-generated SKUs (e.g. RG-G-26-0001). */
+export const METAL_SKU_CODE: Record<string, string> = {
+  Gold: "G",
+  Silver: "S",
+  Platinum: "P",
+  "Rose Gold": "R",
+  "Base Metal": "B",
+};

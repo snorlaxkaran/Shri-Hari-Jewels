@@ -48,8 +48,8 @@ export default function AddProductModal({
   const [submitting, setSubmitting] = useState(false);
 
   const previewSku = useMemo(
-    () => generateSku(existingSkus, category),
-    [existingSkus, category],
+    () => generateSku(existingSkus, category, metal),
+    [existingSkus, category, metal],
   );
 
   const previewUnitCodes = useMemo(() => {

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Gem, Eye, EyeOff, Sparkles, Shield, BarChart3 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
+import { consumeInactivityLogoutFlag } from "@/lib/auth/use-idle-logout";
 import { getApiErrorMessage } from "@/lib/api/client";
 
 const FEATURES = [
@@ -336,6 +337,13 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [inactivityNotice, setInactivityNotice] = useState(false);
+
+  useEffect(() => {
+    if (consumeInactivityLogoutFlag()) {
+      setInactivityNotice(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (!loading && user) {
@@ -699,6 +707,22 @@ export default function LoginPage() {
               onSubmit={handleSubmit}
               style={{ display: "flex", flexDirection: "column", gap: 18 }}
             >
+              {inactivityNotice && (
+                <div
+                  style={{
+                    fontSize: 12.5,
+                    color: "#92400e",
+                    background: "#fffbeb",
+                    border: "1px solid #fde68a",
+                    borderRadius: "var(--radius)",
+                    padding: "10px 14px",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  You&apos;ve been logged out due to inactivity.
+                </div>
+              )}
+
               <div>
                 <label
                   htmlFor="email"

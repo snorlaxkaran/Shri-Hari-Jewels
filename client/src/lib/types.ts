@@ -108,6 +108,8 @@ export type InventoryItem = {
   imageColor: string;
   images: ProductImage[];
   units: InventoryUnit[];
+  branchId?: string;
+  branchName?: string;
   createdAt: string;
 };
 

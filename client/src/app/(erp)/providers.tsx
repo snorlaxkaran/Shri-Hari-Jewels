@@ -9,14 +9,17 @@ import { WorkOrdersProvider } from "@/lib/work-orders/work-orders-context";
 import { DesignsProvider } from "@/lib/designs/designs-context";
 import { ProductionRunsProvider } from "@/lib/production-runs/production-runs-context";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useIdleLogout } from "@/lib/auth/use-idle-logout";
 
 export default function ErpProviders({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const tenantKey = user ? `${user.id}:${user.organizationId ?? "none"}` : "guest";
+
+  useIdleLogout(logout, Boolean(user));
 
   return (
     <InventoryProvider key={tenantKey}>

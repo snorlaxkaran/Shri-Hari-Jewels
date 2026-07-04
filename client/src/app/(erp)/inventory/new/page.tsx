@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { LogOut, RefreshCw } from "lucide-react";
+import { LogOut } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import ImageUpload from "@/app/(components)/ImageUpload";
 import StockExcelImport from "@/app/(components)/inventory/StockExcelImport";
@@ -60,6 +60,7 @@ export default function NewStockPage() {
   const canAdd = user ? canWriteInventory(user.role) : false;
 
   const [metal, setMetal] = useState<MetalType>("Silver");
+  const [autoGenerateSku, setAutoGenerateSku] = useState(true);
   const [catalogNo, setCatalogNo] = useState("");
   const [description, setDescription] = useState("");
   const [stones, setStones] = useState("");
@@ -98,9 +99,11 @@ export default function NewStockPage() {
   );
 
   const previewSku = useMemo(() => {
-    if (catalogNo.trim()) return catalogNo.trim().toUpperCase();
-    return generateSku(existingSkus, category);
-  }, [catalogNo, existingSkus, category]);
+    if (!autoGenerateSku && catalogNo.trim()) {
+      return catalogNo.trim().toUpperCase();
+    }
+    return generateSku(existingSkus, category, metal);
+  }, [autoGenerateSku, catalogNo, existingSkus, category, metal]);
 
   const previewUnitCodes = useMemo(() => {
     const qty = Math.max(1, parseInt(quantity, 10) || 1);
@@ -144,6 +147,18 @@ export default function NewStockPage() {
       return;
     }
 
+    const manualSku = catalogNo.trim().toUpperCase();
+    if (!autoGenerateSku) {
+      if (!manualSku) {
+        setError("Enter a SKU or switch to auto-generate.");
+        return;
+      }
+      if (existingSkus.includes(manualSku)) {
+        setError(`SKU ${manualSku} already exists. Choose a different code.`);
+        return;
+      }
+    }
+
     const fullName = [
       description.trim(),
       stones.trim() ? `[${stones.trim()}]` : "",
@@ -166,7 +181,7 @@ export default function NewStockPage() {
         price: unitPrice,
         quantity: qty,
         images: images.map(({ id, url, name }) => ({ id, url, name })),
-        catalogNo: catalogNo.trim() || undefined,
+        catalogNo: !autoGenerateSku && manualSku ? manualSku : undefined,
       });
       await refresh({ silent: true });
       router.push("/inventory");
@@ -252,25 +267,34 @@ export default function NewStockPage() {
             </div>
 
             <div>
-              <label className={labelClass}>Catalog No.</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={catalogNo}
-                  onChange={(e) => setCatalogNo(e.target.value)}
-                  placeholder="Catalog Number"
-                  className={fieldClass}
-                />
-                <button
-                  type="button"
-                  onClick={() => setCatalogNo("")}
-                  className="btn-secondary px-3 shrink-0"
-                  title="Use auto SKU"
-                >
-                  <RefreshCw size={16} />
-                </button>
+              <label className={labelClass}>SKU</label>
+              <div className="space-y-2">
+                <label className="inline-flex items-center gap-2 text-sm text-zinc-700">
+                  <input
+                    type="checkbox"
+                    checked={autoGenerateSku}
+                    onChange={(e) => {
+                      setAutoGenerateSku(e.target.checked);
+                      if (e.target.checked) setCatalogNo("");
+                    }}
+                    className="rounded border-zinc-300"
+                  />
+                  Auto-generate SKU
+                </label>
+                {autoGenerateSku ? (
+                  <p className="text-[11px] font-mono text-zinc-500 bg-zinc-50 rounded-lg px-3 py-2">
+                    {previewSku}
+                  </p>
+                ) : (
+                  <input
+                    type="text"
+                    value={catalogNo}
+                    onChange={(e) => setCatalogNo(e.target.value.toUpperCase())}
+                    placeholder="Enter SKU manually"
+                    className={fieldClass}
+                  />
+                )}
               </div>
-              <p className="text-[11px] text-zinc-400 mt-1 font-mono">{previewSku}</p>
             </div>
 
             <div className="xl:col-span-2">

@@ -11,9 +11,16 @@ import type {
 } from "@/lib/types";
 import { api } from "./client";
 
-export const fetchInventory = async (): Promise<InventoryItem[]> => {
+export const fetchInventory = async (options?: {
+  sortBy?: "createdAt" | "weightGrams" | "price" | "category";
+  sortOrder?: "asc" | "desc";
+}): Promise<InventoryItem[]> => {
   const { data } = await api.get<InventoryItem[]>("/api/inventory", {
-    params: { _t: Date.now() },
+    params: {
+      _t: Date.now(),
+      sortBy: options?.sortBy,
+      sortOrder: options?.sortOrder,
+    },
     headers: { "Cache-Control": "no-cache" },
   });
   return data;

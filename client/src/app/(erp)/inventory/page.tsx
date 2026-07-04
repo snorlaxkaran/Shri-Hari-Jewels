@@ -2,12 +2,13 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatCard from "@/app/(components)/StatCard";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canWriteInventory } from "@/lib/auth/permissions";
+import { fetchBranches } from "@/lib/api/branches";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import { PRODUCT_CATEGORIES } from "@/lib/inventory/categories";
 import {
@@ -15,8 +16,14 @@ import {
   matchesProductMetalTab,
   type ProductMetalTab,
 } from "@/lib/inventory/metal-stats";
+import {
+  sortInventoryItems,
+  toggleSort,
+  type InventorySortField,
+  type InventorySortOrder,
+} from "@/lib/inventory/sort";
 import { downloadStockExcel } from "@/lib/inventory/export-stock";
-import type { InventoryItem } from "@/lib/types";
+import type { Branch, InventoryItem } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 import { Diamond, Download, Gem, Plus, Search } from "lucide-react";
 
@@ -42,9 +49,31 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [metalTab, setMetalTab] = useState<ProductMetalTab>("all");
   const [category, setCategory] = useState("All");
+  const [branchFilter, setBranchFilter] = useState("All");
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [sortBy, setSortBy] = useState<InventorySortField>("createdAt");
+  const [sortOrder, setSortOrder] = useState<InventorySortOrder>("desc");
   const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(
     null,
   );
+
+  useEffect(() => {
+    fetchBranches()
+      .then(setBranches)
+      .catch(() => setBranches([]));
+  }, []);
+
+  const showBranchColumn = branches.length >= 2;
+  const branchOptions = useMemo(
+    () => ["All", ...branches.map((branch) => branch.name)],
+    [branches],
+  );
+
+  const handleSort = useCallback((field: InventorySortField) => {
+    const next = toggleSort(sortBy, sortOrder, field);
+    setSortBy(next.sortBy);
+    setSortOrder(next.sortOrder);
+  }, [sortBy, sortOrder]);
 
   useEffect(() => {
     if (!selectedProduct) return;
@@ -65,7 +94,7 @@ export default function InventoryPage() {
   );
 
   const filtered = useMemo(() => {
-    return items.filter((item) => {
+    const rows = items.filter((item) => {
       const matchesSearch =
         item.name.toLowerCase().includes(search.toLowerCase()) ||
         item.sku.toLowerCase().includes(search.toLowerCase()) ||
@@ -75,9 +104,24 @@ export default function InventoryPage() {
       const matchesCategory =
         category === "All" || item.category === category;
       const matchesMetal = matchesProductMetalTab(item.metal, metalTab);
-      return matchesSearch && matchesCategory && matchesMetal;
+      const matchesBranch =
+        !showBranchColumn ||
+        branchFilter === "All" ||
+        item.branchName === branchFilter;
+      return matchesSearch && matchesCategory && matchesMetal && matchesBranch;
     });
-  }, [items, search, category, metalTab]);
+
+    return sortInventoryItems(rows, sortBy, sortOrder);
+  }, [
+    items,
+    search,
+    category,
+    metalTab,
+    branchFilter,
+    showBranchColumn,
+    sortBy,
+    sortOrder,
+  ]);
 
   if (!hydrated || loading) {
     return <PageSkeleton />;
@@ -181,12 +225,29 @@ export default function InventoryPage() {
             </option>
           ))}
         </select>
+        {showBranchColumn && (
+          <select
+            value={branchFilter}
+            onChange={(e) => setBranchFilter(e.target.value)}
+            className="input-field px-3 py-2 text-sm"
+          >
+            {branchOptions.map((branchName) => (
+              <option key={branchName} value={branchName}>
+                {branchName === "All" ? "All Locations" : branchName}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="surface-card overflow-hidden w-full">
         <InventoryTable
           rows={filtered}
           onRowClick={setSelectedProduct}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSort={handleSort}
+          showBranchColumn={showBranchColumn}
         />
       </div>
 

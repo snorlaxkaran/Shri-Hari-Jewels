@@ -1,19 +1,23 @@
 import type { ProductCategory } from "./categories.js";
-import { CATEGORY_SKU_PREFIX } from "./categories.js";
+import { CATEGORY_SKU_PREFIX, METAL_SKU_CODE } from "./categories.js";
 
-const SKU_PATTERN = /^([A-Z]{2})-(\d{2})-(\d{4})$/;
-const UNIT_CODE_PATTERN = /^([A-Z]{2}-\d{2}-\d{4})-(\d{3})$/;
+/** New format: RG-G-26-0001 */
+const SKU_PATTERN = /^([A-Z]{2})-([A-Z])-(\d{2})-(\d{4})$/;
+/** Legacy format: ER-26-0001 */
+const LEGACY_SKU_PATTERN = /^([A-Z]{2})-(\d{2})-(\d{4})$/;
 
 export const getCurrentYearSuffix = (date = new Date()) =>
   String(date.getFullYear()).slice(-2);
 
 export const formatSku = (
   category: ProductCategory,
+  metal: string,
   sequence: number,
   yearSuffix = getCurrentYearSuffix(),
 ) => {
   const prefix = CATEGORY_SKU_PREFIX[category];
-  return `${prefix}-${yearSuffix}-${String(sequence).padStart(4, "0")}`;
+  const metalCode = METAL_SKU_CODE[metal] ?? "X";
+  return `${prefix}-${metalCode}-${yearSuffix}-${String(sequence).padStart(4, "0")}`;
 };
 
 export const formatUnitCode = (sku: string, unitNumber: number) =>
@@ -21,25 +25,46 @@ export const formatUnitCode = (sku: string, unitNumber: number) =>
 
 export const parseSku = (sku: string) => {
   const match = sku.match(SKU_PATTERN);
-  if (!match) return null;
-  return {
-    prefix: match[1],
-    yearSuffix: match[2],
-    sequence: parseInt(match[3], 10),
-  };
+  if (match) {
+    return {
+      categoryPrefix: match[1],
+      metalCode: match[2],
+      yearSuffix: match[3],
+      sequence: parseInt(match[4], 10),
+    };
+  }
+
+  const legacyMatch = sku.match(LEGACY_SKU_PATTERN);
+  if (legacyMatch) {
+    return {
+      categoryPrefix: legacyMatch[1],
+      metalCode: undefined,
+      yearSuffix: legacyMatch[2],
+      sequence: parseInt(legacyMatch[3], 10),
+    };
+  }
+
+  return null;
 };
 
 export const getNextSkuSequence = (
   existingSkus: string[],
   category: ProductCategory,
+  metal: string,
   yearSuffix = getCurrentYearSuffix(),
 ): number => {
   const prefix = CATEGORY_SKU_PREFIX[category];
+  const metalCode = METAL_SKU_CODE[metal] ?? "X";
   let max = 0;
 
   for (const sku of existingSkus) {
     const parsed = parseSku(sku);
-    if (parsed && parsed.prefix === prefix && parsed.yearSuffix === yearSuffix) {
+    if (
+      parsed &&
+      parsed.categoryPrefix === prefix &&
+      parsed.metalCode === metalCode &&
+      parsed.yearSuffix === yearSuffix
+    ) {
       max = Math.max(max, parsed.sequence);
     }
   }
@@ -50,10 +75,16 @@ export const getNextSkuSequence = (
 export const generateSku = (
   existingSkus: string[],
   category: ProductCategory,
+  metal: string,
 ) => {
   const yearSuffix = getCurrentYearSuffix();
-  const sequence = getNextSkuSequence(existingSkus, category, yearSuffix);
-  return formatSku(category, sequence, yearSuffix);
+  const sequence = getNextSkuSequence(
+    existingSkus,
+    category,
+    metal,
+    yearSuffix,
+  );
+  return formatSku(category, metal, sequence, yearSuffix);
 };
 
 export const getNextUnitNumber = (

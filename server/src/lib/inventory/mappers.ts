@@ -7,6 +7,7 @@ import {
 } from "./unit-pricing.js";
 
 type ProductWithRelations = Product & {
+  branch?: Branch;
   units: Array<InventoryUnit & { branch?: Branch; sale?: Sale | null }>;
   images: ProductImage[];
 };
@@ -57,6 +58,8 @@ export const toInventoryItem = (
         : "In Stock"
       : "Out of Stock",
     imageColor: product.imageColor,
+    branchId: product.branchId,
+    branchName: product.branch?.name,
     createdAt: product.createdAt.toISOString(),
     images: product.images
       .sort((a, b) => a.sortOrder - b.sortOrder)

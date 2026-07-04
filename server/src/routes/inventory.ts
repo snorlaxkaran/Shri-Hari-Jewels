@@ -73,7 +73,27 @@ inventoryRouter.get("/", requireRole(canReadInventory), async (req: Authenticate
   try {
     res.set("Cache-Control", "no-store");
     const branchId = await getBranchScope(req.user!.id, req.user!.role, req.organizationId!);
-    const items = await listProducts(req.organizationId!, branchId);
+
+    const sortByRaw = typeof req.query.sortBy === "string" ? req.query.sortBy : undefined;
+    const sortOrderRaw =
+      typeof req.query.sortOrder === "string" ? req.query.sortOrder : undefined;
+
+    const allowedSortFields = new Set([
+      "createdAt",
+      "weightGrams",
+      "price",
+      "category",
+    ]);
+    const sortBy = allowedSortFields.has(sortByRaw ?? "")
+      ? (sortByRaw as "createdAt" | "weightGrams" | "price" | "category")
+      : undefined;
+    const sortOrder =
+      sortOrderRaw === "asc" || sortOrderRaw === "desc" ? sortOrderRaw : undefined;
+
+    const items = await listProducts(req.organizationId!, branchId, {
+      sortBy,
+      sortOrder,
+    });
     res.json(items);
   } catch (error) {
     console.error("GET /api/inventory", error);

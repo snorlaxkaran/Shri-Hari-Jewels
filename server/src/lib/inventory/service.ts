@@ -30,6 +30,7 @@ import { getCurrentMarketRates } from "../market-rates/service.js";
 import { computeLiveListPriceForProduct } from "./unit-pricing.js";
 
 const productInclude = {
+  branch: true,
   units: {
     include: { branch: true, sale: true },
     orderBy: { createdAt: "asc" as const },
@@ -37,36 +38,82 @@ const productInclude = {
   images: { orderBy: { sortOrder: "asc" as const } },
 };
 
+export type InventorySortField =
+  | "createdAt"
+  | "weightGrams"
+  | "price"
+  | "category";
+
+export type InventorySortOrder = "asc" | "desc";
+
+export type InventoryListOptions = {
+  sortBy?: InventorySortField;
+  sortOrder?: InventorySortOrder;
+};
+
+const resolveProductOrderBy = (
+  sortBy: InventorySortField,
+  sortOrder: InventorySortOrder,
+) => {
+  switch (sortBy) {
+    case "weightGrams":
+      return { weightGrams: sortOrder };
+    case "price":
+      return { price: sortOrder };
+    case "category":
+      return { category: sortOrder };
+    case "createdAt":
+    default:
+      return { createdAt: sortOrder };
+  }
+};
+
 export const listProducts = async (
   organizationId: string,
   branchId?: string,
+  options: InventoryListOptions = {},
 ): Promise<InventoryItem[]> => {
   await repairCompletedRunInventorySkus();
+
+  const sortBy = options.sortBy ?? "createdAt";
+  const sortOrder = options.sortOrder ?? "desc";
 
   const stockBranchId =
     branchId ?? (await getOrganizationHeadOfficeBranchId(organizationId));
   const marketRates = await getCurrentMarketRates(organizationId);
+  const branchInclude = branchId
+    ? {
+        branch: true,
+        units: {
+          where: { branchId },
+          include: { branch: true, sale: true },
+          orderBy: { createdAt: "asc" as const },
+        },
+        images: { orderBy: { sortOrder: "asc" as const } },
+      }
+    : productInclude;
+
   const products = await prisma.product.findMany({
     where: branchId
       ? { branchId, branch: { organizationId } }
       : { branch: { organizationId } },
-    include: branchId
-      ? {
-          units: {
-            where: { branchId },
-            include: { branch: true, sale: true },
-            orderBy: { createdAt: "asc" as const },
-          },
-          images: { orderBy: { sortOrder: "asc" as const } },
-        }
-      : productInclude,
-    orderBy: { createdAt: "desc" },
+    include: branchInclude,
+    orderBy: resolveProductOrderBy(sortBy, sortOrder),
   });
-  return products
+
+  let items = products
     .map((product) =>
       toInventoryItem(product, { stockBranchId, marketRates }),
     )
     .filter((item) => item.units.length > 0);
+
+  if (sortBy === "price") {
+    items = items.sort((a, b) =>
+      sortOrder === "asc" ? a.price - b.price : b.price - a.price,
+    );
+  }
+
+  return items;
 };
 
 export const createProduct = async (
@@ -100,7 +147,8 @@ export const createProduct = async (
   );
 
   const catalogNo = input.catalogNo?.trim().toUpperCase();
-  const sku = catalogNo || generateSku(existingSkus, category);
+  const sku =
+    catalogNo || generateSku(existingSkus, category, input.metal);
 
   if (catalogNo && existingSkus.includes(sku)) {
     throw new InventoryError(`Catalog number ${sku} already exists.`, 409);
