@@ -9,6 +9,7 @@ import {
   issueStonesToKarigar,
   listStonePurchaseLots,
   listUnsettledStoneIssues,
+  quickReceiveStoneLot,
   receiveStoneLot,
   settleStoneIssue,
 } from "../lib/stone-lots/service.js";
@@ -21,6 +22,7 @@ import type {
   AdjustStonePurchaseLotInput,
   IssueStoneInput,
   NewStonePurchaseLotInput,
+  QuickAddStoneLotInput,
   SettleStoneIssueInput,
 } from "../types.js";
 
@@ -114,6 +116,30 @@ stoneLotsRouter.get("/:id/ledger", requireRole(canReadRawInventory), async (req:
     }
     console.error("GET /api/stone-lots/:id/ledger", error);
     res.status(500).json({ error: "Failed to fetch stone lot ledger" });
+  }
+});
+
+stoneLotsRouter.post("/quick", requireRole(canWriteRawInventory), async (req: AuthenticatedRequest, res) => {
+  try {
+    const body = req.body as QuickAddStoneLotInput;
+    const branchId =
+      body.branchId ||
+      (await getUserBranch(req.user!.id, req.organizationId!));
+
+    const lot = await quickReceiveStoneLot(
+      body,
+      req.organizationId!,
+      branchId,
+      req.user!.name,
+    );
+    res.status(201).json(lot);
+  } catch (error) {
+    if (error instanceof StoneLotError) {
+      res.status(error.statusCode).json({ error: error.message });
+      return;
+    }
+    console.error("POST /api/stone-lots/quick", error);
+    res.status(500).json({ error: "Failed to quick-add stone lot" });
   }
 });
 

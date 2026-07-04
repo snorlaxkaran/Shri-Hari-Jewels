@@ -747,6 +747,7 @@ export type StoneMaster = {
   uom: StoneUOM;
   unitWeightCt?: number;
   isActive: boolean;
+  isAutoCreated: boolean;
   notes?: string;
   createdByName: string;
   createdAt: string;
@@ -829,6 +830,24 @@ export type NewStonePurchaseLotInput = {
   qtyPurchased: number;
   weightPurchased: number;
   purchaseRate: number;
+  gstPct?: number;
+  location?: string;
+  reorderLevel?: number;
+  notes?: string;
+};
+
+export type QuickAddStoneLotInput = {
+  stoneCategory: StoneCategory;
+  branchId?: string;
+  lotNo?: string;
+  packetNo?: string;
+  vendorStoneCode?: string;
+  vendorName?: string;
+  invoiceNo?: string;
+  invoiceDate?: string;
+  qtyPurchased: number;
+  weightPurchased: number;
+  purchaseRate?: number;
   gstPct?: number;
   location?: string;
   reorderLevel?: number;

@@ -836,6 +836,7 @@ model StoneMaster {
   uom             StoneUOM
   unitWeightCt    Decimal?      @db.Decimal(10, 6)
   isActive        Boolean       @default(true)
+  isAutoCreated   Boolean       @default(false)
   notes           String?
   createdByName   String
   createdAt       DateTime      @default(now())

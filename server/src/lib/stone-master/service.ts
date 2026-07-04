@@ -42,6 +42,7 @@ const toStoneMaster = (row: {
   uom: StoneUOM;
   unitWeightCt: { toString(): string } | null;
   isActive: boolean;
+  isAutoCreated: boolean;
   notes: string | null;
   createdByName: string;
   createdAt: Date;
@@ -64,6 +65,7 @@ const toStoneMaster = (row: {
       ? moneyToNumber(String(row.unitWeightCt))
       : undefined,
   isActive: row.isActive,
+  isAutoCreated: row.isAutoCreated,
   notes: row.notes ?? undefined,
   createdByName: row.createdByName,
   createdAt: row.createdAt.toISOString(),

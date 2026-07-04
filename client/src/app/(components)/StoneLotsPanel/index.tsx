@@ -7,11 +7,18 @@ import { fetchStoneMasters } from "@/lib/api/stone-master";
 import {
   fetchStoneLots,
   fetchStoneLotsSummary,
+  quickAddStoneLot,
   receiveStoneLot,
 } from "@/lib/api/stone-lots";
-import { formatStoneMasterLabel } from "@/lib/stones/materials";
+import {
+  formatStoneMasterLabel,
+  STONE_CATEGORIES,
+} from "@/lib/stones/materials";
+import { previewNextLotNo } from "@/lib/stones/lot-number";
 import type {
   NewStonePurchaseLotInput,
+  QuickAddStoneLotInput,
+  StoneCategory,
   StoneMaster,
   StonePurchaseLotSummaryCards,
   StonePurchaseLotWithMaster,
@@ -20,6 +27,8 @@ import { getApiErrorMessage } from "@/lib/api/client";
 
 const fieldClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
+
+type AddMode = "quick" | "detailed";
 
 type StoneLotsPanelProps = {
   canManage: boolean;
@@ -37,9 +46,13 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
   const [statusFilter, setStatusFilter] = useState<string>("");
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [addMode, setAddMode] = useState<AddMode>("quick");
   const [form, setForm] = useState<Partial<NewStonePurchaseLotInput>>({
     invoiceDate: new Date().toISOString().slice(0, 10),
     gstPct: 0,
+  });
+  const [quickForm, setQuickForm] = useState<Partial<QuickAddStoneLotInput>>({
+    stoneCategory: "Diamond",
   });
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -88,7 +101,18 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
 
   const computedTotal = computedAmount + computedGst;
 
+  const existingLotNos = useMemo(() => lots.map((l) => l.lotNo), [lots]);
+
+  const previewLotNo = useMemo(
+    () => previewNextLotNo(existingLotNos),
+    [existingLotNos],
+  );
+
+  const displayedLotNo = quickForm.lotNo?.trim() || previewLotNo;
+
   const openReceive = () => {
+    setAddMode("quick");
+    setQuickForm({ stoneCategory: "Diamond" });
     setForm({
       invoiceDate: new Date().toISOString().slice(0, 10),
       gstPct: 0,
@@ -98,7 +122,32 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
     setModalOpen(true);
   };
 
-  const handleReceive = async (e: React.FormEvent) => {
+  const handleQuickSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canManage) return;
+    setFormError("");
+    setSubmitting(true);
+    try {
+      const lot = await quickAddStoneLot({
+        stoneCategory: quickForm.stoneCategory as StoneCategory,
+        lotNo: quickForm.lotNo?.trim() || undefined,
+        qtyPurchased: quickForm.qtyPurchased!,
+        weightPurchased: quickForm.weightPurchased!,
+        location: quickForm.location?.trim() || undefined,
+        reorderLevel: quickForm.reorderLevel,
+      });
+      setLots((prev) => [lot, ...prev]);
+      setModalOpen(false);
+      void load();
+      router.push(`/stone-master/lots/${lot.id}`);
+    } catch (err) {
+      setFormError(getApiErrorMessage(err, "Failed to add stone lot."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDetailedSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canManage) return;
     setFormError("");
@@ -128,7 +177,7 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
             onClick={openReceive}
             className="btn-primary px-4 py-2 text-sm"
           >
-            + Receive Stone Lot
+            + Add Stone Lot
           </button>
         )}
       </div>
@@ -219,220 +268,395 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-            <h2 className="text-lg font-semibold mb-4">Receive Stone Lot</h2>
-            <form onSubmit={handleReceive} className="space-y-4">
-              <div>
-                <label className={labelClass}>Stone</label>
-                <select
-                  className={fieldClass}
-                  value={form.stoneMasterId ?? ""}
-                  onChange={(e) =>
-                    setForm({ ...form, stoneMasterId: e.target.value })
-                  }
-                  required
-                >
-                  <option value="">Select stone master entry…</option>
-                  {masters.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {formatStoneMasterLabel(m)}
-                    </option>
-                  ))}
-                </select>
-                <Link
-                  href="/stone-master"
-                  className="text-xs text-amber-700 hover:underline mt-1 inline-block"
-                >
-                  + Create new stone master entry
-                </Link>
-              </div>
+            <h2 className="text-lg font-semibold mb-4">Add Stone Lot</h2>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>Vendor Name</label>
-                  <input
-                    className={fieldClass}
-                    value={form.vendorName ?? ""}
-                    onChange={(e) => setForm({ ...form, vendorName: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Invoice No.</label>
-                  <input
-                    className={fieldClass}
-                    value={form.invoiceNo ?? ""}
-                    onChange={(e) => setForm({ ...form, invoiceNo: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
+            <div className="flex gap-1 p-1 rounded-lg bg-zinc-100 mb-4">
+              <ModeToggle
+                active={addMode === "quick"}
+                onClick={() => setAddMode("quick")}
+              >
+                Quick Add
+              </ModeToggle>
+              <ModeToggle
+                active={addMode === "detailed"}
+                onClick={() => setAddMode("detailed")}
+              >
+                Detailed
+              </ModeToggle>
+            </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className={labelClass}>Invoice Date</label>
-                  <input
-                    type="date"
-                    className={fieldClass}
-                    value={form.invoiceDate?.slice(0, 10) ?? ""}
-                    onChange={(e) => setForm({ ...form, invoiceDate: e.target.value })}
-                    required
-                  />
+            {addMode === "quick" ? (
+              <form onSubmit={handleQuickSubmit} className="space-y-4">
+                <div className="rounded-lg p-4 border border-zinc-200 bg-zinc-50">
+                  <p className="text-[11px] uppercase tracking-wide text-zinc-500 font-medium">
+                    {quickForm.lotNo?.trim() ? "Lot Number" : "Auto-generated Lot No"}
+                  </p>
+                  <p className="text-lg font-mono font-semibold mt-1">{displayedLotNo}</p>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Format: LOT-{new Date().getFullYear()}-0001 — leave blank to auto-assign
+                  </p>
                 </div>
+
                 <div>
-                  <label className={labelClass}>Vendor Stone Code</label>
+                  <label className={labelClass}>Lot No (optional override)</label>
                   <input
                     className={fieldClass}
-                    value={form.vendorStoneCode ?? ""}
+                    value={quickForm.lotNo ?? ""}
                     onChange={(e) =>
-                      setForm({ ...form, vendorStoneCode: e.target.value })
+                      setQuickForm({ ...quickForm, lotNo: e.target.value })
                     }
+                    placeholder={previewLotNo}
                   />
                 </div>
-                <div>
-                  <label className={labelClass}>Packet No.</label>
-                  <input
-                    className={fieldClass}
-                    value={form.packetNo ?? ""}
-                    onChange={(e) => setForm({ ...form, packetNo: e.target.value })}
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>Qty Purchased (Pcs)</label>
-                  <input
-                    type="number"
-                    min={1}
+                  <label className={labelClass}>Stone Type</label>
+                  <select
                     className={fieldClass}
-                    value={form.qtyPurchased ?? ""}
+                    value={quickForm.stoneCategory ?? "Diamond"}
                     onChange={(e) =>
-                      setForm({
-                        ...form,
-                        qtyPurchased: parseInt(e.target.value, 10) || undefined,
+                      setQuickForm({
+                        ...quickForm,
+                        stoneCategory: e.target.value as StoneCategory,
                       })
                     }
                     required
-                  />
+                  >
+                    {STONE_CATEGORIES.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>Quantity (Pcs)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      className={fieldClass}
+                      value={quickForm.qtyPurchased ?? ""}
+                      onChange={(e) =>
+                        setQuickForm({
+                          ...quickForm,
+                          qtyPurchased: parseInt(e.target.value, 10) || undefined,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Weight (Ct)</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min={0}
+                      className={fieldClass}
+                      value={quickForm.weightPurchased ?? ""}
+                      onChange={(e) =>
+                        setQuickForm({
+                          ...quickForm,
+                          weightPurchased: parseFloat(e.target.value) || undefined,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>Location (optional)</label>
+                    <input
+                      className={fieldClass}
+                      value={quickForm.location ?? ""}
+                      onChange={(e) =>
+                        setQuickForm({ ...quickForm, location: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Reorder Level (Pcs)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className={fieldClass}
+                      value={quickForm.reorderLevel ?? ""}
+                      onChange={(e) =>
+                        setQuickForm({
+                          ...quickForm,
+                          reorderLevel: parseInt(e.target.value, 10) || undefined,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs text-zinc-500">
+                  Vendor and invoice details default to placeholders. Use Detailed mode for
+                  full purchase-ledger entry.
+                </p>
+
+                {formError && <p className="text-xs text-red-500">{formError}</p>}
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    className="btn-secondary px-4 py-2 text-sm"
+                    onClick={() => setModalOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="btn-primary px-4 py-2 text-sm"
+                  >
+                    {submitting ? "Adding…" : "Add Lot"}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleDetailedSubmit} className="space-y-4">
                 <div>
-                  <label className={labelClass}>Weight Purchased (Ct)</label>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    min={0}
+                  <label className={labelClass}>Stone</label>
+                  <select
                     className={fieldClass}
-                    value={form.weightPurchased ?? ""}
+                    value={form.stoneMasterId ?? ""}
                     onChange={(e) =>
-                      setForm({
-                        ...form,
-                        weightPurchased: parseFloat(e.target.value) || undefined,
-                      })
+                      setForm({ ...form, stoneMasterId: e.target.value })
                     }
                     required
-                  />
+                  >
+                    <option value="">Select stone master entry…</option>
+                    {masters.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {formatStoneMasterLabel(m)}
+                      </option>
+                    ))}
+                  </select>
+                  <Link
+                    href="/stone-master"
+                    className="text-xs text-amber-700 hover:underline mt-1 inline-block"
+                  >
+                    + Create new stone master entry
+                  </Link>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>
-                    Purchase Rate (per {selectedMaster?.uom ?? "Pcs"})
-                  </label>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    min={0}
-                    className={fieldClass}
-                    value={form.purchaseRate ?? ""}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        purchaseRate: parseFloat(e.target.value) || undefined,
-                      })
-                    }
-                    required
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>Vendor Name</label>
+                    <input
+                      className={fieldClass}
+                      value={form.vendorName ?? ""}
+                      onChange={(e) => setForm({ ...form, vendorName: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Invoice No.</label>
+                    <input
+                      className={fieldClass}
+                      value={form.invoiceNo ?? ""}
+                      onChange={(e) => setForm({ ...form, invoiceNo: e.target.value })}
+                      required
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className={labelClass}>GST %</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    className={fieldClass}
-                    value={form.gstPct ?? 0}
-                    onChange={(e) =>
-                      setForm({ ...form, gstPct: parseFloat(e.target.value) || 0 })
-                    }
-                  />
-                </div>
-              </div>
 
-              <div className="bg-zinc-50 rounded-lg p-3 text-sm space-y-1">
-                <div className="flex justify-between">
-                  <span>Amount</span>
-                  <span>₹{computedAmount.toLocaleString("en-IN")}</span>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className={labelClass}>Invoice Date</label>
+                    <input
+                      type="date"
+                      className={fieldClass}
+                      value={form.invoiceDate?.slice(0, 10) ?? ""}
+                      onChange={(e) => setForm({ ...form, invoiceDate: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Vendor Stone Code</label>
+                    <input
+                      className={fieldClass}
+                      value={form.vendorStoneCode ?? ""}
+                      onChange={(e) =>
+                        setForm({ ...form, vendorStoneCode: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Packet No.</label>
+                    <input
+                      className={fieldClass}
+                      value={form.packetNo ?? ""}
+                      onChange={(e) => setForm({ ...form, packetNo: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span>GST Amount</span>
-                  <span>₹{computedGst.toLocaleString("en-IN")}</span>
-                </div>
-                <div className="flex justify-between font-semibold">
-                  <span>Total Amount</span>
-                  <span>₹{computedTotal.toLocaleString("en-IN")}</span>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>Location</label>
-                  <input
-                    className={fieldClass}
-                    value={form.location ?? ""}
-                    onChange={(e) => setForm({ ...form, location: e.target.value })}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>Qty Purchased (Pcs)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      className={fieldClass}
+                      value={form.qtyPurchased ?? ""}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          qtyPurchased: parseInt(e.target.value, 10) || undefined,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Weight Purchased (Ct)</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min={0}
+                      className={fieldClass}
+                      value={form.weightPurchased ?? ""}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          weightPurchased: parseFloat(e.target.value) || undefined,
+                        })
+                      }
+                      required
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className={labelClass}>Reorder Level (Pcs)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    className={fieldClass}
-                    value={form.reorderLevel ?? ""}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        reorderLevel: parseInt(e.target.value, 10) || undefined,
-                      })
-                    }
-                  />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>
+                      Purchase Rate (per {selectedMaster?.uom ?? "Pcs"})
+                    </label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min={0}
+                      className={fieldClass}
+                      value={form.purchaseRate ?? ""}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          purchaseRate: parseFloat(e.target.value) || undefined,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>GST %</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      className={fieldClass}
+                      value={form.gstPct ?? 0}
+                      onChange={(e) =>
+                        setForm({ ...form, gstPct: parseFloat(e.target.value) || 0 })
+                      }
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {formError && <p className="text-xs text-red-500">{formError}</p>}
+                <div className="bg-zinc-50 rounded-lg p-3 text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span>Amount</span>
+                    <span>₹{computedAmount.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>GST Amount</span>
+                    <span>₹{computedGst.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold">
+                    <span>Total Amount</span>
+                    <span>₹{computedTotal.toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
 
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  className="btn-secondary px-4 py-2 text-sm"
-                  onClick={() => setModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="btn-primary px-4 py-2 text-sm"
-                >
-                  {submitting ? "Receiving…" : "Receive Lot"}
-                </button>
-              </div>
-            </form>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>Location</label>
+                    <input
+                      className={fieldClass}
+                      value={form.location ?? ""}
+                      onChange={(e) => setForm({ ...form, location: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Reorder Level (Pcs)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className={fieldClass}
+                      value={form.reorderLevel ?? ""}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          reorderLevel: parseInt(e.target.value, 10) || undefined,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                {formError && <p className="text-xs text-red-500">{formError}</p>}
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    className="btn-secondary px-4 py-2 text-sm"
+                    onClick={() => setModalOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="btn-primary px-4 py-2 text-sm"
+                  >
+                    {submitting ? "Receiving…" : "Receive Lot"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function ModeToggle({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 px-3 py-2 text-sm rounded-md transition-colors ${
+        active
+          ? "bg-white text-zinc-900 shadow-sm font-medium"
+          : "text-zinc-600 hover:text-zinc-900"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

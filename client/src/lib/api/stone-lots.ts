@@ -3,6 +3,7 @@ import type {
   AdjustStonePurchaseLotInput,
   IssueStoneInput,
   NewStonePurchaseLotInput,
+  QuickAddStoneLotInput,
   SettleStoneIssueInput,
   StoneLotDetail,
   StonePurchaseLotSummaryCards,
@@ -39,6 +40,16 @@ export const receiveStoneLot = async (
 ): Promise<StonePurchaseLotWithMaster> => {
   const { data } = await api.post<StonePurchaseLotWithMaster>(
     "/api/stone-lots",
+    input,
+  );
+  return data;
+};
+
+export const quickAddStoneLot = async (
+  input: QuickAddStoneLotInput,
+): Promise<StonePurchaseLotWithMaster> => {
+  const { data } = await api.post<StonePurchaseLotWithMaster>(
+    "/api/stone-lots/quick",
     input,
   );
   return data;

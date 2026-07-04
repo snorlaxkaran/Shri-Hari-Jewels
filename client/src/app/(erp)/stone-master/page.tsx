@@ -227,7 +227,14 @@ export default function StoneMasterPage() {
                 className="border-t border-zinc-100 hover:bg-zinc-50/80 cursor-pointer"
                 onClick={() => canManage && openEdit(stone)}
               >
-                <td className="px-4 py-3 font-mono text-xs">{stone.stoneCode}</td>
+                <td className="px-4 py-3 font-mono text-xs">
+                  {stone.stoneCode}
+                  {stone.isAutoCreated && (
+                    <span className="ml-2 text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600">
+                      Auto-created
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3">{stone.stoneName}</td>
                 <td className="px-4 py-3">{stone.stoneCategory}</td>
                 <td className="px-4 py-3">{stone.shape}</td>

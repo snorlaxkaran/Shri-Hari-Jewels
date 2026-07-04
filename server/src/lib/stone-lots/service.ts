@@ -1,17 +1,20 @@
 import {
   StoneMovementType,
   StonePurchaseLotStatus,
-  type StoneCategory,
+  StoneCategory,
+  type StoneCategory as StoneCategoryEnum,
 } from "@prisma/client";
 import { prisma } from "../db.js";
 import { organizationBranchFilter } from "../branches/access.js";
 import { assertBranchInOrganization } from "../organizations/access.js";
 import { moneyToNumber } from "../money.js";
 import { generateLotNo } from "./lot-number.js";
+import { findOrCreateQuickAddStoneMaster } from "./quick-add-stone-master.js";
 import type {
   AdjustStonePurchaseLotInput,
   IssueStoneInput,
   NewStonePurchaseLotInput,
+  QuickAddStoneLotInput,
   SettleStoneIssueInput,
   StoneLotDetail,
   StoneLotSummary,
@@ -365,6 +368,106 @@ export const receiveStoneLot = async (
         ratePerUnit: input.purchaseRate,
         totalValue: amount,
         notes: `Receipt: ${input.invoiceNo.trim()} / ${input.vendorName.trim()}`,
+        performedByName: createdByName,
+      },
+    });
+
+    return created;
+  });
+
+  return toPurchaseLot(lot);
+};
+
+export const quickReceiveStoneLot = async (
+  input: QuickAddStoneLotInput,
+  organizationId: string,
+  branchId: string,
+  createdByName: string,
+): Promise<StonePurchaseLotWithMaster> => {
+  const validCategories = Object.values(StoneCategory);
+  if (!input.stoneCategory || !validCategories.includes(input.stoneCategory as StoneCategoryEnum)) {
+    throw new StoneLotError("Stone type is required.");
+  }
+  if (!input.qtyPurchased || input.qtyPurchased <= 0) {
+    throw new StoneLotError("Quantity must be greater than zero.");
+  }
+  if (input.weightPurchased == null || input.weightPurchased < 0) {
+    throw new StoneLotError("Weight is required.");
+  }
+
+  await assertBranchInOrganization(branchId, organizationId);
+
+  const invoiceDate = input.invoiceDate
+    ? new Date(input.invoiceDate)
+    : new Date();
+  const vendorName = input.vendorName?.trim() || "Not specified";
+  const invoiceNo = input.invoiceNo?.trim() || "QUICK";
+  const purchaseRate = input.purchaseRate ?? 0;
+  const gstPct = input.gstPct ?? 0;
+  const { amount, gstAmount, totalAmount } = calcAmounts(
+    input.qtyPurchased,
+    purchaseRate,
+    gstPct,
+  );
+
+  const lot = await prisma.$transaction(async (tx) => {
+    const master = await findOrCreateQuickAddStoneMaster(
+      tx,
+      organizationId,
+      input.stoneCategory,
+      createdByName,
+    );
+
+    const lotNo =
+      input.lotNo?.trim() ||
+      (await generateLotNo(tx, organizationId));
+
+    const existingLotNo = await tx.stoneLot.findUnique({
+      where: { branchId_lotNo: { branchId, lotNo } },
+    });
+    if (existingLotNo) {
+      throw new StoneLotError(`Lot number "${lotNo}" already exists.`);
+    }
+
+    const created = await tx.stoneLot.create({
+      data: {
+        branchId,
+        stoneMasterId: master.id,
+        lotNo,
+        packetNo: input.packetNo?.trim() || null,
+        vendorStoneCode: input.vendorStoneCode?.trim() || null,
+        vendorName,
+        invoiceNo,
+        invoiceDate,
+        qtyPurchased: input.qtyPurchased,
+        weightPurchased: input.weightPurchased,
+        purchaseRate,
+        amount,
+        gstPct,
+        gstAmount,
+        totalAmount,
+        currentQty: input.qtyPurchased,
+        currentWeightCt: input.weightPurchased,
+        location: input.location?.trim() || null,
+        reorderLevel: input.reorderLevel ?? null,
+        notes: input.notes?.trim() || null,
+        createdByName,
+      },
+      include: { stoneMaster: true, branch: { select: { name: true } } },
+    });
+
+    await tx.stoneMovement.create({
+      data: {
+        branchId,
+        stoneLotId: created.id,
+        movementType: StoneMovementType.Receipt,
+        qty: input.qtyPurchased,
+        weightCt: input.weightPurchased,
+        balanceQtyAfter: input.qtyPurchased,
+        balanceWeightAfter: input.weightPurchased,
+        ratePerUnit: purchaseRate,
+        totalValue: amount,
+        notes: `Quick Add receipt: ${invoiceNo} / ${vendorName}`,
         performedByName: createdByName,
       },
     });
