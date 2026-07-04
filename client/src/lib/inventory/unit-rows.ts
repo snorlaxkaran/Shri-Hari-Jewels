@@ -16,6 +16,7 @@ export type InventoryUnitRow = {
   metal: MetalType;
   purity: Purity;
   weightGrams: number;
+  stoneCarat?: number;
   makingCharges: number;
   price: number;
   priceSource: InventoryUnitPriceSource;
@@ -40,6 +41,7 @@ export const flattenInventoryToUnitRows = (
       metal: product.metal,
       purity: product.purity,
       weightGrams: product.weightGrams,
+      stoneCarat: product.stoneCarat,
       makingCharges: product.makingCharges,
       price: unit.price,
       priceSource: unit.priceSource,

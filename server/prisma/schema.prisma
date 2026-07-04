@@ -344,6 +344,10 @@ model StockTransfer {
   placeOfSupplyStateCode     String?
   placeOfDeliveryState       String?
   placeOfDeliveryStateCode   String?
+  contactPersonName  String?
+  contactPersonPhone String?
+  courierCompany     String?
+  dispatchDate       DateTime?
   createdById   String?
   createdByName String
   createdAt    DateTime @default(now())
@@ -375,6 +379,7 @@ model StockTransferItem {
   purity     String
   price      Decimal @db.Decimal(12, 2)
   accepted   Boolean @default(true)
+  weightGrams  Decimal? @db.Decimal(10, 3)
 
   transfer StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
 

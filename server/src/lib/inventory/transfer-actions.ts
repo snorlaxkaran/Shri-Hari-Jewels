@@ -55,6 +55,10 @@ export const toStockTransferDto = (
   placeOfSupplyStateCode: transfer.placeOfSupplyStateCode ?? undefined,
   placeOfDeliveryState: transfer.placeOfDeliveryState ?? undefined,
   placeOfDeliveryStateCode: transfer.placeOfDeliveryStateCode ?? undefined,
+  contactPersonName: transfer.contactPersonName ?? undefined,
+  contactPersonPhone: transfer.contactPersonPhone ?? undefined,
+  courierCompany: transfer.courierCompany ?? undefined,
+  dispatchDate: transfer.dispatchDate?.toISOString(),
   acceptedById: transfer.acceptedById ?? undefined,
   acceptedByName: transfer.acceptedByName ?? undefined,
   acceptedAt: transfer.acceptedAt?.toISOString(),
@@ -71,6 +75,7 @@ export const toStockTransferDto = (
     purity: item.purity,
     price: moneyToNumber(item.price),
     accepted: item.accepted,
+    weightGrams: item.weightGrams ? Number(item.weightGrams) : undefined,
   })),
 });
 
@@ -432,6 +437,36 @@ export const cancelStockTransfer = async (
     });
   });
 
+  return toStockTransferDto(updated);
+};
+
+export const saveTransferShipping = async (
+  transferId: string,
+  input: {
+    contactPersonName: string;
+    contactPersonPhone: string;
+    courierCompany: string;
+    dispatchDate: string;
+  },
+): Promise<StockTransfer> => {
+  const transfer = await loadTransfer(transferId);
+  if (!transfer) throw new InventoryError("Transfer not found.", 404);
+  const updated = await prisma.stockTransfer.update({
+    where: { id: transferId },
+    data: {
+      contactPersonName: input.contactPersonName.trim(),
+      contactPersonPhone: input.contactPersonPhone.trim(),
+      courierCompany: input.courierCompany.trim(),
+      dispatchDate: new Date(input.dispatchDate),
+    },
+    include: {
+      fromBranch: true,
+      toBranch: true,
+      customer: true,
+      customerBranch: true,
+      items: { orderBy: { itemCode: "asc" } },
+    },
+  });
   return toStockTransferDto(updated);
 };
 

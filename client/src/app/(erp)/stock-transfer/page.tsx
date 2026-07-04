@@ -1,9 +1,8 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRightLeft, Calendar, ScanLine, Trash2 } from "lucide-react";
-import Link from "next/link";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import BranchAutocomplete from "@/app/(components)/BranchAutocomplete";
@@ -37,6 +36,7 @@ type ScannedItem = {
 const today = () => new Date().toISOString().slice(0, 10);
 
 function StockTransferScanPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const presetCustomerId = searchParams.get("customerId") ?? "";
   const presetCustomerBranchId = searchParams.get("customerBranchId") ?? "";
@@ -54,7 +54,6 @@ function StockTransferScanPageContent() {
   const [barcode, setBarcode] = useState("");
   const [scanned, setScanned] = useState<ScannedItem[]>([]);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState<React.ReactNode>("");
   const [saving, setSaving] = useState(false);
   const [billingForm, setBillingForm] = useState<TransferBillingFormState>({
     gstNumber: "",
@@ -149,7 +148,6 @@ function StockTransferScanPageContent() {
     if (!code) return;
 
     setError("");
-    setSuccess("");
 
     if (scanned.some((item) => item.unit.itemCode === code)) {
       setError("This item is already added.");
@@ -177,7 +175,6 @@ function StockTransferScanPageContent() {
 
   const handleSave = async () => {
     setError("");
-    setSuccess("");
 
     if (!customerId) {
       setError("Select a customer first.");
@@ -204,22 +201,7 @@ function StockTransferScanPageContent() {
         billing: billingInput,
       });
       await refresh({ silent: true });
-      setSuccess(
-        <>
-          {result.transfer.transferNo} sent {scanned.length} item
-          {scanned.length === 1 ? "" : "s"} to{" "}
-          {result.transfer.customerBranchName ?? selectedBranch.name}.{" "}
-          <Link
-            href="/stock-transfer/sent"
-            className="font-medium underline underline-offset-2"
-          >
-            View sent list
-          </Link>
-        </>,
-      );
-      setScanned([]);
-      setBarcode("");
-      setNotes("");
+      router.push(`/stock-transfer/sent/${result.transfer.id}`);
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to save transfer."));
     } finally {
@@ -282,12 +264,6 @@ function StockTransferScanPageContent() {
       {error && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">
           {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-emerald-200 bg-emerald-50 text-emerald-700">
-          {success}
         </div>
       )}
 

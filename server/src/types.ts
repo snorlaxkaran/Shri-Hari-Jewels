@@ -144,6 +144,10 @@ export type StockTransfer = {
   placeOfSupplyStateCode?: string;
   placeOfDeliveryState?: string;
   placeOfDeliveryStateCode?: string;
+  contactPersonName?: string;
+  contactPersonPhone?: string;
+  courierCompany?: string;
+  dispatchDate?: string;
   acceptedById?: string;
   acceptedByName?: string;
   acceptedAt?: string;
@@ -163,6 +167,7 @@ export type StockTransferItem = {
   purity: string;
   price: number;
   accepted: boolean;
+  weightGrams?: number;
 };
 
 export type CreateStockTransferInput = {

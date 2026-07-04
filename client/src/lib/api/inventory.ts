@@ -188,3 +188,19 @@ export const cancelStockTransfer = async (id: string): Promise<StockTransfer> =>
   );
   return data;
 };
+
+export const saveTransferShipping = async (
+  id: string,
+  input: {
+    contactPersonName: string;
+    contactPersonPhone: string;
+    courierCompany: string;
+    dispatchDate: string;
+  },
+): Promise<StockTransfer> => {
+  const { data } = await api.patch<StockTransfer>(
+    `/api/inventory/transfers/${id}/shipping`,
+    input,
+  );
+  return data;
+};

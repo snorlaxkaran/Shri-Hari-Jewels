@@ -493,6 +493,7 @@ export const createStockTransfer = async (
             metal: unit.product.metal,
             purity: unit.product.purity,
             price: computeLiveListPriceForProduct(unit.product, marketRates),
+            weightGrams: unit.product.weightGrams,
           })),
         },
       },

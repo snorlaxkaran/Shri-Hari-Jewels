@@ -29,6 +29,7 @@ import {
   listSentStockTransfers,
   partialAcceptStockTransfer,
   rejectStockTransfer,
+  saveTransferShipping,
 } from "../lib/inventory/transfer-actions.js";
 import {
   authenticate,
@@ -352,6 +353,47 @@ inventoryRouter.post(
       }
       console.error("POST /api/inventory/transfers/:id/cancel", error);
       res.status(500).json({ error: "Failed to cancel transfer" });
+    }
+  },
+);
+
+inventoryRouter.patch(
+  "/transfers/:id/shipping",
+  requireRole(canManageStockTransfers),
+  async (req, res) => {
+    try {
+      const { contactPersonName, contactPersonPhone, courierCompany, dispatchDate } =
+        req.body;
+      if (!contactPersonName?.trim()) {
+        res.status(400).json({ error: "Contact person name is required." });
+        return;
+      }
+      if (!contactPersonPhone?.trim()) {
+        res.status(400).json({ error: "Contact person phone is required." });
+        return;
+      }
+      if (!courierCompany?.trim()) {
+        res.status(400).json({ error: "Courier company is required." });
+        return;
+      }
+      if (!dispatchDate) {
+        res.status(400).json({ error: "Dispatch date is required." });
+        return;
+      }
+      const transfer = await saveTransferShipping(routeParam(req.params.id), {
+        contactPersonName,
+        contactPersonPhone,
+        courierCompany,
+        dispatchDate,
+      });
+      res.json(transfer);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("PATCH /api/inventory/transfers/:id/shipping", error);
+      res.status(500).json({ error: "Failed to save shipping details" });
     }
   },
 );

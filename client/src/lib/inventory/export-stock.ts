@@ -40,10 +40,13 @@ export const downloadUnitStockExcel = (rows: InventoryUnitRow[]) => {
     "Metal",
     "Purity",
     "Weight (g)",
-    "Price",
+    "Stone (ct)",
     "Making Charges",
+    "Price",
+    "Price Source",
     "Status",
     "Location",
+    "Ageing (days)",
     "Created Date",
   ];
 
@@ -56,10 +59,13 @@ export const downloadUnitStockExcel = (rows: InventoryUnitRow[]) => {
       row.metal,
       row.purity,
       row.weightGrams,
-      row.price,
+      row.stoneCarat ?? 0,
       row.makingCharges,
+      row.price,
+      row.priceSource,
       row.status,
       row.branchName,
+      Math.floor((Date.now() - new Date(row.createdAt).getTime()) / 86400000),
       new Date(row.createdAt).toLocaleDateString("en-IN"),
     ]
       .map(csvCell)
