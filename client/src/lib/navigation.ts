@@ -87,6 +87,7 @@ export const filterNavSections = (
 
 export const getPageTitle = (pathname: string): string => {
   if (pathname === "/inventory/new") return "Add Stock";
+  if (pathname.startsWith("/stock-transfer/proforma")) return "Proforma List";
   if (pathname.startsWith("/stock-transfer/incoming")) return "Incoming Stock";
   if (pathname.startsWith("/stock-transfer/sent")) return "Sent to Stores";
   if (pathname === "/stock-transfer") return "Scan Transfer";

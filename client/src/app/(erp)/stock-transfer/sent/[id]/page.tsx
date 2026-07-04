@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Download, FileText, Loader2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
@@ -69,13 +69,14 @@ function ReadOnlyField({ label, value }: { label: string; value?: string }) {
 
 export default function SentTransferDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const transferId = params.id;
 
   const [transfer, setTransfer] = useState<StockTransfer | null>(null);
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [redirectMessage, setRedirectMessage] = useState("");
   const [formError, setFormError] = useState("");
   const [generating, setGenerating] = useState(false);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
@@ -164,7 +165,7 @@ export default function SentTransferDetailPage() {
     if (!transfer) return;
 
     setFormError("");
-    setSuccess("");
+    setRedirectMessage("");
 
     if (!contactPersonName.trim()) {
       setFormError("Contact person name is required.");
@@ -195,10 +196,10 @@ export default function SentTransferDetailPage() {
       setTransfer(result.transfer);
       setPdfBlob(result.pdfBlob);
       downloadBlob(result.pdfBlob, pdfFilename);
-      const docNo = isInvoice
-        ? result.transfer.invoiceNo ?? result.transfer.transferNo
-        : result.transfer.transferNo;
-      setSuccess(`${docLabel} ${docNo} generated and downloaded.`);
+      setRedirectMessage(
+        "Invoice generated. Redirecting to Proforma List...",
+      );
+      setTimeout(() => router.push("/stock-transfer/proforma"), 1500);
     } catch (err) {
       setFormError(getApiErrorMessage(err, `Failed to generate ${docLabel.toLowerCase()}.`));
     } finally {
@@ -261,18 +262,9 @@ export default function SentTransferDetailPage() {
         </div>
       )}
 
-      {success && (
+      {redirectMessage && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-emerald-200 bg-emerald-50 text-emerald-700">
-          {success}
-          {pdfBlob && (
-            <button
-              type="button"
-              onClick={handleDownloadAgain}
-              className="ml-3 underline font-medium"
-            >
-              Download Again
-            </button>
-          )}
+          {redirectMessage}
         </div>
       )}
 

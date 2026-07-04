@@ -173,6 +173,37 @@ export const listSentStockTransfers = async (
   return transfers.map(toStockTransferDto);
 };
 
+/** All outbound transfers for proforma list (pagination TODO when volume grows). */
+export const listAllTransfersForProforma = async (
+  organizationId: string,
+  fromBranchId?: string,
+): Promise<StockTransfer[]> => {
+  const transfers = await prisma.stockTransfer.findMany({
+    where: organizationTransferFromFilter(organizationId, fromBranchId),
+    include: transferInclude,
+    orderBy: { createdAt: "desc" },
+    take: 1000,
+  });
+  return transfers.map(toStockTransferDto);
+};
+
+export const regenerateTransferInvoicePdf = async (
+  transferId: string,
+  organizationId: string,
+): Promise<{ transfer: StockTransfer; pdfBuffer: Buffer }> => {
+  const dbTransfer = await loadTransfer(transferId);
+  if (!dbTransfer) throw new InventoryError("Transfer not found.", 404);
+
+  const settings = await getShopSettings(organizationId);
+  const pdfBuffer = await generateTransferInvoicePdf(
+    dbTransfer,
+    settings,
+    settings.state ?? "",
+  );
+
+  return { transfer: toStockTransferDto(dbTransfer), pdfBuffer };
+};
+
 export const acceptStockTransfer = async (
   transferId: string,
   branchId: string,

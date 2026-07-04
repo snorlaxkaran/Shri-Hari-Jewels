@@ -25,9 +25,11 @@ import {
   cancelStockTransfer,
   countPendingIncomingTransfers,
   getStockTransferById,
+  listAllTransfersForProforma,
   listIncomingStockTransfers,
   listSentStockTransfers,
   partialAcceptStockTransfer,
+  regenerateTransferInvoicePdf,
   rejectStockTransfer,
   saveTransferShipping,
   saveTransferShippingAndGenerateInvoice,
@@ -236,6 +238,27 @@ inventoryRouter.get(
 );
 
 inventoryRouter.get(
+  "/transfers/proforma",
+  requireRole(canViewStockTransfers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const fromBranchId =
+        req.user!.role === "Admin"
+          ? undefined
+          : await getUserBranch(req.user!.id, req.organizationId!);
+      const transfers = await listAllTransfersForProforma(
+        req.organizationId!,
+        fromBranchId,
+      );
+      res.json(transfers);
+    } catch (error) {
+      console.error("GET /api/inventory/transfers/proforma", error);
+      res.status(500).json({ error: "Failed to fetch proforma transfers" });
+    }
+  },
+);
+
+inventoryRouter.get(
   "/transfers/:id",
   requireRole(canViewStockTransfers),
   async (req, res) => {
@@ -396,6 +419,45 @@ inventoryRouter.patch(
       }
       console.error("PATCH /api/inventory/transfers/:id/shipping", error);
       res.status(500).json({ error: "Failed to save shipping details" });
+    }
+  },
+);
+
+inventoryRouter.get(
+  "/transfers/:id/invoice/download",
+  requireRole(canViewStockTransfers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const transferId = routeParam(req.params.id);
+      const existing = await getStockTransferById(transferId);
+      if (!existing) {
+        res.status(404).json({ error: "Transfer not found." });
+        return;
+      }
+
+      const { transfer, pdfBuffer } = await regenerateTransferInvoicePdf(
+        transferId,
+        req.organizationId!,
+      );
+
+      const isInvoice = transfer.documentType === "Wholesale GST Invoice";
+      const filename = isInvoice
+        ? `invoice-${transfer.invoiceNo ?? transfer.transferNo}.pdf`
+        : `challan-${transfer.transferNo}.pdf`;
+
+      res.set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "X-Transfer-Data": JSON.stringify(transfer),
+      });
+      res.send(pdfBuffer);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("GET /api/inventory/transfers/:id/invoice/download", error);
+      res.status(500).json({ error: "Failed to download invoice." });
     }
   },
 );

@@ -129,6 +129,13 @@ export const fetchSentStockTransfers = async (): Promise<StockTransfer[]> => {
   return data;
 };
 
+export const fetchProformaTransfers = async (): Promise<StockTransfer[]> => {
+  const { data } = await api.get<StockTransfer[]>(
+    "/api/inventory/transfers/proforma",
+  );
+  return data;
+};
+
 export const fetchIncomingStockTransfers = async (
   status?: StockTransferStatus,
 ): Promise<StockTransfer[]> => {
@@ -253,4 +260,33 @@ export const generateTransferInvoice = async (
     transfer = await fetchStockTransferById(id);
   }
   return { transfer, pdfBlob };
+};
+
+export const redownloadTransferInvoice = async (id: string): Promise<void> => {
+  const response = await fetch(
+    `${API_BASE_URL}/api/inventory/transfers/${id}/invoice/download`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+    },
+  );
+  if (!response.ok) {
+    throw new Error("Failed to download invoice.");
+  }
+  const transfer = JSON.parse(
+    response.headers.get("X-Transfer-Data") ?? "{}",
+  ) as StockTransfer;
+  const blob = await response.blob();
+  const filename =
+    transfer.documentType === "Wholesale GST Invoice"
+      ? `invoice-${transfer.invoiceNo ?? transfer.transferNo}.pdf`
+      : `challan-${transfer.transferNo}.pdf`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 };
