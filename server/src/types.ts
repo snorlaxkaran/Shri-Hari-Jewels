@@ -949,8 +949,7 @@ export type UpdateDesignElementInput = {
 };
 
 export type StoneStockWarning = {
-  stoneMasterId: string;
-  stoneName: string;
+  stoneType: string;
   required: number;
   available: number;
   shortfall: number;
@@ -971,144 +970,9 @@ export type ProductionRunPreview = {
   stoneStockWarnings: StoneStockWarning[];
   metalStockWarning: MetalStockWarning | null;
   stoneRequirements: Array<{
-    stoneMasterId: string;
-    stoneName: string;
+    stoneType: string;
     required: number;
   }>;
-};
-
-export type StoneCategory =
-  | "CZ"
-  | "Diamond"
-  | "Precious"
-  | "SemiPrecious";
-
-export type StoneOriginType = "Natural" | "LabGrown" | "Synthetic";
-
-export type StoneUOM = "Pcs" | "Carat";
-
-export type StoneShape =
-  | "Round"
-  | "Oval"
-  | "Pear"
-  | "Princess"
-  | "Cushion"
-  | "Emerald"
-  | "Marquise"
-  | "Heart"
-  | "Baguette"
-  | "Trillion"
-  | "Asscher"
-  | "Radiant"
-  | "Hexagon"
-  | "Octagon"
-  | "Cabochon";
-
-export type StoneMaster = {
-  id: string;
-  stoneCode: string;
-  stoneName: string;
-  stoneCategory: StoneCategory;
-  stoneType: StoneOriginType;
-  stoneMaterial: string;
-  shape: StoneShape;
-  sizeMm: string;
-  color: string;
-  clarityGrade?: string;
-  cut?: string;
-  uom: StoneUOM;
-  unitWeightCt?: number;
-  isActive: boolean;
-  isAutoCreated: boolean;
-  notes?: string;
-  createdByName: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type NewStoneMasterInput = {
-  stoneCode: string;
-  stoneName: string;
-  stoneCategory: StoneCategory;
-  stoneType: StoneOriginType;
-  stoneMaterial: string;
-  shape: StoneShape;
-  sizeMm: string;
-  color: string;
-  clarityGrade?: string;
-  cut?: string;
-  uom: StoneUOM;
-  unitWeightCt?: number;
-  isActive?: boolean;
-  notes?: string;
-};
-
-export type UpdateStoneMasterInput = Partial<NewStoneMasterInput>;
-
-export type StonePurchaseLotStatus = "Active" | "Depleted" | "Closed";
-
-export type StonePurchaseLot = {
-  id: string;
-  branchId: string;
-  branchName?: string;
-  stoneMasterId: string;
-  lotNo: string;
-  packetNo?: string;
-  vendorStoneCode?: string;
-  vendorName: string;
-  invoiceNo: string;
-  invoiceDate: string;
-  qtyPurchased: number;
-  weightPurchased: number;
-  purchaseRate: number;
-  amount: number;
-  gstPct: number;
-  gstAmount: number;
-  totalAmount: number;
-  currentQty: number;
-  currentWeightCt: number;
-  location?: string;
-  reorderLevel?: number;
-  status: StonePurchaseLotStatus;
-  notes?: string;
-  createdByName: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type StonePurchaseLotWithMaster = StonePurchaseLot & {
-  stoneMaster?: {
-    id: string;
-    stoneCode: string;
-    stoneName: string;
-    stoneCategory: StoneCategory;
-    stoneType: string;
-    stoneMaterial: string;
-    shape: string;
-    sizeMm: string;
-    color: string;
-    clarityGrade?: string;
-    uom: string;
-    unitWeightCt?: number;
-  };
-};
-
-export type NewStonePurchaseLotInput = {
-  stoneMasterId: string;
-  branchId?: string;
-  lotNo?: string;
-  packetNo?: string;
-  vendorStoneCode?: string;
-  vendorName: string;
-  invoiceNo: string;
-  invoiceDate: string;
-  qtyPurchased: number;
-  weightPurchased: number;
-  purchaseRate: number;
-  gstPct?: number;
-  location?: string;
-  reorderLevel?: number;
-  notes?: string;
 };
 
 export type StoneType = {
@@ -1124,41 +988,48 @@ export type NewStoneTypeInput = {
   name: string;
 };
 
-export type SimplifiedStoneEntryInput = {
+export type StoneRateBasis = "Pcs" | "Carat";
+
+export type StoneStockStatus = "Active" | "Depleted" | "Closed";
+
+export type StoneStock = {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  branchName?: string;
+  stoneType: string;
+  lotNo: string;
+  pieces?: number;
+  weightCt?: number;
+  ratePerUnit: number;
+  rateBasis: StoneRateBasis;
+  supplierName: string;
+  totalValue: number;
+  currentPieces: number;
+  currentWeightCt: number;
+  purchaseDate: string;
+  status: StoneStockStatus;
+  notes?: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewStoneStockInput = {
   stoneTypeId?: string;
   stoneName?: string;
   branchId?: string;
   lotNo?: string;
-  qtyPurchased?: number;
-  weightPurchased?: number;
-  purchaseRate: number;
-  vendorName: string;
-  invoiceDate?: string;
+  pieces?: number;
+  weightCt?: number;
+  ratePerUnit: number;
+  supplierName: string;
+  purchaseDate?: string;
   notes?: string;
 };
 
-export type QuickAddStoneLotInput = {
-  stoneCategory?: StoneCategory;
-  stoneTypeId?: string;
-  stoneName?: string;
-  branchId?: string;
-  lotNo?: string;
-  packetNo?: string;
-  vendorStoneCode?: string;
-  vendorName?: string;
-  invoiceNo?: string;
-  invoiceDate?: string;
-  qtyPurchased?: number;
-  weightPurchased?: number;
-  purchaseRate?: number;
-  gstPct?: number;
-  location?: string;
-  reorderLevel?: number;
-  notes?: string;
-};
-
-export type AdjustStonePurchaseLotInput = {
-  qtyDelta: number;
+export type AdjustStoneStockInput = {
+  qtyDelta?: number;
   weightDeltaCt?: number;
   reason: string;
 };
@@ -1171,7 +1042,7 @@ export type StoneMovementType =
   | "Loss"
   | "Adjustment";
 
-export type StoneMovementRecord = {
+export type StoneStockMovementRecord = {
   id: string;
   movementType: StoneMovementType;
   qty: number;
@@ -1188,35 +1059,35 @@ export type StoneMovementRecord = {
   createdAt: string;
 };
 
-export type StoneLotDetail = StonePurchaseLotWithMaster & {
-  movements: StoneMovementRecord[];
+export type StoneStockDetail = StoneStock & {
+  movements: StoneStockMovementRecord[];
   stats: {
-    purchasedQty: number;
+    purchasedPieces: number;
     purchasedWeightCt: number;
-    inStockQty: number;
+    inStockPieces: number;
     inStockWeightCt: number;
-    issuedQty: number;
-    lossQty: number;
+    issuedPieces: number;
+    lossPieces: number;
     lossValue: number;
   };
 };
 
-export type StoneLotSummary = {
-  category: string;
-  qty: number;
+export type StoneStockTypeSummary = {
+  stoneType: string;
+  pieces: number;
   weightCt: number;
   value: number;
 };
 
-export type StonePurchaseLotSummaryCards = {
-  totalLots: number;
-  activeLots: number;
-  totalQty: number;
+export type StoneStockSummaryCards = {
+  totalEntries: number;
+  activeEntries: number;
+  totalPieces: number;
   totalWeightCt: number;
   totalValue: number;
   lossesMtdQty: number;
   lossesMtdValue: number;
-  byCategory: StoneLotSummary[];
+  byType: StoneStockTypeSummary[];
 };
 
 export type IssueStoneInput = {
@@ -1244,10 +1115,9 @@ export type UnsettledStoneIssue = {
   id: string;
   productionRunId: string;
   runNo: string;
-  stoneLotId: string;
+  stoneStockId: string;
   lotNo: string;
-  stoneMasterId: string;
-  stoneName: string;
+  stoneType: string;
   qtyIssued: number;
   weightIssuedCt: number;
   karigarName: string;
@@ -1260,22 +1130,13 @@ export type UnsettledStoneIssue = {
 
 export type MotifStone = {
   id: string;
-  stoneMasterId: string;
+  stoneType: string;
   qtyPerMotif: number;
   sortOrder: number;
-  stoneMaster?: {
-    id: string;
-    stoneCode: string;
-    stoneName: string;
-    stoneMaterial: string;
-    sizeMm: string;
-    shape: string;
-    uom: string;
-  };
 };
 
 export type MotifStoneInput = {
-  stoneMasterId: string;
+  stoneType: string;
   qtyPerMotif: number;
   sortOrder?: number;
 };
@@ -1348,8 +1209,7 @@ export type MotifPriceDrift = {
   calculatedPrice: number;
   isStale: boolean;
   staleStoneLots: Array<{
-    stoneMasterId: string;
-    stoneName: string;
+    stoneType: string;
     livePricePerStone: number;
     qtyPerMotif: number;
   }>;

@@ -204,8 +204,8 @@ export default function AddProductionRunModal({
               </p>
               <ul className="mt-2 space-y-1 text-xs">
                 {stoneRequirements.map((req) => (
-                  <li key={req.stoneMasterId}>
-                    {req.stoneName}: {req.required} pcs
+                  <li key={req.stoneType}>
+                    {req.stoneType}: {req.required} pcs
                   </li>
                 ))}
               </ul>
@@ -221,8 +221,8 @@ export default function AddProductionRunModal({
               <p className="font-medium">Stone stock warning</p>
               <ul className="mt-1 space-y-1 text-xs">
                 {stoneWarnings.map((w) => (
-                  <li key={w.stoneMasterId}>
-                    {w.stoneName}: need {w.required}, have {w.available}
+                  <li key={w.stoneType}>
+                    {w.stoneType}: need {w.required}, have {w.available}
                   </li>
                 ))}
               </ul>

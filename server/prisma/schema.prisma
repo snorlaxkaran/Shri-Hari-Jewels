@@ -71,46 +71,15 @@ enum CertifiedStoneLotStatus {
   Issued
 }
 
-enum StoneCategory {
-  CZ
-  Diamond
-  Precious
-  SemiPrecious
-}
-
-enum StoneOriginType {
-  Natural
-  LabGrown
-  Synthetic
-}
-
-enum StoneUOM {
-  Pcs
-  Carat
-}
-
-enum StoneShape {
-  Round
-  Oval
-  Pear
-  Princess
-  Cushion
-  Emerald
-  Marquise
-  Heart
-  Baguette
-  Trillion
-  Asscher
-  Radiant
-  Hexagon
-  Octagon
-  Cabochon
-}
-
-enum StonePurchaseLotStatus {
+enum StoneStockStatus {
   Active
   Depleted
   Closed
+}
+
+enum StoneRateBasis {
+  Pcs
+  Carat
 }
 
 enum StoneMovementType {
@@ -162,7 +131,6 @@ model Organization {
   users          User[]
   shopSettings   ShopSettings?
   customers      Customer[]
-  stoneMasters   StoneMaster[]
   stoneTypes     StoneType[]
   designs        Design[]
   products       Product[]
@@ -195,8 +163,8 @@ model Branch {
   invoices    Invoice[]
   metalLots   MetalLot[]
   certifiedStoneLots CertifiedStoneLot[]
-  stoneLots   StoneLot[]
-  stoneMovements StoneMovement[]
+  stoneStocks        StoneStock[]
+  stoneStockMovements StoneStockMovement[]
   stoneIssues ProductionRunStoneIssue[]
   stockTransfersFrom StockTransfer[] @relation("StockTransferFromBranch")
   stockTransfersTo   StockTransfer[] @relation("StockTransferToBranch")
@@ -566,17 +534,16 @@ model Motif {
 }
 
 model MotifStone {
-  id             String @id @default(uuid())
-  motifId        String
-  stoneMasterId  String
-  qtyPerMotif    Int
-  sortOrder      Int    @default(0)
+  id          String @id @default(uuid())
+  motifId     String
+  stoneType   String
+  qtyPerMotif Int
+  sortOrder   Int    @default(0)
 
-  motif       Motif       @relation(fields: [motifId], references: [id], onDelete: Cascade)
-  stoneMaster StoneMaster @relation(fields: [stoneMasterId], references: [id], onDelete: Restrict)
+  motif Motif @relation(fields: [motifId], references: [id], onDelete: Cascade)
 
   @@index([motifId])
-  @@index([stoneMasterId])
+  @@index([stoneType])
 }
 
 model ProductionRun {
@@ -837,81 +804,42 @@ model StoneType {
   @@index([isActive])
 }
 
-model StoneMaster {
-  id              String        @id @default(uuid())
+model StoneStock {
+  id              String           @id @default(uuid())
   organizationId  String
-  stoneCode       String
-  stoneName       String
-  stoneCategory   StoneCategory
-  stoneType       StoneOriginType
-  stoneMaterial   String
-  shape           StoneShape
-  sizeMm          String
-  color           String
-  clarityGrade    String?
-  cut             String?
-  uom             StoneUOM
-  unitWeightCt    Decimal?      @db.Decimal(10, 6)
-  isActive        Boolean       @default(true)
-  isAutoCreated   Boolean       @default(false)
-  notes           String?
-  createdByName   String
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  lots         StoneLot[]
-  motifStones  MotifStone[]
-  issues       ProductionRunStoneIssue[]
-
-  @@unique([organizationId, stoneCode])
-  @@index([organizationId])
-  @@index([stoneCategory])
-  @@index([isActive])
-}
-
-model StoneLot {
-  id              String                 @id @default(uuid())
   branchId        String
-  stoneMasterId   String
+  stoneType       String
   lotNo           String
-  packetNo        String?
-  vendorStoneCode String?
-  vendorName      String
-  invoiceNo       String
-  invoiceDate     DateTime
-  qtyPurchased    Int
-  weightPurchased Decimal                @db.Decimal(10, 4)
-  purchaseRate    Decimal                @db.Decimal(10, 4)
-  amount          Decimal                @db.Decimal(14, 2)
-  gstPct          Decimal                @db.Decimal(5, 2)
-  gstAmount       Decimal                @db.Decimal(12, 2)
-  totalAmount     Decimal                @db.Decimal(14, 2)
-  currentQty      Int
-  currentWeightCt Decimal                @db.Decimal(10, 4)
-  location        String?
-  reorderLevel    Int?
-  status          StonePurchaseLotStatus @default(Active)
+  pieces          Int?
+  weightCt        Decimal?         @db.Decimal(10, 4)
+  ratePerUnit     Decimal          @db.Decimal(10, 4)
+  rateBasis       StoneRateBasis
+  supplierName    String
+  totalValue      Decimal          @db.Decimal(14, 2)
+  currentPieces   Int              @default(0)
+  currentWeightCt Decimal          @default(0) @db.Decimal(10, 4)
+  purchaseDate    DateTime
+  status          StoneStockStatus @default(Active)
   notes           String?
   createdByName   String
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
-  branch      Branch                    @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  stoneMaster StoneMaster               @relation(fields: [stoneMasterId], references: [id], onDelete: Restrict)
-  movements   StoneMovement[]
-  issues      ProductionRunStoneIssue[]
+  branch    Branch                 @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  movements StoneStockMovement[]
+  issues    ProductionRunStoneIssue[]
 
   @@unique([branchId, lotNo])
+  @@index([organizationId])
   @@index([branchId])
-  @@index([stoneMasterId])
+  @@index([stoneType])
   @@index([status])
 }
 
-model StoneMovement {
+model StoneStockMovement {
   id                        String            @id @default(uuid())
   branchId                  String
-  stoneLotId                String
+  stoneStockId              String
   movementType              StoneMovementType
   qty                       Int
   weightCt                  Decimal           @db.Decimal(10, 4)
@@ -927,11 +855,11 @@ model StoneMovement {
   performedByName           String
   createdAt                 DateTime          @default(now())
 
-  stoneLot                StoneLot                 @relation(fields: [stoneLotId], references: [id], onDelete: Cascade)
+  stoneStock              StoneStock               @relation(fields: [stoneStockId], references: [id], onDelete: Cascade)
   branch                  Branch                   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   productionRunStoneIssue ProductionRunStoneIssue? @relation(fields: [productionRunStoneIssueId], references: [id], onDelete: SetNull)
 
-  @@index([stoneLotId])
+  @@index([stoneStockId])
   @@index([branchId])
   @@index([movementType])
   @@index([createdAt])
@@ -941,8 +869,7 @@ model ProductionRunStoneIssue {
   id              String           @id @default(uuid())
   branchId        String
   productionRunId String
-  stoneLotId      String
-  stoneMasterId   String
+  stoneStockId    String
   qtyIssued       Int
   weightIssuedCt  Decimal          @db.Decimal(10, 4)
   karigarName     String
@@ -963,15 +890,14 @@ model ProductionRunStoneIssue {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
-  branch        Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  productionRun ProductionRun   @relation(fields: [productionRunId], references: [id], onDelete: Cascade)
-  stoneLot      StoneLot        @relation(fields: [stoneLotId], references: [id], onDelete: Restrict)
-  stoneMaster   StoneMaster     @relation(fields: [stoneMasterId], references: [id], onDelete: Restrict)
-  movements     StoneMovement[]
+  branch        Branch                @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  productionRun ProductionRun         @relation(fields: [productionRunId], references: [id], onDelete: Cascade)
+  stoneStock    StoneStock            @relation(fields: [stoneStockId], references: [id], onDelete: Restrict)
+  movements     StoneStockMovement[]
 
   @@index([branchId])
   @@index([productionRunId])
-  @@index([stoneLotId])
+  @@index([stoneStockId])
   @@index([status])
 }
 

@@ -8,7 +8,6 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/inventory",
     "/stock-transfer",
     "/raw-inventory",
-    "/stone-master",
     "/orders",
     "/work-orders",
     "/designs",
@@ -32,7 +31,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
   ],
   Store: ["/dashboard", "/inventory", "/stock-transfer", "/sales", "/customers"],
   Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs"],
-  Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory", "/stone-master"],
+  Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory"],
 };
 
 export const canAccessRoute = (role: UserRole, pathname: string): boolean => {

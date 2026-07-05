@@ -464,9 +464,8 @@ export const previewProductionRun = async (
     stoneStockWarnings,
     metalStockWarning,
     stoneRequirements: [...requirements.values()].map(
-      ({ stoneMasterId, stoneName, required }) => ({
-        stoneMasterId,
-        stoneName,
+      ({ stoneType, required }) => ({
+        stoneType,
         required,
       }),
     ),

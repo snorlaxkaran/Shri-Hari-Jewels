@@ -1,10 +1,11 @@
+import { StoneStockStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import type { StoneStockWarning } from "../../types.js";
 
 export const computeStoneRequirements = async (
   designId: string,
   setsOrdered: number,
-): Promise<Map<string, { stoneMasterId: string; stoneName: string; required: number }>> => {
+): Promise<Map<string, { stoneType: string; required: number }>> => {
   const design = await prisma.design.findUnique({
     where: { id: designId },
     include: {
@@ -12,9 +13,7 @@ export const computeStoneRequirements = async (
         include: {
           motif: {
             include: {
-              stones: {
-                include: { stoneMaster: true },
-              },
+              stones: { orderBy: { sortOrder: "asc" } },
             },
           },
         },
@@ -22,11 +21,7 @@ export const computeStoneRequirements = async (
     },
   });
 
-  const requirements = new Map<
-    string,
-    { stoneMasterId: string; stoneName: string; required: number }
-  >();
-
+  const requirements = new Map<string, { stoneType: string; required: number }>();
   if (!design) return requirements;
 
   for (const element of design.elements) {
@@ -35,13 +30,13 @@ export const computeStoneRequirements = async (
     for (const motifStone of element.motif.stones) {
       const needed =
         motifStone.qtyPerMotif * element.qtyPerSet * setsOrdered;
-      const existing = requirements.get(motifStone.stoneMasterId);
+      const key = motifStone.stoneType.toLowerCase();
+      const existing = requirements.get(key);
       if (existing) {
         existing.required += needed;
       } else {
-        requirements.set(motifStone.stoneMasterId, {
-          stoneMasterId: motifStone.stoneMasterId,
-          stoneName: motifStone.stoneMaster.stoneName,
+        requirements.set(key, {
+          stoneType: motifStone.stoneType,
           required: needed,
         });
       }
@@ -59,20 +54,19 @@ export const checkStoneStock = async (
   const requirements = await computeStoneRequirements(designId, setsOrdered);
   const warnings: StoneStockWarning[] = [];
 
-  for (const [, { stoneMasterId, stoneName, required }] of requirements) {
-    const lots = await prisma.stoneLot.findMany({
+  for (const [, { stoneType, required }] of requirements) {
+    const rows = await prisma.stoneStock.findMany({
       where: {
-        stoneMasterId,
         branchId,
-        status: "Active",
-        currentQty: { gt: 0 },
+        status: StoneStockStatus.Active,
+        stoneType: { equals: stoneType, mode: "insensitive" },
+        OR: [{ currentPieces: { gt: 0 } }, { currentWeightCt: { gt: 0 } }],
       },
     });
-    const available = lots.reduce((sum, lot) => sum + lot.currentQty, 0);
+    const available = rows.reduce((sum, row) => sum + row.currentPieces, 0);
     if (available < required) {
       warnings.push({
-        stoneMasterId,
-        stoneName,
+        stoneType,
         required,
         available,
         shortfall: required - available,

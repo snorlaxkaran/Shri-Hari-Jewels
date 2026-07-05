@@ -35,8 +35,8 @@ const RawStockActionModal = dynamic(
   () => import("@/app/(components)/RawStockActionModal"),
   { ssr: false },
 );
-const StoneLotsPanel = dynamic(
-  () => import("@/app/(components)/StoneLotsPanel"),
+const StoneStockPanel = dynamic(
+  () => import("@/app/(components)/StoneStockPanel"),
   { ssr: false },
 );
 
@@ -227,7 +227,7 @@ function RawInventoryPageContent() {
         </div>
       )}
 
-      {tab === "stones" && <StoneLotsPanel canManage={canWrite} />}
+      {tab === "stones" && <StoneStockPanel canManage={canWrite} />}
 
       {tab === "metal" && (
         <div className="surface-card overflow-x-auto">

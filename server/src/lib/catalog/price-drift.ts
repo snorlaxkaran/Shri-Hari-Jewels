@@ -5,7 +5,7 @@ import {
   calculateMotifPrice,
   getMotif,
 } from "../motifs/service.js";
-import { getStoneMasterAvgRate } from "../stone-lots/service.js";
+import { getStoneTypeAvgRate } from "../raw-inventory/stone-stock-service.js";
 import type {
   DesignElementPriceDrift,
   MotifMetal,
@@ -56,16 +56,12 @@ export const getMotifPriceDrift = async (
 ): Promise<MotifPriceDrift | null> => {
   const motif = await prisma.motif.findFirst({
     where: { id: motifId, branch: { organizationId } },
-    include: {
-      stones: {
-        include: { stoneMaster: true },
-      },
-    },
+    include: { stones: true },
   });
   if (!motif) return null;
 
   const stones = motif.stones.map((s) => ({
-    stoneMasterId: s.stoneMasterId,
+    stoneType: s.stoneType,
     qtyPerMotif: s.qtyPerMotif,
     sortOrder: s.sortOrder,
   }));
@@ -80,14 +76,10 @@ export const getMotifPriceDrift = async (
   const storedPrice =
     motif.price != null ? moneyToNumber(String(motif.price)) : 0;
 
-  const staleStoneLots = await Promise.all(
+  const staleStoneStock = await Promise.all(
     motif.stones.map(async (s) => ({
-      stoneMasterId: s.stoneMasterId,
-      stoneName: s.stoneMaster.stoneName,
-      livePricePerStone: await getStoneMasterAvgRate(
-        s.stoneMasterId,
-        organizationId,
-      ),
+      stoneType: s.stoneType,
+      livePricePerStone: await getStoneTypeAvgRate(s.stoneType, organizationId),
       qtyPerMotif: s.qtyPerMotif,
     })),
   ).then((rows) =>
@@ -96,16 +88,9 @@ export const getMotifPriceDrift = async (
 
   if (
     Math.abs(storedPrice - calculatedPrice) < 0.0001 &&
-    staleStoneLots.length === 0
+    staleStoneStock.length === 0
   ) {
-    return {
-      motifId,
-      motifName: motif.name,
-      storedPrice,
-      calculatedPrice,
-      isStale: false,
-      staleStoneLots: [],
-    };
+    return null;
   }
 
   return {
@@ -113,23 +98,11 @@ export const getMotifPriceDrift = async (
     motifName: motif.name,
     storedPrice,
     calculatedPrice,
-    isStale: true,
-    staleStoneLots,
+    isStale: Math.abs(storedPrice - calculatedPrice) >= 0.0001,
+    staleStoneLots: staleStoneStock.map((s) => ({
+      stoneType: s.stoneType,
+      livePricePerStone: s.livePricePerStone,
+      qtyPerMotif: s.qtyPerMotif,
+    })),
   };
-};
-
-export const listMotifPriceDrifts = async (
-  organizationId: string,
-): Promise<MotifPriceDrift[]> => {
-  const motifs = await prisma.motif.findMany({
-    where: { branch: { organizationId } },
-    select: { id: true },
-  });
-
-  const results: MotifPriceDrift[] = [];
-  for (const { id } of motifs) {
-    const drift = await getMotifPriceDrift(id, organizationId);
-    if (drift?.isStale) results.push(drift);
-  }
-  return results;
 };

@@ -1,12 +1,9 @@
 import { prisma } from "../db.js";
-import { moneyToNumber } from "../money.js";
 
 export type ElementStoneDefaults = {
   czStones: number | null;
   czWeight: number | null;
 };
-
-const roundWeight = (value: number) => Math.round(value * 100) / 100;
 
 export const computeElementStoneDefaults = async (
   designId: string,
@@ -20,10 +17,7 @@ export const computeElementStoneDefaults = async (
         include: {
           motif: {
             include: {
-              stones: {
-                include: { stoneMaster: true },
-                orderBy: { sortOrder: "asc" },
-              },
+              stones: { orderBy: { sortOrder: "asc" } },
             },
           },
         },
@@ -41,19 +35,13 @@ export const computeElementStoneDefaults = async (
 
     if (element.motif?.stones.length) {
       let stones = 0;
-      let weightCt = 0;
       for (const motifStone of element.motif.stones) {
-        const qty =
+        stones +=
           motifStone.qtyPerMotif * element.qtyPerSet * setsOrdered;
-        stones += qty;
-        const unitCt = motifStone.stoneMaster.unitWeightCt
-          ? moneyToNumber(String(motifStone.stoneMaster.unitWeightCt))
-          : 0;
-        weightCt += unitCt * qty;
       }
       defaults.set(element.id, {
         czStones: stones > 0 ? stones : null,
-        czWeight: weightCt > 0 ? roundWeight(weightCt) : null,
+        czWeight: null,
       });
       continue;
     }

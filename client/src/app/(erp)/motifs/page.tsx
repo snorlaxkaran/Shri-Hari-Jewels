@@ -10,7 +10,7 @@ import MotifImageUpload from "@/app/(components)/motifs/MotifImageUpload";
 import MotifStoneRows, {
   type MotifStoneRow,
 } from "@/app/(components)/motifs/MotifStoneRows";
-import { fetchStoneMasters } from "@/lib/api/stone-master";
+import { fetchStoneTypes } from "@/lib/api/stone-types";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canManageMotifs } from "@/lib/auth/permissions";
 import {
@@ -34,7 +34,7 @@ import type {
   MotifSubCategory,
   NewMotifInput,
   Purity,
-  StoneMaster,
+  StoneType,
 } from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/api/client";
 
@@ -57,7 +57,7 @@ export default function MotifsPage() {
   const [metal, setMetal] = useState<MotifMetal>("Gold");
   const [purity, setPurity] = useState<Purity>("22K");
   const [stoneRows, setStoneRows] = useState<MotifStoneRow[]>([]);
-  const [stoneMasters, setStoneMasters] = useState<StoneMaster[]>([]);
+  const [stoneTypes, setStoneTypes] = useState<StoneType[]>([]);
   const [subCategory, setSubCategory] = useState<MotifSubCategory>("Contemporary");
   const [imageUrl, setImageUrl] = useState<string | undefined>();
   const [formError, setFormError] = useState("");
@@ -67,17 +67,17 @@ export default function MotifsPage() {
   const [filterMetal, setFilterMetal] = useState<MotifMetal | "">("");
   const [filterPurity, setFilterPurity] = useState<Purity | "">("");
 
-  const loadStoneMasters = useCallback(async () => {
+  const loadStoneTypes = useCallback(async () => {
     try {
-      setStoneMasters(await fetchStoneMasters({ activeOnly: true }));
+      setStoneTypes(await fetchStoneTypes());
     } catch {
       /* optional */
     }
   }, []);
 
   useEffect(() => {
-    void loadStoneMasters();
-  }, [loadStoneMasters]);
+    void loadStoneTypes();
+  }, [loadStoneTypes]);
 
   const loadMotifs = useCallback(async () => {
     setLoading(true);
@@ -131,10 +131,10 @@ export default function MotifsPage() {
     purity,
     subCategory,
     stones: stoneRows
-      .filter((r) => r.stoneMasterId)
+      .filter((r) => r.stoneType?.trim())
       .map(
         (r): MotifStoneInput => ({
-          stoneMasterId: r.stoneMasterId,
+          stoneType: r.stoneType.trim(),
           qtyPerMotif: r.qtyPerMotif,
         }),
       ),
@@ -330,7 +330,7 @@ export default function MotifsPage() {
           </div>
 
           <MotifStoneRows
-            stones={stoneMasters}
+            stoneTypes={stoneTypes}
             rows={stoneRows}
             onChange={setStoneRows}
             disabled={!canManage}

@@ -1,18 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createStoneType, fetchStoneTypes } from "@/lib/api/stone-types";
 import {
-  fetchStoneLots,
-  fetchStoneLotsSummary,
-  quickAddStoneLot,
-} from "@/lib/api/stone-lots";
+  createStoneStock,
+  fetchStoneStock,
+  fetchStoneStockSummary,
+} from "@/lib/api/stone-stock";
 import { previewNextLotNo } from "@/lib/stones/lot-number";
 import type {
-  SimplifiedStoneEntryInput,
-  StonePurchaseLotSummaryCards,
-  StonePurchaseLotWithMaster,
+  NewStoneStockInput,
+  StoneStock,
+  StoneStockSummaryCards,
   StoneType,
 } from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/api/client";
@@ -20,37 +19,35 @@ import { getApiErrorMessage } from "@/lib/api/client";
 const fieldClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
 
-type StoneLotsPanelProps = {
+type StoneStockPanelProps = {
   canManage: boolean;
 };
 
 type EntryFormState = {
   stoneTypeId: string;
   newStoneTypeName: string;
-  qtyPurchased: string;
-  weightPurchased: string;
-  purchaseRate: string;
-  vendorName: string;
-  invoiceDate: string;
+  pieces: string;
+  weightCt: string;
+  ratePerUnit: string;
+  supplierName: string;
+  purchaseDate: string;
   lotNo: string;
 };
 
 const emptyForm = (): EntryFormState => ({
   stoneTypeId: "",
   newStoneTypeName: "",
-  qtyPurchased: "",
-  weightPurchased: "",
-  purchaseRate: "",
-  vendorName: "",
-  invoiceDate: new Date().toISOString().slice(0, 10),
+  pieces: "",
+  weightCt: "",
+  ratePerUnit: "",
+  supplierName: "",
+  purchaseDate: new Date().toISOString().slice(0, 10),
   lotNo: "",
 });
 
-export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
-  const router = useRouter();
-
-  const [lots, setLots] = useState<StonePurchaseLotWithMaster[]>([]);
-  const [summary, setSummary] = useState<StonePurchaseLotSummaryCards | null>(null);
+export default function StoneStockPanel({ canManage }: StoneStockPanelProps) {
+  const [rows, setRows] = useState<StoneStock[]>([]);
+  const [summary, setSummary] = useState<StoneStockSummaryCards | null>(null);
   const [stoneTypes, setStoneTypes] = useState<StoneType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,15 +63,15 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
     setLoading(true);
     setError(null);
     try {
-      const [lotRows, summaryRows, typeRows] = await Promise.all([
-        fetchStoneLots({
+      const [stockRows, summaryRows, typeRows] = await Promise.all([
+        fetchStoneStock({
           status: statusFilter || undefined,
           search: search.trim() || undefined,
         }),
-        fetchStoneLotsSummary(),
+        fetchStoneStockSummary(),
         fetchStoneTypes(),
       ]);
-      setLots(lotRows);
+      setRows(stockRows);
       setSummary(summaryRows);
       setStoneTypes(typeRows);
     } catch (err) {
@@ -88,24 +85,23 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
     void load();
   }, [load]);
 
-  const existingLotNos = useMemo(() => lots.map((l) => l.lotNo), [lots]);
+  const existingLotNos = useMemo(() => rows.map((r) => r.lotNo), [rows]);
   const previewLotNo = useMemo(
     () => previewNextLotNo(existingLotNos),
     [existingLotNos],
   );
   const displayedLotNo = form.lotNo.trim() || previewLotNo;
 
-  const hasPieces = form.qtyPurchased.trim() !== "" && Number(form.qtyPurchased) > 0;
-  const hasWeight =
-    form.weightPurchased.trim() !== "" && Number(form.weightPurchased) > 0;
+  const hasPieces = form.pieces.trim() !== "" && Number(form.pieces) > 0;
+  const hasWeight = form.weightCt.trim() !== "" && Number(form.weightCt) > 0;
   const rateUnit = hasPieces ? "piece" : hasWeight ? "carat" : "unit";
 
   const entryValuePreview = useMemo(() => {
-    const rate = parseFloat(form.purchaseRate) || 0;
-    if (hasPieces) return Math.round(Number(form.qtyPurchased) * rate * 100) / 100;
-    if (hasWeight) return Math.round(Number(form.weightPurchased) * rate * 100) / 100;
+    const rate = parseFloat(form.ratePerUnit) || 0;
+    if (hasPieces) return Math.round(Number(form.pieces) * rate * 100) / 100;
+    if (hasWeight) return Math.round(Number(form.weightCt) * rate * 100) / 100;
     return 0;
-  }, [form.purchaseRate, form.qtyPurchased, form.weightPurchased, hasPieces, hasWeight]);
+  }, [form.ratePerUnit, form.pieces, form.weightCt, hasPieces, hasWeight]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,11 +112,11 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
       setFormError("Enter pieces or weight — at least one is required.");
       return;
     }
-    if (!form.vendorName.trim()) {
+    if (!form.supplierName.trim()) {
       setFormError("Supplier name is required.");
       return;
     }
-    const rate = parseFloat(form.purchaseRate);
+    const rate = parseFloat(form.ratePerUnit);
     if (Number.isNaN(rate) || rate < 0) {
       setFormError("Rate is required.");
       return;
@@ -129,7 +125,6 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
     setSubmitting(true);
     try {
       let stoneTypeId = form.stoneTypeId || undefined;
-      let stoneName: string | undefined;
 
       if (addingNewType) {
         const name = form.newStoneTypeName.trim();
@@ -150,24 +145,19 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
         return;
       }
 
-      const payload: SimplifiedStoneEntryInput = {
+      const payload: NewStoneStockInput = {
         stoneTypeId,
-        stoneName,
         lotNo: form.lotNo.trim() || undefined,
-        qtyPurchased: hasPieces ? parseInt(form.qtyPurchased, 10) : undefined,
-        weightPurchased: hasWeight
-          ? parseFloat(form.weightPurchased)
-          : undefined,
-        purchaseRate: rate,
-        vendorName: form.vendorName.trim(),
-        invoiceDate: form.invoiceDate || undefined,
+        pieces: hasPieces ? parseInt(form.pieces, 10) : undefined,
+        weightCt: hasWeight ? parseFloat(form.weightCt) : undefined,
+        ratePerUnit: rate,
+        supplierName: form.supplierName.trim(),
+        purchaseDate: form.purchaseDate || undefined,
       };
 
-      const lot = await quickAddStoneLot(payload);
-      setLots((prev) => [lot, ...prev]);
+      await createStoneStock(payload);
       setForm(emptyForm());
       void load();
-      router.push(`/stone-master/lots/${lot.id}`);
     } catch (err) {
       setFormError(getApiErrorMessage(err, "Failed to log stone stock."));
     } finally {
@@ -175,31 +165,25 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
     }
   };
 
-  const formatBalance = (lot: StonePurchaseLotWithMaster) => {
-    const uom = lot.stoneMaster?.uom ?? "Pcs";
-    if (uom === "Carat" && lot.currentWeightCt > 0) {
-      return `${lot.currentWeightCt.toFixed(2)} ct`;
+  const formatBalance = (row: StoneStock) => {
+    if (row.rateBasis === "Carat" && row.currentWeightCt > 0) {
+      return `${row.currentWeightCt.toFixed(2)} ct`;
     }
-    if (lot.currentQty > 0) {
-      return `${lot.currentQty} pcs`;
-    }
-    if (lot.currentWeightCt > 0) {
-      return `${lot.currentWeightCt.toFixed(2)} ct`;
-    }
+    if (row.currentPieces > 0) return `${row.currentPieces} pcs`;
+    if (row.currentWeightCt > 0) return `${row.currentWeightCt.toFixed(2)} ct`;
     return "—";
   };
 
-  const formatPurchased = (lot: StonePurchaseLotWithMaster) => {
+  const formatReceived = (row: StoneStock) => {
     const parts: string[] = [];
-    if (lot.qtyPurchased > 0) parts.push(`${lot.qtyPurchased} pcs`);
-    if (lot.weightPurchased > 0) parts.push(`${lot.weightPurchased.toFixed(2)} ct`);
+    if (row.pieces && row.pieces > 0) parts.push(`${row.pieces} pcs`);
+    if (row.weightCt && row.weightCt > 0) parts.push(`${row.weightCt.toFixed(2)} ct`);
     return parts.length ? parts.join(" · ") : "—";
   };
 
-  const formatRate = (lot: StonePurchaseLotWithMaster) => {
-    const uom = lot.stoneMaster?.uom ?? "Pcs";
-    const unit = uom === "Carat" ? "ct" : "pc";
-    return `₹${lot.purchaseRate}/${unit}`;
+  const formatRate = (row: StoneStock) => {
+    const unit = row.rateBasis === "Carat" ? "ct" : "pc";
+    return `₹${row.ratePerUnit}/${unit}`;
   };
 
   return (
@@ -213,7 +197,7 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
             ₹{summary.totalValue.toLocaleString("en-IN")}
           </p>
           <p className="text-sm text-amber-900/60 mt-1">
-            {summary.activeLots} active entries · {summary.totalLots} total
+            {summary.activeEntries} active entries · {summary.totalEntries} total
           </p>
         </div>
       )}
@@ -222,7 +206,7 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
         <div className="card p-6">
           <h2 className="text-base font-semibold mb-1">Log Stone Stock</h2>
           <p className="text-sm text-zinc-500 mb-4">
-            Record incoming stone stock — no separate catalog step required.
+            Record incoming stone stock by type — no catalog setup required.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -286,8 +270,8 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
                 <label className={labelClass}>Supplier Name</label>
                 <input
                   className={fieldClass}
-                  value={form.vendorName}
-                  onChange={(e) => setForm({ ...form, vendorName: e.target.value })}
+                  value={form.supplierName}
+                  onChange={(e) => setForm({ ...form, supplierName: e.target.value })}
                   placeholder="Vendor / supplier"
                   required
                 />
@@ -301,10 +285,8 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
                   type="number"
                   min={1}
                   className={fieldClass}
-                  value={form.qtyPurchased}
-                  onChange={(e) =>
-                    setForm({ ...form, qtyPurchased: e.target.value })
-                  }
+                  value={form.pieces}
+                  onChange={(e) => setForm({ ...form, pieces: e.target.value })}
                   placeholder="e.g. 100"
                 />
               </div>
@@ -315,25 +297,21 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
                   step="0.0001"
                   min={0}
                   className={fieldClass}
-                  value={form.weightPurchased}
-                  onChange={(e) =>
-                    setForm({ ...form, weightPurchased: e.target.value })
-                  }
+                  value={form.weightCt}
+                  onChange={(e) => setForm({ ...form, weightCt: e.target.value })}
                   placeholder="e.g. 12.5"
                 />
               </div>
               <div>
-                <label className={labelClass}>
-                  Rate per {rateUnit}
-                </label>
+                <label className={labelClass}>Rate per {rateUnit}</label>
                 <input
                   type="number"
                   step="0.01"
                   min={0}
                   className={fieldClass}
-                  value={form.purchaseRate}
+                  value={form.ratePerUnit}
                   onChange={(e) =>
-                    setForm({ ...form, purchaseRate: e.target.value })
+                    setForm({ ...form, ratePerUnit: e.target.value })
                   }
                   required
                 />
@@ -351,23 +329,21 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
                 <input
                   type="date"
                   className={fieldClass}
-                  value={form.invoiceDate}
-                  onChange={(e) => setForm({ ...form, invoiceDate: e.target.value })}
+                  value={form.purchaseDate}
+                  onChange={(e) =>
+                    setForm({ ...form, purchaseDate: e.target.value })
+                  }
                 />
               </div>
               <div>
-                <label className={labelClass}>
-                  Lot / Reference No. (optional)
-                </label>
+                <label className={labelClass}>Lot / Reference No. (optional)</label>
                 <input
                   className={fieldClass}
                   value={form.lotNo}
                   onChange={(e) => setForm({ ...form, lotNo: e.target.value })}
                   placeholder={previewLotNo}
                 />
-                <p className="text-xs text-zinc-400 mt-1">
-                  Auto: {displayedLotNo}
-                </p>
+                <p className="text-xs text-zinc-400 mt-1">Auto: {displayedLotNo}</p>
               </div>
             </div>
 
@@ -399,7 +375,7 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search lot, stone, supplier…"
+          placeholder="Search ref, stone type, supplier…"
           className="input-field px-3 py-2 text-sm min-w-[260px]"
         />
         {["", "Active", "Depleted", "Closed"].map((s) => (
@@ -435,29 +411,23 @@ export default function StoneLotsPanel({ canManage }: StoneLotsPanelProps) {
             </tr>
           </thead>
           <tbody>
-            {lots.map((lot) => (
-              <tr
-                key={lot.id}
-                className="border-t border-zinc-100 hover:bg-zinc-50/80 cursor-pointer"
-                onClick={() => router.push(`/stone-master/lots/${lot.id}`)}
-              >
-                <td className="px-4 py-3 font-mono text-xs">{lot.lotNo}</td>
-                <td className="px-4 py-3">
-                  {lot.stoneMaster?.stoneMaterial ?? lot.stoneMaster?.stoneName ?? "—"}
-                </td>
-                <td className="px-4 py-3">{lot.vendorName}</td>
+            {rows.map((row) => (
+              <tr key={row.id} className="border-t border-zinc-100">
+                <td className="px-4 py-3 font-mono text-xs">{row.lotNo}</td>
+                <td className="px-4 py-3">{row.stoneType}</td>
+                <td className="px-4 py-3">{row.supplierName}</td>
                 <td className="px-4 py-3 text-zinc-500">
-                  {lot.invoiceDate.slice(0, 10)}
+                  {row.purchaseDate.slice(0, 10)}
                 </td>
-                <td className="px-4 py-3 text-right">{formatPurchased(lot)}</td>
+                <td className="px-4 py-3 text-right">{formatReceived(row)}</td>
                 <td className="px-4 py-3 text-right font-medium">
-                  {formatBalance(lot)}
+                  {formatBalance(row)}
                 </td>
-                <td className="px-4 py-3 text-right">{formatRate(lot)}</td>
-                <td className="px-4 py-3">{lot.status}</td>
+                <td className="px-4 py-3 text-right">{formatRate(row)}</td>
+                <td className="px-4 py-3">{row.status}</td>
               </tr>
             ))}
-            {lots.length === 0 && !loading && (
+            {rows.length === 0 && !loading && (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-zinc-400">
                   No stone stock logged yet.

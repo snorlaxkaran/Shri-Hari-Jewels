@@ -2,14 +2,14 @@ import type { Prisma } from "@prisma/client";
 
 type PrismaTx = Prisma.TransactionClient;
 
-export const generateLotNo = async (
+export const generateStoneStockLotNo = async (
   tx: PrismaTx,
   organizationId: string,
 ): Promise<string> => {
   const year = new Date().getFullYear();
   const prefix = `LOT-${year}-`;
 
-  const last = await tx.stoneLot.findFirst({
+  const last = await tx.stoneStock.findFirst({
     where: {
       lotNo: { startsWith: prefix },
       branch: { organizationId },

@@ -5,7 +5,8 @@ import {
 } from "../designs/validation.js";
 import { safeRecordCatalogAudit } from "../catalog/audit.js";
 import { organizationBranchFilter } from "../branches/access.js";
-import { getStoneMasterAvgRate } from "../stone-lots/service.js";
+import { getStoneTypeAvgRate } from "../raw-inventory/stone-stock-service.js";
+import { resolveStoneTypeName } from "../stone-types/service.js";
 import { resolveMarketRateForMetalPurity } from "../pricing/metal-rate.js";
 import type {
   Motif,
@@ -58,29 +59,14 @@ const motifSummary = (motif: Motif) => ({
   price: motif.price,
   makingCost: motif.makingCost,
   stones: motif.stones?.map((s) => ({
-    stoneMasterId: s.stoneMasterId,
+    stoneType: s.stoneType,
     qtyPerMotif: s.qtyPerMotif,
-    stoneName: s.stoneMaster?.stoneName,
-    sizeMm: s.stoneMaster?.sizeMm,
   })),
 });
 
 const motifInclude = {
   stones: {
     orderBy: { sortOrder: "asc" as const },
-    include: {
-      stoneMaster: {
-        select: {
-          id: true,
-          stoneCode: true,
-          stoneName: true,
-          stoneMaterial: true,
-          sizeMm: true,
-          shape: true,
-          uom: true,
-        },
-      },
-    },
   },
 };
 
@@ -102,18 +88,9 @@ type MotifRow = {
   updatedAt: Date;
   stones?: Array<{
     id: string;
-    stoneMasterId: string;
+    stoneType: string;
     qtyPerMotif: number;
     sortOrder: number;
-    stoneMaster: {
-      id: string;
-      stoneCode: string;
-      stoneName: string;
-      stoneMaterial: string;
-      sizeMm: string;
-      shape: string;
-      uom: string;
-    };
   }>;
 };
 
@@ -121,18 +98,9 @@ const toMotifStone = (
   row: NonNullable<MotifRow["stones"]>[number],
 ): MotifStone => ({
   id: row.id,
-  stoneMasterId: row.stoneMasterId,
+  stoneType: row.stoneType,
   qtyPerMotif: row.qtyPerMotif,
   sortOrder: row.sortOrder,
-  stoneMaster: {
-    id: row.stoneMaster.id,
-    stoneCode: row.stoneMaster.stoneCode,
-    stoneName: row.stoneMaster.stoneName,
-    stoneMaterial: row.stoneMaster.stoneMaterial,
-    sizeMm: row.stoneMaster.sizeMm,
-    shape: row.stoneMaster.shape,
-    uom: row.stoneMaster.uom,
-  },
 });
 
 const toMotif = (row: MotifRow): Motif => ({
@@ -176,17 +144,12 @@ export const calculateMotifPrice = async (
   }
 
   for (const stone of input.stones) {
-    const master = await prisma.stoneMaster.findUnique({
-      where: { id: stone.stoneMasterId },
-    });
-    if (!master) {
-      throw new MotifError(`Stone master not found: ${stone.stoneMasterId}`);
-    }
+    if (!stone.stoneType?.trim()) continue;
     if (stone.qtyPerMotif < 1) {
       throw new MotifError("Stone quantity per motif must be at least 1.");
     }
     const rate = input.organizationId
-      ? await getStoneMasterAvgRate(stone.stoneMasterId, input.organizationId)
+      ? await getStoneTypeAvgRate(stone.stoneType.trim(), input.organizationId)
       : 0;
     total += roundMoney(rate * stone.qtyPerMotif);
   }
@@ -198,7 +161,7 @@ const motifStonesFromRow = (
   row: Pick<MotifRow, "stones">,
 ): MotifStoneInput[] =>
   (row.stones ?? []).map((stone) => ({
-    stoneMasterId: stone.stoneMasterId,
+    stoneType: stone.stoneType,
     qtyPerMotif: stone.qtyPerMotif,
     sortOrder: stone.sortOrder,
   }));
@@ -234,20 +197,13 @@ const validateMotifStones = async (
 ) => {
   if (!stones?.length) return;
   for (const stone of stones) {
-    if (!stone.stoneMasterId) {
-      throw new MotifError("Each motif stone must reference a stone master entry.");
+    if (!stone.stoneType?.trim()) {
+      throw new MotifError("Each motif stone must have a stone type.");
     }
     if (stone.qtyPerMotif < 1) {
       throw new MotifError("Stone quantity per motif must be at least 1.");
     }
-    const master = await prisma.stoneMaster.findFirst({
-      where: { id: stone.stoneMasterId, organizationId },
-    });
-    if (!master) {
-      throw new MotifError(
-        "Stone master entry not found in your company catalog.",
-      );
-    }
+    await resolveStoneTypeName(organizationId, undefined, stone.stoneType.trim());
   }
 };
 
@@ -313,7 +269,7 @@ const syncMotifStones = async (
   await prisma.motifStone.createMany({
     data: stones.map((stone, index) => ({
       motifId,
-      stoneMasterId: stone.stoneMasterId,
+      stoneType: stone.stoneType.trim(),
       qtyPerMotif: stone.qtyPerMotif,
       sortOrder: stone.sortOrder ?? index,
     })),
@@ -524,7 +480,7 @@ export const updateMotif = async (
   const stones =
     input.stones ??
     existingRow.stones.map((s) => ({
-      stoneMasterId: s.stoneMasterId,
+      stoneType: s.stoneType,
       qtyPerMotif: s.qtyPerMotif,
       sortOrder: s.sortOrder,
     }));
@@ -668,14 +624,17 @@ export const recalculateMotifPriceById = async (
   return price;
 };
 
-export const recalculateMotifsForStoneMaster = async (
-  stoneMasterId: string,
+export const recalculateMotifsForStoneType = async (
+  stoneType: string,
   organizationId: string,
   actor?: Actor,
   reason?: string,
 ): Promise<number> => {
   const links = await prisma.motifStone.findMany({
-    where: { stoneMasterId },
+    where: {
+      stoneType: { equals: stoneType, mode: "insensitive" },
+      motif: { branch: { organizationId } },
+    },
     select: { motifId: true },
     distinct: ["motifId"],
   });
