@@ -381,6 +381,7 @@ export const createStockTransfer = async (
   input: CreateStockTransferInput,
   createdBy: { id: string; name: string },
   organizationId: string,
+  sellingBranchId: string,
 ): Promise<{ transfer: StockTransfer; products: InventoryItem[] }> => {
   if (!TRANSFER_DOC_TYPES.includes(input.documentType)) {
     throw new InventoryError("Select a valid transfer document type.");
@@ -519,7 +520,7 @@ export const createStockTransfer = async (
         const listPrice = computeLiveListPriceForProduct(unit.product, marketRates);
         await tx.sale.create({
           data: {
-            branchId: headOfficeBranchId,
+            branchId: sellingBranchId,
             unitId: unit.id,
             itemCode: unit.itemCode,
             productId: unit.productId,

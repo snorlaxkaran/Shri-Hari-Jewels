@@ -524,10 +524,12 @@ inventoryRouter.post(
   requireRole(canManageStockTransfers),
   async (req: AuthenticatedRequest, res) => {
     try {
+      const sellingBranchId = await getUserBranch(req.user!.id, req.organizationId!);
       const result = await createStockTransfer(
         req.body as CreateStockTransferInput,
         { id: req.user!.id, name: req.user!.name },
         req.organizationId!,
+        sellingBranchId,
       );
       res.status(201).json(result);
     } catch (error) {
