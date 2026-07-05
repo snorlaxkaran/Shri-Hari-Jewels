@@ -2,10 +2,15 @@ import { InventoryUnitStatus, SalePaymentStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import { getStockStatus } from "./status.js";
 
-export type InventoryRepairReport = {
+export type InventoryReconcileReport = {
   unitsMarkedSold: number;
   unitsMarkedReserved: number;
   productsStockCorrected: number;
+};
+
+export type InventoryRepairReport = InventoryReconcileReport & {
+  wholesaleSalesCreated: number;
+  wholesaleSalesSkipped: number;
 };
 
 /**
@@ -16,7 +21,7 @@ export type InventoryRepairReport = {
  * Intended for admin repair only — not for hot-path reads.
  */
 export const reconcileInventoryWithSales =
-  async (): Promise<InventoryRepairReport> => {
+  async (): Promise<InventoryReconcileReport> => {
     const soldResult = await prisma.inventoryUnit.updateMany({
       where: {
         sale: { paymentStatus: SalePaymentStatus.Completed },

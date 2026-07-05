@@ -16,6 +16,7 @@ import { CATEGORY_COLORS, type ProductCategory } from "./categories.js";
 import { toInventoryItem } from "./mappers.js";
 import { generateSku, generateUnitCodes } from "./sku.js";
 import { reconcileInventoryWithSales } from "./reconcile.js";
+import { backfillMissingWholesaleSales } from "../sales/backfill-wholesale.js";
 import { getStockStatus } from "./status.js";
 import { syncProductStockInTx } from "./stock-sync.js";
 import { recordInventoryAudit } from "./audit.js";
@@ -668,7 +669,13 @@ export const repairInventory = async (actor?: {
   id: string;
   name: string;
 }) => {
-  const report = await reconcileInventoryWithSales();
+  const reconcileReport = await reconcileInventoryWithSales();
+  const wholesaleReport = await backfillMissingWholesaleSales();
+  const report = {
+    ...reconcileReport,
+    wholesaleSalesCreated: wholesaleReport.salesCreated,
+    wholesaleSalesSkipped: wholesaleReport.skipped,
+  };
   await recordInventoryAudit({
     entityType: "Product",
     entityId: "all",
