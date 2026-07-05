@@ -163,6 +163,7 @@ model Organization {
   shopSettings   ShopSettings?
   customers      Customer[]
   stoneMasters   StoneMaster[]
+  stoneTypes     StoneType[]
   designs        Design[]
   products       Product[]
   inventoryUnits InventoryUnit[]
@@ -818,6 +819,22 @@ model CertifiedStoneLot {
   @@index([stoneType])
   @@index([location])
   @@index([status])
+}
+
+model StoneType {
+  id              String   @id @default(uuid())
+  organizationId  String
+  name            String
+  isActive        Boolean  @default(true)
+  createdByName   String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([isActive])
 }
 
 model StoneMaster {

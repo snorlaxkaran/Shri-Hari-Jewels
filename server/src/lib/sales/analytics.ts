@@ -17,6 +17,7 @@ import { getStockStatus } from "../inventory/status.js";
 import { moneyToNumber, multiplyMoney, sumMoney } from "../money.js";
 import { countPendingOrders } from "../orders/service.js";
 import { getRawInventorySummary } from "../raw-inventory/metal-service.js";
+import { getStoneLotsSummary } from "../stone-lots/service.js";
 import { getCurrentMarketRates } from "../market-rates/service.js";
 import { computeLiveListPriceForProduct } from "../inventory/unit-pricing.js";
 import { organizationBranchFilter } from "../branches/access.js";
@@ -135,7 +136,7 @@ export const getSalesAnalytics = async (
   branchId?: string,
 ): Promise<SalesAnalytics> => {
   const branchFilter = organizationBranchFilter(organizationId, branchId);
-  const [sales, products, customerCount, pendingOrders, rawSummary, activeWorkOrders, marketRates] =
+  const [sales, products, customerCount, pendingOrders, rawSummary, activeWorkOrders, marketRates, stoneLotsSummary] =
     await Promise.all([
     prisma.sale.findMany({
       where: {
@@ -169,6 +170,7 @@ export const getSalesAnalytics = async (
       },
     }),
     getCurrentMarketRates(organizationId),
+    getStoneLotsSummary(organizationId, branchId),
   ]);
 
   const now = new Date();
@@ -245,6 +247,7 @@ export const getSalesAnalytics = async (
     goldGrams: rawSummary.goldGrams,
     silverGrams: rawSummary.silverGrams,
     diamondCarats: rawSummary.diamondCarats,
+    stoneStockValue: stoneLotsSummary.totalValue,
     activeWorkOrders,
   };
 

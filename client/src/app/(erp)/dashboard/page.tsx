@@ -14,6 +14,7 @@ import {
   Calendar,
   Package,
   ClipboardList,
+  Gem,
 } from "lucide-react";
 
 const DashboardCharts = dynamic(
@@ -75,7 +76,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-4">
         <StatCard
           label="Gold Stock"
           value={`${(stats?.goldGrams ?? 0).toFixed(2)} g`}
@@ -90,6 +91,11 @@ export default function DashboardPage() {
           label="Diamond Stock"
           value={`${(stats?.diamondCarats ?? 0).toFixed(2)} ct`}
           icon={<Diamond size={18} />}
+        />
+        <StatCard
+          label="Stone Stock Value"
+          value={formatCurrency(stats?.stoneStockValue ?? 0)}
+          icon={<Gem size={18} />}
         />
         <StatCard
           label="Manufacturing Jobs"

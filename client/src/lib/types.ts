@@ -836,8 +836,36 @@ export type NewStonePurchaseLotInput = {
   notes?: string;
 };
 
+export type StoneType = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewStoneTypeInput = {
+  name: string;
+};
+
+export type SimplifiedStoneEntryInput = {
+  stoneTypeId?: string;
+  stoneName?: string;
+  branchId?: string;
+  lotNo?: string;
+  qtyPurchased?: number;
+  weightPurchased?: number;
+  purchaseRate: number;
+  vendorName: string;
+  invoiceDate?: string;
+  notes?: string;
+};
+
 export type QuickAddStoneLotInput = {
-  stoneCategory: StoneCategory;
+  stoneCategory?: StoneCategory;
+  stoneTypeId?: string;
+  stoneName?: string;
   branchId?: string;
   lotNo?: string;
   packetNo?: string;
@@ -845,8 +873,8 @@ export type QuickAddStoneLotInput = {
   vendorName?: string;
   invoiceNo?: string;
   invoiceDate?: string;
-  qtyPurchased: number;
-  weightPurchased: number;
+  qtyPurchased?: number;
+  weightPurchased?: number;
   purchaseRate?: number;
   gstPct?: number;
   location?: string;
@@ -1348,6 +1376,7 @@ export type DashboardStats = {
   goldGrams: number;
   silverGrams: number;
   diamondCarats: number;
+  stoneStockValue: number;
   activeWorkOrders: number;
 };
 

@@ -2,6 +2,7 @@ import {
   StoneMovementType,
   StonePurchaseLotStatus,
   StoneCategory,
+  StoneUOM,
   type StoneCategory as StoneCategoryEnum,
 } from "@prisma/client";
 import { prisma } from "../db.js";
@@ -9,12 +10,17 @@ import { organizationBranchFilter } from "../branches/access.js";
 import { assertBranchInOrganization } from "../organizations/access.js";
 import { moneyToNumber } from "../money.js";
 import { generateLotNo } from "./lot-number.js";
-import { findOrCreateQuickAddStoneMaster } from "./quick-add-stone-master.js";
+import {
+  findOrCreateQuickAddStoneMaster,
+  findOrCreateStoneMasterForEntry,
+} from "./quick-add-stone-master.js";
+import { resolveStoneTypeName } from "../stone-types/service.js";
 import type {
   AdjustStonePurchaseLotInput,
   IssueStoneInput,
   NewStonePurchaseLotInput,
   QuickAddStoneLotInput,
+  SimplifiedStoneEntryInput,
   SettleStoneIssueInput,
   StoneLotDetail,
   StoneLotSummary,
@@ -176,6 +182,36 @@ const calcAmounts = (qty: number, rate: number, gstPct: number) => {
   const gstAmount = Math.round((amount * gstPct) / 100 * 100) / 100;
   const totalAmount = Math.round((amount + gstAmount) * 100) / 100;
   return { amount, gstAmount, totalAmount };
+};
+
+const calcAmountsByUom = (
+  qty: number,
+  weightCt: number,
+  rate: number,
+  uom: StoneUOM,
+  gstPct: number,
+) => {
+  const base =
+    uom === StoneUOM.Pcs
+      ? qty * rate
+      : weightCt * rate;
+  const amount = Math.round(base * 100) / 100;
+  const gstAmount = Math.round((amount * gstPct) / 100 * 100) / 100;
+  const totalAmount = Math.round((amount + gstAmount) * 100) / 100;
+  return { amount, gstAmount, totalAmount };
+};
+
+const lotStockValue = (
+  currentQty: number,
+  currentWeightCt: number,
+  purchaseRate: number,
+  uom: StoneUOM,
+): number => {
+  const base =
+    uom === StoneUOM.Pcs
+      ? currentQty * purchaseRate
+      : currentWeightCt * purchaseRate;
+  return Math.round(base * 100) / 100;
 };
 
 const assertLotInOrg = async (lotId: string, organizationId: string) => {
@@ -379,20 +415,25 @@ export const receiveStoneLot = async (
 };
 
 export const quickReceiveStoneLot = async (
-  input: QuickAddStoneLotInput,
+  input: QuickAddStoneLotInput | SimplifiedStoneEntryInput,
   organizationId: string,
   branchId: string,
   createdByName: string,
 ): Promise<StonePurchaseLotWithMaster> => {
-  const validCategories = Object.values(StoneCategory);
-  if (!input.stoneCategory || !validCategories.includes(input.stoneCategory as StoneCategoryEnum)) {
-    throw new StoneLotError("Stone type is required.");
+  const qtyPurchased = input.qtyPurchased ?? 0;
+  const weightPurchased = input.weightPurchased ?? 0;
+  const hasQty = qtyPurchased > 0;
+  const hasWeight = weightPurchased > 0;
+
+  if (!hasQty && !hasWeight) {
+    throw new StoneLotError("Enter pieces or weight — at least one is required.");
   }
-  if (!input.qtyPurchased || input.qtyPurchased <= 0) {
-    throw new StoneLotError("Quantity must be greater than zero.");
+
+  if (!input.vendorName?.trim()) {
+    throw new StoneLotError("Supplier name is required.");
   }
-  if (input.weightPurchased == null || input.weightPurchased < 0) {
-    throw new StoneLotError("Weight is required.");
+  if (input.purchaseRate == null || input.purchaseRate < 0) {
+    throw new StoneLotError("Rate is required.");
   }
 
   await assertBranchInOrganization(branchId, organizationId);
@@ -400,23 +441,50 @@ export const quickReceiveStoneLot = async (
   const invoiceDate = input.invoiceDate
     ? new Date(input.invoiceDate)
     : new Date();
-  const vendorName = input.vendorName?.trim() || "Not specified";
-  const invoiceNo = input.invoiceNo?.trim() || "QUICK";
-  const purchaseRate = input.purchaseRate ?? 0;
-  const gstPct = input.gstPct ?? 0;
-  const { amount, gstAmount, totalAmount } = calcAmounts(
-    input.qtyPurchased,
+  const vendorName = input.vendorName.trim();
+  const invoiceNo =
+    "invoiceNo" in input && input.invoiceNo?.trim()
+      ? input.invoiceNo.trim()
+      : "ENTRY";
+  const purchaseRate = input.purchaseRate;
+  const gstPct = "gstPct" in input ? (input.gstPct ?? 0) : 0;
+  const uom = hasQty ? StoneUOM.Pcs : StoneUOM.Carat;
+  const { amount, gstAmount, totalAmount } = calcAmountsByUom(
+    qtyPurchased,
+    weightPurchased,
     purchaseRate,
+    uom,
     gstPct,
   );
 
   const lot = await prisma.$transaction(async (tx) => {
-    const master = await findOrCreateQuickAddStoneMaster(
-      tx,
-      organizationId,
-      input.stoneCategory,
-      createdByName,
-    );
+    let master;
+    if ("stoneCategory" in input && input.stoneCategory) {
+      const validCategories = Object.values(StoneCategory);
+      if (!validCategories.includes(input.stoneCategory as StoneCategoryEnum)) {
+        throw new StoneLotError("Stone type is required.");
+      }
+      master = await findOrCreateQuickAddStoneMaster(
+        tx,
+        organizationId,
+        input.stoneCategory,
+        createdByName,
+      );
+    } else {
+      const stoneName = await resolveStoneTypeName(
+        organizationId,
+        input.stoneTypeId,
+        input.stoneName,
+        createdByName,
+      );
+      master = await findOrCreateStoneMasterForEntry(
+        tx,
+        organizationId,
+        stoneName,
+        uom,
+        createdByName,
+      );
+    }
 
     const lotNo =
       input.lotNo?.trim() ||
@@ -434,22 +502,28 @@ export const quickReceiveStoneLot = async (
         branchId,
         stoneMasterId: master.id,
         lotNo,
-        packetNo: input.packetNo?.trim() || null,
-        vendorStoneCode: input.vendorStoneCode?.trim() || null,
+        packetNo:
+          "packetNo" in input ? input.packetNo?.trim() || null : null,
+        vendorStoneCode:
+          "vendorStoneCode" in input
+            ? input.vendorStoneCode?.trim() || null
+            : null,
         vendorName,
         invoiceNo,
         invoiceDate,
-        qtyPurchased: input.qtyPurchased,
-        weightPurchased: input.weightPurchased,
+        qtyPurchased,
+        weightPurchased,
         purchaseRate,
         amount,
         gstPct,
         gstAmount,
         totalAmount,
-        currentQty: input.qtyPurchased,
-        currentWeightCt: input.weightPurchased,
-        location: input.location?.trim() || null,
-        reorderLevel: input.reorderLevel ?? null,
+        currentQty: qtyPurchased,
+        currentWeightCt: weightPurchased,
+        location:
+          "location" in input ? input.location?.trim() || null : null,
+        reorderLevel:
+          "reorderLevel" in input ? (input.reorderLevel ?? null) : null,
         notes: input.notes?.trim() || null,
         createdByName,
       },
@@ -461,13 +535,13 @@ export const quickReceiveStoneLot = async (
         branchId,
         stoneLotId: created.id,
         movementType: StoneMovementType.Receipt,
-        qty: input.qtyPurchased,
-        weightCt: input.weightPurchased,
-        balanceQtyAfter: input.qtyPurchased,
-        balanceWeightAfter: input.weightPurchased,
+        qty: qtyPurchased,
+        weightCt: weightPurchased,
+        balanceQtyAfter: qtyPurchased,
+        balanceWeightAfter: weightPurchased,
         ratePerUnit: purchaseRate,
         totalValue: amount,
-        notes: `Quick Add receipt: ${invoiceNo} / ${vendorName}`,
+        notes: `Stone entry: ${invoiceNo} / ${vendorName}`,
         performedByName: createdByName,
       },
     });
@@ -547,7 +621,9 @@ export const getStoneLotsSummary = async (
   const filter = organizationBranchFilter(organizationId, branchId);
   const lots = await prisma.stoneLot.findMany({
     where: filter,
-    include: { stoneMaster: { select: { stoneCategory: true } } },
+    include: {
+      stoneMaster: { select: { stoneCategory: true, uom: true } },
+    },
   });
 
   const now = new Date();
@@ -573,8 +649,14 @@ export const getStoneLotsSummary = async (
     if (lot.status === StonePurchaseLotStatus.Active) activeLots += 1;
     totalQty += lot.currentQty;
     totalWeight += moneyToNumber(String(lot.currentWeightCt));
-    totalValue +=
-      lot.currentQty * moneyToNumber(String(lot.purchaseRate));
+    const rate = moneyToNumber(String(lot.purchaseRate));
+    const lotValue = lotStockValue(
+      lot.currentQty,
+      moneyToNumber(String(lot.currentWeightCt)),
+      rate,
+      lot.stoneMaster.uom,
+    );
+    totalValue += lotValue;
 
     const cat = lot.stoneMaster.stoneCategory;
     if (!byCategory[cat]) {
@@ -582,8 +664,7 @@ export const getStoneLotsSummary = async (
     }
     byCategory[cat].qty += lot.currentQty;
     byCategory[cat].weightCt += moneyToNumber(String(lot.currentWeightCt));
-    byCategory[cat].value +=
-      lot.currentQty * moneyToNumber(String(lot.purchaseRate));
+    byCategory[cat].value += lotValue;
   }
 
   const lossesMtdQty = movements.reduce((s, m) => s + m.qty, 0);
