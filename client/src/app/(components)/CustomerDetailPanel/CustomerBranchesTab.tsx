@@ -11,6 +11,8 @@ import {
 } from "@/lib/api/customers";
 import { getApiErrorMessage } from "@/lib/api/client";
 import type { CustomerBranch, NewCustomerBranchInput } from "@/lib/types";
+import { CUSTOMER_BRANCH_OFFICE_TYPES } from "@/lib/customers/constants";
+import { OfficeTypeBadge } from "@/lib/customers/badges";
 
 type CustomerBranchesTabProps = {
   customerId: string;
@@ -20,6 +22,7 @@ type CustomerBranchesTabProps = {
 
 const emptyForm = (): NewCustomerBranchInput => ({
   name: "",
+  officeType: "Branch Office",
   address: "",
   city: "",
   state: "",
@@ -73,6 +76,7 @@ export default function CustomerBranchesTab({
     setEditingId(branch.id);
     setForm({
       name: branch.name,
+      officeType: branch.officeType ?? "Branch Office",
       address: branch.address ?? "",
       city: branch.city ?? "",
       state: branch.state ?? "",
@@ -156,6 +160,22 @@ export default function CustomerBranchesTab({
             placeholder={`e.g. ${customerName} Alkapuri`}
             className="input-field w-full px-3 py-2 text-sm"
           />
+          <div>
+            <label className={labelClass}>Office Type *</label>
+            <select
+              value={form.officeType ?? "Branch Office"}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, officeType: event.target.value }))
+              }
+              className="input-field w-full px-3 py-2 text-sm mt-1"
+            >
+              {CUSTOMER_BRANCH_OFFICE_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <input
               type="text"
@@ -302,7 +322,10 @@ export default function CustomerBranchesTab({
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-medium text-zinc-900">{branch.name}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-zinc-900">{branch.name}</p>
+                    <OfficeTypeBadge officeType={branch.officeType ?? "Branch Office"} />
+                  </div>
                   {(branch.city || branch.address) && (
                     <p className="text-xs text-zinc-500 mt-0.5 flex items-center gap-1">
                       <MapPin size={12} />

@@ -31,6 +31,7 @@ const toCustomerBranch = (
     customerId: string;
     branchId: string | null;
     name: string;
+    officeType: string;
     address: string | null;
     city: string | null;
     state: string | null;
@@ -51,6 +52,7 @@ const toCustomerBranch = (
   branchId: row.branchId ?? undefined,
   branchName: row.linkedBranch?.name,
   name: row.name,
+  officeType: row.officeType,
   address: row.address ?? undefined,
   city: row.city ?? undefined,
   state: row.state ?? undefined,
@@ -143,6 +145,7 @@ export const createCustomerBranch = async (
       customerId,
       branchId: null,
       name,
+      officeType: input.officeType?.trim() || "Branch Office",
       address: trimOrNull(input.address),
       city: trimOrNull(input.city),
       state: trimOrNull(input.state),
@@ -197,6 +200,9 @@ export const updateCustomerBranch = async (
     where: { id: branchId },
     data: {
       ...(input.name !== undefined && { name: input.name.trim() }),
+      ...(input.officeType !== undefined && {
+        officeType: input.officeType.trim() || "Branch Office",
+      }),
       ...(input.address !== undefined && { address: trimOrNull(input.address) }),
       ...(input.city !== undefined && { city: trimOrNull(input.city) }),
       ...(input.state !== undefined && { state: trimOrNull(input.state) }),

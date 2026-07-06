@@ -69,6 +69,15 @@ export const canDeleteProduct = (role: UserRole): boolean => role === "Admin";
 export const canManageCustomers = (role: UserRole): boolean =>
   role === "Admin" || role === "SalesManager";
 
+export const canManageDeptContacts = (role: UserRole): boolean =>
+  role === "Admin" || role === "SalesManager";
+
+export const canDeleteDeptContacts = (role: UserRole): boolean =>
+  role === "Admin";
+
+export const isMasterAdmin = (role: UserRole): boolean =>
+  role === "Admin";
+
 export const canManageBranches = (role: UserRole): boolean => role === "Admin";
 
 export const canManageSettings = (role: UserRole): boolean => role === "Admin";

@@ -1,5 +1,11 @@
 import { Router } from "express";
-import { canManageCustomers, canManageStockTransfers } from "../lib/auth/permissions.js";
+import {
+  canEditCustomerInfo,
+  canManageCustomers,
+  canManageDeptContacts,
+  canDeleteDeptContacts,
+  canManageStockTransfers,
+} from "../lib/auth/permissions.js";
 import {
   createCustomerBranch,
   deleteCustomerBranch,
@@ -7,13 +13,18 @@ import {
   updateCustomerBranch,
 } from "../lib/customers/branches.js";
 import {
+  addDeptContact,
   createCustomer,
   CustomerError,
+  deleteDeptContact,
   getCustomerDetail,
+  getDeptContact,
   listCustomers,
+  listDeptContacts,
   lookupCustomer,
   searchCustomers,
   updateCustomer,
+  updateDeptContact,
 } from "../lib/customers/service.js";
 import {
   authenticate,
@@ -24,8 +35,10 @@ import { attachOrganization } from "../middleware/organization.js";
 import { routeParam } from "../lib/route-param.js";
 import type {
   NewCustomerBranchInput,
+  NewCustomerDeptContactInput,
   NewCustomerInput,
   UpdateCustomerBranchInput,
+  UpdateCustomerDeptContactInput,
   UpdateCustomerInput,
 } from "../types.js";
 
@@ -94,7 +107,7 @@ customersRouter.get(
 
 customersRouter.post(
   "/:customerId/branches",
-  requireRole(canManageCustomers),
+  requireRole(canEditCustomerInfo),
   async (req: AuthenticatedRequest, res) => {
     try {
       const branch = await createCustomerBranch(
@@ -116,7 +129,7 @@ customersRouter.post(
 
 customersRouter.patch(
   "/:customerId/branches/:branchId",
-  requireRole(canManageCustomers),
+  requireRole(canEditCustomerInfo),
   async (req: AuthenticatedRequest, res) => {
     try {
       const branch = await updateCustomerBranch(
@@ -139,7 +152,7 @@ customersRouter.patch(
 
 customersRouter.delete(
   "/:customerId/branches/:branchId",
-  requireRole(canManageCustomers),
+  requireRole(canEditCustomerInfo),
   async (req: AuthenticatedRequest, res) => {
     try {
       await deleteCustomerBranch(
@@ -182,7 +195,7 @@ customersRouter.get(
 
 customersRouter.post(
   "/",
-  requireRole(canManageCustomers),
+  requireRole(canEditCustomerInfo),
   async (req: AuthenticatedRequest, res) => {
     try {
       const customer = await createCustomer(
@@ -203,7 +216,7 @@ customersRouter.post(
 
 customersRouter.patch(
   "/:id",
-  requireRole(canManageCustomers),
+  requireRole(canEditCustomerInfo),
   async (req: AuthenticatedRequest, res) => {
     try {
       const customer = await updateCustomer(
@@ -219,6 +232,106 @@ customersRouter.patch(
       }
       console.error("PATCH /api/customers/:id", error);
       res.status(500).json({ error: "Failed to update customer" });
+    }
+  },
+);
+
+customersRouter.get(
+  "/:id/dept-contacts",
+  requireRole(canManageCustomers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const contacts = await listDeptContacts(
+        routeParam(req.params.id),
+        req.organizationId!,
+      );
+      res.json(contacts);
+    } catch (error) {
+      if (error instanceof CustomerError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("GET /api/customers/:id/dept-contacts", error);
+      res.status(500).json({ error: "Failed to fetch department contacts" });
+    }
+  },
+);
+
+customersRouter.post(
+  "/:id/dept-contacts",
+  requireRole(canManageDeptContacts),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = req.body as NewCustomerDeptContactInput;
+      if (!body.department?.trim() || !body.personName?.trim()) {
+        res.status(400).json({ error: "Department and person name are required." });
+        return;
+      }
+      const contact = await addDeptContact(
+        routeParam(req.params.id),
+        req.organizationId!,
+        body,
+        req.user!.id,
+      );
+      res.status(201).json(contact);
+    } catch (error) {
+      if (error instanceof CustomerError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/customers/:id/dept-contacts", error);
+      res.status(500).json({ error: "Failed to add department contact" });
+    }
+  },
+);
+
+customersRouter.patch(
+  "/:id/dept-contacts/:contactId",
+  requireRole(canManageCustomers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const contactId = routeParam(req.params.contactId);
+      const contact = await getDeptContact(contactId, req.organizationId!);
+      const isAdmin = req.user!.role === "Admin";
+      const isCreator = contact.createdByUserId === req.user!.id;
+      if (!isAdmin && !isCreator) {
+        res.status(403).json({ error: "You can only edit contacts you created." });
+        return;
+      }
+      const updated = await updateDeptContact(
+        contactId,
+        req.organizationId!,
+        req.body as UpdateCustomerDeptContactInput,
+      );
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof CustomerError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("PATCH /api/customers/:id/dept-contacts/:contactId", error);
+      res.status(500).json({ error: "Failed to update department contact" });
+    }
+  },
+);
+
+customersRouter.delete(
+  "/:id/dept-contacts/:contactId",
+  requireRole(canDeleteDeptContacts),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      await deleteDeptContact(
+        routeParam(req.params.contactId),
+        req.organizationId!,
+      );
+      res.json({ success: true });
+    } catch (error) {
+      if (error instanceof CustomerError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("DELETE /api/customers/:id/dept-contacts/:contactId", error);
+      res.status(500).json({ error: "Failed to delete department contact" });
     }
   },
 );

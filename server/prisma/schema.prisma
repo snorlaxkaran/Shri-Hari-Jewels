@@ -364,6 +364,10 @@ model Customer {
   organizationId String
   name           String
   mobile         String
+  companyName       String?
+  ownerName         String?
+  contactPersonName String?
+  customerType      String  @default("Individual Buyer")
   email       String?
   address     String?
   city        String?
@@ -392,10 +396,27 @@ model Customer {
   orders   Order[]
   invoices Invoice[]
   branches CustomerBranch[]
+  deptContacts CustomerDepartmentContact[]
   stockTransfers StockTransfer[]
 
   @@unique([organizationId, mobile])
   @@index([organizationId])
+}
+
+model CustomerDepartmentContact {
+  id              String   @id @default(uuid())
+  customerId      String
+  department      String
+  personName      String
+  email           String?
+  phone           String?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
 }
 
 model CustomerBranch {
@@ -403,6 +424,7 @@ model CustomerBranch {
   customerId String
   branchId   String?
   name       String
+  officeType String   @default("Branch Office")
   address    String?
   city       String?
   state      String?

@@ -232,6 +232,10 @@ export type Customer = {
   id: string;
   name: string;
   mobile: string;
+  companyName?: string;
+  ownerName?: string;
+  contactPersonName?: string;
+  customerType: string;
   email?: string;
   address?: string;
   city?: string;
@@ -262,6 +266,10 @@ export type Customer = {
 export type NewCustomerInput = {
   name: string;
   mobile: string;
+  companyName?: string;
+  ownerName?: string;
+  contactPersonName?: string;
+  customerType?: string;
   email?: string;
   address?: string;
   city?: string;
@@ -287,6 +295,10 @@ export type NewCustomerInput = {
 export type UpdateCustomerInput = {
   name?: string;
   mobile?: string;
+  companyName?: string | null;
+  ownerName?: string | null;
+  contactPersonName?: string | null;
+  customerType?: string;
   email?: string | null;
   address?: string | null;
   city?: string | null;
@@ -311,6 +323,33 @@ export type UpdateCustomerInput = {
 
 export type CustomerDetail = Customer & {
   sales: Sale[];
+  deptContacts: CustomerDepartmentContact[];
+};
+
+export type CustomerDepartmentContact = {
+  id: string;
+  customerId: string;
+  department: string;
+  personName: string;
+  email?: string;
+  phone?: string;
+  createdByUserId?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewCustomerDeptContactInput = {
+  department: string;
+  personName: string;
+  email?: string;
+  phone?: string;
+};
+
+export type UpdateCustomerDeptContactInput = {
+  department?: string;
+  personName?: string;
+  email?: string | null;
+  phone?: string | null;
 };
 
 export type CustomerBranch = {
@@ -319,6 +358,7 @@ export type CustomerBranch = {
   branchId?: string;
   branchName?: string;
   name: string;
+  officeType: string;
   address?: string;
   city?: string;
   state?: string;
@@ -335,6 +375,7 @@ export type CustomerBranch = {
 
 export type NewCustomerBranchInput = {
   name: string;
+  officeType?: string;
   branchId?: string;
   address?: string;
   city?: string;
@@ -349,6 +390,7 @@ export type NewCustomerBranchInput = {
 
 export type UpdateCustomerBranchInput = {
   name?: string;
+  officeType?: string;
   branchId?: string | null;
   address?: string | null;
   city?: string | null;

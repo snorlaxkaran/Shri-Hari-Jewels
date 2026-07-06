@@ -78,6 +78,18 @@ export const canDeleteProduct = (role: UserRole): boolean => role === "Admin";
 export const canManageCustomers = (role: UserRole): boolean =>
   role === "Admin" || role === "SalesManager" || role === "Store";
 
+export const canEditCustomerInfo = (role: UserRole): boolean =>
+  role === "Admin" || role === "SalesManager";
+
+export const canManageDeptContacts = (role: UserRole): boolean =>
+  role === "Admin" || role === "SalesManager";
+
+export const canDeleteDeptContacts = (role: UserRole): boolean =>
+  role === "Admin";
+
+export const isMasterAdmin = (role: UserRole): boolean =>
+  role === "Admin";
+
 export const canRecordSales = (role: UserRole): boolean =>
   role === "Admin" || role === "SalesManager" || role === "Store";
 

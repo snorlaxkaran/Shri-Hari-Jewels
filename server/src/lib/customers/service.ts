@@ -1,13 +1,17 @@
 import { prisma } from "../db.js";
 import type {
   Customer,
+  CustomerDepartmentContact,
   CustomerDetail,
+  NewCustomerDeptContactInput,
   NewCustomerInput,
+  UpdateCustomerDeptContactInput,
   UpdateCustomerInput,
 } from "../../types.js";
 import { toSale } from "../sales/mappers.js";
 import { toCustomer } from "./mappers.js";
 import { validateCustomerFinancialFields } from "./validation.js";
+import type { CustomerDepartmentContact as PrismaDeptContact } from "@prisma/client";
 
 export class CustomerError extends Error {
   constructor(
@@ -53,6 +57,7 @@ export const lookupCustomer = async (
           { name: { contains: trimmed } },
           { mobile: { contains: trimmed } },
           { email: { contains: trimmed } },
+          { companyName: { contains: trimmed, mode: "insensitive" } },
         ],
       },
       include: customerInclude,
@@ -127,6 +132,7 @@ export const getCustomerDetail = async (
     where: { id, organizationId },
     include: {
       sales: { orderBy: { soldAt: "desc" } },
+      deptContacts: { orderBy: { department: "asc" } },
     },
   });
   if (!customer) return null;
@@ -135,6 +141,7 @@ export const getCustomerDetail = async (
   return {
     ...base,
     sales: customer.sales.map(toSale),
+    deptContacts: customer.deptContacts.map(toDeptContact),
   };
 };
 
@@ -165,6 +172,10 @@ export const createCustomer = async (
       organizationId,
       name,
       mobile,
+      companyName: trimOrNull(input.companyName),
+      ownerName: trimOrNull(input.ownerName),
+      contactPersonName: trimOrNull(input.contactPersonName),
+      customerType: input.customerType?.trim() || "Individual Buyer",
       email: trimOrNull(input.email),
       address: trimOrNull(input.address),
       city: trimOrNull(input.city),
@@ -208,6 +219,7 @@ export const searchCustomers = async (
         { city: { contains: q } },
         { billingCity: { contains: q } },
         { email: { contains: q } },
+        { companyName: { contains: q, mode: "insensitive" } },
         { gstNumber: { contains: q, mode: "insensitive" } },
       ],
     },
@@ -287,6 +299,18 @@ export const updateCustomer = async (
     data: {
       ...(input.name !== undefined && { name: input.name.trim() }),
       ...(input.mobile !== undefined && { mobile: input.mobile.trim() }),
+      ...(input.companyName !== undefined && {
+        companyName: trimOrNull(input.companyName),
+      }),
+      ...(input.ownerName !== undefined && {
+        ownerName: trimOrNull(input.ownerName),
+      }),
+      ...(input.contactPersonName !== undefined && {
+        contactPersonName: trimOrNull(input.contactPersonName),
+      }),
+      ...(input.customerType !== undefined && {
+        customerType: input.customerType.trim() || "Individual Buyer",
+      }),
       ...(input.email !== undefined && {
         email: trimOrNull(input.email),
       }),
@@ -326,4 +350,126 @@ export const updateCustomer = async (
   });
 
   return toCustomer(customer);
+};
+
+const toDeptContact = (row: PrismaDeptContact): CustomerDepartmentContact => ({
+  id: row.id,
+  customerId: row.customerId,
+  department: row.department,
+  personName: row.personName,
+  email: row.email ?? undefined,
+  phone: row.phone ?? undefined,
+  createdByUserId: row.createdByUserId ?? undefined,
+  createdAt: row.createdAt.toISOString(),
+  updatedAt: row.updatedAt.toISOString(),
+});
+
+export const listDeptContacts = async (
+  customerId: string,
+  organizationId: string,
+): Promise<CustomerDepartmentContact[]> => {
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, organizationId },
+  });
+  if (!customer) throw new CustomerError("Customer not found.", 404);
+
+  const contacts = await prisma.customerDepartmentContact.findMany({
+    where: { customerId },
+    orderBy: { department: "asc" },
+  });
+  return contacts.map(toDeptContact);
+};
+
+export const getDeptContact = async (
+  contactId: string,
+  organizationId: string,
+): Promise<CustomerDepartmentContact> => {
+  const contact = await prisma.customerDepartmentContact.findFirst({
+    where: {
+      id: contactId,
+      customer: { organizationId },
+    },
+  });
+  if (!contact) throw new CustomerError("Department contact not found.", 404);
+  return toDeptContact(contact);
+};
+
+export const addDeptContact = async (
+  customerId: string,
+  organizationId: string,
+  input: NewCustomerDeptContactInput,
+  createdByUserId: string,
+): Promise<CustomerDepartmentContact> => {
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, organizationId },
+  });
+  if (!customer) throw new CustomerError("Customer not found.", 404);
+
+  const department = input.department.trim();
+  const personName = input.personName.trim();
+  if (!department) throw new CustomerError("Department is required.");
+  if (!personName) throw new CustomerError("Person name is required.");
+
+  const contact = await prisma.customerDepartmentContact.create({
+    data: {
+      customerId,
+      department,
+      personName,
+      email: trimOrNull(input.email),
+      phone: trimOrNull(input.phone),
+      createdByUserId,
+    },
+  });
+  return toDeptContact(contact);
+};
+
+export const updateDeptContact = async (
+  contactId: string,
+  organizationId: string,
+  input: UpdateCustomerDeptContactInput,
+): Promise<CustomerDepartmentContact> => {
+  const existing = await prisma.customerDepartmentContact.findFirst({
+    where: {
+      id: contactId,
+      customer: { organizationId },
+    },
+  });
+  if (!existing) throw new CustomerError("Department contact not found.", 404);
+
+  if (input.personName !== undefined && !input.personName.trim()) {
+    throw new CustomerError("Person name is required.");
+  }
+  if (input.department !== undefined && !input.department.trim()) {
+    throw new CustomerError("Department is required.");
+  }
+
+  const contact = await prisma.customerDepartmentContact.update({
+    where: { id: contactId },
+    data: {
+      ...(input.department !== undefined && {
+        department: input.department.trim(),
+      }),
+      ...(input.personName !== undefined && {
+        personName: input.personName.trim(),
+      }),
+      ...(input.email !== undefined && { email: trimOrNull(input.email) }),
+      ...(input.phone !== undefined && { phone: trimOrNull(input.phone) }),
+    },
+  });
+  return toDeptContact(contact);
+};
+
+export const deleteDeptContact = async (
+  contactId: string,
+  organizationId: string,
+): Promise<void> => {
+  const existing = await prisma.customerDepartmentContact.findFirst({
+    where: {
+      id: contactId,
+      customer: { organizationId },
+    },
+  });
+  if (!existing) throw new CustomerError("Department contact not found.", 404);
+
+  await prisma.customerDepartmentContact.delete({ where: { id: contactId } });
 };
