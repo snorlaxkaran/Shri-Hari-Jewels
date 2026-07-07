@@ -238,7 +238,7 @@ customersRouter.patch(
 
 customersRouter.get(
   "/:id/dept-contacts",
-  requireRole(canManageCustomers),
+  requireRole(canViewCustomerBranches),
   async (req: AuthenticatedRequest, res) => {
     try {
       const contacts = await listDeptContacts(
@@ -287,7 +287,7 @@ customersRouter.post(
 
 customersRouter.patch(
   "/:id/dept-contacts/:contactId",
-  requireRole(canManageCustomers),
+  requireRole(canManageDeptContacts),
   async (req: AuthenticatedRequest, res) => {
     try {
       const contactId = routeParam(req.params.contactId);

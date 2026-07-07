@@ -9,7 +9,7 @@ ALTER TABLE "CustomerBranch" ADD COLUMN IF NOT EXISTS "officeType"  TEXT NOT NUL
 
 -- New table for department-wise contacts
 CREATE TABLE IF NOT EXISTS "CustomerDepartmentContact" (
-  "id"             TEXT         NOT NULL DEFAULT gen_random_uuid()::text,
+  "id"             TEXT         NOT NULL,
   "customerId"     TEXT         NOT NULL,
   "department"     TEXT         NOT NULL,
   "personName"     TEXT         NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS "CustomerDepartmentContact" (
   "phone"          TEXT,
   "createdByUserId" TEXT,
   "createdAt"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updatedAt"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt"      TIMESTAMP(3) NOT NULL,
   CONSTRAINT "CustomerDepartmentContact_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "CustomerDepartmentContact_customerId_fkey"
     FOREIGN KEY ("customerId") REFERENCES "Customer"("id") ON DELETE CASCADE
