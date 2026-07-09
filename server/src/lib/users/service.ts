@@ -1,6 +1,7 @@
 import { prisma } from "../db.js";
 import { hashPassword } from "../auth/password.js";
 import { isAuthenticatedRole, USER_ROLES } from "../auth/permissions.js";
+import { writeAuditLog } from "../audit/service.js";
 import type { UserRole } from "../../types.js";
 import { getOrganizationHeadOfficeBranchId } from "../branches/access.js";
 
@@ -61,6 +62,7 @@ export type CreateUserInput = {
 export const createUser = async (
   organizationId: string,
   input: CreateUserInput,
+  actor?: { id?: string; name: string },
 ): Promise<AppUser> => {
   const userId = input.userId.trim().toLowerCase();
   const name = input.name.trim();
@@ -118,6 +120,17 @@ export const createUser = async (
       },
     },
   });
+
+  if (actor) {
+    await writeAuditLog({
+      organizationId,
+      entityType: "User",
+      entityId: user.id,
+      action: "CREATED",
+      after: { email: user.email, name: user.name, role: user.role },
+      actor,
+    });
+  }
 
   return toAppUser(user);
 };

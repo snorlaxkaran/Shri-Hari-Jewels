@@ -17,6 +17,7 @@ import {
   createCustomer,
   CustomerError,
   deleteDeptContact,
+  bulkImportCustomers,
   getCustomerDetail,
   getDeptContact,
   listCustomers,
@@ -201,6 +202,7 @@ customersRouter.post(
       const customer = await createCustomer(
         req.organizationId!,
         req.body as NewCustomerInput,
+        { id: req.user!.id, name: req.user!.name },
       );
       res.status(201).json(customer);
     } catch (error) {
@@ -214,6 +216,25 @@ customersRouter.post(
   },
 );
 
+customersRouter.post(
+  "/import",
+  requireRole(canEditCustomerInfo),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+      const result = await bulkImportCustomers(
+        req.organizationId!,
+        rows,
+        { id: req.user!.id, name: req.user!.name },
+      );
+      res.json(result);
+    } catch (error) {
+      console.error("POST /api/customers/import", error);
+      res.status(500).json({ error: "Failed to import customers." });
+    }
+  },
+);
+
 customersRouter.patch(
   "/:id",
   requireRole(canEditCustomerInfo),
@@ -223,6 +244,7 @@ customersRouter.patch(
         routeParam(req.params.id),
         req.organizationId!,
         req.body as UpdateCustomerInput,
+        { id: req.user!.id, name: req.user!.name },
       );
       res.json(customer);
     } catch (error) {

@@ -11,6 +11,7 @@ import type {
 import { toSale } from "../sales/mappers.js";
 import { toCustomer } from "./mappers.js";
 import { validateCustomerFinancialFields } from "./validation.js";
+import { writeAuditLog } from "../audit/service.js";
 import type { CustomerDepartmentContact as PrismaDeptContact } from "@prisma/client";
 
 export class CustomerError extends Error {
@@ -148,6 +149,7 @@ export const getCustomerDetail = async (
 export const createCustomer = async (
   organizationId: string,
   input: NewCustomerInput,
+  actor?: { id?: string; name: string },
 ): Promise<Customer> => {
   const name = input.name.trim();
   const mobile = input.mobile.trim();
@@ -200,6 +202,17 @@ export const createCustomer = async (
     include: customerInclude,
   });
 
+  if (actor) {
+    await writeAuditLog({
+      organizationId,
+      entityType: "Customer",
+      entityId: customer.id,
+      action: "CREATED",
+      after: { name: customer.name, mobile: customer.mobile, gstNumber: customer.gstNumber },
+      actor,
+    });
+  }
+
   return toCustomer(customer);
 };
 
@@ -235,6 +248,7 @@ export const updateCustomer = async (
   id: string,
   organizationId: string,
   input: UpdateCustomerInput,
+  actor?: { id?: string; name: string },
 ): Promise<Customer> => {
   const existing = await prisma.customer.findFirst({ where: { id, organizationId } });
   if (!existing) throw new CustomerError("Customer not found.", 404);
@@ -348,6 +362,28 @@ export const updateCustomer = async (
     },
     include: customerInclude,
   });
+
+  if (actor) {
+    await writeAuditLog({
+      organizationId,
+      entityType: "Customer",
+      entityId: id,
+      action: "UPDATED",
+      before: {
+        name: existing.name,
+        gstNumber: existing.gstNumber,
+        panNumber: existing.panNumber,
+        companyName: existing.companyName,
+      },
+      after: {
+        name: customer.name,
+        gstNumber: customer.gstNumber,
+        panNumber: customer.panNumber,
+        companyName: customer.companyName,
+      },
+      actor,
+    });
+  }
 
   return toCustomer(customer);
 };
@@ -472,4 +508,45 @@ export const deleteDeptContact = async (
   if (!existing) throw new CustomerError("Department contact not found.", 404);
 
   await prisma.customerDepartmentContact.delete({ where: { id: contactId } });
+};
+
+export type BulkCustomerImportRow = {
+  name: string;
+  mobile: string;
+  email?: string;
+  companyName?: string;
+  gstNumber?: string;
+};
+
+export const bulkImportCustomers = async (
+  organizationId: string,
+  rows: BulkCustomerImportRow[],
+  actor?: { id?: string; name: string },
+): Promise<{ created: number; errors: string[] }> => {
+  let created = 0;
+  const errors: string[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    try {
+      await createCustomer(
+        organizationId,
+        {
+          name: row.name,
+          mobile: row.mobile,
+          email: row.email,
+          companyName: row.companyName,
+          gstNumber: row.gstNumber,
+        },
+        actor,
+      );
+      created++;
+    } catch (error) {
+      errors.push(
+        `Row ${i + 1} (${row.mobile}): ${error instanceof Error ? error.message : "Failed"}`,
+      );
+    }
+  }
+
+  return { created, errors };
 };

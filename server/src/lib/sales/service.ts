@@ -30,6 +30,7 @@ import { toSale } from "./mappers.js";
 
 const PAYMENT_MODES: PaymentMode[] = ["Cash", "UPI", "Card"];
 
+import { DiscountApprovalError, assertDiscountApproved } from "../discount-approval/service.js";
 import { SaleError } from "./errors.js";
 
 export { SaleError } from "./errors.js";
@@ -298,12 +299,20 @@ export const recordSale = async (
   input: RecordSaleInput,
   organizationId: string,
   branchId: string,
+  actor?: { id: string; name: string },
 ): Promise<RecordSaleResult> => {
   const { itemCode, customer, unit, product, discount } =
     await validateSaleInput(input, organizationId, branchId);
 
   const marketRates = await getCurrentMarketRates(organizationId);
   const { listPrice } = computeListPriceBreakdownForProduct(product, marketRates);
+
+  await assertDiscountApproved(
+    organizationId,
+    listPrice,
+    discount,
+    input.discountApprovalId,
+  );
 
   if (input.paymentMode === "UPI") {
     const useRazorpay = isRazorpayEnabled();
@@ -336,6 +345,9 @@ export const recordSale = async (
           customerId: customer.id,
           customerPhone: customer.mobile,
           customerName: customer.name,
+          createdById: actor?.id,
+          createdByName: actor?.name,
+          discountApprovalId: input.discountApprovalId,
         },
       });
 
@@ -410,6 +422,9 @@ export const recordSale = async (
         customerId: customer.id,
         customerPhone: customer.mobile,
         customerName: customer.name,
+        createdById: actor?.id,
+        createdByName: actor?.name,
+        discountApprovalId: input.discountApprovalId,
       },
     });
 

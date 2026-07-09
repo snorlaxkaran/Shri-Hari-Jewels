@@ -29,3 +29,5 @@ export const attachOrganization = async (
     res.status(403).json({ error: message });
   }
 };
+
+export const requireOrganization = attachOrganization;

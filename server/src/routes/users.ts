@@ -26,13 +26,17 @@ usersRouter.post(
   async (req: AuthenticatedRequest, res) => {
     try {
       const body = req.body as CreateUserInput;
-      const user = await createUser(req.organizationId!, {
-        userId: body.userId,
-        name: body.name,
-        password: body.password,
-        role: body.role as UserRole,
-        branchId: body.branchId,
-      });
+      const user = await createUser(
+        req.organizationId!,
+        {
+          userId: body.userId,
+          name: body.name,
+          password: body.password,
+          role: body.role as UserRole,
+          branchId: body.branchId,
+        },
+        { id: req.user!.id, name: req.user!.name },
+      );
       res.status(201).json(user);
     } catch (error) {
       if (error instanceof UserError) {

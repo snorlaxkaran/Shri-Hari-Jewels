@@ -331,9 +331,11 @@ function JewelryIllustration() {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, loading, user } = useAuth();
+  const { login, verify2FA, loading, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [tempToken, setTempToken] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -360,7 +362,14 @@ export default function LoginPage() {
     setError("");
     setSubmitting(true);
     try {
-      await login({ email, password });
+      if (tempToken) {
+        await verify2FA(tempToken, totpCode);
+        return;
+      }
+      const result = await login({ email, password });
+      if ("requires2FA" in result && result.requires2FA) {
+        setTempToken(result.tempToken);
+      }
     } catch (err) {
       setError(
         getApiErrorMessage(err, "Login failed. Check your credentials."),
@@ -790,6 +799,34 @@ export default function LoginPage() {
                   </button>
                 </div>
               </div>
+
+              {tempToken && (
+                <div>
+                  <label
+                    htmlFor="totp"
+                    style={{
+                      display: "block",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: "var(--text-muted)",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Authentication code
+                  </label>
+                  <input
+                    id="totp"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value)}
+                    className="input-field-login"
+                    placeholder="6-digit code"
+                    required
+                  />
+                </div>
+              )}
 
               {error && (
                 <div

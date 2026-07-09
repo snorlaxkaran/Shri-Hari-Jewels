@@ -11,6 +11,7 @@ import {
   SaleError,
   syncPendingSalePayment,
 } from "../lib/sales/service.js";
+import { DiscountApprovalError } from "../lib/discount-approval/service.js";
 import {
   authenticate,
   requireRole,
@@ -81,15 +82,24 @@ salesRouter.post(
   requireRole(canRecordSales),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
+      const branchId = await getUserBranch(
+        req.user!.id,
+        req.organizationId!,
+        req.user!.role,
+      );
       const result = await recordSale(
         req.body as RecordSaleInput,
         req.organizationId!,
         branchId,
+        { id: req.user!.id, name: req.user!.name },
       );
       res.status(201).json(result);
     } catch (error) {
       if (error instanceof SaleError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      if (error instanceof DiscountApprovalError) {
         res.status(error.statusCode).json({ error: error.message });
         return;
       }

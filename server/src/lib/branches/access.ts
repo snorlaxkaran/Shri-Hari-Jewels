@@ -7,6 +7,16 @@ import {
 } from "../organizations/access.js";
 import type { UserRole } from "../../types.js";
 
+export class BranchAccessError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: number = 403,
+  ) {
+    super(message);
+    this.name = "BranchAccessError";
+  }
+}
+
 /** Each company's admin / head-office branch (not a shared global id). */
 export const getOrganizationHeadOfficeBranchId = async (
   organizationId: string,
@@ -39,32 +49,60 @@ export const getOrganizationHeadOfficeBranchId = async (
   return first.id;
 };
 
+export const getUserBranchIds = async (
+  userId: string,
+  organizationId: string,
+): Promise<string[]> => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { branches: true },
+  });
+
+  const ids = new Set<string>();
+  if (user?.defaultBranchId) {
+    await assertBranchInOrganization(user.defaultBranchId, organizationId);
+    ids.add(user.defaultBranchId);
+  }
+  for (const ub of user?.branches ?? []) {
+    await assertBranchInOrganization(ub.branchId, organizationId);
+    ids.add(ub.branchId);
+  }
+  return [...ids];
+};
+
 export const getUserBranch = async (
   userId: string,
   organizationId: string,
+  role?: UserRole,
 ): Promise<string> => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { branches: { take: 1 } },
-  });
+  const branchIds = await getUserBranchIds(userId, organizationId);
 
-  if (user?.defaultBranchId) {
-    await assertBranchInOrganization(user.defaultBranchId, organizationId);
-    return user.defaultBranchId;
+  if (branchIds.length > 0) {
+    return branchIds[0];
   }
 
-  if (user?.branches.length) {
-    const branchId = user.branches[0].branchId;
-    await assertBranchInOrganization(branchId, organizationId);
-    return branchId;
-  }
-
-  const orgBranches = await getOrganizationBranchIds(organizationId);
-  if (orgBranches.length > 0) {
+  // Admins may operate without explicit branch assignment (head office fallback)
+  if (role === "Admin" || role === "SuperAdmin") {
     return getOrganizationHeadOfficeBranchId(organizationId);
   }
 
-  throw new Error("No branch available for this company.");
+  throw new BranchAccessError(
+    "No branch assigned to your account. Contact an administrator.",
+  );
+};
+
+export const assertUserHasBranchAccess = async (
+  userId: string,
+  organizationId: string,
+  branchId: string,
+  role: UserRole,
+): Promise<void> => {
+  if (role === "Admin" || role === "SuperAdmin") return;
+
+  const branchIds = await getUserBranchIds(userId, organizationId);
+  if (!branchIds.includes(branchId)) {
+    throw new BranchAccessError("You do not have access to this branch.");
+  }
 };
 
 export const getBranchScope = async (
@@ -72,8 +110,8 @@ export const getBranchScope = async (
   role: UserRole,
   organizationId: string,
 ): Promise<string | undefined> => {
-  if (role === "Admin") return undefined;
-  return getUserBranch(userId, organizationId);
+  if (role === "Admin" || role === "SuperAdmin") return undefined;
+  return getUserBranch(userId, organizationId, role);
 };
 
 export const organizationBranchFilter = (

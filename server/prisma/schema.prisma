@@ -174,22 +174,42 @@ model Branch {
 }
 
 model User {
-  id              String   @id @default(uuid())
-  organizationId  String?
-  email           String   @unique
-  name            String
-  password        String
-  role            String
-  active          Boolean  @default(true)
-  defaultBranchId String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                   String    @id @default(uuid())
+  organizationId       String?
+  email                String    @unique
+  name                 String
+  password             String
+  role                 String
+  active               Boolean   @default(true)
+  defaultBranchId      String?
+  failedLoginAttempts  Int       @default(0)
+  lockedUntil          DateTime?
+  totpSecret           String?
+  totpEnabled          Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  branches   UserBranch[]
+  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branches       UserBranch[]
   assignedWorkOrders WorkOrder[]
+  refreshTokens  RefreshToken[]
+  notifications  Notification[]
 
   @@index([organizationId])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model UserBranch {
@@ -226,10 +246,12 @@ model ShopSettings {
   bankAccountNumber String?
   bankIfsc          String?
   bankName          String?
-  goldMakingChargesPct      Decimal @default(17.00) @db.Decimal(5, 2)
-  silverMakingChargesPct    Decimal @default(17.00) @db.Decimal(5, 2)
-  makingChargesOverrideNote String?
-  updatedAt    DateTime @updatedAt
+  goldMakingChargesPct           Decimal  @default(17.00) @db.Decimal(5, 2)
+  silverMakingChargesPct         Decimal  @default(17.00) @db.Decimal(5, 2)
+  makingChargesOverrideNote      String?
+  discountApprovalThresholdPct   Decimal  @default(10.00) @db.Decimal(5, 2)
+  onboardingCompletedAt          DateTime?
+  updatedAt                      DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
@@ -271,9 +293,11 @@ model InventoryUnit {
   branchId       String
   itemCode       String
   productId      String
-  status    InventoryUnitStatus @default(Available)
-  listPrice Decimal? @db.Decimal(12, 2)
-  createdAt DateTime @default(now())
+  status         InventoryUnitStatus @default(Available)
+  listPrice      Decimal? @db.Decimal(12, 2)
+  hallmarkNumber String?
+  hallmarkCenter String?
+  createdAt      DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
@@ -398,6 +422,8 @@ model Customer {
   branches CustomerBranch[]
   deptContacts CustomerDepartmentContact[]
   stockTransfers StockTransfer[]
+  exchangeTransactions ExchangeTransaction[]
+  schemeEnrollments    SchemeEnrollment[]
 
   @@unique([organizationId, mobile])
   @@index([organizationId])
@@ -671,34 +697,40 @@ model WorkOrder {
 }
 
 model Sale {
-  id            String   @id @default(uuid())
-  branchId      String
-  unitId        String   @unique
-  itemCode      String
-  productId     String
-  productName   String
-  sku           String
-  category      String
-  listPrice     Decimal @db.Decimal(12, 2)
-  discount      Decimal @default(0) @db.Decimal(12, 2)
-  dealPrice     Decimal @db.Decimal(12, 2)
-  paymentMode   String   @default("Cash")
-  paymentStatus     SalePaymentStatus @default(Completed)
-  paymentRef        String?
-  razorpayQrId      String?
-  razorpayPaymentId String?
-  cartGroupId       String?
-  customerId        String?
-  customerPhone String
-  customerName  String?
-  soldAt        DateTime @default(now())
-  stockTransferId  String?
-  saleSource       String  @default("Direct")
+  id                   String   @id @default(uuid())
+  branchId             String
+  unitId               String   @unique
+  itemCode             String
+  productId            String
+  productName          String
+  sku                  String
+  category             String
+  listPrice            Decimal  @db.Decimal(12, 2)
+  discount             Decimal  @default(0) @db.Decimal(12, 2)
+  dealPrice            Decimal  @db.Decimal(12, 2)
+  paymentMode          String   @default("Cash")
+  paymentStatus        SalePaymentStatus @default(Completed)
+  paymentRef           String?
+  razorpayQrId         String?
+  razorpayPaymentId    String?
+  cartGroupId          String?
+  customerId           String?
+  customerPhone        String
+  customerName         String?
+  createdById          String?
+  createdByName        String?
+  discountApprovalId   String?
+  soldAt               DateTime @default(now())
+  stockTransferId      String?
+  saleSource           String   @default("Direct")
+  exchangeTransactionId String?
 
-  branch   Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  unit     InventoryUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  customer Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  invoice  Invoice?
+  branch              Branch               @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  unit                InventoryUnit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  customer            Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  invoice             Invoice?
+  discountApproval    DiscountApproval?    @relation(fields: [discountApprovalId], references: [id], onDelete: SetNull)
+  exchangeTransaction ExchangeTransaction? @relation(fields: [exchangeTransactionId], references: [id], onDelete: SetNull)
 
   @@index([soldAt])
   @@index([branchId])
@@ -1008,4 +1040,218 @@ model CatalogAuditLog {
 
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+enum DiscountApprovalStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+model DiscountApproval {
+  id              String                 @id @default(uuid())
+  organizationId  String
+  branchId        String?
+  requestedById   String
+  requestedByName String
+  approvedById    String?
+  approvedByName  String?
+  listPrice       Decimal                @db.Decimal(12, 2)
+  discount        Decimal                @db.Decimal(12, 2)
+  discountPct     Decimal                @db.Decimal(5, 2)
+  reason          String?
+  status          DiscountApprovalStatus @default(Pending)
+  entityType      String                 @default("Sale")
+  entityRef       String?
+  createdAt       DateTime               @default(now())
+  resolvedAt      DateTime?
+
+  sales Sale[]
+
+  @@index([organizationId, status])
+  @@index([requestedById])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String?
+  entityType     String
+  entityId       String
+  action         String
+  beforeJson     Json?
+  afterJson      Json?
+  actorId        String?
+  actorName      String
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, entityType])
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+enum ExchangeTransactionStatus {
+  Pending
+  Applied
+  Cancelled
+}
+
+model ExchangeTransaction {
+  id               String                    @id @default(uuid())
+  organizationId   String
+  branchId         String
+  customerId       String?
+  description      String
+  metalType        String
+  purity           String
+  grossWeightGrams Decimal                   @db.Decimal(10, 3)
+  netWeightGrams   Decimal                   @db.Decimal(10, 3)
+  wastagePct       Decimal                   @default(0) @db.Decimal(5, 2)
+  ratePerGram      Decimal                   @db.Decimal(12, 2)
+  exchangeValue    Decimal                   @db.Decimal(12, 2)
+  status           ExchangeTransactionStatus @default(Pending)
+  notes            String?
+  createdById      String?
+  createdByName    String
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  sales    Sale[]
+
+  @@index([organizationId])
+  @@index([branchId])
+  @@index([customerId])
+  @@index([status])
+}
+
+enum SchemeEnrollmentStatus {
+  Active
+  Matured
+  Redeemed
+  Cancelled
+}
+
+model SavingsScheme {
+  id               String   @id @default(uuid())
+  organizationId   String
+  name             String
+  description      String?
+  durationMonths   Int
+  monthlyAmount    Decimal  @db.Decimal(12, 2)
+  bonusMonths      Int      @default(1)
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  enrollments SchemeEnrollment[]
+
+  @@index([organizationId])
+}
+
+model SchemeEnrollment {
+  id               String                 @id @default(uuid())
+  schemeId         String
+  customerId       String
+  branchId         String?
+  startDate        DateTime
+  maturityDate     DateTime
+  monthlyAmount    Decimal                @db.Decimal(12, 2)
+  totalPaid        Decimal                @default(0) @db.Decimal(12, 2)
+  installmentsPaid Int                    @default(0)
+  status           SchemeEnrollmentStatus @default(Active)
+  redeemedSaleId   String?
+  notes            String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  scheme       SavingsScheme        @relation(fields: [schemeId], references: [id], onDelete: Cascade)
+  customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  installments SchemeInstallment[]
+
+  @@index([schemeId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model SchemeInstallment {
+  id             String   @id @default(uuid())
+  enrollmentId   String
+  amount         Decimal  @db.Decimal(12, 2)
+  paidAt         DateTime @default(now())
+  paymentMode    String   @default("Cash")
+  paymentRef     String?
+  recordedByName String
+
+  enrollment SchemeEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId])
+  @@index([paidAt])
+}
+
+enum KarigarSettlementStatus {
+  Open
+  Settled
+}
+
+model KarigarSettlement {
+  id                 String                  @id @default(uuid())
+  organizationId     String
+  productionRunId    String?
+  karigarName        String
+  metalIssuedGrams   Decimal                 @db.Decimal(10, 3)
+  metalReturnedGrams Decimal                 @db.Decimal(10, 3)
+  wastageGrams       Decimal                 @db.Decimal(10, 3)
+  wastageCost        Decimal                 @default(0) @db.Decimal(12, 2)
+  makingChargeWage   Decimal                 @default(0) @db.Decimal(12, 2)
+  totalPayable       Decimal                 @db.Decimal(12, 2)
+  status             KarigarSettlementStatus @default(Open)
+  notes              String?
+  settledAt          DateTime?
+  settledByName      String?
+  createdByName      String
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@index([organizationId])
+  @@index([productionRunId])
+  @@index([karigarName])
+  @@index([status])
+}
+
+model Notification {
+  id             String   @id @default(uuid())
+  userId         String
+  organizationId String?
+  type           String
+  title          String
+  message        String
+  link           String?
+  read           Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+model EInvoiceRecord {
+  id             String   @id @default(uuid())
+  organizationId String
+  invoiceId      String?
+  saleId         String?
+  irn            String?
+  ackNo          String?
+  ackDate        DateTime?
+  qrCodeData     String?
+  status         String   @default("Pending")
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([invoiceId])
+  @@index([status])
 }

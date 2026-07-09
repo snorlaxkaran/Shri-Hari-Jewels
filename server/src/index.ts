@@ -2,8 +2,12 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
+import helmet from "helmet";
+import { pinoHttp } from "pino-http";
+import * as Sentry from "@sentry/node";
 import { assertProductionDatabase } from "./lib/db-config.js";
 import { getHealthPayload } from "./lib/health.js";
+import { logger } from "./lib/logger.js";
 import { authRouter } from "./routes/auth.js";
 import { branchesRouter } from "./routes/branches.js";
 import { customersRouter } from "./routes/customers.js";
@@ -24,7 +28,25 @@ import { productionRunsRouter } from "./routes/production-runs.js";
 import { usersRouter } from "./routes/users.js";
 import { organizationsRouter } from "./routes/organizations.js";
 import { marketRatesRouter } from "./routes/market-rates.js";
+import { auditRouter } from "./routes/audit.js";
+import { approvalsRouter } from "./routes/approvals.js";
+import { notificationsRouter } from "./routes/notifications.js";
+import { searchRouter } from "./routes/search.js";
+import { reportsRouter } from "./routes/reports.js";
+import { exchangeRouter } from "./routes/exchange.js";
+import { schemesRouter } from "./routes/schemes.js";
+import { karigarRouter } from "./routes/karigar.js";
+import { einvoiceRouter } from "./routes/einvoice.js";
+import { onboardingRouter } from "./routes/onboarding.js";
 import { startScheduledJobs } from "./jobs/scheduler.js";
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV ?? "development",
+    tracesSampleRate: 0.1,
+  });
+}
 
 const syncMotifPricesOnStartup = async () => {
   try {
@@ -35,14 +57,12 @@ const syncMotifPricesOnStartup = async () => {
       "Startup sync from market rates",
     );
     if (count > 0) {
-      console.log(
-        `[motifs] Synced ${count} motif price(s) to current market rates`,
-      );
+      logger.info({ count }, "[motifs] Synced motif prices to current market rates");
     }
   } catch (error) {
-    console.warn(
-      "[motifs] Could not sync motif prices on startup:",
-      error instanceof Error ? error.message : error,
+    logger.warn(
+      { err: error instanceof Error ? error.message : error },
+      "[motifs] Could not sync motif prices on startup",
     );
   }
 };
@@ -50,8 +70,16 @@ const syncMotifPricesOnStartup = async () => {
 const app = express();
 const port = Number(process.env.PORT) || 4000;
 const clientUrl = process.env.CLIENT_URL ?? "http://localhost:3000";
+const isProduction = process.env.NODE_ENV === "production";
 
 assertProductionDatabase();
+
+app.use(helmet({
+  contentSecurityPolicy: isProduction ? undefined : false,
+  crossOriginEmbedderPolicy: false,
+}));
+
+app.use(pinoHttp({ logger }));
 
 const allowedOrigins = new Set(
   clientUrl
@@ -61,15 +89,26 @@ const allowedOrigins = new Set(
 );
 allowedOrigins.add("http://localhost:3000");
 
+const extraOrigins = (process.env.CORS_EXTRA_ORIGINS ?? "")
+  .split(",")
+  .map((url) => url.trim())
+  .filter(Boolean);
+for (const origin of extraOrigins) {
+  allowedOrigins.add(origin);
+}
+
 const isAllowedOrigin = (origin: string | undefined): boolean => {
   if (!origin) return true;
   if (allowedOrigins.has(origin)) return true;
-  try {
-    const { hostname } = new URL(origin);
-    return hostname === "localhost" || hostname.endsWith(".vercel.app");
-  } catch {
-    return false;
+  if (!isProduction) {
+    try {
+      const { hostname } = new URL(origin);
+      return hostname === "localhost";
+    } catch {
+      return false;
+    }
   }
+  return false;
 };
 
 app.use(
@@ -100,13 +139,14 @@ app.get("/api/health", async (_req, res) => {
     ...payload,
     features: {
       motifs: true,
+      security: true,
+      reports: true,
     },
   });
 });
 
 app.use("/api/auth", authRouter);
 app.use("/api/organizations", organizationsRouter);
-
 app.use("/api/branches", branchesRouter);
 app.use("/api/inventory", inventoryRouter);
 app.use("/api/raw-inventory", rawInventoryRouter);
@@ -124,9 +164,28 @@ app.use("/api/invoices", invoicesRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/market-rates", marketRatesRouter);
 app.use("/api/users", usersRouter);
+app.use("/api/audit", auditRouter);
+app.use("/api/approvals", approvalsRouter);
+app.use("/api/notifications", notificationsRouter);
+app.use("/api/search", searchRouter);
+app.use("/api/reports", reportsRouter);
+app.use("/api/exchange", exchangeRouter);
+app.use("/api/schemes", schemesRouter);
+app.use("/api/karigar", karigarRouter);
+app.use("/api/einvoice", einvoiceRouter);
+app.use("/api/onboarding", onboardingRouter);
+
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
+
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  logger.error({ err }, "Unhandled error");
+  res.status(500).json({ error: "Internal server error." });
+});
 
 app.listen(port, () => {
-  console.log(`API running at http://localhost:${port}`);
+  logger.info({ port }, "API running");
   startScheduledJobs();
   void syncMotifPricesOnStartup();
 });

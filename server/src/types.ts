@@ -14,6 +14,7 @@ export type AuthUser = {
   role: UserRole;
   organizationId?: string;
   organizationName?: string;
+  totpEnabled?: boolean;
 };
 
 export type LoginInput = {
@@ -654,6 +655,7 @@ export type RecordSaleInput = {
   dealPrice: number;
   discount?: number;
   paymentMode: PaymentMode;
+  discountApprovalId?: string;
 };
 
 export type CartSaleItemInput = {

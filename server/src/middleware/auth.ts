@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { verifyToken } from "../lib/auth/jwt.js";
+import { verifyAccessToken } from "../lib/auth/jwt.js";
 import type { UserRole } from "../types.js";
 
 export type AuthenticatedRequest = Request & {
@@ -26,7 +26,7 @@ export const authenticate = (
   }
 
   try {
-    const payload = verifyToken(header.slice(7));
+    const payload = verifyAccessToken(header.slice(7));
     req.user = {
       id: payload.sub,
       email: payload.email,

@@ -22,10 +22,14 @@
     "db:verify-unit-pricing": "tsx scripts/verify-unit-pricing.ts",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
-    "db:seed-if-empty": "tsx prisma/seed-if-empty.ts"
+    "db:seed-if-empty": "tsx prisma/seed-if-empty.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "@sentry/node": "^10.64.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
@@ -37,15 +41,24 @@
     "decimal.js": "^10.6.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.4.1",
+    "otplib": "^13.4.1",
     "pdfkit": "^0.19.1",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
     "prisma": "^6.19.3",
+    "qrcode": "^1.5.4",
     "razorpay": "^2.9.6",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
-    "@types/node-cron": "^3.0.11"
+    "@types/node-cron": "^3.0.11",
+    "@types/qrcode": "^1.5.6",
+    "@vitest/coverage-v8": "^4.1.10",
+    "vitest": "^4.1.10"
   }
 }

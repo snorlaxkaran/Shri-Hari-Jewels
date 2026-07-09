@@ -2,18 +2,81 @@
 
 import { Bell, Menu, Search, Settings } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { ROLE_LABELS } from "@/lib/auth/permissions";
+import {
+  fetchNotifications,
+  markAllNotificationsRead,
+  type NotificationItem,
+} from "@/lib/api/notifications";
+import { globalSearch, type SearchResult } from "@/lib/api/search";
 
 type NavbarProps = {
   onMenuClick: () => void;
 };
 
 const Navbar = ({ onMenuClick }: NavbarProps) => {
+  const router = useRouter();
   const [searchValue, setSearchValue] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [showSearch, setShowSearch] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
   const { user } = useAuth();
   const initial = user?.name?.charAt(0)?.toUpperCase() ?? "?";
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loadNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await fetchNotifications();
+      setNotifications(data.notifications);
+      setUnreadCount(data.unreadCount);
+    } catch {
+      // silent — navbar should not break on notification fetch failure
+    }
+  }, [user]);
+
+  useEffect(() => {
+    void loadNotifications();
+    const interval = setInterval(() => void loadNotifications(), 60_000);
+    return () => clearInterval(interval);
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (searchValue.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const results = await globalSearch(searchValue.trim());
+        setSearchResults(results);
+        setShowSearch(true);
+      } catch {
+        setSearchResults([]);
+      }
+    }, 300);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [searchValue]);
+
+  const handleNotificationClick = async () => {
+    setShowNotifications((v) => !v);
+    if (!showNotifications) {
+      await loadNotifications();
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    await markAllNotificationsRead();
+    await loadNotifications();
+  };
 
   return (
     <div className="flex justify-between items-center w-full mb-6">
@@ -36,21 +99,105 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
             type="search"
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            placeholder="Search products…"
+            onFocus={() => searchResults.length > 0 && setShowSearch(true)}
+            onBlur={() => setTimeout(() => setShowSearch(false), 150)}
+            placeholder="Search products, customers, invoices…"
             className="input-field pl-9 pr-4 py-2 text-sm w-52 md:w-80 transition-all duration-150"
           />
+          {showSearch && searchResults.length > 0 && (
+            <div
+              className="absolute top-full left-0 right-0 mt-1 z-50 rounded-lg border shadow-lg overflow-hidden"
+              style={{
+                background: "var(--bg-surface)",
+                borderColor: "var(--border)",
+              }}
+            >
+              {searchResults.map((r) => (
+                <button
+                  key={`${r.type}-${r.id}`}
+                  type="button"
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-black/5"
+                  onMouseDown={() => {
+                    router.push(r.href);
+                    setShowSearch(false);
+                    setSearchValue("");
+                  }}
+                >
+                  <span className="font-medium">{r.label}</span>
+                  {r.sublabel && (
+                    <span
+                      className="ml-2 text-xs"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {r.type} · {r.sublabel}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       <div className="flex items-center gap-1">
         <div className="hidden md:flex items-center gap-1">
-          <button
-            className="relative p-2 rounded-lg transition-colors hover:bg-white/80"
-            style={{ color: "var(--text-muted)" }}
-            aria-label="Notifications"
-          >
-            <Bell className="w-5 h-5" />
-          </button>
+          <div className="relative">
+            <button
+              className="relative p-2 rounded-lg transition-colors hover:bg-white/80"
+              style={{ color: "var(--text-muted)" }}
+              aria-label="Notifications"
+              onClick={() => void handleNotificationClick()}
+            >
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
+              )}
+            </button>
+            {showNotifications && (
+              <div
+                className="absolute right-0 top-full mt-1 w-80 z-50 rounded-lg border shadow-lg"
+                style={{
+                  background: "var(--bg-surface)",
+                  borderColor: "var(--border)",
+                }}
+              >
+                <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: "var(--border)" }}>
+                  <span className="text-sm font-medium">Notifications</span>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      className="text-xs"
+                      style={{ color: "var(--accent)" }}
+                      onClick={() => void handleMarkAllRead()}
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <p className="px-3 py-4 text-sm" style={{ color: "var(--text-muted)" }}>
+                      No notifications
+                    </p>
+                  ) : (
+                    notifications.map((n) => (
+                      <div
+                        key={n.id}
+                        className="px-3 py-2 border-b text-sm"
+                        style={{
+                          borderColor: "var(--border)",
+                          opacity: n.read ? 0.7 : 1,
+                        }}
+                      >
+                        <p className="font-medium">{n.title}</p>
+                        <p style={{ color: "var(--text-muted)" }}>{n.message}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div
             className="h-6 w-px mx-2"
@@ -91,11 +238,15 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
         </Link>
 
         <button
-          className="p-2 rounded-lg transition-colors md:hidden hover:bg-white/80"
+          className="p-2 rounded-lg transition-colors md:hidden hover:bg-white/80 relative"
           style={{ color: "var(--text-muted)" }}
           aria-label="Notifications"
+          onClick={() => void handleNotificationClick()}
         >
           <Bell className="w-5 h-5" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
+          )}
         </button>
       </div>
     </div>
