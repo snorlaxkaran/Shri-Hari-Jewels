@@ -1,21 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Pencil, Plus, X } from "lucide-react";
 import type { InventoryItem } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canWriteInventory } from "@/lib/auth/permissions";
-import { useInventory } from "@/lib/inventory/inventory-context";
 import StatusBadge from "@/app/(components)/StatusBadge";
-
-const AddUnitsModal = dynamic(() => import("@/app/(components)/AddUnitsModal"), { ssr: false });
 
 type ProductDetailPanelProps = {
   product: InventoryItem | null;
-  existingUnitCodes: string[];
   onClose: () => void;
   onUpdated?: (product: InventoryItem) => void;
   onDeleted?: () => void;
@@ -29,14 +23,10 @@ const unitPriceLabel = (priceSource: InventoryItem["units"][0]["priceSource"]) =
 
 export default function ProductDetailPanel({
   product,
-  existingUnitCodes,
   onClose,
-  onUpdated,
 }: ProductDetailPanelProps) {
   const router = useRouter();
   const { user } = useAuth();
-  const { addQuantityToSku } = useInventory();
-  const [unitsOpen, setUnitsOpen] = useState(false);
 
   if (!product) return null;
 
@@ -80,7 +70,7 @@ export default function ProductDetailPanel({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setUnitsOpen(true)}
+                  onClick={() => router.push(`/inventory/${product.id}/add-units`)}
                   className="btn-secondary flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs"
                 >
                   <Plus size={14} /> Add Units
@@ -165,18 +155,6 @@ export default function ProductDetailPanel({
         </div>
       </div>
 
-      {unitsOpen && (
-        <AddUnitsModal
-          open={unitsOpen}
-          product={product}
-          existingUnitCodes={existingUnitCodes}
-          onClose={() => setUnitsOpen(false)}
-          onSubmit={async (quantity) => {
-            const updated = await addQuantityToSku(product.sku, quantity);
-            if (updated) onUpdated?.(updated);
-          }}
-        />
-      )}
     </>
   );
 }

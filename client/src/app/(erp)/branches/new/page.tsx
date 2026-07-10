@@ -47,6 +47,7 @@ export default function NewBranchPage() {
       >
         <BranchForm
           cancelHref={backHref}
+          onCancelClick={handleBack}
           onDirtyChange={setDirty}
           onSubmit={async (input) => {
             await createBranch(input);

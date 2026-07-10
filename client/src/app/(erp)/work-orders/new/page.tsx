@@ -37,6 +37,7 @@ export default function NewWorkOrderPage() {
         <WorkOrderForm
           orders={orders}
           cancelHref={backHref}
+          onCancelClick={handleBack}
           onDirtyChange={setDirty}
           onSubmit={async (input) => {
             await addWorkOrder(input);

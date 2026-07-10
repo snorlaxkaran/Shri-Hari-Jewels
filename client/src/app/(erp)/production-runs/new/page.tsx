@@ -61,6 +61,7 @@ export default function NewProductionRunPage() {
           designs={designs}
           initialDesignId={initialDesignId}
           cancelHref={backHref}
+          onCancelClick={handleBack}
           onDirtyChange={setDirty}
           onSubmit={async (input) => {
             const run = await addProductionRun(input);

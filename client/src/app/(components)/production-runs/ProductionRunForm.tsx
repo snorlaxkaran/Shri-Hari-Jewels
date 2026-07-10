@@ -12,6 +12,7 @@ const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
 type ProductionRunFormProps = {
   designs: Design[];
   cancelHref: string;
+  onCancelClick?: () => void;
   initialDesignId?: string;
   onSubmit: (input: NewProductionRunInput) => Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
@@ -20,6 +21,7 @@ type ProductionRunFormProps = {
 export default function ProductionRunForm({
   designs,
   cancelHref,
+  onCancelClick,
   initialDesignId,
   onSubmit,
   onDirtyChange,
@@ -204,9 +206,15 @@ export default function ProductionRunForm({
       {error && <p className="text-xs text-red-500">{error}</p>}
 
       <div className="flex gap-3">
-        <Link href={cancelHref} className="btn-secondary flex-1 px-4 py-2.5 text-sm text-center">
-          Cancel
-        </Link>
+        {onCancelClick ? (
+          <button type="button" onClick={onCancelClick} className="btn-secondary flex-1 px-4 py-2.5 text-sm">
+            Cancel
+          </button>
+        ) : (
+          <Link href={cancelHref} className="btn-secondary flex-1 px-4 py-2.5 text-sm text-center">
+            Cancel
+          </Link>
+        )}
         <button
           type="submit"
           disabled={submitting || designsWithElements.length === 0}

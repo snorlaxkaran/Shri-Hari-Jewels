@@ -90,6 +90,8 @@ export const filterNavSections = (
 
 export const getPageTitle = (pathname: string): string => {
   if (pathname === "/inventory/new") return "Add Stock";
+  if (pathname === "/inventory/add-units") return "Add Units";
+  if (pathname.match(/^\/inventory\/[^/]+\/add-units$/)) return "Add Units";
   if (pathname.match(/^\/inventory\/[^/]+\/edit$/)) return "Edit Product";
   if (pathname.startsWith("/inventory/item/")) return "Item History";
   if (pathname.startsWith("/entry-verification/")) return "Entry Verification";

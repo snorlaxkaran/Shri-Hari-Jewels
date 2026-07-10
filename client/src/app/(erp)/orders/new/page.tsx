@@ -39,6 +39,7 @@ export default function NewOrderPage() {
         <OrderForm
           customers={customers}
           cancelHref={backHref}
+          onCancelClick={handleBack}
           onDirtyChange={setDirty}
           onSubmit={async (input) => {
             await addOrder(input);

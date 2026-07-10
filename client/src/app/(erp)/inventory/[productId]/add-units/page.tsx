@@ -1,11 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import ConfirmDialog from "@/app/(components)/ConfirmDialog";
 import FormPageShell from "@/app/(components)/FormPageShell";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
-import ProductEditForm from "@/app/(components)/products/ProductEditForm";
+import AddUnitsForm from "@/app/(components)/inventory/AddUnitsForm";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canWriteInventory } from "@/lib/auth/permissions";
 import { useInventory } from "@/lib/inventory/inventory-context";
@@ -15,25 +15,30 @@ type PageProps = {
   params: Promise<{ productId: string }>;
 };
 
-export default function EditProductPage({ params }: PageProps) {
+export default function AddUnitsPage({ params }: PageProps) {
   const { productId } = use(params);
   const router = useRouter();
   const { user } = useAuth();
-  const { items, hydrated, loading, updateProduct } = useInventory();
-  const canWrite = user ? canWriteInventory(user.role) : false;
+  const { items, hydrated, loading, addQuantityToSku } = useInventory();
+  const canAdd = user ? canWriteInventory(user.role) : false;
   const [dirty, setDirty] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
 
   const product = items.find((item) => item.id === productId);
   const backHref = "/inventory";
 
+  const existingUnitCodes = useMemo(
+    () => items.flatMap((item) => item.units.map((unit) => unit.itemCode)),
+    [items],
+  );
+
   useUnsavedChangesGuard(dirty);
 
   useEffect(() => {
-    if (user && !canWrite) {
+    if (user && !canAdd) {
       router.replace(backHref);
     }
-  }, [user, canWrite, router]);
+  }, [user, canAdd, router]);
 
   const handleBack = () => {
     if (dirty) setLeaveOpen(true);
@@ -44,7 +49,7 @@ export default function EditProductPage({ params }: PageProps) {
     return <PageSkeleton />;
   }
 
-  if (user && !canWrite) {
+  if (user && !canAdd) {
     return null;
   }
 
@@ -53,7 +58,7 @@ export default function EditProductPage({ params }: PageProps) {
       <FormPageShell
         backHref={backHref}
         backLabel="Back to products"
-        title="Edit Product"
+        title="Add Units"
         error="Product not found."
       >
         <div />
@@ -66,17 +71,18 @@ export default function EditProductPage({ params }: PageProps) {
       <FormPageShell
         backHref={backHref}
         backLabel="Back to products"
-        title="Edit Product"
-        subtitle={product.sku}
+        title="Add Units"
+        subtitle={`${product.sku} — ${product.name}`}
         onBackClick={handleBack}
       >
-        <ProductEditForm
+        <AddUnitsForm
           product={product}
+          existingUnitCodes={existingUnitCodes}
           cancelHref={backHref}
           onCancelClick={handleBack}
           onDirtyChange={setDirty}
-          onSubmit={async (input) => {
-            await updateProduct(product.id, input);
+          onSubmit={async (quantity) => {
+            await addQuantityToSku(product.sku, quantity);
             router.push(backHref);
           }}
         />

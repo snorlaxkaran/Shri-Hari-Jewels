@@ -76,6 +76,7 @@ export default function EditCustomerPage({ params }: PageProps) {
           <CustomerEditForm
             customer={customer}
             cancelHref={backHref}
+            onCancelClick={handleBack}
             onDirtyChange={setDirty}
             onSubmit={async (input) => {
               await updateCustomer(id, input);

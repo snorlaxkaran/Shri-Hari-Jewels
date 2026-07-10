@@ -16,6 +16,7 @@ const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
 type ProductEditFormProps = {
   product: InventoryItem;
   cancelHref: string;
+  onCancelClick?: () => void;
   onSubmit: (input: UpdateProductInput) => Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
 };
@@ -23,6 +24,7 @@ type ProductEditFormProps = {
 export default function ProductEditForm({
   product,
   cancelHref,
+  onCancelClick,
   onSubmit,
   onDirtyChange,
 }: ProductEditFormProps) {
@@ -242,9 +244,15 @@ export default function ProductEditForm({
       {error && <p className="text-xs text-red-500">{error}</p>}
 
       <div className="flex gap-3">
-        <Link href={cancelHref} className="btn-secondary flex-1 px-4 py-2.5 text-sm text-center">
-          Cancel
-        </Link>
+        {onCancelClick ? (
+          <button type="button" onClick={onCancelClick} className="btn-secondary flex-1 px-4 py-2.5 text-sm">
+            Cancel
+          </button>
+        ) : (
+          <Link href={cancelHref} className="btn-secondary flex-1 px-4 py-2.5 text-sm text-center">
+            Cancel
+          </Link>
+        )}
         <button type="submit" disabled={submitting} className="btn-primary flex-1 px-4 py-2.5 text-sm">
           {submitting ? "Saving…" : "Save Changes"}
         </button>

@@ -1,9 +1,9 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatCard from "@/app/(components)/StatCard";
@@ -33,7 +33,7 @@ import {
   findProductForUnitRow,
   flattenInventoryToUnitRows,
 } from "@/lib/inventory/unit-rows";
-import type { Branch, InventoryItem } from "@/lib/types";
+import type { Branch } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 import { Diamond, Download, Gem, PackagePlus, Plus, Search } from "lucide-react";
 
@@ -47,20 +47,10 @@ const InventoryTable = dynamic(
   },
 );
 
-const AddUnitsModal = dynamic(
-  () => import("@/app/(components)/AddUnitsModal"),
-  { ssr: false },
-);
-
-const AddUnitsSkuPickerModal = dynamic(
-  () => import("@/app/(components)/inventory/AddUnitsSkuPickerModal"),
-  { ssr: false },
-);
-
 export default function InventoryPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { items, hydrated, loading, error, addQuantityToSku } = useInventory();
+  const { items, hydrated, loading, error } = useInventory();
   const canAdd = user ? canWriteInventory(user.role) : false;
   const [search, setSearch] = useState("");
   const [metalTab, setMetalTab] = useState<ProductMetalTab>("all");
@@ -68,10 +58,6 @@ export default function InventoryPage() {
   const [sortBy, setSortBy] = useState<InventorySortField>("createdAt");
   const [sortOrder, setSortOrder] = useState<InventorySortOrder>("desc");
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
-  const [addUnitsProduct, setAddUnitsProduct] = useState<InventoryItem | null>(
-    null,
-  );
-  const [skuPickerOpen, setSkuPickerOpen] = useState(false);
 
   useEffect(() => {
     fetchBranches()
@@ -100,11 +86,6 @@ export default function InventoryPage() {
       });
     },
     [],
-  );
-
-  const existingUnitCodes = useMemo(
-    () => items.flatMap((item) => item.units.map((unit) => unit.itemCode)),
-    [items],
   );
 
   const allUnitRows = useMemo(
@@ -174,14 +155,13 @@ export default function InventoryPage() {
             </button>
             {canAdd && (
               <>
-                <button
-                  type="button"
-                  onClick={() => setSkuPickerOpen(true)}
+                <Link
+                  href="/inventory/add-units"
                   className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm"
                 >
                   <PackagePlus size={16} />
                   Add Units to SKU
-                </button>
+                </Link>
                 <Link
                   href="/inventory/new"
                   className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
@@ -268,29 +248,6 @@ export default function InventoryPage() {
           onEditProduct={handleEditUnitRow}
         />
       </div>
-
-      <AddUnitsSkuPickerModal
-        open={skuPickerOpen}
-        items={items}
-        onClose={() => setSkuPickerOpen(false)}
-        onSelect={(product) => {
-          setSkuPickerOpen(false);
-          setAddUnitsProduct(product);
-        }}
-      />
-
-      {addUnitsProduct && (
-        <AddUnitsModal
-          open
-          product={addUnitsProduct}
-          existingUnitCodes={existingUnitCodes}
-          onClose={() => setAddUnitsProduct(null)}
-          onSubmit={async (quantity) => {
-            await addQuantityToSku(addUnitsProduct.id, quantity);
-            setAddUnitsProduct(null);
-          }}
-        />
-      )}
     </div>
   );
 }
