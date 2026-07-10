@@ -10,7 +10,7 @@ import StatCard from "@/app/(components)/StatCard";
 import IncomingTransfersPanel from "@/app/(components)/stock-transfer/IncomingTransfersPanel";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canWriteInventory } from "@/lib/auth/permissions";
-import { fetchBranches } from "@/lib/api/branches";
+import { fetchBranches, fetchUserBranches } from "@/lib/api/branches";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import {
   applyColumnFilters,
@@ -53,9 +53,11 @@ export default function InventoryPage() {
   const { user } = useAuth();
   const { items, hydrated, loading, error } = useInventory();
   const canAdd = user ? canWriteInventory(user.role) : false;
+  const isBranchView = user?.role === "Store";
   const [search, setSearch] = useState("");
   const [metalTab, setMetalTab] = useState<ProductMetalTab>("all");
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [userBranchName, setUserBranchName] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<InventorySortField>("createdAt");
   const [sortOrder, setSortOrder] = useState<InventorySortOrder>("desc");
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
@@ -64,7 +66,12 @@ export default function InventoryPage() {
     fetchBranches()
       .then(setBranches)
       .catch(() => setBranches([]));
-  }, []);
+    if (isBranchView) {
+      fetchUserBranches()
+        .then((userBranches) => setUserBranchName(userBranches[0]?.name ?? null))
+        .catch(() => setUserBranchName(null));
+    }
+  }, [isBranchView]);
 
   const showBranchColumn = branches.length >= 2;
 
@@ -137,7 +144,11 @@ export default function InventoryPage() {
   return (
     <div className="page-content">
       <PageHeader
-        title="Central Stock"
+        title={
+          isBranchView && userBranchName
+            ? `${userBranchName} Stock`
+            : "Central Stock"
+        }
         subtitle={
           metalTab === "all"
             ? `${filteredRows.length} items across ${uniqueSkuCount} SKUs`

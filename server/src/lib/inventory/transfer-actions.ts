@@ -367,6 +367,11 @@ export const acceptStockTransfer = async (
       reason: "transfer_accept",
     });
 
+    await tx.stockTransferItem.updateMany({
+      where: { transferId: transfer.id },
+      data: { accepted: true },
+    });
+
     await tx.stockTransfer.update({
       where: { id: transfer.id },
       data: {

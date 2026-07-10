@@ -97,11 +97,26 @@ export const listProducts = async (
   const stockBranchId =
     branchId ?? (await getOrganizationHeadOfficeBranchId(organizationId));
   const marketRates = await getCurrentMarketRates(organizationId);
+
+  const branchUnitStatuses = [
+    InventoryUnitStatus.Available,
+    InventoryUnitStatus.Reserved,
+    InventoryUnitStatus.InTransit,
+    InventoryUnitStatus.PendingVerification,
+  ] as const;
+
+  const branchUnitFilter = branchId
+    ? {
+        branchId,
+        status: { in: [...branchUnitStatuses] },
+      }
+    : undefined;
+
   const branchInclude = branchId
     ? {
         branch: true,
         units: {
-          where: { branchId },
+          where: branchUnitFilter,
           include: { branch: true, sale: true },
           orderBy: { createdAt: "asc" as const },
         },
@@ -111,7 +126,10 @@ export const listProducts = async (
 
   const products = await prisma.product.findMany({
     where: branchId
-      ? { branchId, branch: { organizationId } }
+      ? {
+          organizationId,
+          units: { some: branchUnitFilter! },
+        }
       : { branch: { organizationId } },
     include: branchInclude,
     orderBy: resolveProductOrderBy(sortBy, sortOrder),
