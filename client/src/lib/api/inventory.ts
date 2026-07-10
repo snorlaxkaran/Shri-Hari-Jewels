@@ -164,6 +164,15 @@ export const fetchIncomingTransferCount = async (): Promise<number> => {
   return data.count;
 };
 
+export const fetchIncomingStockTransfer = async (
+  id: string,
+): Promise<StockTransfer> => {
+  const { data } = await api.get<StockTransfer>(
+    `/api/inventory/transfers/${id}/incoming`,
+  );
+  return data;
+};
+
 export const fetchStockTransferById = async (
   id: string,
 ): Promise<StockTransfer> => {
@@ -206,12 +215,12 @@ export const scanReceiveStockTransfer = async (
 ): Promise<{
   transfer: StockTransfer;
   scannedItem: StockTransfer["items"][number];
-  allAccepted: boolean;
+  allVerified: boolean;
 }> => {
   const { data } = await api.post<{
     transfer: StockTransfer;
     scannedItem: StockTransfer["items"][number];
-    allAccepted: boolean;
+    allVerified: boolean;
   }>(`/api/inventory/transfers/${id}/scan-receive`, { itemCode });
   return data;
 };

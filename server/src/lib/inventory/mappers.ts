@@ -80,8 +80,11 @@ export const toInventoryItem = (
         options.transferLocationByItemCode?.get(unit.itemCode);
       const unitBranchName = unit.branch?.name;
       const branchName =
-        unit.status === "Transferred" && transferLocation
-          ? transferLocation
+        (unit.status === "Transferred" || unit.status === "InTransit") &&
+        transferLocation
+          ? unit.status === "InTransit"
+            ? `In transit → ${transferLocation}`
+            : transferLocation
           : (unitBranchName ?? transferLocation);
 
       return {

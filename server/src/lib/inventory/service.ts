@@ -140,6 +140,7 @@ export const listProducts = async (
       .filter(
         (unit) =>
           unit.status === InventoryUnitStatus.Transferred ||
+          unit.status === InventoryUnitStatus.InTransit ||
           (unit.status === InventoryUnitStatus.Available &&
             stockBranchId &&
             unit.branchId !== stockBranchId),
@@ -735,6 +736,7 @@ export const createStockTransfer = async (
             purity: unit.product.purity,
             price: computeLiveListPriceForProduct(unit.product, marketRates),
             weightGrams: unit.product.weightGrams,
+            accepted: !isInternalTransfer,
           })),
         },
       },

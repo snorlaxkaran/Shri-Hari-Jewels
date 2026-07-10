@@ -116,6 +116,66 @@ const assertPendingForBranch = (
   }
 };
 
+/** Pending internal lines default accepted=true in DB — reset when units are still InTransit. */
+const repairPendingTransferVerification = async (
+  transfer: StockTransferWithRelations,
+) => {
+  if (transfer.customerBranchId) return transfer;
+
+  const itemCodes = transfer.items.map((item) => item.itemCode);
+  const units = await prisma.inventoryUnit.findMany({
+    where: { itemCode: { in: itemCodes } },
+    select: { itemCode: true, status: true },
+  });
+  const unitByCode = new Map(units.map((unit) => [unit.itemCode, unit]));
+  const hasInTransit = units.some(
+    (unit) => unit.status === InventoryUnitStatus.InTransit,
+  );
+
+  if (
+    transfer.status === StockTransferStatus.Accepted &&
+    hasInTransit
+  ) {
+    await prisma.stockTransfer.update({
+      where: { id: transfer.id },
+      data: {
+        status: StockTransferStatus.Pending,
+        acceptedById: null,
+        acceptedByName: null,
+        acceptedAt: null,
+      },
+    });
+    transfer.status = StockTransferStatus.Pending;
+    transfer.acceptedById = null;
+    transfer.acceptedByName = null;
+    transfer.acceptedAt = null;
+  }
+
+  if (transfer.status !== StockTransferStatus.Pending) {
+    return transfer;
+  }
+
+  let repaired = false;
+  for (const item of transfer.items) {
+    const unit = unitByCode.get(item.itemCode);
+    if (item.accepted && unit?.status === InventoryUnitStatus.InTransit) {
+      await prisma.stockTransferItem.update({
+        where: { id: item.id },
+        data: { accepted: false },
+      });
+      item.accepted = false;
+      repaired = true;
+    }
+  }
+
+  if (!repaired && transfer.status === StockTransferStatus.Pending) {
+    return transfer;
+  }
+
+  const reloaded = await loadTransfer(transfer.id);
+  return reloaded ?? transfer;
+};
+
 const syncProductsForItemCodes = async (
   tx: Prisma.TransactionClient,
   itemCodes: string[],
@@ -139,7 +199,31 @@ export const getStockTransferById = async (
   id: string,
 ): Promise<StockTransfer | null> => {
   const transfer = await loadTransfer(id);
-  return transfer ? toStockTransferDto(transfer) : null;
+  if (!transfer) return null;
+  const repaired = await repairPendingTransferVerification(transfer);
+  return toStockTransferDto(repaired);
+};
+
+export const getIncomingStockTransferForBranch = async (
+  id: string,
+  branchId: string,
+): Promise<StockTransfer> => {
+  const transfer = await loadTransfer(id);
+  if (!transfer) throw new InventoryError("Transfer not found.", 404);
+  if (transfer.customerBranchId) {
+    throw new InventoryError("This transfer is not an internal branch shipment.", 400);
+  }
+  if (transfer.toBranchId !== branchId) {
+    throw new InventoryError("This transfer is not addressed to your branch.", 403);
+  }
+  const repaired = await repairPendingTransferVerification(transfer);
+  if (repaired.status !== StockTransferStatus.Pending) {
+    throw new InventoryError(
+      `Transfer ${repaired.transferNo} is already ${repaired.status}.`,
+      400,
+    );
+  }
+  return toStockTransferDto(repaired);
 };
 
 export const listIncomingStockTransfers = async (
@@ -147,17 +231,44 @@ export const listIncomingStockTransfers = async (
   branchId: string,
   status?: StockTransferStatus,
 ): Promise<StockTransfer[]> => {
+  const baseWhere = {
+    ...organizationTransferToFilter(organizationId, branchId),
+    customerBranchId: null,
+  };
+
   const transfers = await prisma.stockTransfer.findMany({
     where: {
-      ...organizationTransferToFilter(organizationId, branchId),
-      customerBranchId: null,
+      ...baseWhere,
       ...(status ? { status } : {}),
     },
     include: transferInclude,
     orderBy: { createdAt: "desc" },
     take: 500,
   });
-  return transfers.map(toStockTransferDto);
+
+  let combined = transfers;
+  if (!status || status === StockTransferStatus.Pending) {
+    const stuckAccepted = await prisma.stockTransfer.findMany({
+      where: { ...baseWhere, status: StockTransferStatus.Accepted },
+      include: transferInclude,
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    const seen = new Set(combined.map((transfer) => transfer.id));
+    for (const transfer of stuckAccepted) {
+      if (!seen.has(transfer.id)) combined.push(transfer);
+    }
+  }
+
+  const repaired = await Promise.all(
+    combined.map((transfer) => repairPendingTransferVerification(transfer)),
+  );
+
+  const filtered = status
+    ? repaired.filter((transfer) => transfer.status === status)
+    : repaired;
+
+  return filtered.map(toStockTransferDto);
 };
 
 export const listSentStockTransfers = async (
@@ -212,11 +323,12 @@ export const scanReceiveStockTransfer = async (
 ): Promise<{
   transfer: StockTransfer;
   scannedItem: StockTransfer["items"][number];
-  allAccepted: boolean;
+  allVerified: boolean;
 }> => {
-  const transfer = await loadTransfer(transferId);
-  if (!transfer) throw new InventoryError("Transfer not found.", 404);
-  assertPendingForBranch(transfer, branchId);
+  const loaded = await loadTransfer(transferId);
+  if (!loaded) throw new InventoryError("Transfer not found.", 404);
+  assertPendingForBranch(loaded, branchId);
+  const transfer = await repairPendingTransferVerification(loaded);
 
   const trimmedCode = itemCode.trim();
   if (!trimmedCode) {
@@ -231,78 +343,32 @@ export const scanReceiveStockTransfer = async (
     throw new InventoryError("Already scanned", 400);
   }
 
+  const unit = await prisma.inventoryUnit.findFirst({
+    where: { itemCode: trimmedCode },
+    select: { status: true },
+  });
+  if (unit?.status !== InventoryUnitStatus.InTransit) {
+    throw new InventoryError(
+      `Item ${trimmedCode} is not in transit and cannot be verified here.`,
+      400,
+    );
+  }
+
   const updated = await prisma.$transaction(async (tx) => {
     await tx.stockTransferItem.update({
       where: { id: item.id },
       data: { accepted: true },
     });
 
-    const unit = await tx.inventoryUnit.findFirst({
-      where: { itemCode: trimmedCode },
-      select: { id: true, itemCode: true, productId: true },
-    });
-    if (!unit) {
-      throw new InventoryError(`Unit not found: ${trimmedCode}`, 404);
-    }
-
-    await tx.inventoryUnit.update({
-      where: { id: unit.id },
-      data: {
-        branchId: transfer.toBranchId,
-        status: InventoryUnitStatus.Available,
-      },
-    });
-
-    await recordUnitTransferAcceptedInTx(
-      tx,
-      { unitId: unit.id, itemCode: unit.itemCode, productId: unit.productId },
-      actor,
-      {
-        transferNo: transfer.transferNo,
-        transferId: transfer.id,
-        toBranchId: transfer.toBranchId,
-      },
-    );
-
-    await syncProductStockInTx(tx, unit.productId, {
+    await recordInventoryAuditInTx(tx, {
+      entityType: "InventoryUnit",
+      entityId: transfer.id,
+      action: "TransferItemVerified",
+      newValue: { transferNo: transfer.transferNo, itemCode: trimmedCode },
+      reason: "transfer_verify_scan",
       performedById: actor.id,
       performedByName: actor.name,
-      reason: "transfer_scan_receive",
-      unitId: unit.id,
-      itemCode: unit.itemCode,
-      previousUnitStatus: InventoryUnitStatus.InTransit,
-      newUnitStatus: InventoryUnitStatus.Available,
     });
-
-    const refreshedItems = await tx.stockTransferItem.findMany({
-      where: { transferId: transfer.id },
-    });
-    const allAccepted = refreshedItems.every((row) => row.accepted);
-
-    if (allAccepted) {
-      await tx.stockTransfer.update({
-        where: { id: transfer.id },
-        data: {
-          status: StockTransferStatus.Accepted,
-          acceptedById: actor.id,
-          acceptedByName: actor.name,
-          acceptedAt: new Date(),
-        },
-      });
-
-      await recordInventoryAuditInTx(tx, {
-        entityType: "InventoryUnit",
-        entityId: transfer.id,
-        action: "TransferAccepted",
-        newValue: {
-          transferNo: transfer.transferNo,
-          itemCodes: refreshedItems.map((row) => row.itemCode),
-        },
-        reason: "transfer_scan_receive_complete",
-        performedById: actor.id,
-        performedByName: actor.name,
-      });
-    }
 
     return tx.stockTransfer.findUniqueOrThrow({
       where: { id: transfer.id },
@@ -319,7 +385,7 @@ export const scanReceiveStockTransfer = async (
   return {
     transfer: dto,
     scannedItem,
-    allAccepted: updated.items.every((row) => row.accepted),
+    allVerified: updated.items.every((row) => row.accepted),
   };
 };
 
@@ -328,17 +394,36 @@ export const acceptStockTransfer = async (
   branchId: string,
   actor: { id: string; name: string },
 ): Promise<StockTransfer> => {
-  const transfer = await loadTransfer(transferId);
-  if (!transfer) throw new InventoryError("Transfer not found.", 404);
-  assertPendingForBranch(transfer, branchId);
+  const loaded = await loadTransfer(transferId);
+  if (!loaded) throw new InventoryError("Transfer not found.", 404);
+  assertPendingForBranch(loaded, branchId);
+  const transfer = await repairPendingTransferVerification(loaded);
+
+  const unverified = transfer.items.filter((item) => !item.accepted);
+  if (unverified.length > 0) {
+    throw new InventoryError(
+      `Verify all items before accepting (${unverified.length} remaining).`,
+      400,
+    );
+  }
 
   const itemCodes = transfer.items.map((item) => item.itemCode);
 
   const updated = await prisma.$transaction(async (tx) => {
     const units = await tx.inventoryUnit.findMany({
       where: { itemCode: { in: itemCodes } },
-      select: { id: true, itemCode: true, productId: true },
+      select: { id: true, itemCode: true, productId: true, status: true },
     });
+
+    const notInTransit = units.find(
+      (unit) => unit.status !== InventoryUnitStatus.InTransit,
+    );
+    if (notInTransit) {
+      throw new InventoryError(
+        `Item ${notInTransit.itemCode} is not in transit.`,
+        400,
+      );
+    }
 
     await tx.inventoryUnit.updateMany({
       where: { itemCode: { in: itemCodes } },

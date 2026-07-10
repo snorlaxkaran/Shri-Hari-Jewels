@@ -30,6 +30,7 @@ export default function TransferItemsModal({
   const { user } = useAuth();
   const canAct = user ? canReceiveStockTransfers(user.role) : false;
   const isPending = transfer.status === "Pending";
+  const isInternalPending = isPending && !transfer.customerBranchId;
 
   const [mode, setMode] = useState<"view" | "partial">("view");
   const [checked, setChecked] = useState<Set<string>>(
@@ -202,7 +203,15 @@ export default function TransferItemsModal({
           )}
         </div>
 
-        {canAct && isPending && (
+        {isInternalPending && (
+          <div className="border-t border-zinc-200 px-5 py-4 text-sm text-zinc-500">
+            Use the{" "}
+            <span className="font-medium text-zinc-700">Verify &amp; Accept</span>{" "}
+            page to scan each item before accepting into branch inventory.
+          </div>
+        )}
+
+        {canAct && isPending && !isInternalPending && (
           <div className="flex flex-wrap justify-end gap-2 border-t border-zinc-200 px-5 py-4">
             {mode === "view" ? (
               <>

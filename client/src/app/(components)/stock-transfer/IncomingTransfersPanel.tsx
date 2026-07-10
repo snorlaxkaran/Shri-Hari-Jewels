@@ -3,29 +3,23 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Download, PackageOpen } from "lucide-react";
-import ReceiveTransferModal from "@/app/(components)/stock-transfer/ReceiveTransferModal";
 import TransferStatusBadge from "@/app/(components)/stock-transfer/TransferStatusBadge";
 import { fetchIncomingStockTransfers } from "@/lib/api/inventory";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { canReceiveStockTransfers, canViewStockTransfers } from "@/lib/auth/permissions";
 import { useAuth } from "@/lib/auth/auth-context";
-import { useInventory } from "@/lib/inventory/inventory-context";
 import { downloadTransferDetailCsv } from "@/lib/inventory/export-transfer";
 import type { StockTransfer } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 export default function IncomingTransfersPanel() {
   const { user } = useAuth();
-  const { refresh } = useInventory();
   const canView = user ? canViewStockTransfers(user.role) : false;
   const canReceive = user ? canReceiveStockTransfers(user.role) : false;
 
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [receiveTransfer, setReceiveTransfer] = useState<StockTransfer | null>(
-    null,
-  );
 
   const loadTransfers = useCallback(async () => {
     if (!canView) {
@@ -46,12 +40,6 @@ export default function IncomingTransfersPanel() {
   useEffect(() => {
     void loadTransfers();
   }, [loadTransfers]);
-
-  const handleUpdated = async (updated: StockTransfer) => {
-    setTransfers((prev) => prev.filter((t) => t.id !== updated.id));
-    setReceiveTransfer(null);
-    await refresh({ silent: true });
-  };
 
   if (!canView || loading || transfers.length === 0) {
     return null;
@@ -129,13 +117,12 @@ export default function IncomingTransfersPanel() {
                         CSV
                       </button>
                       {canReceive && (
-                        <button
-                          type="button"
-                          onClick={() => setReceiveTransfer(transfer)}
+                        <Link
+                          href={`/stock-transfer/incoming/${transfer.id}/receive`}
                           className="btn-primary px-3 py-1.5 text-xs"
                         >
-                          Accept Items
-                        </button>
+                          Verify & Accept
+                        </Link>
                       )}
                     </div>
                   </td>
@@ -145,15 +132,6 @@ export default function IncomingTransfersPanel() {
           </table>
         </div>
       </div>
-
-      {receiveTransfer && (
-        <ReceiveTransferModal
-          transfer={receiveTransfer}
-          open={Boolean(receiveTransfer)}
-          onClose={() => setReceiveTransfer(null)}
-          onUpdated={handleUpdated}
-        />
-      )}
     </>
   );
 }

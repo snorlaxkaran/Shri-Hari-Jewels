@@ -27,6 +27,7 @@ import {
   cancelStockTransfer,
   countPendingIncomingTransfers,
   getStockTransferById,
+  getIncomingStockTransferForBranch,
   listAllTransfersForProforma,
   listIncomingStockTransfers,
   listSentStockTransfers,
@@ -280,6 +281,28 @@ inventoryRouter.get(
     } catch (error) {
       console.error("GET /api/inventory/transfers/proforma", error);
       res.status(500).json({ error: "Failed to fetch proforma transfers" });
+    }
+  },
+);
+
+inventoryRouter.get(
+  "/transfers/:id/incoming",
+  requireRole(canViewStockTransfers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
+      const transfer = await getIncomingStockTransferForBranch(
+        routeParam(req.params.id),
+        branchId,
+      );
+      res.json(transfer);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("GET /api/inventory/transfers/:id/incoming", error);
+      res.status(500).json({ error: "Failed to fetch incoming transfer" });
     }
   },
 );

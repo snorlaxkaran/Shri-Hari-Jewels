@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { ChevronDown, ChevronRight, Download, PackageOpen, Search } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
@@ -8,7 +9,6 @@ import ItemCodeLink from "@/app/(components)/inventory/ItemCodeLink";
 import TransferTabs from "@/app/(components)/stock-transfer/TransferTabs";
 import TransferStatusBadge from "@/app/(components)/stock-transfer/TransferStatusBadge";
 import TransferItemsModal from "@/app/(components)/stock-transfer/TransferItemsModal";
-import ReceiveTransferModal from "@/app/(components)/stock-transfer/ReceiveTransferModal";
 import {
   fetchIncomingStockTransfers,
   rejectStockTransfer,
@@ -50,9 +50,6 @@ export default function IncomingStockPage() {
   );
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedTransfer, setSelectedTransfer] = useState<StockTransfer | null>(
-    null,
-  );
-  const [receiveTransfer, setReceiveTransfer] = useState<StockTransfer | null>(
     null,
   );
 
@@ -103,7 +100,6 @@ export default function IncomingStockPage() {
       prev.map((t) => (t.id === updated.id ? updated : t)),
     );
     setSelectedTransfer(null);
-    setReceiveTransfer(null);
     await refresh({ silent: true });
   };
 
@@ -274,13 +270,12 @@ export default function IncomingStockPage() {
                             </button>
                             {canReceive && transfer.status === "Pending" && (
                               <>
-                                <button
-                                  type="button"
-                                  onClick={() => setReceiveTransfer(transfer)}
+                                <Link
+                                  href={`/stock-transfer/incoming/${transfer.id}/receive`}
                                   className="btn-primary px-3 py-1.5 text-xs"
                                 >
-                                  Accept Items
-                                </button>
+                                  Verify & Accept
+                                </Link>
                                 <button
                                   type="button"
                                   onClick={() => handleQuickReject(transfer)}
@@ -399,15 +394,6 @@ export default function IncomingStockPage() {
           transfer={selectedTransfer}
           open={Boolean(selectedTransfer)}
           onClose={() => setSelectedTransfer(null)}
-          onUpdated={handleUpdated}
-        />
-      )}
-
-      {receiveTransfer && (
-        <ReceiveTransferModal
-          transfer={receiveTransfer}
-          open={Boolean(receiveTransfer)}
-          onClose={() => setReceiveTransfer(null)}
           onUpdated={handleUpdated}
         />
       )}

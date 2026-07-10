@@ -151,6 +151,9 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname === "/work-orders/new") return "New Work Order";
   if (pathname === "/production-runs/new") return "New Production Run";
   if (pathname.startsWith("/stock-transfer/proforma")) return "Proforma List";
+  if (pathname.startsWith("/stock-transfer/incoming/") && pathname.endsWith("/receive")) {
+    return "Verify Transfer";
+  }
   if (pathname.startsWith("/stock-transfer/incoming")) return "Incoming Stock";
   if (pathname.startsWith("/stock-transfer/sent")) return "Sent to Stores";
   if (pathname === "/stock-transfer") return "Scan Transfer";
