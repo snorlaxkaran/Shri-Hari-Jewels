@@ -24,6 +24,8 @@ const styles: Record<string, { bg: string; color: string }> = {
   Reserved: { bg: "#eff6ff", color: "#2563eb" },
   Transferred: { bg: "#ede9fe", color: "#7c3aed" },
   InTransit: { bg: "#fff7ed", color: "#ea580c" },
+  PendingVerification: { bg: "#f4f4f5", color: "#71717a" },
+  Inactive: { bg: "#f4f4f5", color: "#71717a" },
   Completed: { bg: "#ecfdf5", color: "#059669" },
   Create: { bg: "#ecfdf5", color: "#059669" },
   Update: { bg: "#eff6ff", color: "#2563eb" },
@@ -33,14 +35,17 @@ const styles: Record<string, { bg: string; color: string }> = {
 };
 
 export default function StatusBadge({ status }: { status: string }) {
-  const style = styles[status] ?? { bg: "#f4f4f5", color: "#52525b" };
+  const label =
+    status === "PendingVerification" ? "Inactive" : status;
+  const style =
+    styles[status] ?? styles[label] ?? { bg: "#f4f4f5", color: "#52525b" };
 
   return (
     <span
       className="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
       style={{ backgroundColor: style.bg, color: style.color }}
     >
-      {status}
+      {label}
     </span>
   );
 }

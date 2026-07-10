@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import StatusBadge from "@/app/(components)/StatusBadge";
 import ItemCodeLink from "@/app/(components)/inventory/ItemCodeLink";
+import { isInactiveUnit } from "@/lib/inventory/unit-status";
 import ActiveFiltersBar from "@/app/(components)/inventory/ActiveFiltersBar";
 import ColumnFilterPopover from "@/app/(components)/inventory/ColumnFilterPopover";
 import {
@@ -390,7 +391,9 @@ export default function InventoryTable({
               rows.map((row) => (
                 <tr
                   key={row.unitId}
-                  className="border-t border-zinc-100 text-zinc-900 transition-colors hover:bg-zinc-50"
+                  className={`border-t border-zinc-100 text-zinc-900 transition-colors hover:bg-zinc-50 ${
+                    isInactiveUnit(row.status) ? "bg-zinc-50/80 opacity-80" : ""
+                  }`}
                 >
                   {columns.map((column) => renderCell(row, column))}
                 </tr>

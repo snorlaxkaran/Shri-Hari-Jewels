@@ -153,6 +153,7 @@ inventoryRouter.post(
         },
         branchId,
         { id: req.user!.id, name: req.user!.name },
+        { entryVerification: true },
       );
       res.status(201).json(product);
     } catch (error) {
@@ -696,6 +697,7 @@ inventoryRouter.post(
         req.user
           ? { id: req.user.id, name: req.user.name }
           : undefined,
+        { entryVerification: true },
       );
       if (!product) {
         res.status(404).json({ error: "Product not found" });

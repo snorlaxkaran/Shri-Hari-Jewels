@@ -20,6 +20,12 @@ enum InventoryUnitStatus {
   Sold
   InTransit
   Transferred
+  PendingVerification
+}
+
+enum EntryVoucherStatus {
+  Pending
+  Verified
 }
 
 enum StockTransferStatus {
@@ -136,6 +142,7 @@ model Organization {
   products       Product[]
   inventoryUnits InventoryUnit[]
   productionRuns ProductionRun[]
+  entryVouchers  EntryVoucher[]
 }
 
 model Branch {
@@ -169,6 +176,7 @@ model Branch {
   stockTransfersFrom StockTransfer[] @relation("StockTransferFromBranch")
   stockTransfersTo   StockTransfer[] @relation("StockTransferToBranch")
   customerBranches   CustomerBranch[]
+  entryVouchers      EntryVoucher[]
 
   @@index([organizationId])
 }
@@ -297,17 +305,43 @@ model InventoryUnit {
   listPrice      Decimal? @db.Decimal(12, 2)
   hallmarkNumber String?
   hallmarkCenter String?
+  voucherId      String?
   createdAt      DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
   product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  entryVoucher EntryVoucher? @relation(fields: [voucherId], references: [id], onDelete: SetNull)
   sale         Sale?
 
   @@unique([organizationId, itemCode])
   @@index([productId])
   @@index([branchId])
   @@index([organizationId])
+  @@index([voucherId])
+}
+
+model EntryVoucher {
+  id               String              @id @default(uuid())
+  organizationId   String
+  branchId         String
+  voucherCode      String
+  createdByUserId  String?
+  createdByName    String
+  createdAt        DateTime            @default(now())
+  verifiedAt       DateTime?
+  verifiedByUserId String?
+  verifiedByName   String?
+  status           EntryVoucherStatus  @default(Pending)
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  units        InventoryUnit[]
+
+  @@unique([organizationId, voucherCode])
+  @@index([organizationId, status])
+  @@index([branchId])
+  @@index([createdAt])
 }
 
 model StockTransfer {

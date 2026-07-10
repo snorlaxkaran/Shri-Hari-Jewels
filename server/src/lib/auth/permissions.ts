@@ -18,6 +18,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
   ProductionManager: [
     "/dashboard",
     "/inventory",
+    "/entry-verification",
     "/stock-transfer",
     "/raw-inventory",
     "/orders",
@@ -30,6 +31,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
   SalesManager: [
     "/dashboard",
     "/inventory",
+    "/entry-verification",
     "/stock-transfer",
     "/raw-inventory",
     "/sales",

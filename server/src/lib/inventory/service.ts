@@ -1,4 +1,4 @@
-import { InventoryUnitStatus, SalePaymentStatus, StockTransferStatus } from "@prisma/client";
+import { InventoryUnitStatus, ProductStockStatus, SalePaymentStatus, StockTransferStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import type {
   Branch,
@@ -30,6 +30,12 @@ import { getBranchOrganizationId } from "../organizations/access.js";
 import { moneyToNumber, sumMoney } from "../money.js";
 import { repairCompletedRunInventorySkus } from "../production-runs/run-completion.js";
 import { toStockTransferDto } from "./transfer-actions.js";
+import { createEntryVoucherInTx } from "./vouchers-service.js";
+
+export type EntryProductOptions = {
+  entryVerification?: boolean;
+  voucherId?: string;
+};
 import { resolveCustomerBranchForTransfer } from "../customers/branches.js";
 import { CustomerError } from "../customers/service.js";
 import { getCurrentMarketRates } from "../market-rates/service.js";
@@ -126,6 +132,7 @@ export const createProduct = async (
   input: NewProductInput,
   branchId: string,
   actor?: AuditActor,
+  options?: EntryProductOptions,
 ): Promise<InventoryItem> => {
   const category = input.category as ProductCategory;
   const organizationId = await getBranchOrganizationId(branchId);
@@ -188,7 +195,31 @@ export const createProduct = async (
     unitCodes = generateUnitCodes(sku, input.quantity, existingUnitCodes);
   }
 
+  const useEntryVerification = options?.entryVerification ?? false;
+
   const product = await prisma.$transaction(async (tx) => {
+    let voucherId = options?.voucherId;
+    if (useEntryVerification && !voucherId) {
+      if (!actor) {
+        throw new InventoryError("Actor is required for entry verification.", 400);
+      }
+      const voucher = await createEntryVoucherInTx(
+        tx,
+        organizationId,
+        branchId,
+        actor,
+      );
+      voucherId = voucher.id;
+    }
+
+    const unitStatus = useEntryVerification
+      ? InventoryUnitStatus.PendingVerification
+      : InventoryUnitStatus.Available;
+    const initialStock = useEntryVerification ? 0 : input.quantity;
+    const initialProductStatus = useEntryVerification
+      ? ProductStockStatus.OutOfStock
+      : getStockStatus(input.quantity);
+
     const created = await tx.product.create({
       data: {
         organizationId,
@@ -202,16 +233,17 @@ export const createProduct = async (
         makingCharges: input.makingCharges,
         stoneCarat: input.stoneCarat,
         price: input.price,
-        stock: input.quantity,
-        status: getStockStatus(input.quantity),
+        stock: initialStock,
+        status: initialProductStatus,
         imageColor: CATEGORY_COLORS[category] ?? "#a1a1aa",
         units: {
           create: unitCodes.map((itemCode) => ({
             organizationId,
             branchId,
             itemCode,
-            status: "Available",
+            status: unitStatus,
             listPrice: unitListPrice,
+            voucherId: voucherId ?? null,
           })),
         },
         images: {
@@ -234,9 +266,15 @@ export const createProduct = async (
         productId: created.id,
       })),
       performer,
-      actor ? "manual_entry" : "system",
-      { sku: created.sku, productName: created.name },
+      useEntryVerification ? "pending_entry" : actor ? "manual_entry" : "system",
+      {
+        sku: created.sku,
+        productName: created.name,
+        voucherId,
+      },
     );
+
+    await syncProductStockInTx(tx, created.id);
 
     return created;
   });
@@ -248,6 +286,7 @@ export const addQuantityToProduct = async (
   productId: string,
   quantity: number,
   actor?: AuditActor,
+  options?: EntryProductOptions,
 ): Promise<InventoryItem | null> => {
   const product = await prisma.product.findUnique({
     where: { id: productId },
@@ -266,15 +305,36 @@ export const addQuantityToProduct = async (
   const existingUnitCodes = orgUnits.map((u) => u.itemCode);
   const newCodes = generateUnitCodes(product.sku, quantity, existingUnitCodes);
 
+  const useEntryVerification = options?.entryVerification ?? false;
+
   const updated = await prisma.$transaction(async (tx) => {
+    let voucherId = options?.voucherId;
+    if (useEntryVerification && !voucherId) {
+      if (!actor) {
+        throw new InventoryError("Actor is required for entry verification.", 400);
+      }
+      const voucher = await createEntryVoucherInTx(
+        tx,
+        product.organizationId,
+        product.branchId,
+        actor,
+      );
+      voucherId = voucher.id;
+    }
+
+    const unitStatus = useEntryVerification
+      ? InventoryUnitStatus.PendingVerification
+      : InventoryUnitStatus.Available;
+
     await tx.inventoryUnit.createMany({
       data: newCodes.map((itemCode) => ({
         organizationId: product.organizationId,
         branchId: product.branchId,
         itemCode,
         productId: product.id,
-        status: "Available",
+        status: unitStatus,
         listPrice: unitListPrice,
+        voucherId: voucherId ?? null,
       })),
     });
 
@@ -292,8 +352,8 @@ export const addQuantityToProduct = async (
         productId: product.id,
       })),
       performer,
-      actor ? "add_units" : "system",
-      { sku: product.sku, productName: product.name },
+      useEntryVerification ? "pending_entry" : actor ? "add_units" : "system",
+      { sku: product.sku, productName: product.name, voucherId },
     );
 
     await syncProductStockInTx(tx, productId);

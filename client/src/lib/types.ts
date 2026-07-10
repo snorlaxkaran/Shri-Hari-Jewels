@@ -51,7 +51,8 @@ export type InventoryUnitStatus =
   | "Sold"
   | "Reserved"
   | "InTransit"
-  | "Transferred";
+  | "Transferred"
+  | "PendingVerification";
 
 export type StockTransferStatus =
   | "Pending"
@@ -214,6 +215,8 @@ export type BulkStockImportResult = {
   created: number;
   unitsAdded: number;
   errors: string[];
+  voucherId?: string;
+  voucherCode?: string;
 };
 
 export type UpdateProductInput = {
@@ -1505,4 +1508,39 @@ export type ItemCodeHistory = {
     stockTransferId?: string;
   };
   events: ItemCodeHistoryEvent[];
+};
+
+export type EntryVoucherStatus = "Pending" | "Verified";
+
+export type EntryVoucherItem = {
+  unitId: string;
+  itemCode: string;
+  productId: string;
+  productName: string;
+  sku: string;
+  metal: string;
+  purity: string;
+  weightGrams: number;
+  listPrice: number | null;
+  status: string;
+};
+
+export type EntryVoucher = {
+  id: string;
+  voucherCode: string;
+  branchId: string;
+  branchName: string;
+  createdByUserId?: string;
+  createdByName: string;
+  createdAt: string;
+  verifiedAt?: string;
+  verifiedByUserId?: string;
+  verifiedByName?: string;
+  status: EntryVoucherStatus;
+  itemCount: number;
+  pricedItemCount: number;
+};
+
+export type EntryVoucherDetail = EntryVoucher & {
+  items: EntryVoucherItem[];
 };

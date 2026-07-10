@@ -52,8 +52,10 @@ export default function StockExcelImport({
       setImportErrors(allErrors);
       setResult(
         `Imported ${importResult.created} new SKU(s) and ${importResult.unitsAdded} unit(s).${
-          allErrors.length ? ` ${allErrors.length} issue(s) — see below.` : ""
-        }`,
+          importResult.voucherCode
+            ? ` Voucher ${importResult.voucherCode} created — verify in Entry Verification before items go live.`
+            : ""
+        }${allErrors.length ? ` ${allErrors.length} issue(s) — see below.` : ""}`,
       );
       if (allErrors.length) setImportErrors(allErrors);
       if (importResult.unitsAdded > 0) {

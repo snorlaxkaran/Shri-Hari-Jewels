@@ -1,3 +1,6 @@
+import {
+  InventoryUnitStatus,
+} from "@prisma/client";
 import type {
   BulkStockImportResult,
   LegacyStockImportRow,
@@ -11,6 +14,7 @@ import { getCurrentMarketRates } from "../market-rates/service.js";
 import { computeLiveListPriceForProduct } from "./unit-pricing.js";
 import { recordInventoryAudit, recordUnitsCreatedInTx } from "./audit.js";
 import { syncProductStockInTx } from "./stock-sync.js";
+import { createEntryVoucherInTx } from "./vouchers-service.js";
 
 export type { BulkStockImportResult, LegacyStockImportRow };
 
@@ -91,6 +95,20 @@ export const importLegacyStock = async (
   let created = 0;
   let unitsAdded = 0;
   const errors: string[] = [];
+  let voucherId: string | undefined;
+  let voucherCode: string | undefined;
+
+  if (actor) {
+    const voucher = await prisma.$transaction(async (tx) =>
+      createEntryVoucherInTx(tx, organizationId, branchId, actor),
+    );
+    voucherId = voucher.id;
+    voucherCode = voucher.voucherCode;
+  }
+
+  const entryOptions = actor
+    ? { entryVerification: true, voucherId }
+    : undefined;
 
   for (const [catalogNo, groupRows] of grouped) {
     try {
@@ -127,8 +145,11 @@ export const importLegacyStock = async (
             branchId: existing.branchId,
             itemCode: row.itemCode.trim(),
             productId: existing.id,
-            status: "Available" as const,
-            listPrice: unitListPrice,
+            status: actor
+              ? InventoryUnitStatus.PendingVerification
+              : InventoryUnitStatus.Available,
+            listPrice: row.retailPrice ?? unitListPrice,
+            voucherId: voucherId ?? null,
           }));
 
           await tx.inventoryUnit.createMany({ data: rowsData });
@@ -150,8 +171,12 @@ export const importLegacyStock = async (
                 productId: existing.id,
               })),
               actor,
-              "bulk_import",
-              { sku: existing.sku, productName: existing.name },
+              "pending_entry",
+              {
+                sku: existing.sku,
+                productName: existing.name,
+                voucherId,
+              },
             );
           }
 
@@ -163,7 +188,7 @@ export const importLegacyStock = async (
       }
 
       const input = buildProductInput(catalogNo, groupRows, marketRates);
-      await createProduct(input, branchId, actor);
+      await createProduct(input, branchId, actor, entryOptions);
       created += 1;
       unitsAdded += groupRows.length;
     } catch (error) {
@@ -182,12 +207,18 @@ export const importLegacyStock = async (
       entityType: "Product",
       entityId: actor.id,
       action: "Import",
-      newValue: { created, unitsAdded, errors: errors.length },
+      newValue: { created, unitsAdded, errors: errors.length, voucherCode },
       reason: `${created} SKU(s), ${unitsAdded} unit(s) imported`,
       performedById: actor.id,
       performedByName: actor.name,
     });
   }
 
-  return { created, unitsAdded, errors };
+  if (actor && created === 0 && unitsAdded === 0 && voucherId) {
+    await prisma.entryVoucher.delete({ where: { id: voucherId } }).catch(() => {});
+    voucherId = undefined;
+    voucherCode = undefined;
+  }
+
+  return { created, unitsAdded, errors, voucherId, voucherCode };
 };

@@ -15,6 +15,7 @@ import {
   Palette,
   Factory,
   PackageOpen,
+  ClipboardCheck,
 } from "lucide-react";
 import { createElement } from "react";
 
@@ -39,6 +40,7 @@ export const navSections: NavSection[] = [
     items: [
       { label: "Dashboard", href: "/dashboard", icon: icon(LayoutDashboard) },
       { label: "Products", href: "/inventory", icon: icon(Diamond) },
+      { label: "Entry Verification", href: "/entry-verification", icon: icon(ClipboardCheck) },
       { label: "Scan Transfer", href: "/stock-transfer", icon: icon(ArrowRightLeft) },
       { label: "Sent to Stores", href: "/stock-transfer/sent", icon: icon(List) },
       { label: "Incoming Stock", href: "/stock-transfer/incoming", icon: icon(PackageOpen) },
@@ -89,6 +91,8 @@ export const filterNavSections = (
 export const getPageTitle = (pathname: string): string => {
   if (pathname === "/inventory/new") return "Add Stock";
   if (pathname.startsWith("/inventory/item/")) return "Item History";
+  if (pathname.startsWith("/entry-verification/")) return "Entry Verification";
+  if (pathname === "/entry-verification") return "Entry Verification";
   if (pathname.startsWith("/stock-transfer/proforma")) return "Proforma List";
   if (pathname.startsWith("/stock-transfer/incoming")) return "Incoming Stock";
   if (pathname.startsWith("/stock-transfer/sent")) return "Sent to Stores";
