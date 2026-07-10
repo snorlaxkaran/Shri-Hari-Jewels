@@ -47,7 +47,7 @@ export const flattenInventoryToUnitRows = (
       priceSource: unit.priceSource,
       status: unit.status,
       branchId: unit.branchId,
-      branchName: unit.branchName ?? product.branchName,
+      branchName: unit.branchName,
       createdAt: unit.createdAt,
       imageUrl: product.images?.[0]?.url,
     })),

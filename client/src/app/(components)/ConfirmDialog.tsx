@@ -35,30 +35,32 @@ export default function ConfirmDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+    <div className="modal-overlay">
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        style={{ background: "transparent", border: "none" }}
         onClick={() => !loading && onCancel()}
-        aria-hidden
+        aria-label="Close dialog"
       />
       <div
         role="alertdialog"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-message"
-        className="relative w-full max-w-sm rounded-xl border border-zinc-200 bg-white shadow-2xl p-5 space-y-4"
+        className="modal-panel relative z-10"
       >
-        <h2 id="confirm-dialog-title" className="text-base font-semibold text-zinc-900">
+        <div id="confirm-dialog-title" className="modal-header">
           {title}
-        </h2>
-        <p id="confirm-dialog-message" className="text-sm text-zinc-600">
+        </div>
+        <div id="confirm-dialog-message" className="modal-body">
           {message}
-        </p>
-        <div className="flex gap-3">
+        </div>
+        <div className="modal-footer">
           <button
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="btn-secondary flex-1 px-4 py-2.5 text-sm"
+            className="btn-secondary"
           >
             {cancelLabel}
           </button>
@@ -66,7 +68,7 @@ export default function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="btn-primary flex-1 px-4 py-2.5 text-sm"
+            className="btn-primary"
           >
             {loading ? "Saving…" : confirmLabel}
           </button>

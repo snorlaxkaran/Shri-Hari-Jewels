@@ -1,69 +1,58 @@
-const styles: Record<string, { bg: string; color: string }> = {
-  "In Stock": { bg: "#ecfdf5", color: "#059669" },
-  "Low Stock": { bg: "#fffbeb", color: "#d97706" },
-  "Out of Stock": { bg: "#fef2f2", color: "#dc2626" },
-  Pending: { bg: "#fffbeb", color: "#d97706" },
-  Designing: { bg: "#eff6ff", color: "#2563eb" },
-  Production: { bg: "#ede9fe", color: "#7c3aed" },
-  QC: { bg: "#fdf4ff", color: "#a21caf" },
-  Processing: { bg: "#eff6ff", color: "#2563eb" },
-  Ready: { bg: "#f0f9ff", color: "#0284c7" },
-  Delivered: { bg: "#ecfdf5", color: "#059669" },
-  Cancelled: { bg: "#fef2f2", color: "#dc2626" },
-  Paid: { bg: "#ecfdf5", color: "#059669" },
-  Partial: { bg: "#fffbeb", color: "#d97706" },
-  Unpaid: { bg: "#fef2f2", color: "#dc2626" },
-  Due: { bg: "#fffbeb", color: "#d97706" },
-  Overdue: { bg: "#fef2f2", color: "#dc2626" },
-  Bronze: { bg: "#fafafa", color: "#71717a" },
-  Silver: { bg: "#f4f4f5", color: "#52525b" },
-  Gold: { bg: "#fafafa", color: "#52525b" },
-  Platinum: { bg: "#f4f4f5", color: "#3f3f46" },
-  Available: { bg: "#ecfdf5", color: "#059669" },
-  Sold: { bg: "#f4f4f5", color: "#71717a" },
-  Reserved: { bg: "#eff6ff", color: "#2563eb" },
-  Transferred: { bg: "#ede9fe", color: "#7c3aed" },
-  InTransit: { bg: "#fff7ed", color: "#ea580c" },
-  PendingVerification: { bg: "#f4f4f5", color: "#71717a" },
-  Inactive: { bg: "#f4f4f5", color: "#71717a" },
-  Completed: { bg: "#ecfdf5", color: "#059669" },
-  Create: { bg: "#ecfdf5", color: "#059669" },
-  Update: { bg: "#eff6ff", color: "#2563eb" },
-  Transfer: { bg: "#ede9fe", color: "#7c3aed" },
-  Adjustment: { bg: "#fffbeb", color: "#d97706" },
-  Issued: { bg: "#f4f4f5", color: "#71717a" },
+const LABEL_OVERRIDES: Record<string, string> = {
+  "In Stock": "Available",
+  "Low Stock": "Low stock",
+  "Out of Stock": "Unavailable",
+  InTransit: "In transit",
+  Available: "Available",
+  Sold: "Sold",
+  Reserved: "Reserved",
+  Transferred: "Transferred",
+  PendingVerification: "Inactive",
+};
+
+const styles: Record<string, { color: string }> = {
+  "In Stock": { color: "#1d8102" },
+  Available: { color: "#1d8102" },
+  "Low Stock": { color: "#d45b07" },
+  "Out of Stock": { color: "#545b64" },
+  Pending: { color: "#d45b07" },
+  Designing: { color: "#0073bb" },
+  Production: { color: "#0073bb" },
+  QC: { color: "#0073bb" },
+  Processing: { color: "#0073bb" },
+  Ready: { color: "#0073bb" },
+  Delivered: { color: "#1d8102" },
+  Cancelled: { color: "#d13212" },
+  Paid: { color: "#1d8102" },
+  Partial: { color: "#d45b07" },
+  Unpaid: { color: "#d13212" },
+  Due: { color: "#d45b07" },
+  Overdue: { color: "#d13212" },
+  Bronze: { color: "#545b64" },
+  Silver: { color: "#545b64" },
+  Gold: { color: "#545b64" },
+  Platinum: { color: "#545b64" },
+  Sold: { color: "#545b64" },
+  Reserved: { color: "#0073bb" },
+  Transferred: { color: "#545b64" },
+  InTransit: { color: "#0073bb" },
+  PendingVerification: { color: "#545b64" },
+  Inactive: { color: "#545b64" },
+  Completed: { color: "#1d8102" },
+  Create: { color: "#1d8102" },
+  Update: { color: "#0073bb" },
+  Transfer: { color: "#0073bb" },
+  Adjustment: { color: "#d45b07" },
+  Issued: { color: "#545b64" },
 };
 
 export default function StatusBadge({ status }: { status: string }) {
-  const label = status === "PendingVerification" ? "Inactive" : status;
-  const style =
-    styles[status] ?? styles[label] ?? { bg: "#f4f4f5", color: "#52525b" };
+  const label = LABEL_OVERRIDES[status] ?? status;
+  const style = styles[status] ?? styles[label] ?? { color: "#545b64" };
 
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        backgroundColor: style.bg,
-        color: style.color,
-        fontSize: 11,
-        fontWeight: 500,
-        padding: "2px 8px",
-        borderRadius: 12,
-        whiteSpace: "nowrap",
-      }}
-    >
-      <span
-        style={{
-          width: 5,
-          height: 5,
-          borderRadius: "50%",
-          backgroundColor: style.color,
-          display: "inline-block",
-          flexShrink: 0,
-        }}
-      />
+    <span className="status-indicator" style={{ color: style.color }}>
+      <span className="status-dot" style={{ backgroundColor: style.color }} />
       {label}
     </span>
   );

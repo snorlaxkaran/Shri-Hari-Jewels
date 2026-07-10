@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
-import { canAccessRoute, canViewStockTransfers } from "@/lib/auth/permissions";
+import {
+  canAccessRoute,
+  canViewStockTransfers,
+} from "@/lib/auth/permissions";
 import { filterNavSections } from "@/lib/navigation";
 import { fetchIncomingTransferCount } from "@/lib/api/inventory";
 
@@ -57,16 +60,16 @@ const SidebarContent = ({
 
   return (
     <div
-      className="flex flex-col h-full w-[220px] overflow-y-auto border-r"
+      className="flex flex-col h-full w-[220px] overflow-y-auto"
       style={{
         backgroundColor: "var(--sidebar-bg)",
-        borderColor: "var(--sidebar-border)",
+        borderRight: "1px solid var(--sidebar-border)",
       }}
     >
       {showClose && (
         <div className="flex justify-end px-3 pt-2">
           <button
-            className="p-1 rounded-md hover:bg-white/10 transition-colors"
+            className="p-1 transition-colors"
             style={{ color: "var(--sidebar-text)" }}
             onClick={onClose}
             aria-label="Close sidebar"
@@ -76,7 +79,7 @@ const SidebarContent = ({
         </div>
       )}
 
-      <nav className="flex-1 px-2" style={{ paddingTop: 8 }}>
+      <nav className="flex-1" style={{ paddingTop: 8 }}>
         {sections.map((section, si) => (
           <div key={section.title}>
             {si !== 0 && (
@@ -84,26 +87,26 @@ const SidebarContent = ({
                 style={{
                   height: 1,
                   background: "rgba(255,255,255,0.06)",
-                  margin: "8px 12px",
+                  margin: "8px 0",
                 }}
               />
             )}
             <p
               style={{
-                fontSize: 10.5,
+                fontSize: 11,
                 fontWeight: 600,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
-                color: "var(--sidebar-text)",
-                opacity: si === 0 ? 0.6 : 0.6,
-                padding: si === 0 ? "12px 12px 4px" : "12px 12px 4px",
+                color: "#879596",
+                padding: "12px 16px 4px",
               }}
             >
               {section.title}
             </p>
 
             {section.items.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive =
+                pathname === item.href || pathname.startsWith(`${item.href}/`);
               const badge = item.badge;
 
               return (
@@ -117,12 +120,13 @@ const SidebarContent = ({
                     onClose();
                   }}
                   data-active={isActive}
-                  className="sidebar-nav-item w-full flex items-center text-left font-medium transition-colors duration-150"
+                  className="sidebar-nav-item w-full flex items-center text-left transition-colors duration-150"
                   style={{
-                    fontSize: 12.5,
-                    padding: "6px 14px",
-                    gap: 7,
-                    borderRadius: 5,
+                    fontSize: 13,
+                    fontWeight: 400,
+                    padding: "7px 16px",
+                    gap: 8,
+                    borderRadius: 0,
                     color: isActive
                       ? "var(--sidebar-text-active)"
                       : "var(--sidebar-text)",
@@ -134,12 +138,15 @@ const SidebarContent = ({
                   <span className="flex-1">{item.label}</span>
                   {badge !== undefined && (
                     <span
-                      className="text-[10px] font-semibold rounded-full px-2 py-0.5"
                       style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        padding: "1px 6px",
+                        borderRadius: 2,
                         background: isActive
-                          ? "rgb(37 99 235 / 0.35)"
-                          : "rgb(255 255 255 / 0.1)",
-                        color: isActive ? "#dbeafe" : "var(--sidebar-text)",
+                          ? "rgba(255, 153, 0, 0.25)"
+                          : "rgba(255, 255, 255, 0.1)",
+                        color: isActive ? "#ffffff" : "var(--sidebar-text)",
                       }}
                     >
                       {badge}
@@ -170,12 +177,16 @@ const Sidebar = ({ mobileOpen, onMobileClose }: SidebarProps) => {
       </aside>
 
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-40 flex" style={{ top: "var(--topbar-height)" }}>
+        <div
+          className="md:hidden fixed inset-0 z-40 flex"
+          style={{ top: "var(--topbar-height)" }}
+        >
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0"
+            style={{ background: "rgba(0,0,0,0.5)" }}
             onClick={onMobileClose}
           />
-          <aside className="relative z-10 h-full shadow-2xl">
+          <aside className="relative z-10 h-full">
             <SidebarContent
               pathname={pathname}
               onClose={onMobileClose}

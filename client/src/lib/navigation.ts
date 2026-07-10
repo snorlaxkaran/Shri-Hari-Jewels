@@ -99,6 +99,43 @@ export const filterNavSections = (
     }))
     .filter((section) => section.items.length > 0);
 
+export type BreadcrumbItem = {
+  label: string;
+  href?: string;
+};
+
+export const getNavSectionForPath = (pathname: string): NavSection | undefined => {
+  for (const section of navSections) {
+    if (section.items.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))) {
+      return section;
+    }
+  }
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
+    return { title: "Overview", items: [] };
+  }
+  return undefined;
+};
+
+export const getBreadcrumbs = (pathname: string): BreadcrumbItem[] => {
+  const crumbs: BreadcrumbItem[] = [{ label: "Home", href: "/dashboard" }];
+
+  const section = getNavSectionForPath(pathname);
+  if (section && section.title !== "Overview") {
+    const firstItem = section.items[0];
+    crumbs.push({
+      label: section.title,
+      href: firstItem?.href,
+    });
+  }
+
+  const pageTitle = getPageTitle(pathname);
+  if (pageTitle !== "Dashboard" && pageTitle !== section?.title) {
+    crumbs.push({ label: pageTitle });
+  }
+
+  return crumbs;
+};
+
 export const getPageTitle = (pathname: string): string => {
   if (pathname === "/inventory/new") return "Add Stock";
   if (pathname === "/inventory/add-units") return "Add Units";

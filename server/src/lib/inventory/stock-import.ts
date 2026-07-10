@@ -19,6 +19,7 @@ import { createEntryVoucherInTx } from "./vouchers-service.js";
 export type { BulkStockImportResult, LegacyStockImportRow };
 
 const productInclude = {
+  branch: true,
   units: {
     include: { branch: true, sale: true },
     orderBy: { createdAt: "asc" as const },

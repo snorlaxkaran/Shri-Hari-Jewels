@@ -204,6 +204,28 @@ export default function InventoryTable({
 }: InventoryTableProps) {
   const [openFilterColumn, setOpenFilterColumn] =
     useState<FilterColumnId | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const allSelected =
+    rows.length > 0 && rows.every((row) => selectedIds.has(row.unitId));
+  const someSelected = rows.some((row) => selectedIds.has(row.unitId));
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(rows.map((row) => row.unitId)));
+  };
+
+  const toggleRow = (unitId: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(unitId)) next.delete(unitId);
+      else next.add(unitId);
+      return next;
+    });
+  };
 
   const columns = useMemo(
     () =>
@@ -225,7 +247,7 @@ export default function InventoryTable({
     return map;
   }, [columns, filterSourceRows]);
 
-  const columnCount = columns.length;
+  const columnCount = columns.length + 1;
 
   const renderCell = (row: InventoryUnitRow, column: ColumnDef) => {
     switch (column.id) {
@@ -331,10 +353,21 @@ export default function InventoryTable({
         onRemove={(column) => onColumnFilterChange(column, undefined)}
         onClearAll={onClearAllFilters}
       />
-      <div className="overflow-x-auto">
+      <div className="data-table-wrap">
         <table className="data-table min-w-[1280px]">
           <thead>
             <tr>
+              <th className="col-checkbox">
+                <input
+                  type="checkbox"
+                  aria-label="Select all rows"
+                  checked={allSelected}
+                  ref={(input) => {
+                    if (input) input.indeterminate = someSelected && !allSelected;
+                  }}
+                  onChange={toggleAll}
+                />
+              </th>
               {columns.map((column) => (
                 <ColumnHeader
                   key={column.id}
@@ -385,8 +418,21 @@ export default function InventoryTable({
               rows.map((row) => (
                 <tr
                   key={row.unitId}
-                  className={isInactiveUnit(row.status) ? "opacity-80" : ""}
+                  className={[
+                    isInactiveUnit(row.status) ? "opacity-80" : "",
+                    selectedIds.has(row.unitId) ? "row-selected" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                 >
+                  <td className="col-checkbox">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${row.itemCode}`}
+                      checked={selectedIds.has(row.unitId)}
+                      onChange={() => toggleRow(row.unitId)}
+                    />
+                  </td>
                   {columns.map((column) => renderCell(row, column))}
                 </tr>
               ))
@@ -394,6 +440,22 @@ export default function InventoryTable({
           </tbody>
         </table>
       </div>
+      {rows.length > 0 && (
+        <div className="table-pagination">
+          <span>
+            Showing 1–{rows.length} of {rows.length} items
+            {selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}
+          </span>
+          <div className="table-pagination-actions">
+            <button type="button" className="btn-secondary" disabled>
+              Previous
+            </button>
+            <button type="button" className="btn-secondary" disabled>
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
