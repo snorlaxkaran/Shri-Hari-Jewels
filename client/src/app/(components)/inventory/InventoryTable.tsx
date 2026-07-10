@@ -137,14 +137,14 @@ function ColumnHeader({
 
   if (!column.sortField && column.id === "actions") {
     return (
-      <th className="text-right w-16">
+      <th className="text-right w-16" style={{ padding: "8px 12px" }}>
         {column.label}
       </th>
     );
   }
 
   return (
-    <th className="relative">
+    <th className="relative" style={{ padding: "8px 12px" }}>
       <div className="flex items-center gap-1">
         {column.sortField ? (
           <button

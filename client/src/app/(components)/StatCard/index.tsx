@@ -35,15 +35,7 @@ export default function StatCard({
       >
         <span>{label}</span>
         {change !== undefined && (
-          <span
-            style={{
-              color: isPositive ? "#059669" : "#dc2626",
-              fontSize: 11,
-              display: "flex",
-              alignItems: "center",
-              gap: 2,
-            }}
-          >
+          <span style={{ color: isPositive ? "#059669" : "#dc2626", fontSize: 11 }}>
             {isPositive ? "↑" : "↓"} {Math.abs(change)}%
           </span>
         )}

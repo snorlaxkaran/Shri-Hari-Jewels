@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRightLeft, Search } from "lucide-react";
+import { ArrowRightLeft } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import RowActionsDropdown from "@/app/(components)/RowActionsDropdown";
@@ -173,7 +173,6 @@ export default function ProformaListPage() {
 
       <div className="filter-bar">
         <div className="filter-search">
-          <Search size={14} className="text-zinc-400 shrink-0" />
           <input
             type="search"
             value={search}
@@ -217,9 +216,7 @@ export default function ProformaListPage() {
           className="filter-select"
           aria-label="To date"
         />
-        <span className="filter-count">
-          Showing {filtered.length} of {transfers.length}
-        </span>
+        <span className="filter-count">{filtered.length} transfers</span>
       </div>
 
       <div className="surface-card overflow-hidden">

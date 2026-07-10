@@ -80,9 +80,7 @@ export default function OrdersPage() {
             </option>
           ))}
         </select>
-        <span className="filter-count">
-          Showing {filtered.length} of {orders.length}
-        </span>
+        <span className="filter-count">{filtered.length} orders</span>
       </div>
 
       <div className="surface-card overflow-hidden">

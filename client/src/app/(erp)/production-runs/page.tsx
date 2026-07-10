@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
-import FilterPill from "@/app/(components)/ui/FilterPill";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canManageProductionRuns } from "@/lib/auth/permissions";
 import { useProductionRuns } from "@/lib/production-runs/production-runs-context";
@@ -141,17 +140,20 @@ export default function ProductionRunsPage() {
       />
 
       <div className="filter-bar">
-        {statuses.map((status) => (
-          <FilterPill
-            key={status}
-            label={status}
-            active={statusFilter === status}
-            onClick={() => setStatusFilter(status)}
-          />
-        ))}
-        <span className="filter-count">
-          Showing {filtered.length} of {productionRuns.length}
-        </span>
+        <select
+          value={statusFilter}
+          onChange={(e) =>
+            setStatusFilter(e.target.value as ProductionRunStatus | "All")
+          }
+          className="filter-select"
+        >
+          {statuses.map((status) => (
+            <option key={status} value={status}>
+              {status === "All" ? "All statuses" : status}
+            </option>
+          ))}
+        </select>
+        <span className="filter-count">{filtered.length} production runs</span>
       </div>
 
       {error && (

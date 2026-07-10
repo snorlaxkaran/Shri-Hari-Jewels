@@ -60,6 +60,7 @@ export default function StatusBadge({ status }: { status: string }) {
           height: 5,
           borderRadius: "50%",
           backgroundColor: style.color,
+          display: "inline-block",
           flexShrink: 0,
         }}
       />

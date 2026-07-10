@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, Download, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Download } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import RowActionsDropdown from "@/app/(components)/RowActionsDropdown";
@@ -123,7 +123,6 @@ export default function SentStockPage() {
 
       <div className="filter-bar">
         <div className="filter-search">
-          <Search size={14} className="text-zinc-400 shrink-0" />
           <input
             type="search"
             value={search}
@@ -142,9 +141,7 @@ export default function SentStockPage() {
             </option>
           ))}
         </select>
-        <span className="filter-count">
-          Showing {filtered.length} of {transfers.length}
-        </span>
+        <span className="filter-count">{filtered.length} transfers</span>
       </div>
 
       <div className="surface-card overflow-hidden">

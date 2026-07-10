@@ -3,128 +3,87 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const BREADCRUMB_MAP: Record<
-  string,
-  { label: string; parent?: string; parentHref?: string }
-> = {
-  "/dashboard": { label: "Dashboard" },
-  "/inventory": { label: "All stock", parent: "Inventory" },
-  "/inventory/new": { label: "Add product", parent: "All stock", parentHref: "/inventory" },
-  "/inventory/add-units": { label: "Add units", parent: "All stock", parentHref: "/inventory" },
-  "/entry-verification": { label: "Entry verification", parent: "Inventory" },
-  "/raw-inventory": { label: "Raw materials", parent: "Inventory" },
-  "/sales": { label: "Sales", parent: "Sales" },
-  "/orders": { label: "Orders", parent: "Sales" },
-  "/orders/new": { label: "New order", parent: "Orders", parentHref: "/orders" },
-  "/customers": { label: "Customers", parent: "Sales" },
-  "/customers/new": { label: "Add customer", parent: "Customers", parentHref: "/customers" },
-  "/invoices": { label: "Invoices", parent: "Sales" },
-  "/work-orders": { label: "Work orders", parent: "Production" },
-  "/work-orders/new": { label: "New work order", parent: "Work orders", parentHref: "/work-orders" },
-  "/designs": { label: "Designs", parent: "Production" },
-  "/designs/new": { label: "New design", parent: "Designs", parentHref: "/designs" },
-  "/motifs": { label: "Motifs", parent: "Production" },
-  "/production-runs": { label: "Production runs", parent: "Production" },
-  "/production-runs/new": { label: "New run", parent: "Production runs", parentHref: "/production-runs" },
-  "/stock-transfer": { label: "Scan & send", parent: "Stock transfer" },
-  "/stock-transfer/sent": { label: "Sent", parent: "Stock transfer" },
-  "/stock-transfer/proforma": { label: "Proforma list", parent: "Stock transfer" },
-  "/stock-transfer/incoming": { label: "Incoming", parent: "Stock transfer" },
-  "/sales-analytics": { label: "Sales analytics", parent: "Reports" },
-  "/reports/gst": { label: "GST report", parent: "Reports" },
-  "/reports/stock-valuation": { label: "Stock valuation", parent: "Reports" },
-  "/reports/ageing-stock": { label: "Ageing stock", parent: "Reports" },
-  "/reports/staff-performance": { label: "Staff performance", parent: "Reports" },
-  "/branches": { label: "Branches", parent: "System" },
-  "/settings": { label: "Settings", parent: "System" },
+type Segment = { label: string; href?: string };
+
+const HOME: Segment = { label: "Home", href: "/dashboard" };
+
+const ROUTE_TRAILS: Record<string, Segment[]> = {
+  "/dashboard": [{ label: "Home" }],
+  "/inventory": [HOME, { label: "All stock" }],
+  "/inventory/new": [HOME, { label: "All stock", href: "/inventory" }, { label: "Add product" }],
+  "/inventory/add-units": [HOME, { label: "All stock", href: "/inventory" }, { label: "Add units" }],
+  "/entry-verification": [HOME, { label: "Entry verification" }],
+  "/raw-inventory": [HOME, { label: "Raw materials" }],
+  "/sales": [HOME, { label: "Sales" }],
+  "/orders": [HOME, { label: "Orders" }],
+  "/orders/new": [HOME, { label: "Orders", href: "/orders" }, { label: "New order" }],
+  "/customers": [HOME, { label: "Customers" }],
+  "/customers/new": [HOME, { label: "Customers", href: "/customers" }, { label: "Add customer" }],
+  "/invoices": [HOME, { label: "Invoices" }],
+  "/work-orders": [HOME, { label: "Work orders" }],
+  "/work-orders/new": [HOME, { label: "Work orders", href: "/work-orders" }, { label: "New" }],
+  "/designs": [HOME, { label: "Designs" }],
+  "/designs/new": [HOME, { label: "Designs", href: "/designs" }, { label: "New design" }],
+  "/motifs": [HOME, { label: "Motifs" }],
+  "/production-runs": [HOME, { label: "Production runs" }],
+  "/production-runs/new": [HOME, { label: "Production runs", href: "/production-runs" }, { label: "New run" }],
+  "/stock-transfer": [HOME, { label: "Stock transfer", href: "/stock-transfer" }, { label: "Scan & send" }],
+  "/stock-transfer/sent": [HOME, { label: "Stock transfer", href: "/stock-transfer" }, { label: "Sent" }],
+  "/stock-transfer/proforma": [HOME, { label: "Stock transfer", href: "/stock-transfer" }, { label: "Proforma list" }],
+  "/stock-transfer/incoming": [HOME, { label: "Stock transfer", href: "/stock-transfer" }, { label: "Incoming" }],
+  "/branches": [HOME, { label: "Branches" }],
+  "/settings": [HOME, { label: "Settings" }],
+  "/sales-analytics": [HOME, { label: "Reports", href: "/sales-analytics" }, { label: "Sales analytics" }],
+  "/reports/gst": [HOME, { label: "Reports", href: "/sales-analytics" }, { label: "GST report" }],
+  "/reports/stock-valuation": [HOME, { label: "Reports", href: "/sales-analytics" }, { label: "Stock valuation" }],
+  "/reports/ageing-stock": [HOME, { label: "Reports", href: "/sales-analytics" }, { label: "Ageing stock" }],
+  "/reports/staff-performance": [HOME, { label: "Reports", href: "/sales-analytics" }, { label: "Staff performance" }],
 };
 
-const SECTION_HREFS: Record<string, string> = {
-  Inventory: "/inventory",
-  "Stock transfer": "/stock-transfer",
-  Sales: "/sales",
-  Production: "/designs",
-  Reports: "/sales-analytics",
-  System: "/settings",
-};
-
-type Crumb = { label: string; href?: string };
-
-function getSectionName(parentLabel: string, parentHref?: string): string | undefined {
-  if (parentHref && BREADCRUMB_MAP[parentHref]?.parent) {
-    return BREADCRUMB_MAP[parentHref].parent;
-  }
-  const sectionNames = ["Inventory", "Stock transfer", "Sales", "Production", "Reports", "System"];
-  if (sectionNames.includes(parentLabel)) return parentLabel;
-  return undefined;
-}
-
-function resolveCrumbs(pathname: string): { crumbs: Crumb[]; leaf: string } {
-  if (pathname.startsWith("/stock-transfer/sent/") && pathname !== "/stock-transfer/sent") {
-    return {
-      crumbs: [
-        { label: "Home", href: "/dashboard" },
-        { label: "Stock transfer", href: "/stock-transfer" },
-        { label: "Sent", href: "/stock-transfer/sent" },
-      ],
-      leaf: "Transfer detail",
-    };
-  }
-  if (pathname.startsWith("/stock-transfer/incoming/") && pathname !== "/stock-transfer/incoming") {
-    return {
-      crumbs: [
-        { label: "Home", href: "/dashboard" },
-        { label: "Stock transfer", href: "/stock-transfer" },
-        { label: "Incoming", href: "/stock-transfer/incoming" },
-      ],
-      leaf: "Transfer detail",
-    };
+function resolveTrail(pathname: string): Segment[] {
+  if (ROUTE_TRAILS[pathname]) {
+    return ROUTE_TRAILS[pathname];
   }
 
-  if (BREADCRUMB_MAP[pathname]) {
-    const entry = BREADCRUMB_MAP[pathname];
-    const crumbs: Crumb[] = [{ label: "Home", href: "/dashboard" }];
-
-    if (entry.parentHref) {
-      const section = getSectionName(entry.parent!, entry.parentHref);
-      if (section && section !== entry.parent) {
-        crumbs.push({ label: section, href: SECTION_HREFS[section] });
-      }
-      crumbs.push({ label: entry.parent!, href: entry.parentHref });
-      return { crumbs, leaf: entry.label };
-    }
-
-    if (entry.parent) {
-      crumbs.push({ label: entry.parent, href: SECTION_HREFS[entry.parent] });
-      return { crumbs, leaf: entry.label };
-    }
-
-    return { crumbs, leaf: entry.label };
+  if (pathname.match(/^\/stock-transfer\/sent\/[^/]+$/)) {
+    return [
+      HOME,
+      { label: "Stock transfer", href: "/stock-transfer" },
+      { label: "Sent", href: "/stock-transfer/sent" },
+      { label: "Transfer detail" },
+    ];
   }
 
-  const sortedKeys = Object.keys(BREADCRUMB_MAP).sort((a, b) => b.length - a.length);
-  for (const key of sortedKeys) {
-    if (pathname.startsWith(key + "/")) {
-      const entry = BREADCRUMB_MAP[key];
-      const crumbs: Crumb[] = [{ label: "Home", href: "/dashboard" }];
-      if (entry.parent) {
-        crumbs.push({ label: entry.parent, href: SECTION_HREFS[entry.parent] });
-      }
-      crumbs.push({ label: entry.label, href: key });
-      const tail = pathname.slice(key.length + 1).replace(/-/g, " ");
-      return { crumbs, leaf: tail || "Detail" };
-    }
+  if (pathname.match(/^\/inventory\/[^/]+\/edit$/)) {
+    return [
+      HOME,
+      { label: "All stock", href: "/inventory" },
+      { label: "Edit product" },
+    ];
   }
 
-  return {
-    crumbs: [{ label: "Home", href: "/dashboard" }],
-    leaf: pathname.split("/").filter(Boolean).pop()?.replace(/-/g, " ") ?? "Page",
-  };
+  if (pathname.match(/^\/customers\/[^/]+\/edit$/)) {
+    return [
+      HOME,
+      { label: "Customers", href: "/customers" },
+      { label: "Edit customer" },
+    ];
+  }
+
+  if (pathname.match(/^\/production-runs\/[^/]+$/) && pathname !== "/production-runs/new") {
+    return [
+      HOME,
+      { label: "Production runs", href: "/production-runs" },
+      { label: "Run detail" },
+    ];
+  }
+
+  return [HOME, { label: "Page" }];
 }
 
 export default function Breadcrumbs() {
   const pathname = usePathname();
-  const { crumbs, leaf } = resolveCrumbs(pathname);
+  const segments = resolveTrail(pathname);
 
   return (
     <nav
@@ -141,20 +100,31 @@ export default function Breadcrumbs() {
         flexShrink: 0,
       }}
     >
-      {crumbs.map((crumb, i) => (
-        <span key={`${crumb.label}-${i}`} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {i > 0 && <span style={{ color: "var(--text-muted)" }}>/</span>}
-          {crumb.href ? (
-            <Link href={crumb.href} style={{ color: "var(--accent)", textDecoration: "none" }}>
-              {crumb.label}
-            </Link>
-          ) : (
-            <span style={{ color: "var(--text-muted)" }}>{crumb.label}</span>
-          )}
-        </span>
-      ))}
-      {crumbs.length > 0 && <span style={{ color: "var(--text-muted)" }}>/</span>}
-      <span style={{ color: "var(--text-primary)" }}>{leaf}</span>
+      {segments.map((segment, i) => {
+        const isLast = i === segments.length - 1;
+        return (
+          <span
+            key={`${segment.label}-${i}`}
+            style={{ display: "flex", alignItems: "center", gap: 6 }}
+          >
+            {i > 0 && (
+              <span style={{ color: "var(--text-muted)" }}>/</span>
+            )}
+            {isLast ? (
+              <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
+                {segment.label}
+              </span>
+            ) : (
+              <Link
+                href={segment.href ?? "/dashboard"}
+                style={{ color: "var(--accent)", textDecoration: "none" }}
+              >
+                {segment.label}
+              </Link>
+            )}
+          </span>
+        );
+      })}
     </nav>
   );
 }

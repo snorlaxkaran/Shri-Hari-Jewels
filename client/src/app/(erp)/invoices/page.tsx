@@ -71,9 +71,7 @@ export default function InvoicesPage() {
             </option>
           ))}
         </select>
-        <span className="filter-count">
-          Showing {filtered.length} of {invoices.length}
-        </span>
+        <span className="filter-count">{filtered.length} invoices</span>
       </div>
 
       <div className="surface-card overflow-hidden">

@@ -13,7 +13,7 @@ import { useCustomers } from "@/lib/customers/customers-context";
 import { CUSTOMER_TYPES } from "@/lib/customers/constants";
 import { CustomerTypeBadge } from "@/lib/customers/badges";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 
 const CustomerDetailPanel = dynamic(
   () => import("@/app/(components)/CustomerDetailPanel"),
@@ -88,7 +88,6 @@ function CustomersPageContent() {
 
       <div className="filter-bar">
         <div className="filter-search">
-          <Search size={14} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
           <input
             type="search"
             value={search}
@@ -108,9 +107,7 @@ function CustomersPageContent() {
             </option>
           ))}
         </select>
-        <span className="filter-count">
-          Showing {filtered.length} of {customers.length}
-        </span>
+        <span className="filter-count">{filtered.length} customers</span>
       </div>
 
       {filtered.length === 0 ? (
