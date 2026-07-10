@@ -1,5 +1,6 @@
 import { organizationBranchFilter } from "../branches/access.js";
 import { randomUUID } from "crypto";
+import { InventoryUnitStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import { toInvoice } from "../invoices/mappers.js";
 import { createInvoiceForSale } from "../invoices/service.js";
@@ -142,7 +143,14 @@ const completeOneSaleInTx = async (
     data: { status: "Sold", listPrice: sale.listPrice },
   });
 
-  await syncProductStockInTx(tx, sale.unit.productId);
+  await syncProductStockInTx(tx, sale.unit.productId, {
+    reason: "sale_completed",
+    performedByName: "System",
+    unitId: sale.unitId,
+    itemCode: sale.itemCode,
+    previousUnitStatus: sale.unit.status as InventoryUnitStatus,
+    newUnitStatus: InventoryUnitStatus.Sold,
+  });
 
   const invoice = await createInvoiceForSale(updatedSale, tx);
   return { sale: updatedSale, invoice };
@@ -217,17 +225,31 @@ export const cancelCartGroup = async (cartGroupId: string): Promise<void> => {
   if (qrId) await closeUpiQrCode(qrId);
 
   await prisma.$transaction(async (tx) => {
-    const productIds = new Set<string>();
     for (const sale of pending) {
+      const unit = await tx.inventoryUnit.findUnique({
+        where: { id: sale.unitId },
+        select: { status: true, itemCode: true },
+      });
+
       await tx.inventoryUnit.update({
         where: { id: sale.unitId },
         data: { status: "Available" },
       });
-      productIds.add(sale.productId);
+
+      if (unit) {
+        await syncProductStockInTx(tx, sale.productId, {
+          reason: "sale_cancelled",
+          performedByName: "System",
+          unitId: sale.unitId,
+          itemCode: unit.itemCode,
+          previousUnitStatus: unit.status,
+          newUnitStatus: InventoryUnitStatus.Available,
+        });
+      } else {
+        await syncProductStockInTx(tx, sale.productId);
+      }
+
       await tx.sale.delete({ where: { id: sale.id } });
-    }
-    for (const productId of productIds) {
-      await syncProductStockInTx(tx, productId);
     }
   });
 };
@@ -284,7 +306,14 @@ export const recordCartSale = async (
           where: { id: item.unit.id },
           data: { status: "Reserved", listPrice: item.listPrice },
         });
-        await syncProductStockInTx(tx, item.product.id);
+        await syncProductStockInTx(tx, item.product.id, {
+          reason: "upi_sale_pending",
+          performedByName: "System",
+          unitId: item.unit.id,
+          itemCode: item.unit.itemCode,
+          previousUnitStatus: InventoryUnitStatus.Available,
+          newUnitStatus: InventoryUnitStatus.Reserved,
+        });
         created.push(sale);
       }
       return created;
@@ -365,7 +394,14 @@ export const recordCartSale = async (
         data: { status: "Sold", listPrice: item.listPrice },
       });
 
-      await syncProductStockInTx(tx, item.product.id);
+      await syncProductStockInTx(tx, item.product.id, {
+        reason: "sale_recorded",
+        performedByName: "System",
+        unitId: item.unit.id,
+        itemCode: item.unit.itemCode,
+        previousUnitStatus: InventoryUnitStatus.Available,
+        newUnitStatus: InventoryUnitStatus.Sold,
+      });
 
       const invoice = await createInvoiceForSale(created, tx);
       completed.push({ sale: created, invoice });

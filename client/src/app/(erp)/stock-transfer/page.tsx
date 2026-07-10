@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRightLeft, Calendar, ScanLine, Trash2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
+import ItemCodeLink from "@/app/(components)/inventory/ItemCodeLink";
 import BranchAutocomplete from "@/app/(components)/BranchAutocomplete";
 import TransferTabs from "@/app/(components)/stock-transfer/TransferTabs";
 import TransferCustomerDetailsCard, {
@@ -474,7 +475,7 @@ function StockTransferScanPageContent() {
                         className="border-t border-zinc-100 text-zinc-900"
                       >
                         <td className="px-5 py-3 font-mono text-xs">
-                          {unit.itemCode}
+                          <ItemCodeLink itemCode={unit.itemCode} className="text-xs" />
                         </td>
                         <td className="px-5 py-3">{product.name}</td>
                         <td className="px-5 py-3 font-mono text-xs">

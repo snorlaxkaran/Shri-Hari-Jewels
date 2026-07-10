@@ -123,6 +123,7 @@ export const finalizeProductionRunInTx = async (
         finishedGoodsProductId: run.finishedGoodsProductId,
       },
       input,
+      actor,
     );
   }
 };

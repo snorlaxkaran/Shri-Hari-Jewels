@@ -491,12 +491,28 @@ export const cancelPendingSale = async (saleId: string): Promise<void> => {
   }
 
   await prisma.$transaction(async (tx) => {
+    const unit = await tx.inventoryUnit.findUnique({
+      where: { id: sale.unitId },
+      select: { status: true, itemCode: true },
+    });
+
     await tx.inventoryUnit.update({
       where: { id: sale.unitId },
       data: { status: "Available" },
     });
 
-    await syncProductStockInTx(tx, sale.productId);
+    if (unit) {
+      await syncProductStockInTx(tx, sale.productId, {
+        reason: "sale_cancelled",
+        performedByName: "System",
+        unitId: sale.unitId,
+        itemCode: unit.itemCode,
+        previousUnitStatus: unit.status,
+        newUnitStatus: InventoryUnitStatus.Available,
+      });
+    } else {
+      await syncProductStockInTx(tx, sale.productId);
+    }
 
     await tx.sale.delete({ where: { id: saleId } });
   });

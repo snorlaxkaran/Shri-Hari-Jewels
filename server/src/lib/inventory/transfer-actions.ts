@@ -12,7 +12,7 @@ import type { Branch, StockTransfer as DbStockTransfer, StockTransferItem as DbS
 import type { StockTransfer } from "../../types.js";
 import { moneyToNumber } from "../money.js";
 import { syncProductStockInTx } from "./stock-sync.js";
-import { recordInventoryAuditInTx } from "./audit.js";
+import { recordInventoryAuditInTx, recordUnitTransferAcceptedInTx, recordUnitTransferReturnedInTx } from "./audit.js";
 import { InventoryError } from "./service.js";
 import { generateTransferInvoiceNo } from "../invoices/transfer-invoice-no.js";
 import { generateTransferInvoicePdf } from "../invoices/transfer-invoice-pdf.js";
@@ -216,6 +216,11 @@ export const acceptStockTransfer = async (
   const itemCodes = transfer.items.map((item) => item.itemCode);
 
   const updated = await prisma.$transaction(async (tx) => {
+    const units = await tx.inventoryUnit.findMany({
+      where: { itemCode: { in: itemCodes } },
+      select: { id: true, itemCode: true, productId: true },
+    });
+
     await tx.inventoryUnit.updateMany({
       where: { itemCode: { in: itemCodes } },
       data: {
@@ -223,6 +228,19 @@ export const acceptStockTransfer = async (
         status: InventoryUnitStatus.Available,
       },
     });
+
+    for (const unit of units) {
+      await recordUnitTransferAcceptedInTx(
+        tx,
+        { unitId: unit.id, itemCode: unit.itemCode, productId: unit.productId },
+        actor,
+        {
+          transferNo: transfer.transferNo,
+          transferId: transfer.id,
+          toBranchId: transfer.toBranchId,
+        },
+      );
+    }
 
     await syncProductsForItemCodes(tx, itemCodes, {
       performedById: actor.id,
@@ -277,10 +295,26 @@ export const rejectStockTransfer = async (
   const itemCodes = transfer.items.map((item) => item.itemCode);
 
   const updated = await prisma.$transaction(async (tx) => {
+    const units = await tx.inventoryUnit.findMany({
+      where: { itemCode: { in: itemCodes } },
+      select: { id: true, itemCode: true, productId: true },
+    });
+
     await tx.inventoryUnit.updateMany({
       where: { itemCode: { in: itemCodes } },
       data: { status: InventoryUnitStatus.Available },
     });
+
+    for (const unit of units) {
+      await recordUnitTransferReturnedInTx(
+        tx,
+        { unitId: unit.id, itemCode: unit.itemCode, productId: unit.productId },
+        actor, {
+        transferNo: transfer.transferNo,
+        transferId: transfer.id,
+        reason: trimmedReason,
+      });
+    }
 
     await tx.stockTransferItem.updateMany({
       where: { transferId: transfer.id },
@@ -361,6 +395,12 @@ export const partialAcceptStockTransfer = async (
   }
 
   const updated = await prisma.$transaction(async (tx) => {
+    const allUnits = await tx.inventoryUnit.findMany({
+      where: { itemCode: { in: [...accepted, ...rejected] } },
+      select: { id: true, itemCode: true, productId: true },
+    });
+    const unitByCode = new Map(allUnits.map((unit) => [unit.itemCode, unit]));
+
     if (accepted.length > 0) {
       await tx.inventoryUnit.updateMany({
         where: { itemCode: { in: accepted } },
@@ -369,6 +409,21 @@ export const partialAcceptStockTransfer = async (
           status: InventoryUnitStatus.Available,
         },
       });
+
+      for (const code of accepted) {
+        const unit = unitByCode.get(code);
+        if (!unit) continue;
+        await recordUnitTransferAcceptedInTx(
+          tx,
+          { unitId: unit.id, itemCode: unit.itemCode, productId: unit.productId },
+          actor,
+          {
+            transferNo: transfer.transferNo,
+            transferId: transfer.id,
+            toBranchId: transfer.toBranchId,
+          },
+        );
+      }
     }
 
     if (rejected.length > 0) {
@@ -376,6 +431,21 @@ export const partialAcceptStockTransfer = async (
         where: { itemCode: { in: rejected } },
         data: { status: InventoryUnitStatus.Available },
       });
+
+      for (const code of rejected) {
+        const unit = unitByCode.get(code);
+        if (!unit) continue;
+        await recordUnitTransferReturnedInTx(
+          tx,
+          { unitId: unit.id, itemCode: unit.itemCode, productId: unit.productId },
+          actor,
+          {
+            transferNo: transfer.transferNo,
+            transferId: transfer.id,
+            reason: input.reason?.trim() || "Partial rejection",
+          },
+        );
+      }
     }
 
     for (const item of transfer.items) {
@@ -446,10 +516,26 @@ export const cancelStockTransfer = async (
   const itemCodes = transfer.items.map((item) => item.itemCode);
 
   const updated = await prisma.$transaction(async (tx) => {
+    const units = await tx.inventoryUnit.findMany({
+      where: { itemCode: { in: itemCodes } },
+      select: { id: true, itemCode: true, productId: true },
+    });
+
     await tx.inventoryUnit.updateMany({
       where: { itemCode: { in: itemCodes } },
       data: { status: InventoryUnitStatus.Available },
     });
+
+    for (const unit of units) {
+      await recordUnitTransferReturnedInTx(
+        tx,
+        { unitId: unit.id, itemCode: unit.itemCode, productId: unit.productId },
+        actor, {
+        transferNo: transfer.transferNo,
+        transferId: transfer.id,
+        reason: "Cancelled by sender",
+      });
+    }
 
     await syncProductsForItemCodes(tx, itemCodes, {
       performedById: actor.id,
@@ -465,6 +551,16 @@ export const cancelStockTransfer = async (
         acceptedByName: actor.name,
         acceptedAt: new Date(),
       },
+    });
+
+    await recordInventoryAuditInTx(tx, {
+      entityType: "InventoryUnit",
+      entityId: transfer.id,
+      action: "TransferCancelled",
+      newValue: { transferNo: transfer.transferNo, itemCodes },
+      reason: "transfer_cancel",
+      performedById: actor.id,
+      performedByName: actor.name,
     });
 
     return tx.stockTransfer.findUniqueOrThrow({

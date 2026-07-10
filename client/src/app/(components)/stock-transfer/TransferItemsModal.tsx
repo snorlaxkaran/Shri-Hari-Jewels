@@ -12,6 +12,7 @@ import { canManageStockTransfers } from "@/lib/auth/permissions";
 import { useAuth } from "@/lib/auth/auth-context";
 import type { StockTransfer } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
+import ItemCodeLink from "@/app/(components)/inventory/ItemCodeLink";
 
 type Props = {
   transfer: StockTransfer;
@@ -174,7 +175,9 @@ export default function TransferItemsModal({
                       />
                     </td>
                   )}
-                  <td className="px-2 py-2 font-mono text-xs">{item.itemCode}</td>
+                  <td className="px-2 py-2 font-mono text-xs">
+                    <ItemCodeLink itemCode={item.itemCode} className="text-xs" />
+                  </td>
                   <td className="px-2 py-2">{item.productName}</td>
                   <td className="px-2 py-2 font-mono text-xs">{item.sku}</td>
                   <td className="px-2 py-2">{formatCurrency(item.price)}</td>

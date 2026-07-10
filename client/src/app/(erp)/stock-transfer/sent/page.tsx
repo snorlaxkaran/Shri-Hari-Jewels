@@ -11,6 +11,7 @@ import { getApiErrorMessage } from "@/lib/api/client";
 import { canManageStockTransfers } from "@/lib/auth/permissions";
 import { useAuth } from "@/lib/auth/auth-context";
 import TransferStatusBadge from "@/app/(components)/stock-transfer/TransferStatusBadge";
+import ItemCodeLink from "@/app/(components)/inventory/ItemCodeLink";
 import {
   downloadTransfersCsv,
 } from "@/lib/inventory/export-transfer";
@@ -287,7 +288,10 @@ export default function SentStockPage() {
                                       className="border-t border-zinc-100"
                                     >
                                       <td className="px-4 py-2 font-mono text-xs">
-                                        {item.itemCode}
+                                        <ItemCodeLink
+                                          itemCode={item.itemCode}
+                                          className="text-xs"
+                                        />
                                       </td>
                                       <td className="px-4 py-2">
                                         {item.productName}

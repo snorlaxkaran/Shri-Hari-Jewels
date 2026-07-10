@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import StatusBadge from "@/app/(components)/StatusBadge";
+import ItemCodeLink from "@/app/(components)/inventory/ItemCodeLink";
 import ActiveFiltersBar from "@/app/(components)/inventory/ActiveFiltersBar";
 import ColumnFilterPopover from "@/app/(components)/inventory/ColumnFilterPopover";
 import {
@@ -230,7 +231,7 @@ export default function InventoryTable({
       case "itemCode":
         return (
           <td className="px-3 py-2.5 font-mono text-[12px] text-zinc-700">
-            {row.itemCode}
+            <ItemCodeLink itemCode={row.itemCode} />
           </td>
         );
       case "sku":

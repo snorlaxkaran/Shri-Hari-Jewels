@@ -19,7 +19,12 @@ import { reconcileInventoryWithSales } from "./reconcile.js";
 import { backfillMissingWholesaleSales } from "../sales/backfill-wholesale.js";
 import { getStockStatus } from "./status.js";
 import { syncProductStockInTx } from "./stock-sync.js";
-import { recordInventoryAudit } from "./audit.js";
+import {
+  recordInventoryAudit,
+  recordUnitTransferOutInTx,
+  recordUnitsCreatedInTx,
+  type AuditActor,
+} from "./audit.js";
 import { organizationBranchFilter, organizationTransferFromFilter, getOrganizationHeadOfficeBranchId } from "../branches/access.js";
 import { getBranchOrganizationId } from "../organizations/access.js";
 import { moneyToNumber, sumMoney } from "../money.js";
@@ -120,6 +125,7 @@ export const listProducts = async (
 export const createProduct = async (
   input: NewProductInput,
   branchId: string,
+  actor?: AuditActor,
 ): Promise<InventoryItem> => {
   const category = input.category as ProductCategory;
   const organizationId = await getBranchOrganizationId(branchId);
@@ -182,40 +188,57 @@ export const createProduct = async (
     unitCodes = generateUnitCodes(sku, input.quantity, existingUnitCodes);
   }
 
-  const product = await prisma.product.create({
-    data: {
-      organizationId,
-      branchId,
-      sku,
-      name: input.name.trim(),
-      category: input.category,
-      metal: input.metal,
-      purity: input.purity,
-      weightGrams: input.weightGrams,
-      makingCharges: input.makingCharges,
-      stoneCarat: input.stoneCarat,
-      price: input.price,
-      stock: input.quantity,
-      status: getStockStatus(input.quantity),
-      imageColor: CATEGORY_COLORS[category] ?? "#a1a1aa",
-      units: {
-        create: unitCodes.map((itemCode) => ({
-          organizationId,
-          branchId,
-          itemCode,
-          status: "Available",
-          listPrice: unitListPrice,
-        })),
+  const product = await prisma.$transaction(async (tx) => {
+    const created = await tx.product.create({
+      data: {
+        organizationId,
+        branchId,
+        sku,
+        name: input.name.trim(),
+        category: input.category,
+        metal: input.metal,
+        purity: input.purity,
+        weightGrams: input.weightGrams,
+        makingCharges: input.makingCharges,
+        stoneCarat: input.stoneCarat,
+        price: input.price,
+        stock: input.quantity,
+        status: getStockStatus(input.quantity),
+        imageColor: CATEGORY_COLORS[category] ?? "#a1a1aa",
+        units: {
+          create: unitCodes.map((itemCode) => ({
+            organizationId,
+            branchId,
+            itemCode,
+            status: "Available",
+            listPrice: unitListPrice,
+          })),
+        },
+        images: {
+          create: input.images.map((img, index) => ({
+            url: img.url,
+            name: img.name,
+            sortOrder: index,
+          })),
+        },
       },
-      images: {
-        create: input.images.map((img, index) => ({
-          url: img.url,
-          name: img.name,
-          sortOrder: index,
-        })),
-      },
-    },
-    include: productInclude,
+      include: productInclude,
+    });
+
+    const performer = actor ?? { name: "System" };
+    await recordUnitsCreatedInTx(
+      tx,
+      created.units.map((unit) => ({
+        unitId: unit.id,
+        itemCode: unit.itemCode,
+        productId: created.id,
+      })),
+      performer,
+      actor ? "manual_entry" : "system",
+      { sku: created.sku, productName: created.name },
+    );
+
+    return created;
   });
 
   return toInventoryItem(product, { marketRates });
@@ -224,6 +247,7 @@ export const createProduct = async (
 export const addQuantityToProduct = async (
   productId: string,
   quantity: number,
+  actor?: AuditActor,
 ): Promise<InventoryItem | null> => {
   const product = await prisma.product.findUnique({
     where: { id: productId },
@@ -253,6 +277,24 @@ export const addQuantityToProduct = async (
         listPrice: unitListPrice,
       })),
     });
+
+    const createdUnits = await tx.inventoryUnit.findMany({
+      where: { productId: product.id, itemCode: { in: newCodes } },
+      select: { id: true, itemCode: true },
+    });
+
+    const performer = actor ?? { name: "System" };
+    await recordUnitsCreatedInTx(
+      tx,
+      createdUnits.map((unit) => ({
+        unitId: unit.id,
+        itemCode: unit.itemCode,
+        productId: product.id,
+      })),
+      performer,
+      actor ? "add_units" : "system",
+      { sku: product.sku, productName: product.name },
+    );
 
     await syncProductStockInTx(tx, productId);
 
@@ -326,6 +368,7 @@ export const transferInventoryUnits = async (
   productId: string,
   unitIds: string[],
   toBranchId: string,
+  actor?: AuditActor,
 ): Promise<InventoryItem | null> => {
   if (unitIds.length === 0) {
     throw new InventoryError("Select at least one unit to transfer.");
@@ -357,14 +400,32 @@ export const transferInventoryUnits = async (
     );
   }
 
-  await prisma.inventoryUnit.updateMany({
-    where: { id: { in: unitIds }, productId },
-    data: { status: InventoryUnitStatus.InTransit },
-  });
+  const performer = actor ?? { name: "System" };
 
   await prisma.$transaction(async (tx) => {
+    await tx.inventoryUnit.updateMany({
+      where: { id: { in: unitIds }, productId },
+      data: { status: InventoryUnitStatus.InTransit },
+    });
+
+    for (const unit of units) {
+      await recordUnitTransferOutInTx(
+        tx,
+        {
+          unitId: unit.id,
+          itemCode: unit.itemCode,
+          productId: unit.productId,
+          previousStatus: InventoryUnitStatus.Available,
+          newStatus: InventoryUnitStatus.InTransit,
+        },
+        performer,
+        { toBranchId, transferType: "branch_move" },
+      );
+    }
+
     await syncProductStockInTx(tx, productId, {
-      performedByName: "System",
+      performedByName: performer.name,
+      performedById: performer.id,
       reason: "transfer_units",
     });
   });
@@ -516,6 +577,37 @@ export const createStockTransfer = async (
       data: { status: unitStatus },
     });
 
+    for (const unit of units) {
+      await recordUnitTransferOutInTx(
+        tx,
+        {
+          unitId: unit.id,
+          itemCode: unit.itemCode,
+          productId: unit.productId,
+          previousStatus: InventoryUnitStatus.Available,
+          newStatus: unitStatus,
+        },
+        createdBy,
+        {
+          transferNo,
+          transferId: created.id,
+          documentType: input.documentType,
+          customerId: input.customerId,
+          customerBranchId: input.customerBranchId,
+        },
+      );
+
+      await syncProductStockInTx(tx, unit.productId, {
+        performedById: createdBy.id,
+        performedByName: createdBy.name,
+        reason: isWholesaleInvoice ? "wholesale_transfer_sale" : "transfer_create",
+        unitId: unit.id,
+        itemCode: unit.itemCode,
+        previousUnitStatus: InventoryUnitStatus.Available,
+        newUnitStatus: unitStatus,
+      });
+    }
+
     if (isWholesaleInvoice) {
       for (const unit of units) {
         const listPrice = computeLiveListPriceForProduct(unit.product, marketRates);
@@ -542,15 +634,6 @@ export const createStockTransfer = async (
           },
         });
       }
-    }
-
-    const productIds = [...new Set(units.map((unit) => unit.productId))];
-    for (const productId of productIds) {
-      await syncProductStockInTx(tx, productId, {
-        performedById: createdBy.id,
-        performedByName: createdBy.name,
-        reason: "transfer_create",
-      });
     }
 
     return tx.stockTransfer.findUniqueOrThrow({

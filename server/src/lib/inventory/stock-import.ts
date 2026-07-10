@@ -9,7 +9,7 @@ import { prisma } from "../db.js";
 import { getBranchOrganizationId } from "../organizations/access.js";
 import { getCurrentMarketRates } from "../market-rates/service.js";
 import { computeLiveListPriceForProduct } from "./unit-pricing.js";
-import { recordInventoryAudit } from "./audit.js";
+import { recordInventoryAudit, recordUnitsCreatedInTx } from "./audit.js";
 import { syncProductStockInTx } from "./stock-sync.js";
 
 export type { BulkStockImportResult, LegacyStockImportRow };
@@ -122,16 +122,39 @@ export const importLegacyStock = async (
         );
 
         await prisma.$transaction(async (tx) => {
-          await tx.inventoryUnit.createMany({
-            data: newRows.map((row) => ({
-              organizationId,
-              branchId: existing.branchId,
-              itemCode: row.itemCode.trim(),
+          const rowsData = newRows.map((row) => ({
+            organizationId,
+            branchId: existing.branchId,
+            itemCode: row.itemCode.trim(),
+            productId: existing.id,
+            status: "Available" as const,
+            listPrice: unitListPrice,
+          }));
+
+          await tx.inventoryUnit.createMany({ data: rowsData });
+
+          const createdUnits = await tx.inventoryUnit.findMany({
+            where: {
               productId: existing.id,
-              status: "Available",
-              listPrice: unitListPrice,
-            })),
+              itemCode: { in: rowsData.map((row) => row.itemCode) },
+            },
+            select: { id: true, itemCode: true },
           });
+
+          if (actor) {
+            await recordUnitsCreatedInTx(
+              tx,
+              createdUnits.map((unit) => ({
+                unitId: unit.id,
+                itemCode: unit.itemCode,
+                productId: existing.id,
+              })),
+              actor,
+              "bulk_import",
+              { sku: existing.sku, productName: existing.name },
+            );
+          }
+
           await syncProductStockInTx(tx, existing.id);
         });
 
@@ -140,7 +163,7 @@ export const importLegacyStock = async (
       }
 
       const input = buildProductInput(catalogNo, groupRows, marketRates);
-      await createProduct(input, branchId);
+      await createProduct(input, branchId, actor);
       created += 1;
       unitsAdded += groupRows.length;
     } catch (error) {

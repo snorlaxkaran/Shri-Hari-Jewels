@@ -1491,3 +1491,70 @@ export type UpdateProductionRunItemInput = {
   stoneSignOff?: string | null;
   stageCheckoffs?: Partial<Record<ProductionRunStage, boolean>>;
 };
+
+export type ItemCodeHistoryEventType =
+  | "entry"
+  | "transfer_out"
+  | "transfer_in"
+  | "transfer_return"
+  | "sale"
+  | "status_change"
+  | "other";
+
+export type ItemCodeHistoryEvent = {
+  id: string;
+  date: string;
+  type: ItemCodeHistoryEventType;
+  action: string;
+  title: string;
+  description?: string;
+  reference?: string;
+  performedByName: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type ItemCodeStoneRequirement = {
+  motifName: string;
+  elementName: string;
+  stoneType: string;
+  qtyPerPiece: number;
+  source: "design_requirement";
+};
+
+export type ItemCodeHistory = {
+  itemCode: string;
+  spec: {
+    unitId: string;
+    productId: string;
+    productName: string;
+    sku: string;
+    category: string;
+    metal: string;
+    purity: string;
+    weightGrams: number;
+    makingCharges: number;
+    stoneCarat?: number;
+    listPrice?: number;
+    status: string;
+    branchName: string;
+    hallmarkNumber?: string;
+    hallmarkCenter?: string;
+    createdAt: string;
+    imageUrl?: string;
+    designStones: ItemCodeStoneRequirement[];
+    designStonesNote?: string;
+    productionRunNo?: string;
+  };
+  sale?: {
+    saleId: string;
+    invoiceNo?: string;
+    customerName: string;
+    dealPrice: number;
+    listPrice: number;
+    paymentMode: string;
+    soldAt: string;
+    saleSource: string;
+    stockTransferId?: string;
+  };
+  events: ItemCodeHistoryEvent[];
+};

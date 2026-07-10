@@ -19,6 +19,7 @@ import {
   transferInventoryUnits,
   updateProduct,
 } from "../lib/inventory/service.js";
+import { getItemCodeHistory } from "../lib/inventory/item-history-service.js";
 import { importLegacyStock } from "../lib/inventory/stock-import.js";
 import {
   acceptStockTransfer,
@@ -106,6 +107,27 @@ inventoryRouter.get("/", requireRole(canReadInventory), async (req: Authenticate
   }
 });
 
+inventoryRouter.get(
+  "/item/:itemCode/history",
+  requireRole(canReadInventory),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const history = await getItemCodeHistory(
+        routeParam(req.params.itemCode),
+        req.organizationId!,
+      );
+      res.json(history);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("GET /api/inventory/item/:itemCode/history", error);
+      res.status(500).json({ error: "Failed to fetch item history" });
+    }
+  },
+);
+
 inventoryRouter.post(
   "/",
   requireRole(canWriteInventory),
@@ -130,6 +152,7 @@ inventoryRouter.post(
           images: input.images ?? [],
         },
         branchId,
+        { id: req.user!.id, name: req.user!.name },
       );
       res.status(201).json(product);
     } catch (error) {
@@ -659,7 +682,7 @@ inventoryRouter.delete(
 inventoryRouter.post(
   "/:id/units",
   requireRole(canWriteInventory),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
       const quantity = Number(req.body.quantity);
       if (!quantity || quantity < 1) {
@@ -670,6 +693,9 @@ inventoryRouter.post(
       const product = await addQuantityToProduct(
         routeParam(req.params.id),
         quantity,
+        req.user
+          ? { id: req.user.id, name: req.user.name }
+          : undefined,
       );
       if (!product) {
         res.status(404).json({ error: "Product not found" });

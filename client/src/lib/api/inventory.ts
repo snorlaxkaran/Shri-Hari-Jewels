@@ -1,6 +1,7 @@
 import type {
   BulkStockImportResult,
   InventoryItem,
+  ItemCodeHistory,
   LegacyStockImportRow,
   NewProductInput,
   PartialAcceptTransferInput,
@@ -23,6 +24,15 @@ export const fetchInventory = async (options?: {
     },
     headers: { "Cache-Control": "no-cache" },
   });
+  return data;
+};
+
+export const fetchItemCodeHistory = async (
+  itemCode: string,
+): Promise<ItemCodeHistory> => {
+  const { data } = await api.get<ItemCodeHistory>(
+    `/api/inventory/item/${encodeURIComponent(itemCode.trim())}/history`,
+  );
   return data;
 };
 

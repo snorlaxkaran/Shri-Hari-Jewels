@@ -3,6 +3,7 @@ import { CATEGORY_COLORS, type ProductCategory } from "../inventory/categories.j
 import { generateUnitCodes } from "../inventory/sku.js";
 import { getStockStatus } from "../inventory/status.js";
 import { syncProductStockInTx } from "../inventory/stock-sync.js";
+import { recordUnitsCreatedInTx, type AuditActor } from "../inventory/audit.js";
 import { moneyToNumber } from "../money.js";
 import {
   calculateJewelryPrice,
@@ -307,6 +308,8 @@ const addUnitsToExistingProductInTx = async (
   sku: string,
   quantity: number,
   listPrice: number,
+  actor?: AuditActor,
+  productName?: string,
 ): Promise<void> => {
   const orgUnits = await tx.inventoryUnit.findMany({
     where: { organizationId },
@@ -326,6 +329,24 @@ const addUnitsToExistingProductInTx = async (
     })),
   });
 
+  const createdUnits = await tx.inventoryUnit.findMany({
+    where: { productId, itemCode: { in: unitCodes } },
+    select: { id: true, itemCode: true },
+  });
+
+  const performer = actor ?? { name: "System" };
+  await recordUnitsCreatedInTx(
+    tx,
+    createdUnits.map((unit) => ({
+      unitId: unit.id,
+      itemCode: unit.itemCode,
+      productId,
+    })),
+    performer,
+    "production_run",
+    { sku, productName },
+  );
+
   await syncProductStockInTx(tx, productId);
 };
 
@@ -341,6 +362,7 @@ export const createFinishedGoodsInTx = async (
     finishedGoodsProductId: string | null;
   },
   input: FinishedGoodsInput,
+  actor?: AuditActor,
 ): Promise<string> => {
   if (run.finishedGoodsProductId) {
     throw new ProductionRunError(
@@ -383,6 +405,8 @@ export const createFinishedGoodsInTx = async (
       sku,
       quantity,
       input.price,
+      actor,
+      input.name.trim(),
     );
 
     await tx.product.update({
@@ -441,7 +465,21 @@ export const createFinishedGoodsInTx = async (
         })),
       },
     },
+    include: { units: { select: { id: true, itemCode: true } } },
   });
+
+  const performer = actor ?? { name: "System" };
+  await recordUnitsCreatedInTx(
+    tx,
+    product.units.map((unit) => ({
+      unitId: unit.id,
+      itemCode: unit.itemCode,
+      productId: product.id,
+    })),
+    performer,
+    "production_run",
+    { sku, productName: input.name.trim(), runNo: run.runNo },
+  );
 
   await syncProductStockInTx(tx, product.id);
 

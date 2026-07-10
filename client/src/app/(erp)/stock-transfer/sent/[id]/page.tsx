@@ -14,6 +14,7 @@ import { fetchSettings } from "@/lib/api/settings";
 import { getApiErrorMessage } from "@/lib/api/client";
 import type { ShopSettings, StockTransfer, StockTransferItem } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/format";
+import ItemCodeLink from "@/app/(components)/inventory/ItemCodeLink";
 
 const labelClass =
   "text-[11px] font-medium uppercase tracking-wide text-zinc-400";
@@ -347,7 +348,9 @@ export default function SentTransferDetailPage() {
                   className="border-t border-zinc-100 text-zinc-900"
                 >
                   <td className="px-5 py-3 text-zinc-500">{index + 1}</td>
-                  <td className="px-5 py-3 font-mono text-xs">{item.itemCode}</td>
+                  <td className="px-5 py-3 font-mono text-xs">
+                    <ItemCodeLink itemCode={item.itemCode} className="text-xs" />
+                  </td>
                   <td className="px-5 py-3">{item.productName}</td>
                   <td className="px-5 py-3 font-mono text-xs">{item.sku}</td>
                   <td className="px-5 py-3">{item.metal}</td>

@@ -991,6 +991,7 @@ model InventoryAuditLog {
 
   @@index([entityType, entityId])
   @@index([productId])
+  @@index([itemCode])
   @@index([createdAt])
 }
 
