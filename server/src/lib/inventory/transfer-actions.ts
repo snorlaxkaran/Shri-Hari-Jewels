@@ -116,7 +116,30 @@ const assertPendingForBranch = (
   }
 };
 
-/** Pending internal lines default accepted=true in DB — reset when units are still InTransit. */
+/** Pending internal lines default accepted=true in DB — reset only unverified false positives. */
+const getVerifiedItemCodesForTransfer = async (transferId: string) => {
+  const logs = await prisma.inventoryAuditLog.findMany({
+    where: {
+      entityId: transferId,
+      action: "TransferItemVerified",
+    },
+    select: { itemCode: true, newValue: true },
+  });
+
+  const verified = new Set<string>();
+  for (const log of logs) {
+    if (log.itemCode) verified.add(log.itemCode);
+    if (!log.newValue) continue;
+    try {
+      const parsed = JSON.parse(log.newValue) as { itemCode?: string };
+      if (parsed.itemCode) verified.add(parsed.itemCode);
+    } catch {
+      // ignore malformed audit payloads
+    }
+  }
+  return verified;
+};
+
 const repairPendingTransferVerification = async (
   transfer: StockTransferWithRelations,
 ) => {
@@ -155,10 +178,30 @@ const repairPendingTransferVerification = async (
     return transfer;
   }
 
+  const verifiedCodes = await getVerifiedItemCodesForTransfer(transfer.id);
+
   let repaired = false;
   for (const item of transfer.items) {
     const unit = unitByCode.get(item.itemCode);
-    if (item.accepted && unit?.status === InventoryUnitStatus.InTransit) {
+    if (
+      verifiedCodes.has(item.itemCode) &&
+      !item.accepted &&
+      unit?.status === InventoryUnitStatus.InTransit
+    ) {
+      await prisma.stockTransferItem.update({
+        where: { id: item.id },
+        data: { accepted: true },
+      });
+      item.accepted = true;
+      repaired = true;
+      continue;
+    }
+
+    if (
+      item.accepted &&
+      unit?.status === InventoryUnitStatus.InTransit &&
+      !verifiedCodes.has(item.itemCode)
+    ) {
       await prisma.stockTransferItem.update({
         where: { id: item.id },
         data: { accepted: false },
@@ -168,7 +211,7 @@ const repairPendingTransferVerification = async (
     }
   }
 
-  if (!repaired && transfer.status === StockTransferStatus.Pending) {
+  if (!repaired) {
     return transfer;
   }
 
@@ -363,6 +406,7 @@ export const scanReceiveStockTransfer = async (
     await recordInventoryAuditInTx(tx, {
       entityType: "InventoryUnit",
       entityId: transfer.id,
+      itemCode: trimmedCode,
       action: "TransferItemVerified",
       newValue: { transferNo: transfer.transferNo, itemCode: trimmedCode },
       reason: "transfer_verify_scan",

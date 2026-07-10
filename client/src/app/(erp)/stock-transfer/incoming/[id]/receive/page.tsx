@@ -90,12 +90,17 @@ export default function ReceiveIncomingTransferPage() {
   };
 
   const handleSave = () => {
-    setInfo("Verification progress saved. You can return later to finish.");
-    setError("");
+    router.push("/stock-transfer/incoming");
   };
 
   const handleAccept = async () => {
     if (!transfer || !canReceive) return;
+    if (!allVerified) {
+      setError(
+        `Verify all items before accepting (${transfer.items.length - verifiedCount} remaining).`,
+      );
+      return;
+    }
     setAccepting(true);
     setError("");
     setInfo("");
@@ -321,6 +326,11 @@ export default function ReceiveIncomingTransferPage() {
                   onClick={handleSave}
                   disabled={accepting}
                   className="btn-secondary px-4 py-2 text-sm"
+                  title={
+                    allVerified
+                      ? "Return to incoming stock — use Accept to finish"
+                      : "Save progress and return to incoming stock"
+                  }
                 >
                   Save
                 </button>
