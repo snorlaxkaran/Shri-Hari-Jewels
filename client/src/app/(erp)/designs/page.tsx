@@ -3,7 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
@@ -31,24 +31,12 @@ import type {
   MetalType,
   Motif,
   NewDesignElementInput,
-  NewProductionRunInput,
   Purity,
 } from "@/lib/types";
-import { createProductionRun } from "@/lib/api/production-runs";
 import { getApiErrorMessage } from "@/lib/api/client";
-
-const AddDesignModal = dynamic(
-  () => import("@/app/(components)/AddDesignModal"),
-  { ssr: false },
-);
 
 const AddMotifModal = dynamic(
   () => import("@/app/(components)/designs/AddMotifModal"),
-  { ssr: false },
-);
-
-const AddProductionRunModal = dynamic(
-  () => import("@/app/(components)/AddProductionRunModal"),
   { ssr: false },
 );
 
@@ -115,6 +103,7 @@ function estimatePrice(
 }
 
 export default function DesignsPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const canManage = user ? canManageDesigns(user.role) : false;
@@ -123,7 +112,6 @@ export default function DesignsPage() {
     hydrated,
     loading,
     error,
-    addDesign,
     patchDesign,
     removeDesign,
     addElement,
@@ -131,7 +119,6 @@ export default function DesignsPage() {
   } = useDesigns();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
   const [motifModalOpen, setMotifModalOpen] = useState(false);
   const [motifs, setMotifs] = useState<Motif[]>([]);
   const [motifsLoading, setMotifsLoading] = useState(true);
@@ -146,7 +133,6 @@ export default function DesignsPage() {
   const [makingCharges, setMakingCharges] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [productionRunModalOpen, setProductionRunModalOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [bomDiffOpen, setBomDiffOpen] = useState(false);
   const [bomDiff, setBomDiff] = useState<DesignElementDiff | null>(null);
@@ -514,37 +500,8 @@ export default function DesignsPage() {
     }
     const saved = await handleSaveJewelry();
     if (saved) {
-      setProductionRunModalOpen(true);
+      router.push(`/production-runs/new?designId=${selectedDesign.id}`);
     }
-  };
-
-  const handleCreateProductionRun = async (input: NewProductionRunInput) => {
-    const run = await createProductionRun(input);
-    let message = `Production run ${run.runNo} created`;
-    if (run.metalStockWarning) {
-      message += `. Metal stock warning: only enough ${run.metalStockWarning.metal} for ${run.metalStockWarning.maxSets} of ${run.metalStockWarning.requestedSets} sets`;
-    }
-    if (run.stoneStockWarnings?.length) {
-      const summary = run.stoneStockWarnings
-        .map(
-          (w) =>
-            `${w.stoneType}: need ${w.required}, have ${w.available}`,
-        )
-        .join("; ");
-      message += `. Stone stock warning: ${summary}`;
-    }
-    setSuccessMessage(message);
-    setTimeout(() => setSuccessMessage(""), 8000);
-  };
-
-  const handleCreateDesign = async (input: {
-    code: string;
-    name?: string;
-    category?: DesignCategory;
-  }) => {
-    const design = await addDesign(input);
-    setSelectedId(design.id);
-    setModalOpen(false);
   };
 
   const handleAddMotif = async (input: {
@@ -1024,14 +981,6 @@ export default function DesignsPage() {
         </div>
       )}
 
-      {modalOpen && (
-        <AddDesignModal
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          onSubmit={handleCreateDesign}
-        />
-      )}
-
       {motifModalOpen && selectedDesign && (
         <AddMotifModal
           open={motifModalOpen}
@@ -1041,16 +990,6 @@ export default function DesignsPage() {
           onClose={() => setMotifModalOpen(false)}
           onSubmit={handleAddMotif}
           onMotifCreated={loadMotifs}
-        />
-      )}
-
-      {productionRunModalOpen && selectedDesign && (
-        <AddProductionRunModal
-          open={productionRunModalOpen}
-          onClose={() => setProductionRunModalOpen(false)}
-          designs={designs}
-          initialDesignId={selectedDesign.id}
-          onSubmit={handleCreateProductionRun}
         />
       )}
 

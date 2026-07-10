@@ -1,27 +1,21 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canManageBranches } from "@/lib/auth/permissions";
-import { createBranch, fetchBranches } from "@/lib/api/branches";
+import { fetchBranches } from "@/lib/api/branches";
 import { getApiErrorMessage } from "@/lib/api/client";
 import type { Branch } from "@/lib/types";
 import { MapPin, Phone, Plus, Store, User } from "lucide-react";
-
-const AddBranchModal = dynamic(
-  () => import("@/app/(components)/AddBranchModal"),
-  { ssr: false },
-);
 
 export default function BranchesPage() {
   const { user } = useAuth();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
   const canManage = user ? canManageBranches(user.role) : false;
 
   const loadBranches = useCallback(async () => {
@@ -44,15 +38,6 @@ export default function BranchesPage() {
     }
   }, [canManage, loadBranches]);
 
-  const handleAddBranch = async (
-    input: Parameters<typeof createBranch>[0],
-  ) => {
-    const branch = await createBranch(input);
-    setBranches((current) =>
-      [...current, branch].sort((a, b) => a.name.localeCompare(b.name)),
-    );
-  };
-
   if (loading) return <PageSkeleton />;
 
   if (!canManage) {
@@ -72,13 +57,13 @@ export default function BranchesPage() {
         title="Branches"
         subtitle={`${branches.length} active store${branches.length === 1 ? "" : "s"}`}
         action={
-          <button
-            onClick={() => setModalOpen(true)}
+          <Link
+            href="/branches/new"
             className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
           >
             <Plus size={16} />
             Add Branch
-          </button>
+          </Link>
         }
       />
 
@@ -133,12 +118,6 @@ export default function BranchesPage() {
           ))}
         </div>
       )}
-
-      <AddBranchModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={handleAddBranch}
-      />
     </div>
   );
 }

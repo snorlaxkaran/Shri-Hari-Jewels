@@ -1,22 +1,16 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatusBadge from "@/app/(components)/StatusBadge";
 import FilterPill from "@/app/(components)/ui/FilterPill";
-import { useCustomers } from "@/lib/customers/customers-context";
 import { useOrders } from "@/lib/orders/orders-context";
 import { useSales } from "@/lib/sales/sales-context";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Plus } from "lucide-react";
 import type { OrderStatus } from "@/lib/types";
-
-const AddOrderModal = dynamic(
-  () => import("@/app/(components)/AddOrderModal"),
-  { ssr: false },
-);
 
 const statuses: (OrderStatus | "All")[] = [
   "All",
@@ -30,11 +24,9 @@ const statuses: (OrderStatus | "All")[] = [
 ];
 
 export default function OrdersPage() {
-  const { customers } = useCustomers();
-  const { orders, hydrated, loading, error, addOrder, patchOrder } = useOrders();
+  const { orders, hydrated, loading, error, patchOrder } = useOrders();
   const { refresh: refreshSales } = useSales();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "All">("All");
-  const [modalOpen, setModalOpen] = useState(false);
 
   const filtered = useMemo(
     () =>
@@ -43,11 +35,6 @@ export default function OrdersPage() {
         : orders.filter((o) => o.status === statusFilter),
     [orders, statusFilter],
   );
-
-  const handleAddOrder = async (input: Parameters<typeof addOrder>[0]) => {
-    await addOrder(input);
-    await refreshSales();
-  };
 
   const handleStatusChange = async (orderId: string, status: OrderStatus) => {
     await patchOrder(orderId, { status });
@@ -64,13 +51,13 @@ export default function OrdersPage() {
         title="Orders"
         subtitle={`${filtered.length} custom orders`}
         action={
-          <button
-            onClick={() => setModalOpen(true)}
+          <Link
+            href="/orders/new"
             className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
           >
             <Plus size={16} />
             New Order
-          </button>
+          </Link>
         }
       />
 
@@ -152,15 +139,6 @@ export default function OrdersPage() {
           </div>
         )}
       </div>
-
-      {modalOpen && (
-        <AddOrderModal
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          customers={customers}
-          onSubmit={handleAddOrder}
-        />
-      )}
     </div>
   );
 }

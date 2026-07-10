@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
@@ -9,16 +8,10 @@ import PageSkeleton from "@/app/(components)/PageSkeleton";
 import FilterPill from "@/app/(components)/ui/FilterPill";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canManageProductionRuns } from "@/lib/auth/permissions";
-import { useDesigns } from "@/lib/designs/designs-context";
 import { useProductionRuns } from "@/lib/production-runs/production-runs-context";
 import { stageToProductionRunSlug } from "@/lib/production-runs/stages";
 import type { ProductionRun, ProductionRunStatus } from "@/lib/types";
 import { formatDate } from "@/lib/format";
-
-const AddProductionRunModal = dynamic(
-  () => import("@/app/(components)/AddProductionRunModal"),
-  { ssr: false },
-);
 
 const statuses: (ProductionRunStatus | "All")[] = [
   "All",
@@ -107,18 +100,15 @@ function ProductionRunSummaryCard({ run }: { run: ProductionRun }) {
 export default function ProductionRunsPage() {
   const { user } = useAuth();
   const canManage = user ? canManageProductionRuns(user.role) : false;
-  const { designs } = useDesigns();
   const {
     productionRuns,
     hydrated,
     loading,
     error,
-    addProductionRun,
   } = useProductionRuns();
   const [statusFilter, setStatusFilter] = useState<
     ProductionRunStatus | "All"
   >("All");
-  const [modalOpen, setModalOpen] = useState(false);
 
   const filtered = useMemo(
     () =>
@@ -139,13 +129,13 @@ export default function ProductionRunsPage() {
         subtitle="Track casting, wax moulds, and stone usage per order"
         action={
           canManage ? (
-            <button
-              onClick={() => setModalOpen(true)}
+            <Link
+              href="/production-runs/new"
               className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
             >
               <Plus size={16} />
               New Run
-            </button>
+            </Link>
           ) : undefined
         }
       />
@@ -181,17 +171,6 @@ export default function ProductionRunsPage() {
             <ProductionRunSummaryCard key={run.id} run={run} />
           ))}
         </div>
-      )}
-
-      {modalOpen && (
-        <AddProductionRunModal
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          designs={designs}
-          onSubmit={async (input) => {
-            await addProductionRun(input);
-          }}
-        />
       )}
     </div>
   );

@@ -1,23 +1,17 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import FilterPill from "@/app/(components)/ui/FilterPill";
-import { useOrders } from "@/lib/orders/orders-context";
 import { useWorkOrders } from "@/lib/work-orders/work-orders-context";
 import type {
   WorkOrderStatus,
   WorkOrderPriority,
 } from "@/lib/types";
 import { formatDate } from "@/lib/format";
-
-const AddWorkOrderModal = dynamic(
-  () => import("@/app/(components)/AddWorkOrderModal"),
-  { ssr: false },
-);
 
 const statuses: (WorkOrderStatus | "All")[] = [
   "All",
@@ -31,16 +25,14 @@ const statuses: (WorkOrderStatus | "All")[] = [
 const priorities: WorkOrderPriority[] = ["Low", "Normal", "High"];
 
 export default function WorkOrdersPage() {
-  const { workOrders, hydrated, loading, error, addWorkOrder, patchWorkOrder } =
+  const { workOrders, hydrated, loading, error, patchWorkOrder } =
     useWorkOrders();
-  const { orders } = useOrders();
   const [statusFilter, setStatusFilter] = useState<WorkOrderStatus | "All">(
     "All",
   );
   const [priorityFilter, setPriorityFilter] = useState<
     WorkOrderPriority | "All"
   >("All");
-  const [modalOpen, setModalOpen] = useState(false);
 
   const filtered = useMemo(
     () =>
@@ -53,12 +45,6 @@ export default function WorkOrdersPage() {
       }),
     [workOrders, statusFilter, priorityFilter],
   );
-
-  const handleAddWorkOrder = async (
-    input: Parameters<typeof addWorkOrder>[0],
-  ) => {
-    await addWorkOrder(input);
-  };
 
   const handleStatusChange = async (id: string, status: WorkOrderStatus) => {
     await patchWorkOrder(id, { status });
@@ -81,13 +67,13 @@ export default function WorkOrdersPage() {
         title="Work Orders"
         subtitle="Production and manufacturing tracking"
         action={
-          <button
-            onClick={() => setModalOpen(true)}
+          <Link
+            href="/work-orders/new"
             className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
           >
             <Plus size={16} />
             New Work Order
-          </button>
+          </Link>
         }
       />
 
@@ -201,15 +187,6 @@ export default function WorkOrdersPage() {
           </div>
         )}
       </div>
-
-      {modalOpen && (
-        <AddWorkOrderModal
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          orders={orders}
-          onSubmit={handleAddWorkOrder}
-        />
-      )}
     </div>
   );
 }

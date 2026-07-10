@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
@@ -46,11 +47,6 @@ const InventoryTable = dynamic(
   },
 );
 
-const EditProductModal = dynamic(
-  () => import("@/app/(components)/EditProductModal"),
-  { ssr: false },
-);
-
 const AddUnitsModal = dynamic(
   () => import("@/app/(components)/AddUnitsModal"),
   { ssr: false },
@@ -62,9 +58,9 @@ const AddUnitsSkuPickerModal = dynamic(
 );
 
 export default function InventoryPage() {
+  const router = useRouter();
   const { user } = useAuth();
-  const { items, hydrated, loading, error, updateProduct, addQuantityToSku } =
-    useInventory();
+  const { items, hydrated, loading, error, addQuantityToSku } = useInventory();
   const canAdd = user ? canWriteInventory(user.role) : false;
   const [search, setSearch] = useState("");
   const [metalTab, setMetalTab] = useState<ProductMetalTab>("all");
@@ -72,7 +68,6 @@ export default function InventoryPage() {
   const [sortBy, setSortBy] = useState<InventorySortField>("createdAt");
   const [sortOrder, setSortOrder] = useState<InventorySortOrder>("desc");
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
-  const [editProduct, setEditProduct] = useState<InventoryItem | null>(null);
   const [addUnitsProduct, setAddUnitsProduct] = useState<InventoryItem | null>(
     null,
   );
@@ -148,9 +143,9 @@ export default function InventoryPage() {
   const handleEditUnitRow = useCallback(
     (row: (typeof filteredRows)[number]) => {
       const product = findProductForUnitRow(items, row);
-      if (product) setEditProduct(product);
+      if (product) router.push(`/inventory/${product.id}/edit`);
     },
-    [items],
+    [items, router],
   );
 
   if (!hydrated || loading) {
@@ -273,18 +268,6 @@ export default function InventoryPage() {
           onEditProduct={handleEditUnitRow}
         />
       </div>
-
-      {editProduct && (
-        <EditProductModal
-          open
-          product={editProduct}
-          onClose={() => setEditProduct(null)}
-          onSubmit={async (input) => {
-            const updated = await updateProduct(editProduct.id, input);
-            if (updated) setEditProduct(updated);
-          }}
-        />
-      )}
 
       <AddUnitsSkuPickerModal
         open={skuPickerOpen}

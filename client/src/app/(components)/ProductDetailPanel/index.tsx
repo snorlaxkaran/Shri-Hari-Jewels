@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { Pencil, Plus, X } from "lucide-react";
 import type { InventoryItem } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
@@ -10,7 +11,6 @@ import { canWriteInventory } from "@/lib/auth/permissions";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import StatusBadge from "@/app/(components)/StatusBadge";
 
-const EditProductModal = dynamic(() => import("@/app/(components)/EditProductModal"), { ssr: false });
 const AddUnitsModal = dynamic(() => import("@/app/(components)/AddUnitsModal"), { ssr: false });
 
 type ProductDetailPanelProps = {
@@ -33,9 +33,9 @@ export default function ProductDetailPanel({
   onClose,
   onUpdated,
 }: ProductDetailPanelProps) {
+  const router = useRouter();
   const { user } = useAuth();
-  const { updateProduct, addQuantityToSku } = useInventory();
-  const [editOpen, setEditOpen] = useState(false);
+  const { addQuantityToSku } = useInventory();
   const [unitsOpen, setUnitsOpen] = useState(false);
 
   if (!product) return null;
@@ -73,7 +73,7 @@ export default function ProductDetailPanel({
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setEditOpen(true)}
+                  onClick={() => router.push(`/inventory/${product.id}/edit`)}
                   className="btn-secondary flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs"
                 >
                   <Pencil size={14} /> Edit
@@ -164,18 +164,6 @@ export default function ProductDetailPanel({
           </div>
         </div>
       </div>
-
-      {editOpen && (
-        <EditProductModal
-          open={editOpen}
-          product={product}
-          onClose={() => setEditOpen(false)}
-          onSubmit={async (input) => {
-            const updated = await updateProduct(product.id, input);
-            onUpdated?.(updated);
-          }}
-        />
-      )}
 
       {unitsOpen && (
         <AddUnitsModal

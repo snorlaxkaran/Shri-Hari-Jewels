@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
+import Link from "next/link";
 import { ChevronDown, Pencil, X } from "lucide-react";
-import type { Customer, CustomerDetail } from "@/lib/types";
+import type { CustomerDetail } from "@/lib/types";
 import { fetchCustomer } from "@/lib/api/customers";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canManageCustomers } from "@/lib/auth/permissions";
-import { useCustomers } from "@/lib/customers/customers-context";
 import { CustomerTypeBadge } from "@/lib/customers/badges";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api/client";
@@ -18,8 +17,6 @@ import {
   formatCustomerBillingAddress,
   hasCustomerFinancialData,
 } from "@/app/(components)/CustomerFinancialFields";
-
-const EditCustomerModal = dynamic(() => import("@/app/(components)/EditCustomerModal"), { ssr: false });
 
 type PanelTab = "overview" | "departments" | "branches" | "purchases";
 
@@ -40,12 +37,10 @@ export default function CustomerDetailPanel({
   onClose,
 }: CustomerDetailPanelProps) {
   const { user } = useAuth();
-  const { updateCustomer } = useCustomers();
   const canManage = user ? canManageCustomers(user.role) : false;
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [editOpen, setEditOpen] = useState(false);
   const [financialOpen, setFinancialOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<PanelTab>("overview");
 
@@ -153,13 +148,12 @@ export default function CustomerDetailPanel({
                 {activeTab === "overview" && (
                   <>
                     {canManage && (
-                      <button
-                        type="button"
-                        onClick={() => setEditOpen(true)}
+                      <Link
+                        href={`/customers/${detail.id}/edit`}
                         className="btn-secondary w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs"
                       >
                         <Pencil size={14} /> Edit Customer
-                      </button>
+                      </Link>
                     )}
 
                     <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -241,19 +235,6 @@ export default function CustomerDetailPanel({
         </div>
       </div>
 
-      {detail && editOpen && (
-        <EditCustomerModal
-          open={editOpen}
-          customer={detail as Customer}
-          onClose={() => setEditOpen(false)}
-          onSubmit={async (input) => {
-            const updated = await updateCustomer(detail.id, input);
-            setDetail((prev) => (prev ? { ...prev, ...updated } : prev));
-            const refreshed = await fetchCustomer(detail.id);
-            setDetail(refreshed);
-          }}
-        />
-      )}
     </>
   );
 }
