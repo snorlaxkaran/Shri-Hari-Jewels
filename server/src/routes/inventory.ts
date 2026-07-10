@@ -30,6 +30,7 @@ import {
   listIncomingStockTransfers,
   listSentStockTransfers,
   partialAcceptStockTransfer,
+  scanReceiveStockTransfer,
   regenerateTransferInvoicePdf,
   rejectStockTransfer,
   saveTransferShipping,
@@ -296,6 +297,32 @@ inventoryRouter.get(
     } catch (error) {
       console.error("GET /api/inventory/transfers/:id", error);
       res.status(500).json({ error: "Failed to fetch transfer" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/transfers/:id/scan-receive",
+  requireRole(canManageStockTransfers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const branchId = await getUserBranch(req.user!.id, req.organizationId!);
+      const itemCode =
+        typeof req.body.itemCode === "string" ? req.body.itemCode : "";
+      const result = await scanReceiveStockTransfer(
+        routeParam(req.params.id),
+        branchId,
+        itemCode,
+        { id: req.user!.id, name: req.user!.name },
+      );
+      res.json(result);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/inventory/transfers/:id/scan-receive", error);
+      res.status(500).json({ error: "Failed to scan receive item" });
     }
   },
 );

@@ -6,6 +6,13 @@ export const fetchBranches = async (): Promise<Branch[]> => {
   return data;
 };
 
+export const fetchTransferDestinationBranches = async (): Promise<Branch[]> => {
+  const { data } = await api.get<Branch[]>("/api/branches", {
+    params: { forTransfer: true },
+  });
+  return data;
+};
+
 export const fetchUserBranches = async (): Promise<Branch[]> => {
   const { data } = await api.get<Branch[]>("/api/branches/user/me");
   return data;

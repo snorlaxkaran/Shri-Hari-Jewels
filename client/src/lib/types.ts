@@ -116,7 +116,8 @@ export type InventoryItem = {
 
 export type StockTransferDocumentType =
   | "Wholesale GST Invoice"
-  | "Delivery Challan";
+  | "Delivery Challan"
+  | "Stock Transfer Note";
 
 export type StockTransfer = {
   id: string;

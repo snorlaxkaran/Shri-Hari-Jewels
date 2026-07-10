@@ -7,6 +7,7 @@ import PageSkeleton from "@/app/(components)/PageSkeleton";
 import TransferTabs from "@/app/(components)/stock-transfer/TransferTabs";
 import TransferStatusBadge from "@/app/(components)/stock-transfer/TransferStatusBadge";
 import TransferItemsModal from "@/app/(components)/stock-transfer/TransferItemsModal";
+import ReceiveTransferModal from "@/app/(components)/stock-transfer/ReceiveTransferModal";
 import {
   fetchIncomingStockTransfers,
   rejectStockTransfer,
@@ -39,6 +40,9 @@ export default function IncomingStockPage() {
     "All",
   );
   const [selectedTransfer, setSelectedTransfer] = useState<StockTransfer | null>(
+    null,
+  );
+  const [receiveTransfer, setReceiveTransfer] = useState<StockTransfer | null>(
     null,
   );
 
@@ -83,6 +87,7 @@ export default function IncomingStockPage() {
       prev.map((t) => (t.id === updated.id ? updated : t)),
     );
     setSelectedTransfer(null);
+    setReceiveTransfer(null);
     await refresh({ silent: true });
   };
 
@@ -208,10 +213,10 @@ export default function IncomingStockPage() {
                     <>
                       <button
                         type="button"
-                        onClick={() => setSelectedTransfer(transfer)}
+                        onClick={() => setReceiveTransfer(transfer)}
                         className="btn-primary px-4 py-2 text-sm"
                       >
-                        Accept
+                        Receive Stock
                       </button>
                       <button
                         type="button"
@@ -234,6 +239,15 @@ export default function IncomingStockPage() {
           transfer={selectedTransfer}
           open={Boolean(selectedTransfer)}
           onClose={() => setSelectedTransfer(null)}
+          onUpdated={handleUpdated}
+        />
+      )}
+
+      {receiveTransfer && (
+        <ReceiveTransferModal
+          transfer={receiveTransfer}
+          open={Boolean(receiveTransfer)}
+          onClose={() => setReceiveTransfer(null)}
           onUpdated={handleUpdated}
         />
       )}

@@ -8,6 +8,7 @@ import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import RowActionsDropdown from "@/app/(components)/RowActionsDropdown";
 import TransferTabs from "@/app/(components)/stock-transfer/TransferTabs";
+import TransferStatusBadge from "@/app/(components)/stock-transfer/TransferStatusBadge";
 import {
   fetchProformaTransfers,
   redownloadTransferInvoice,
@@ -190,6 +191,7 @@ export default function ProformaListPage() {
           <option value="All Types">All Types</option>
           <option value="Wholesale GST Invoice">Wholesale GST Invoice</option>
           <option value="Delivery Challan">Delivery Challan</option>
+          <option value="Stock Transfer Note">Stock Transfer Note</option>
         </select>
         <select
           value={invoiceFilter}
@@ -230,6 +232,7 @@ export default function ProformaListPage() {
                 <th>Document Type</th>
                 <th>Items</th>
                 <th>Total Value</th>
+                <th>Status</th>
                 <th>Invoice Generated</th>
                 <th>Invoice No.</th>
                 <th>Actions</th>
@@ -238,7 +241,7 @@ export default function ProformaListPage() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center td-muted py-10">
+                  <td colSpan={10} className="text-center td-muted py-10">
                     {transfers.length === 0
                       ? "No transfers yet. Use Scan & Send to transfer stock to a customer branch."
                       : hasActiveFilters
@@ -272,6 +275,9 @@ export default function ProformaListPage() {
                       <td className="td-num">{transfer.itemCount}</td>
                       <td className="td-num">
                         {formatCurrency(transfer.totalValue)}
+                      </td>
+                      <td>
+                        <TransferStatusBadge status={transfer.status} />
                       </td>
                       <td>
                         {generated ? (

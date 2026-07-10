@@ -117,7 +117,8 @@ export type StockTransferStatus =
 
 export type StockTransferDocumentType =
   | "Wholesale GST Invoice"
-  | "Delivery Challan";
+  | "Delivery Challan"
+  | "Stock Transfer Note";
 
 export type StockTransfer = {
   id: string;
@@ -175,8 +176,9 @@ export type StockTransferItem = {
 };
 
 export type CreateStockTransferInput = {
-  customerId: string;
-  customerBranchId: string;
+  customerId?: string;
+  customerBranchId?: string;
+  internalBranchId?: string;
   documentType: StockTransferDocumentType;
   transferDate: string;
   itemCodes: string[];

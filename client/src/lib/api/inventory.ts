@@ -100,8 +100,9 @@ export const transferInventoryUnits = async (
 };
 
 export const createStockTransfer = async (input: {
-  customerId: string;
-  customerBranchId: string;
+  customerId?: string;
+  customerBranchId?: string;
+  internalBranchId?: string;
   documentType: StockTransferDocumentType;
   transferDate: string;
   itemCodes: string[];
@@ -196,6 +197,22 @@ export const partialAcceptStockTransfer = async (
     `/api/inventory/transfers/${id}/partial-accept`,
     input,
   );
+  return data;
+};
+
+export const scanReceiveStockTransfer = async (
+  id: string,
+  itemCode: string,
+): Promise<{
+  transfer: StockTransfer;
+  scannedItem: StockTransfer["items"][number];
+  allAccepted: boolean;
+}> => {
+  const { data } = await api.post<{
+    transfer: StockTransfer;
+    scannedItem: StockTransfer["items"][number];
+    allAccepted: boolean;
+  }>(`/api/inventory/transfers/${id}/scan-receive`, { itemCode });
   return data;
 };
 

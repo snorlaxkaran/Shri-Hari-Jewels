@@ -5,11 +5,11 @@ const STATUS_CONFIG: Record<
   { label: string; className: string }
 > = {
   Pending: {
-    label: "Pending",
+    label: "Awaiting Receipt",
     className: "bg-amber-50 text-amber-800 border-amber-200",
   },
   Accepted: {
-    label: "Accepted",
+    label: "Received",
     className: "bg-emerald-50 text-emerald-800 border-emerald-200",
   },
   Rejected: {
@@ -17,8 +17,8 @@ const STATUS_CONFIG: Record<
     className: "bg-red-50 text-red-700 border-red-200",
   },
   PartiallyAccepted: {
-    label: "Partially Accepted",
-    className: "bg-orange-50 text-orange-800 border-orange-200",
+    label: "Partially Received",
+    className: "bg-yellow-50 text-yellow-800 border-yellow-200",
   },
 };
 

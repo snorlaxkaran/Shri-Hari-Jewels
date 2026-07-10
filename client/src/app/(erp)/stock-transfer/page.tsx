@@ -12,6 +12,7 @@ import TransferCustomerDetailsCard, {
   type TransferBillingFormState,
 } from "@/app/(components)/stock-transfer/TransferCustomerDetailsCard";
 import { fetchCustomerBranches, fetchCustomers } from "@/lib/api/customers";
+import { fetchTransferDestinationBranches } from "@/lib/api/branches";
 import { createStockTransfer } from "@/lib/api/inventory";
 import { getApiErrorMessage } from "@/lib/api/client";
 import {
@@ -21,6 +22,7 @@ import {
 } from "@/lib/customers/resolve-branch-details";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import type {
+  Branch,
   Customer,
   CustomerBranch,
   InventoryItem,
@@ -36,13 +38,28 @@ type ScannedItem = {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+type TransferTarget = "external" | "internal";
+
+const EXTERNAL_DOC_TYPES = [
+  "Wholesale GST Invoice",
+  "Delivery Challan",
+] as const satisfies readonly StockTransferDocumentType[];
+
+const INTERNAL_DOC_TYPES = [
+  "Delivery Challan",
+  "Stock Transfer Note",
+] as const satisfies readonly StockTransferDocumentType[];
+
 function StockTransferScanPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const presetCustomerId = searchParams.get("customerId") ?? "";
   const presetCustomerBranchId = searchParams.get("customerBranchId") ?? "";
   const { items, hydrated, loading, refresh } = useInventory();
+  const [transferTarget, setTransferTarget] = useState<TransferTarget>("external");
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [internalBranches, setInternalBranches] = useState<Branch[]>([]);
+  const [internalBranchId, setInternalBranchId] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [customerBranches, setCustomerBranches] = useState<CustomerBranch[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<CustomerBranch | null>(null);
@@ -72,6 +89,11 @@ function StockTransferScanPageContent() {
     fetchCustomers()
       .then(setCustomers)
       .catch((err) => setError(getApiErrorMessage(err, "Could not load customers.")));
+    fetchTransferDestinationBranches()
+      .then(setInternalBranches)
+      .catch((err) =>
+        setError(getApiErrorMessage(err, "Could not load branches.")),
+      );
   }, []);
 
   useEffect(() => {
@@ -139,10 +161,14 @@ function StockTransferScanPageContent() {
     0,
   );
 
+  const docTypeOptions =
+    transferTarget === "internal" ? INTERNAL_DOC_TYPES : EXTERNAL_DOC_TYPES;
+
   const canSubmit =
-    Boolean(customerId) &&
-    Boolean(selectedBranch?.id) &&
-    scanned.length > 0;
+    scanned.length > 0 &&
+    (transferTarget === "internal"
+      ? Boolean(internalBranchId)
+      : Boolean(customerId) && Boolean(selectedBranch?.id));
 
   const addBarcode = () => {
     const code = barcode.trim();
@@ -177,13 +203,20 @@ function StockTransferScanPageContent() {
   const handleSave = async () => {
     setError("");
 
-    if (!customerId) {
-      setError("Select a customer first.");
-      return;
-    }
-    if (!selectedBranch) {
-      setError("Select a customer branch.");
-      return;
+    if (transferTarget === "internal") {
+      if (!internalBranchId) {
+        setError("Select a destination branch.");
+        return;
+      }
+    } else {
+      if (!customerId) {
+        setError("Select a customer first.");
+        return;
+      }
+      if (!selectedBranch) {
+        setError("Select a customer branch.");
+        return;
+      }
     }
     if (scanned.length === 0) {
       setError("Scan at least one item.");
@@ -192,15 +225,25 @@ function StockTransferScanPageContent() {
 
     setSaving(true);
     try {
-      const result = await createStockTransfer({
-        customerId,
-        customerBranchId: selectedBranch.id,
-        documentType: docType,
-        transferDate,
-        itemCodes: scanned.map((item) => item.unit.itemCode),
-        notes: notes.trim() || undefined,
-        billing: billingInput,
-      });
+      const result = await createStockTransfer(
+        transferTarget === "internal"
+          ? {
+              internalBranchId,
+              documentType: docType,
+              transferDate,
+              itemCodes: scanned.map((item) => item.unit.itemCode),
+              notes: notes.trim() || undefined,
+            }
+          : {
+              customerId,
+              customerBranchId: selectedBranch!.id,
+              documentType: docType,
+              transferDate,
+              itemCodes: scanned.map((item) => item.unit.itemCode),
+              notes: notes.trim() || undefined,
+              billing: billingInput,
+            },
+      );
       await refresh({ silent: true });
       router.push(`/stock-transfer/sent/${result.transfer.id}`);
     } catch (err) {
@@ -238,15 +281,30 @@ function StockTransferScanPageContent() {
   }, [resolvedBilling, billingForm]);
 
   const billingWarnings = useMemo(() => {
-    if (!billingInput) return [];
+    if (transferTarget !== "external" || !billingInput) return [];
+    if (docType === "Stock Transfer Note") return [];
     return getTransferBillingWarnings(docType, billingInput);
-  }, [billingInput, docType]);
+  }, [billingInput, docType, transferTarget]);
 
   const updateBillingField = (
     field: keyof TransferBillingFormState,
     value: string,
   ) => {
     setBillingForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleTransferTargetChange = (target: TransferTarget) => {
+    setTransferTarget(target);
+    setError("");
+    if (target === "internal") {
+      setDocType("Delivery Challan");
+      setCustomerId("");
+      setSelectedBranch(null);
+      setBranchQuery("");
+    } else {
+      setDocType("Wholesale GST Invoice");
+      setInternalBranchId("");
+    }
   };
 
   if (!hydrated || loading) {
@@ -257,7 +315,11 @@ function StockTransferScanPageContent() {
     <div className="page-content">
       <PageHeader
         title="Scan & Send"
-        subtitle="Scan item tags and send stock from Head Office to a customer branch"
+        subtitle={
+          transferTarget === "internal"
+            ? "Scan item tags and send stock from Head Office to your own branches"
+            : "Scan item tags and send stock from Head Office to a customer branch"
+        }
       />
 
       <TransferTabs />
@@ -272,47 +334,99 @@ function StockTransferScanPageContent() {
         <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-5">
           <div className="surface-card p-5 space-y-4">
           <div>
-            <label className="text-xs block mb-1 text-zinc-500 font-medium">
-              Customer
+            <label className="text-xs block mb-2 text-zinc-500 font-medium">
+              Transfer to:
             </label>
-            {presetCustomerId && selectedCustomer ? (
-              <div className="input-field w-full px-3 py-2 text-sm bg-zinc-50 text-zinc-900">
-                {selectedCustomer.name}
-              </div>
-            ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleTransferTargetChange("internal")}
+                className={`tab-btn ${
+                  transferTarget === "internal"
+                    ? "tab-btn-active"
+                    : "tab-btn-inactive"
+                }`}
+              >
+                Own Branch
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTransferTargetChange("external")}
+                className={`tab-btn ${
+                  transferTarget === "external"
+                    ? "tab-btn-active"
+                    : "tab-btn-inactive"
+                }`}
+              >
+                External Customer
+              </button>
+            </div>
+          </div>
+
+          {transferTarget === "internal" ? (
+            <div>
+              <label className="text-xs block mb-1 text-zinc-500 font-medium">
+                Destination Branch
+              </label>
               <select
-                value={customerId}
-                onChange={(event) => handleCustomerChange(event.target.value)}
+                value={internalBranchId}
+                onChange={(event) => setInternalBranchId(event.target.value)}
                 className="input-field w-full px-3 py-2 text-sm"
               >
-                <option value="">Select customer</option>
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
+                <option value="">Select branch</option>
+                {internalBranches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
                   </option>
                 ))}
               </select>
-            )}
-          </div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="text-xs block mb-1 text-zinc-500 font-medium">
+                  Customer
+                </label>
+                {presetCustomerId && selectedCustomer ? (
+                  <div className="input-field w-full px-3 py-2 text-sm bg-zinc-50 text-zinc-900">
+                    {selectedCustomer.name}
+                  </div>
+                ) : (
+                  <select
+                    value={customerId}
+                    onChange={(event) => handleCustomerChange(event.target.value)}
+                    className="input-field w-full px-3 py-2 text-sm"
+                  >
+                    <option value="">Select customer</option>
+                    {customers.map((customer) => (
+                      <option key={customer.id} value={customer.id}>
+                        {customer.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
 
-          <div>
-            <label className="text-xs block mb-1 text-zinc-500 font-medium">
-              Branch
-            </label>
-            <BranchAutocomplete
-              branches={customerBranches}
-              value={selectedBranch}
-              onChange={setSelectedBranch}
-              disabled={!customerId}
-              loading={branchesLoading}
-              placeholder={
-                customerId
-                  ? `Search ${selectedCustomer?.name ?? "customer"} branch…`
-                  : "Select a customer first"
-              }
-              onQueryChange={setBranchQuery}
-            />
-          </div>
+              <div>
+                <label className="text-xs block mb-1 text-zinc-500 font-medium">
+                  Branch
+                </label>
+                <BranchAutocomplete
+                  branches={customerBranches}
+                  value={selectedBranch}
+                  onChange={setSelectedBranch}
+                  disabled={!customerId}
+                  loading={branchesLoading}
+                  placeholder={
+                    customerId
+                      ? `Search ${selectedCustomer?.name ?? "customer"} branch…`
+                      : "Select a customer first"
+                  }
+                  onQueryChange={setBranchQuery}
+                />
+              </div>
+            </>
+          )}
 
           <div>
             <label className="text-xs block mb-1 text-zinc-500 font-medium">
@@ -337,20 +451,18 @@ function StockTransferScanPageContent() {
               Document Type
             </label>
             <div className="grid grid-cols-1 gap-2">
-              {(["Wholesale GST Invoice", "Delivery Challan"] as const).map(
-                (type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setDocType(type)}
-                    className={`tab-btn text-left ${
-                      docType === type ? "tab-btn-active" : "tab-btn-inactive"
-                    }`}
-                  >
-                    {type}
-                  </button>
-                ),
-              )}
+              {docTypeOptions.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setDocType(type)}
+                  className={`tab-btn text-left ${
+                    docType === type ? "tab-btn-active" : "tab-btn-inactive"
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -376,18 +488,18 @@ function StockTransferScanPageContent() {
           </div>
           </div>
 
-          {resolvedBilling && selectedBranch ? (
+          {transferTarget === "external" && resolvedBilling && selectedBranch ? (
             <TransferCustomerDetailsCard
               resolved={resolvedBilling}
               form={billingForm}
               warnings={billingWarnings}
               onChange={updateBillingField}
             />
-          ) : (
+          ) : transferTarget === "external" ? (
             <div className="surface-card flex items-center justify-center p-8 text-sm text-zinc-400">
               Select a customer and branch to view billing details.
             </div>
-          )}
+          ) : null}
         </div>
 
         <div className="space-y-4">
@@ -442,7 +554,11 @@ function StockTransferScanPageContent() {
                 className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
               >
                 <ArrowRightLeft size={16} />
-                {saving ? "Saving..." : "Send to Customer Branch"}
+                {saving
+                  ? "Saving..."
+                  : transferTarget === "internal"
+                    ? "Send to Branch →"
+                    : "Send to Customer Branch"}
               </button>
             </div>
 

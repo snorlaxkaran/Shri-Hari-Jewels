@@ -1,5 +1,6 @@
 import { prisma } from "../db.js";
 import type { Branch, NewBranchInput, UpdateBranchInput } from "../../types.js";
+import { getOrganizationHeadOfficeBranchId } from "./access.js";
 
 export class BranchError extends Error {
   constructor(message: string) {
@@ -11,6 +12,19 @@ export class BranchError extends Error {
 export const listBranches = async (organizationId: string): Promise<Branch[]> => {
   const branches = await prisma.branch.findMany({
     where: { organizationId, active: true },
+    orderBy: { name: "asc" },
+  });
+
+  return branches.map(formatBranch);
+};
+
+/** Active branches excluding head office — for internal stock transfer destination picker. */
+export const listBranchesForTransfer = async (
+  organizationId: string,
+): Promise<Branch[]> => {
+  const headOfficeId = await getOrganizationHeadOfficeBranchId(organizationId);
+  const branches = await prisma.branch.findMany({
+    where: { organizationId, active: true, id: { not: headOfficeId } },
     orderBy: { name: "asc" },
   });
 

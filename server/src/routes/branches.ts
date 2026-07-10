@@ -4,6 +4,7 @@ import {
   createBranch,
   BranchError,
   listBranches,
+  listBranchesForTransfer,
   getBranchDetail,
   updateBranch,
   deactivateBranch,
@@ -30,10 +31,13 @@ const canViewBranches = (role: Parameters<typeof canManageBranches>[0]) =>
   canManageCustomers(role) ||
   canManageStockTransfers(role);
 
-// List all branches
+// List all branches (?forTransfer=true excludes head office for internal stock transfers)
 branchesRouter.get("/", requireRole(canViewBranches), async (req: AuthenticatedRequest, res) => {
   try {
-    const branches = await listBranches(req.organizationId!);
+    const forTransfer = req.query.forTransfer === "true";
+    const branches = forTransfer
+      ? await listBranchesForTransfer(req.organizationId!)
+      : await listBranches(req.organizationId!);
     res.json(branches);
   } catch (error) {
     console.error("GET /api/branches", error);

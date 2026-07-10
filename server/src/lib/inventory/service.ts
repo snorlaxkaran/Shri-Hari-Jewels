@@ -403,7 +403,8 @@ export class InventoryError extends Error {
   }
 }
 
-const TRANSFER_DOC_TYPES = ["Wholesale GST Invoice", "Delivery Challan"];
+const EXTERNAL_TRANSFER_DOC_TYPES = ["Wholesale GST Invoice", "Delivery Challan"];
+const INTERNAL_TRANSFER_DOC_TYPES = ["Delivery Challan", "Stock Transfer Note"];
 
 type StockTransferWithRelations = DbStockTransfer & {
   fromBranch: Branch;
@@ -531,8 +532,25 @@ export const createStockTransfer = async (
   organizationId: string,
   sellingBranchId: string,
 ): Promise<{ transfer: StockTransfer; products: InventoryItem[] }> => {
-  if (!TRANSFER_DOC_TYPES.includes(input.documentType)) {
-    throw new InventoryError("Select a valid transfer document type.");
+  const isInternalTransfer = Boolean(input.internalBranchId?.trim());
+
+  if (isInternalTransfer) {
+    if (!INTERNAL_TRANSFER_DOC_TYPES.includes(input.documentType)) {
+      throw new InventoryError("Select a valid transfer document type.");
+    }
+    if (input.customerId || input.customerBranchId) {
+      throw new InventoryError(
+        "Internal branch transfers cannot include customer details.",
+        400,
+      );
+    }
+  } else {
+    if (!EXTERNAL_TRANSFER_DOC_TYPES.includes(input.documentType)) {
+      throw new InventoryError("Select a valid transfer document type.");
+    }
+    if (!input.customerId?.trim() || !input.customerBranchId?.trim()) {
+      throw new InventoryError("Select a customer and branch.");
+    }
   }
 
   const transferDate = new Date(input.transferDate);
@@ -546,25 +564,55 @@ export const createStockTransfer = async (
     throw new InventoryError("Scan at least one item to transfer.");
   }
 
-  let customerBranch: Awaited<
-    ReturnType<typeof resolveCustomerBranchForTransfer>
-  >["customerBranch"];
-  try {
-    ({ customerBranch } = await resolveCustomerBranchForTransfer(
-      input.customerId,
-      input.customerBranchId,
-      organizationId,
-    ));
-  } catch (error) {
-    if (error instanceof CustomerError) {
-      throw new InventoryError(error.message, error.statusCode);
-    }
-    throw error;
-  }
-  const destinationBranchId = customerBranch.branchId ?? null;
-
   const headOfficeBranchId =
     await getOrganizationHeadOfficeBranchId(organizationId);
+
+  let toBranchId: string;
+  let customerId: string | null = null;
+  let customerBranchId: string | null = null;
+
+  if (isInternalTransfer) {
+    const internalBranchId = input.internalBranchId!.trim();
+    const destBranch = await prisma.branch.findFirst({
+      where: { id: internalBranchId, organizationId, active: true },
+    });
+    if (!destBranch) {
+      throw new InventoryError("Destination branch not found.", 404);
+    }
+    if (internalBranchId === headOfficeBranchId) {
+      throw new InventoryError("Cannot transfer stock to the same branch.", 400);
+    }
+    toBranchId = internalBranchId;
+  } else {
+    let customerBranch: Awaited<
+      ReturnType<typeof resolveCustomerBranchForTransfer>
+    >["customerBranch"];
+    try {
+      ({ customerBranch } = await resolveCustomerBranchForTransfer(
+        input.customerId!,
+        input.customerBranchId!,
+        organizationId,
+      ));
+    } catch (error) {
+      if (error instanceof CustomerError) {
+        throw new InventoryError(error.message, error.statusCode);
+      }
+      throw error;
+    }
+
+    customerId = input.customerId!;
+    customerBranchId = input.customerBranchId!;
+
+    const linkedInternalBranchId = customerBranch.branchId ?? null;
+    if (linkedInternalBranchId) {
+      const linkedBranch = await prisma.branch.findFirst({
+        where: { id: linkedInternalBranchId, organizationId, active: true },
+      });
+      toBranchId = linkedBranch ? linkedInternalBranchId : headOfficeBranchId;
+    } else {
+      toBranchId = headOfficeBranchId;
+    }
+  }
 
   const units = await prisma.inventoryUnit.findMany({
     where: { organizationId, itemCode: { in: cleanCodes } },
@@ -604,32 +652,44 @@ export const createStockTransfer = async (
     ),
   );
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: input.customerId },
-    select: { name: true, mobile: true },
-  });
+  const customer = customerId
+    ? await prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { name: true, mobile: true },
+      })
+    : null;
 
   const isWholesaleInvoice = input.documentType === "Wholesale GST Invoice";
-  const unitStatus = isWholesaleInvoice
-    ? InventoryUnitStatus.Sold
-    : InventoryUnitStatus.Transferred;
+  const unitStatus = isInternalTransfer
+    ? InventoryUnitStatus.InTransit
+    : isWholesaleInvoice
+      ? InventoryUnitStatus.Sold
+      : InventoryUnitStatus.Transferred;
+
+  const transferStatus = isInternalTransfer
+    ? StockTransferStatus.Pending
+    : StockTransferStatus.Accepted;
 
   const transfer = await prisma.$transaction(async (tx) => {
     const created = await tx.stockTransfer.create({
       data: {
         transferNo,
         fromBranchId: headOfficeBranchId,
-        toBranchId: destinationBranchId ?? headOfficeBranchId,
-        customerId: input.customerId,
-        customerBranchId: input.customerBranchId,
+        toBranchId,
+        customerId,
+        customerBranchId,
         documentType: input.documentType,
         transferDate,
         itemCount: units.length,
         totalValue,
-        status: StockTransferStatus.Accepted,
-        acceptedById: createdBy.id,
-        acceptedByName: createdBy.name,
-        acceptedAt: new Date(),
+        status: transferStatus,
+        ...(isInternalTransfer
+          ? {}
+          : {
+              acceptedById: createdBy.id,
+              acceptedByName: createdBy.name,
+              acceptedAt: new Date(),
+            }),
         createdById: createdBy.id,
         createdByName: createdBy.name,
         notes: input.notes?.trim() || null,
@@ -662,12 +722,18 @@ export const createStockTransfer = async (
       },
     });
 
+    const unitUpdateData: {
+      status: InventoryUnitStatus;
+      branchId?: string;
+    } = { status: unitStatus };
+
+    if (!isInternalTransfer && toBranchId !== headOfficeBranchId) {
+      unitUpdateData.branchId = toBranchId;
+    }
+
     await tx.inventoryUnit.updateMany({
       where: { itemCode: { in: cleanCodes } },
-      data: {
-        status: unitStatus,
-        ...(destinationBranchId ? { branchId: destinationBranchId } : {}),
-      },
+      data: unitUpdateData,
     });
 
     for (const unit of units) {
@@ -685,15 +751,19 @@ export const createStockTransfer = async (
           transferNo,
           transferId: created.id,
           documentType: input.documentType,
-          customerId: input.customerId,
-          customerBranchId: input.customerBranchId,
+          ...(customerId ? { customerId, customerBranchId: customerBranchId! } : {}),
+          ...(isInternalTransfer ? { toBranchId, transferType: "branch_move" } : {}),
         },
       );
 
       await syncProductStockInTx(tx, unit.productId, {
         performedById: createdBy.id,
         performedByName: createdBy.name,
-        reason: isWholesaleInvoice ? "wholesale_transfer_sale" : "transfer_create",
+        reason: isWholesaleInvoice
+          ? "wholesale_transfer_sale"
+          : isInternalTransfer
+            ? "transfer_create_internal"
+            : "transfer_create",
         unitId: unit.id,
         itemCode: unit.itemCode,
         previousUnitStatus: InventoryUnitStatus.Available,
@@ -720,7 +790,7 @@ export const createStockTransfer = async (
             paymentStatus: SalePaymentStatus.Completed,
             customerPhone: customer?.mobile ?? "",
             customerName: customer?.name,
-            customerId: input.customerId,
+            customerId: customerId!,
             soldAt: transferDate,
             saleSource: "WholesaleTransfer",
             stockTransferId: created.id,

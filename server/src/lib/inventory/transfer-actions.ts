@@ -204,6 +204,125 @@ export const regenerateTransferInvoicePdf = async (
   return { transfer: toStockTransferDto(dbTransfer), pdfBuffer };
 };
 
+export const scanReceiveStockTransfer = async (
+  transferId: string,
+  branchId: string,
+  itemCode: string,
+  actor: { id: string; name: string },
+): Promise<{
+  transfer: StockTransfer;
+  scannedItem: StockTransfer["items"][number];
+  allAccepted: boolean;
+}> => {
+  const transfer = await loadTransfer(transferId);
+  if (!transfer) throw new InventoryError("Transfer not found.", 404);
+  assertPendingForBranch(transfer, branchId);
+
+  const trimmedCode = itemCode.trim();
+  if (!trimmedCode) {
+    throw new InventoryError("Item code is required.");
+  }
+
+  const item = transfer.items.find((row) => row.itemCode === trimmedCode);
+  if (!item) {
+    throw new InventoryError(`Item ${trimmedCode} is not part of this transfer.`, 400);
+  }
+  if (item.accepted) {
+    throw new InventoryError("Already scanned", 400);
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.stockTransferItem.update({
+      where: { id: item.id },
+      data: { accepted: true },
+    });
+
+    const unit = await tx.inventoryUnit.findFirst({
+      where: { itemCode: trimmedCode },
+      select: { id: true, itemCode: true, productId: true },
+    });
+    if (!unit) {
+      throw new InventoryError(`Unit not found: ${trimmedCode}`, 404);
+    }
+
+    await tx.inventoryUnit.update({
+      where: { id: unit.id },
+      data: {
+        branchId: transfer.toBranchId,
+        status: InventoryUnitStatus.Available,
+      },
+    });
+
+    await recordUnitTransferAcceptedInTx(
+      tx,
+      { unitId: unit.id, itemCode: unit.itemCode, productId: unit.productId },
+      actor,
+      {
+        transferNo: transfer.transferNo,
+        transferId: transfer.id,
+        toBranchId: transfer.toBranchId,
+      },
+    );
+
+    await syncProductStockInTx(tx, unit.productId, {
+      performedById: actor.id,
+      performedByName: actor.name,
+      reason: "transfer_scan_receive",
+      unitId: unit.id,
+      itemCode: unit.itemCode,
+      previousUnitStatus: InventoryUnitStatus.InTransit,
+      newUnitStatus: InventoryUnitStatus.Available,
+    });
+
+    const refreshedItems = await tx.stockTransferItem.findMany({
+      where: { transferId: transfer.id },
+    });
+    const allAccepted = refreshedItems.every((row) => row.accepted);
+
+    if (allAccepted) {
+      await tx.stockTransfer.update({
+        where: { id: transfer.id },
+        data: {
+          status: StockTransferStatus.Accepted,
+          acceptedById: actor.id,
+          acceptedByName: actor.name,
+          acceptedAt: new Date(),
+        },
+      });
+
+      await recordInventoryAuditInTx(tx, {
+        entityType: "InventoryUnit",
+        entityId: transfer.id,
+        action: "TransferAccepted",
+        newValue: {
+          transferNo: transfer.transferNo,
+          itemCodes: refreshedItems.map((row) => row.itemCode),
+        },
+        reason: "transfer_scan_receive_complete",
+        performedById: actor.id,
+        performedByName: actor.name,
+      });
+    }
+
+    return tx.stockTransfer.findUniqueOrThrow({
+      where: { id: transfer.id },
+      include: transferInclude,
+    });
+  });
+
+  const dto = toStockTransferDto(updated);
+  const scannedItem = dto.items.find((row) => row.itemCode === trimmedCode);
+  if (!scannedItem) {
+    throw new InventoryError("Scanned item could not be loaded.", 500);
+  }
+
+  return {
+    transfer: dto,
+    scannedItem,
+    allAccepted: updated.items.every((row) => row.accepted),
+  };
+};
+
 export const acceptStockTransfer = async (
   transferId: string,
   branchId: string,
