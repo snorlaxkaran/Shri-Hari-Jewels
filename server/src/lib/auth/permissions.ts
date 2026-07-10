@@ -153,6 +153,10 @@ export const canManageProductionRuns = (role: UserRole): boolean =>
 export const canManageStockTransfers = (role: UserRole): boolean =>
   role === "Admin" || role === "ProductionManager" || role === "SalesManager";
 
+/** Branch staff can scan-receive incoming transfers at their store. */
+export const canReceiveStockTransfers = (role: UserRole): boolean =>
+  role === "Store" || canManageStockTransfers(role);
+
 export const canViewStockTransfers = (role: UserRole): boolean =>
   canReadInventory(role);
 

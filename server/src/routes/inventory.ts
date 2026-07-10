@@ -3,6 +3,7 @@ import {
   canDeleteProduct,
   canManageStockTransfers,
   canReadInventory,
+  canReceiveStockTransfers,
   canViewStockTransfers,
   canWriteInventory,
 } from "../lib/auth/permissions.js";
@@ -303,7 +304,7 @@ inventoryRouter.get(
 
 inventoryRouter.post(
   "/transfers/:id/scan-receive",
-  requireRole(canManageStockTransfers),
+  requireRole(canReceiveStockTransfers),
   async (req: AuthenticatedRequest, res) => {
     try {
       const branchId = await getUserBranch(req.user!.id, req.organizationId!);
@@ -329,7 +330,7 @@ inventoryRouter.post(
 
 inventoryRouter.post(
   "/transfers/:id/accept",
-  requireRole(canManageStockTransfers),
+  requireRole(canReceiveStockTransfers),
   async (req: AuthenticatedRequest, res) => {
     try {
       const branchId = await getUserBranch(req.user!.id, req.organizationId!);
@@ -352,7 +353,7 @@ inventoryRouter.post(
 
 inventoryRouter.post(
   "/transfers/:id/reject",
-  requireRole(canManageStockTransfers),
+  requireRole(canReceiveStockTransfers),
   async (req: AuthenticatedRequest, res) => {
     try {
       const branchId = await getUserBranch(req.user!.id, req.organizationId!);
@@ -378,7 +379,7 @@ inventoryRouter.post(
 
 inventoryRouter.post(
   "/transfers/:id/partial-accept",
-  requireRole(canManageStockTransfers),
+  requireRole(canReceiveStockTransfers),
   async (req: AuthenticatedRequest, res) => {
     try {
       const branchId = await getUserBranch(req.user!.id, req.organizationId!);

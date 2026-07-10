@@ -8,7 +8,7 @@ import {
   rejectStockTransfer,
 } from "@/lib/api/inventory";
 import { getApiErrorMessage } from "@/lib/api/client";
-import { canManageStockTransfers } from "@/lib/auth/permissions";
+import { canReceiveStockTransfers } from "@/lib/auth/permissions";
 import { useAuth } from "@/lib/auth/auth-context";
 import type { StockTransfer } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
@@ -28,7 +28,7 @@ export default function TransferItemsModal({
   onUpdated,
 }: Props) {
   const { user } = useAuth();
-  const canAct = user ? canManageStockTransfers(user.role) : false;
+  const canAct = user ? canReceiveStockTransfers(user.role) : false;
   const isPending = transfer.status === "Pending";
 
   const [mode, setMode] = useState<"view" | "partial">("view");

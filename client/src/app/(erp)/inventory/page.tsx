@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatCard from "@/app/(components)/StatCard";
+import IncomingTransfersPanel from "@/app/(components)/stock-transfer/IncomingTransfersPanel";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canWriteInventory } from "@/lib/auth/permissions";
 import { fetchBranches } from "@/lib/api/branches";
@@ -180,6 +181,8 @@ export default function InventoryPage() {
           {error}
         </div>
       )}
+
+      <IncomingTransfersPanel />
 
       <div className="filter-bar">
         {(

@@ -15,6 +15,87 @@ const formatDateForFilename = () => {
   ].join("-");
 };
 
+const transferDetailItemRows = (transfer: StockTransfer) =>
+  transfer.items.map((item) =>
+    [
+      transfer.transferNo,
+      transfer.status,
+      new Date(transfer.transferDate).toLocaleDateString("en-IN"),
+      new Date(transfer.createdAt).toLocaleString("en-IN"),
+      transfer.fromBranchName,
+      transfer.toBranchName,
+      transfer.documentType,
+      transfer.notes,
+      transfer.itemCount,
+      transfer.totalValue,
+      transfer.createdByName,
+      transfer.recipientGstNumber,
+      transfer.recipientPanNumber,
+      transfer.recipientAddress,
+      transfer.placeOfSupplyState,
+      transfer.placeOfSupplyStateCode,
+      transfer.placeOfDeliveryState,
+      transfer.placeOfDeliveryStateCode,
+      item.itemCode,
+      item.productName,
+      item.sku,
+      item.metal,
+      item.purity,
+      item.weightGrams,
+      item.price,
+      item.accepted ? "Yes" : "No",
+    ]
+      .map(csvCell)
+      .join(","),
+  );
+
+const TRANSFER_DETAIL_CSV_HEADERS = [
+  "Transfer No",
+  "Status",
+  "Transfer Date",
+  "Created At",
+  "From Branch",
+  "To Branch",
+  "Document Type",
+  "Notes",
+  "Item Count",
+  "Total Value",
+  "Sent By",
+  "Recipient GSTN",
+  "Recipient PAN",
+  "Recipient Address",
+  "Place of Supply",
+  "POS State Code",
+  "Place of Delivery",
+  "POD State Code",
+  "Item Code",
+  "Product",
+  "SKU",
+  "Metal",
+  "Purity",
+  "Weight (g)",
+  "Price",
+  "Item Received",
+];
+
+export const downloadTransferDetailCsv = (transfer: StockTransfer) => {
+  const safeNo = transfer.transferNo.replace(/[^\w-]+/g, "_");
+  downloadCsv(
+    `incoming-${safeNo}.csv`,
+    transferDetailItemRows(transfer),
+    TRANSFER_DETAIL_CSV_HEADERS,
+  );
+};
+
+export const downloadTransfersDetailCsv = (transfers: StockTransfer[]) => {
+  const rows = transfers.flatMap(transferDetailItemRows);
+  downloadCsv(
+    `incoming-stock-${formatDateForFilename()}.csv`,
+    rows,
+    TRANSFER_DETAIL_CSV_HEADERS,
+  );
+};
+
 const transferItemRows = (transfer: StockTransfer) =>
   transfer.items.map((item) =>
     [
@@ -60,8 +141,12 @@ const TRANSFER_CSV_HEADERS = [
   "Price",
 ];
 
-const downloadCsv = (filename: string, rows: string[]) => {
-  const csv = [TRANSFER_CSV_HEADERS.map(csvCell).join(","), ...rows].join("\r\n");
+const downloadCsv = (
+  filename: string,
+  rows: string[],
+  headers: string[] = TRANSFER_CSV_HEADERS,
+) => {
+  const csv = [headers.map(csvCell).join(","), ...rows].join("\r\n");
   const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
