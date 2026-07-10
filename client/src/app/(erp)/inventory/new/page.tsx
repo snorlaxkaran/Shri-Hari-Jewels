@@ -195,7 +195,7 @@ export default function NewStockPage() {
   if (user && !canAdd) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="page-content space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <PageHeader
           title="Bulk Silver/BM Stock Add to Main Stock"
@@ -235,7 +235,7 @@ export default function NewStockPage() {
           onComplete={() => void refresh({ silent: true })}
         />
       ) : (
-        <form onSubmit={handleSubmit} className="surface-card rounded-xl p-5 space-y-5">
+        <form onSubmit={handleSubmit} className="surface-card p-5 space-y-5">
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
               {error}

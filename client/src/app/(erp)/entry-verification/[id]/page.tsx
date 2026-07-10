@@ -185,7 +185,7 @@ export default function EntryVoucherDetailPage() {
   const focusPrices = searchParams.get("focus") === "prices";
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="page-content space-y-6 pb-10">
       <nav className="text-sm text-zinc-500 flex items-center gap-2">
         <Link href="/entry-verification" className="hover:text-zinc-800">
           Entry Verification
@@ -231,7 +231,7 @@ export default function EntryVoucherDetailPage() {
         </div>
       )}
 
-      <section className="surface-card rounded-xl overflow-hidden">
+      <section className="surface-card overflow-hidden">
         <div className="px-5 py-4 border-b border-zinc-100 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-zinc-800">
             Items ({voucher.itemCount})

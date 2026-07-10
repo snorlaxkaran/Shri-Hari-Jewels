@@ -134,7 +134,7 @@ export default function InventoryPage() {
   }
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Central Stock"
         subtitle={
@@ -181,7 +181,7 @@ export default function InventoryPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="filter-bar">
         {(
           [
             ["all", "All"],
@@ -198,6 +198,18 @@ export default function InventoryPage() {
             {label}
           </button>
         ))}
+        <div className="filter-search">
+          <Search size={14} className="text-zinc-400 shrink-0" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, SKU, or item code…"
+          />
+        </div>
+        <span className="filter-count">
+          Showing {filteredRows.length} of {allUnitRows.length}
+        </span>
       </div>
 
       {metalTab !== "all" && (
@@ -218,20 +230,6 @@ export default function InventoryPage() {
           />
         </div>
       )}
-
-      <div className="relative mb-4">
-        <Search
-          size={16}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
-        />
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, SKU, or item code…"
-          className="input-field w-full pl-9 pr-4 py-2 text-sm"
-        />
-      </div>
 
       <div className="surface-card overflow-hidden w-full">
         <InventoryTable

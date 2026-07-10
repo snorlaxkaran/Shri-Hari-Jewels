@@ -228,7 +228,8 @@ export default function DesignBuilderStepPage() {
   };
 
   return (
-    <DesignBuilderShell design={design}>
+    <div className="page-content">
+      <DesignBuilderShell design={design}>
       {error && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">
           {error}
@@ -392,5 +393,6 @@ export default function DesignBuilderStepPage() {
         loading={submitting}
       />
     </DesignBuilderShell>
+    </div>
   );
 }

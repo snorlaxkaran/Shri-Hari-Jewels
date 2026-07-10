@@ -123,7 +123,7 @@ export default function ProductionRunsPage() {
   }
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Production Runs"
         subtitle="Track casting, wax moulds, and stone usage per order"
@@ -140,7 +140,7 @@ export default function ProductionRunsPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="filter-bar">
         {statuses.map((status) => (
           <FilterPill
             key={status}
@@ -149,6 +149,9 @@ export default function ProductionRunsPage() {
             onClick={() => setStatusFilter(status)}
           />
         ))}
+        <span className="filter-count">
+          Showing {filtered.length} of {productionRuns.length}
+        </span>
       </div>
 
       {error && (

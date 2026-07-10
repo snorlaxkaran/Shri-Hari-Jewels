@@ -26,7 +26,7 @@ export default function NewWorkOrderPage() {
   };
 
   return (
-    <>
+    <div className="page-content">
       <FormPageShell
         backHref={backHref}
         backLabel="Back to work orders"
@@ -55,6 +55,6 @@ export default function NewWorkOrderPage() {
         onConfirm={() => router.push(backHref)}
         onCancel={() => setLeaveOpen(false)}
       />
-    </>
+    </div>
   );
 }

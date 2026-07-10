@@ -1,10 +1,8 @@
-import { TrendingDown, TrendingUp } from "lucide-react";
-
 type StatCardProps = {
   label: string;
   value: string;
   change?: number;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   alert?: string;
 };
 
@@ -12,40 +10,68 @@ export default function StatCard({
   label,
   value,
   change,
-  icon,
   alert,
 }: StatCardProps) {
   const isPositive = change !== undefined && change >= 0;
 
   return (
-    <div className="surface-card p-5">
-      <div className="flex items-start justify-between mb-3">
-        <div className="stat-icon">{icon}</div>
+    <div
+      style={{
+        background: "var(--bg-surface)",
+        border: "0.5px solid var(--border)",
+        borderRadius: "var(--radius)",
+        padding: "10px 14px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          color: "var(--text-muted)",
+          marginBottom: 6,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <span>{label}</span>
         {change !== undefined && (
           <span
-            className={`flex items-center gap-0.5 text-xs font-medium ${
-              isPositive ? "text-emerald-600" : "text-red-500"
-            }`}
+            style={{
+              color: isPositive ? "#059669" : "#dc2626",
+              fontSize: 11,
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+            }}
           >
-            {isPositive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
-            {Math.abs(change)}%
+            {isPositive ? "↑" : "↓"} {Math.abs(change)}%
           </span>
         )}
         {alert && (
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+          <span
+            style={{
+              fontSize: 10.5,
+              color: "#d97706",
+              background: "#fffbeb",
+              padding: "1px 6px",
+              borderRadius: 10,
+            }}
+          >
             {alert}
           </span>
         )}
       </div>
-      <p
-        className="text-2xl font-semibold tracking-tight"
-        style={{ color: "var(--text-primary)" }}
+      <div
+        style={{
+          fontSize: 20,
+          fontWeight: 500,
+          color: "var(--text-primary)",
+          fontVariantNumeric: "tabular-nums",
+          lineHeight: 1.2,
+        }}
       >
         {value}
-      </p>
-      <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-        {label}
-      </p>
+      </div>
     </div>
   );
 }

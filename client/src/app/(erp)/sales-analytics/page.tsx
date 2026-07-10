@@ -30,7 +30,7 @@ export default function SalesAnalyticsPage() {
     totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Sales Analytics"
         subtitle="Performance insights from recorded sales"

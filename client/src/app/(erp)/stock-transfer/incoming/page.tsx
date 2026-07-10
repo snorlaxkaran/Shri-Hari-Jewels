@@ -100,7 +100,7 @@ export default function IncomingStockPage() {
   if (loading) return <PageSkeleton />;
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Incoming Stock"
         subtitle={`${pendingCount} pending transfer${pendingCount === 1 ? "" : "s"} awaiting acceptance`}

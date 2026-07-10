@@ -55,7 +55,8 @@ export default function AddUnitsPage({ params }: PageProps) {
 
   if (!product) {
     return (
-      <FormPageShell
+      <div className="page-content">
+        <FormPageShell
         backHref={backHref}
         backLabel="Back to products"
         title="Add Units"
@@ -63,11 +64,12 @@ export default function AddUnitsPage({ params }: PageProps) {
       >
         <div />
       </FormPageShell>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="page-content">
       <FormPageShell
         backHref={backHref}
         backLabel="Back to products"
@@ -97,6 +99,6 @@ export default function AddUnitsPage({ params }: PageProps) {
         onConfirm={() => router.push(backHref)}
         onCancel={() => setLeaveOpen(false)}
       />
-    </>
+    </div>
   );
 }

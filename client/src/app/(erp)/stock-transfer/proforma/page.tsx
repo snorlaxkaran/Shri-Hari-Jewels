@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRightLeft, Download, Pencil, Search } from "lucide-react";
+import { ArrowRightLeft, Search } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
+import RowActionsDropdown from "@/app/(components)/RowActionsDropdown";
 import TransferTabs from "@/app/(components)/stock-transfer/TransferTabs";
 import {
   fetchProformaTransfers,
@@ -121,10 +122,11 @@ export default function ProformaListPage() {
   };
 
   const handleDownload = async (
-    event: React.MouseEvent,
     transfer: StockTransfer,
+    event?: React.MouseEvent,
   ) => {
-    event.stopPropagation();
+    event?.stopPropagation();
+    if (downloadingId === transfer.id) return;
     setDownloadingId(transfer.id);
     setError("");
     try {
@@ -136,8 +138,8 @@ export default function ProformaListPage() {
     }
   };
 
-  const handleEdit = (event: React.MouseEvent, transferId: string) => {
-    event.stopPropagation();
+  const handleEdit = (transferId: string, event?: React.MouseEvent) => {
+    event?.stopPropagation();
     router.push(`/stock-transfer/sent/${transferId}`);
   };
 
@@ -146,7 +148,7 @@ export default function ProformaListPage() {
   }
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Proforma & Invoice List"
         subtitle={`${transfers.length} transfer${transfers.length === 1 ? "" : "s"} · ${invoicedCount} invoiced · ${pendingCount} pending`}
@@ -169,18 +171,14 @@ export default function ProformaListPage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
-          />
+      <div className="filter-bar">
+        <div className="filter-search">
+          <Search size={14} className="text-zinc-400 shrink-0" />
           <input
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search transfer no., invoice no., customer, branch, item code..."
-            className="input-field w-full pl-9 pr-4 py-2 text-sm"
           />
         </div>
         <select
@@ -188,7 +186,7 @@ export default function ProformaListPage() {
           onChange={(event) =>
             setDocumentTypeFilter(event.target.value as DocumentTypeFilter)
           }
-          className="input-field px-3 py-2 text-sm"
+          className="filter-select"
         >
           <option value="All Types">All Types</option>
           <option value="Wholesale GST Invoice">Wholesale GST Invoice</option>
@@ -199,55 +197,51 @@ export default function ProformaListPage() {
           onChange={(event) =>
             setInvoiceFilter(event.target.value as InvoiceFilter)
           }
-          className="input-field px-3 py-2 text-sm"
+          className="filter-select"
         >
           <option value="All">Invoice Generated: All</option>
           <option value="Yes">Invoice Generated: Yes</option>
           <option value="No">Invoice Generated: No</option>
         </select>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-xs text-zinc-500">From</label>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(event) => setDateFrom(event.target.value)}
-            className="input-field px-3 py-2 text-sm"
-          />
-          <label className="text-xs text-zinc-500">To</label>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(event) => setDateTo(event.target.value)}
-            className="input-field px-3 py-2 text-sm"
-          />
-        </div>
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={(event) => setDateFrom(event.target.value)}
+          className="filter-select"
+          aria-label="From date"
+        />
+        <input
+          type="date"
+          value={dateTo}
+          onChange={(event) => setDateTo(event.target.value)}
+          className="filter-select"
+          aria-label="To date"
+        />
+        <span className="filter-count">
+          Showing {filtered.length} of {transfers.length}
+        </span>
       </div>
 
       <div className="surface-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px] text-sm">
+          <table className="data-table min-w-[1000px]">
             <thead>
-              <tr className="bg-zinc-50 text-zinc-500">
-                <th className="text-left px-5 py-3 font-medium">Transfer No.</th>
-                <th className="text-left px-5 py-3 font-medium">Date</th>
-                <th className="text-left px-5 py-3 font-medium">Customer</th>
-                <th className="text-left px-5 py-3 font-medium">Document Type</th>
-                <th className="text-left px-5 py-3 font-medium">Items</th>
-                <th className="text-left px-5 py-3 font-medium">Total Value</th>
-                <th className="text-left px-5 py-3 font-medium">
-                  Invoice Generated
-                </th>
-                <th className="text-left px-5 py-3 font-medium">Invoice No.</th>
-                <th className="text-left px-5 py-3 font-medium">Actions</th>
+              <tr>
+                <th>Transfer No.</th>
+                <th>Date</th>
+                <th>Customer</th>
+                <th>Document Type</th>
+                <th>Items</th>
+                <th>Total Value</th>
+                <th>Invoice Generated</th>
+                <th>Invoice No.</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={9}
-                    className="px-5 py-10 text-center text-sm text-zinc-400"
-                  >
+                  <td colSpan={9} className="text-center td-muted py-10">
                     {transfers.length === 0
                       ? "No transfers yet. Use Scan & Send to transfer stock to a customer branch."
                       : hasActiveFilters
@@ -262,30 +256,27 @@ export default function ProformaListPage() {
                     <tr
                       key={transfer.id}
                       onClick={() => handleRowClick(transfer.id)}
-                      className="border-t border-zinc-100 text-zinc-900 cursor-pointer hover:bg-zinc-50/80"
                     >
-                      <td className="px-5 py-3 font-mono text-xs">
-                        {transfer.transferNo}
-                      </td>
-                      <td className="px-5 py-3">
+                      <td className="td-code">{transfer.transferNo}</td>
+                      <td className="td-muted">
                         {formatDate(transfer.createdAt)}
                       </td>
-                      <td className="px-5 py-3">
-                        <span className="block text-zinc-900">
+                      <td>
+                        <span className="block">
                           {transfer.customerName ?? transfer.toBranchName}
                         </span>
                         {transfer.customerBranchName && (
-                          <span className="text-xs text-zinc-400">
+                          <span className="text-xs td-muted">
                             {transfer.customerBranchName}
                           </span>
                         )}
                       </td>
-                      <td className="px-5 py-3">{transfer.documentType}</td>
-                      <td className="px-5 py-3">{transfer.itemCount}</td>
-                      <td className="px-5 py-3">
+                      <td className="td-muted">{transfer.documentType}</td>
+                      <td className="td-num">{transfer.itemCount}</td>
+                      <td className="td-num">
                         {formatCurrency(transfer.totalValue)}
                       </td>
-                      <td className="px-5 py-3">
+                      <td>
                         {generated ? (
                           <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
                             Yes
@@ -296,44 +287,24 @@ export default function ProformaListPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-5 py-3 font-mono text-xs">
-                        {transfer.invoiceNo ?? "—"}
-                      </td>
-                      <td className="px-5 py-3">
+                      <td className="td-mono">{transfer.invoiceNo ?? "—"}</td>
+                      <td className="text-right">
                         {canAct && (
-                          <div className="flex items-center gap-1">
-                            {generated && (
-                              <button
-                                type="button"
-                                title="Download PDF"
-                                disabled={downloadingId === transfer.id}
-                                onClick={(event) =>
-                                  handleDownload(event, transfer)
-                                }
-                                className="p-1.5 text-zinc-400 hover:text-emerald-600 disabled:opacity-50"
-                              >
-                                <Download size={15} />
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              title={
-                                generated
+                          <RowActionsDropdown
+                            actions={[
+                              {
+                                label: "Download PDF",
+                                onClick: () => handleDownload(transfer),
+                                hidden: !generated,
+                              },
+                              {
+                                label: generated
                                   ? "Edit & Re-generate"
-                                  : "Edit & Generate Invoice"
-                              }
-                              onClick={(event) =>
-                                handleEdit(event, transfer.id)
-                              }
-                              className={`p-1.5 ${
-                                generated
-                                  ? "text-zinc-400 hover:text-zinc-700"
-                                  : "text-zinc-400 hover:text-amber-600"
-                              }`}
-                            >
-                              <Pencil size={15} />
-                            </button>
-                          </div>
+                                  : "Edit & Generate Invoice",
+                                onClick: () => handleEdit(transfer.id),
+                              },
+                            ]}
+                          />
                         )}
                       </td>
                     </tr>
@@ -346,8 +317,7 @@ export default function ProformaListPage() {
       </div>
 
       <p className="mt-4 text-sm text-zinc-500">
-        Showing {filtered.length} of {transfers.length} transfer
-        {transfers.length === 1 ? "" : "s"} · Total Value:{" "}
+        Total Value:{" "}
         {formatCurrency(filteredTotalValue)} · {filteredInvoiced} invoiced ·{" "}
         {filteredPending} pending
       </p>

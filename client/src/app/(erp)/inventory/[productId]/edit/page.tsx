@@ -50,7 +50,8 @@ export default function EditProductPage({ params }: PageProps) {
 
   if (!product) {
     return (
-      <FormPageShell
+      <div className="page-content">
+        <FormPageShell
         backHref={backHref}
         backLabel="Back to products"
         title="Edit Product"
@@ -58,11 +59,12 @@ export default function EditProductPage({ params }: PageProps) {
       >
         <div />
       </FormPageShell>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="page-content">
       <FormPageShell
         backHref={backHref}
         backLabel="Back to products"
@@ -91,6 +93,6 @@ export default function EditProductPage({ params }: PageProps) {
         onConfirm={() => router.push(backHref)}
         onCancel={() => setLeaveOpen(false)}
       />
-    </>
+    </div>
   );
 }

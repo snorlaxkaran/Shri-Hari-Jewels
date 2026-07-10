@@ -221,7 +221,8 @@ export default function ProductionRunStagePage() {
   ).length;
 
   return (
-    <ProductionRunWizardShell run={run}>
+    <div className="page-content">
+      <ProductionRunWizardShell run={run}>
       {error && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">
           {error}
@@ -434,5 +435,6 @@ export default function ProductionRunStagePage() {
         loading={submitting}
       />
     </ProductionRunWizardShell>
+    </div>
   );
 }

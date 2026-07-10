@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import DashboardWrapper from "./dashboardWrapper";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: "Jewellery ERP",
@@ -16,7 +19,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className="h-full antialiased"
+      className={`${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full w-full overflow-x-hidden">
         {/*

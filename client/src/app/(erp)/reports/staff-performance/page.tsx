@@ -12,7 +12,7 @@ export default function StaffPerformanceReportPage() {
   }, []);
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="page-content space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-semibold">Staff Performance</h1>
         <button

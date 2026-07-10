@@ -4,12 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatusBadge from "@/app/(components)/StatusBadge";
-import FilterPill from "@/app/(components)/ui/FilterPill";
+import RowActionsDropdown from "@/app/(components)/RowActionsDropdown";
 import { fetchInvoices, openInvoicePdf } from "@/lib/api/invoices";
 import { getApiErrorMessage } from "@/lib/api/client";
 import type { Invoice } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { Download } from "lucide-react";
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -48,7 +47,7 @@ export default function InvoicesPage() {
   if (loading) return <PageSkeleton />;
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Invoices"
         subtitle={`${filtered.length} invoices from completed sales`}
@@ -60,15 +59,21 @@ export default function InvoicesPage() {
         </div>
       )}
 
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {statuses.map((s) => (
-          <FilterPill
-            key={s}
-            label={s}
-            active={statusFilter === s}
-            onClick={() => setStatusFilter(s)}
-          />
-        ))}
+      <div className="filter-bar">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="filter-select"
+        >
+          {statuses.map((s) => (
+            <option key={s} value={s}>
+              {s === "All" ? "All statuses" : s}
+            </option>
+          ))}
+        </select>
+        <span className="filter-count">
+          Showing {filtered.length} of {invoices.length}
+        </span>
       </div>
 
       <div className="surface-card overflow-hidden">
@@ -78,50 +83,53 @@ export default function InvoicesPage() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="data-table">
               <thead>
-                <tr className="bg-zinc-50 text-zinc-500">
-                  <th className="text-left px-5 py-3 font-medium">Invoice</th>
-                  <th className="text-left px-5 py-3 font-medium">Customer</th>
-                  <th className="text-left px-5 py-3 font-medium">Product</th>
-                  <th className="text-left px-5 py-3 font-medium">Amount</th>
-                  <th className="text-left px-5 py-3 font-medium">Payment</th>
-                  <th className="text-left px-5 py-3 font-medium">Status</th>
-                  <th className="text-left px-5 py-3 font-medium">Date</th>
-                  <th className="text-left px-5 py-3 font-medium"></th>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Customer</th>
+                  <th>Product</th>
+                  <th>Amount</th>
+                  <th>Payment</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((inv) => (
-                  <tr
-                    key={inv.id}
-                    className="border-t border-zinc-100 text-zinc-900 hover:bg-zinc-50 transition-colors"
-                  >
-                    <td className="px-5 py-3 font-medium">{inv.invoiceNo}</td>
-                    <td className="px-5 py-3">
+                  <tr key={inv.id}>
+                    <td className="td-code">{inv.invoiceNo}</td>
+                    <td className="td-muted">
                       <p>{inv.customerName}</p>
-                      <p className="text-xs text-zinc-400">{inv.customerMobile}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {inv.customerMobile}
+                      </p>
                     </td>
-                    <td className="px-5 py-3">
-                      <p className="text-xs font-mono">{inv.itemCode}</p>
-                      <p className="text-xs text-zinc-500">{inv.productName}</p>
+                    <td className="td-mono">
+                      <p>{inv.itemCode}</p>
+                      <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                        {inv.productName}
+                      </p>
                     </td>
-                    <td className="px-5 py-3">{formatCurrency(inv.total)}</td>
-                    <td className="px-5 py-3">{inv.paymentMode}</td>
-                    <td className="px-5 py-3">
+                    <td className="td-num">{formatCurrency(inv.total)}</td>
+                    <td className="td-muted">{inv.paymentMode}</td>
+                    <td>
                       <StatusBadge status={inv.status} />
                     </td>
-                    <td className="px-5 py-3">{formatDate(inv.createdAt)}</td>
-                    <td className="px-5 py-3">
-                      <button
-                        type="button"
-                        onClick={() => handleDownload(inv)}
-                        disabled={downloadingId === inv.id}
-                        className="inline-flex p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 disabled:opacity-50"
-                        aria-label="Download invoice"
-                      >
-                        <Download size={15} />
-                      </button>
+                    <td className="td-muted">{formatDate(inv.createdAt)}</td>
+                    <td className="text-right">
+                      <RowActionsDropdown
+                        actions={[
+                          {
+                            label:
+                              downloadingId === inv.id
+                                ? "Downloading…"
+                                : "Download PDF",
+                            onClick: () => void handleDownload(inv),
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}

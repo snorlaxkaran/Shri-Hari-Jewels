@@ -62,7 +62,7 @@ export default function WorkOrdersPage() {
   }
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Work Orders"
         subtitle="Production and manufacturing tracking"
@@ -77,7 +77,7 @@ export default function WorkOrdersPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="filter-bar">
         {statuses.map((status) => (
           <FilterPill
             key={status}
@@ -94,6 +94,9 @@ export default function WorkOrdersPage() {
             onClick={() => setPriorityFilter(priority)}
           />
         ))}
+        <span className="filter-count">
+          Showing {filtered.length} of {workOrders.length}
+        </span>
       </div>
 
       {error && (
@@ -109,37 +112,28 @@ export default function WorkOrdersPage() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="data-table">
               <thead>
-                <tr className="bg-zinc-50 text-zinc-500">
-                  <th className="text-left px-5 py-3 font-medium">
-                    Work Order
-                  </th>
-                  <th className="text-left px-5 py-3 font-medium">Title</th>
-                  <th className="text-left px-5 py-3 font-medium">Order No.</th>
-                  <th className="text-left px-5 py-3 font-medium">Assignee</th>
-                  <th className="text-left px-5 py-3 font-medium">Status</th>
-                  <th className="text-left px-5 py-3 font-medium">Priority</th>
-                  <th className="text-left px-5 py-3 font-medium">Due Date</th>
+                <tr>
+                  <th>Work Order</th>
+                  <th>Title</th>
+                  <th>Order No.</th>
+                  <th>Assignee</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Due Date</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((workOrder) => (
-                  <tr
-                    key={workOrder.id}
-                    className="border-t border-zinc-100 text-zinc-900"
-                  >
-                    <td className="px-5 py-3 font-medium">
-                      {workOrder.workOrderNo}
-                    </td>
-                    <td className="px-5 py-3 max-w-xs truncate">
-                      {workOrder.title}
-                    </td>
-                    <td className="px-5 py-3">{workOrder.orderNo ?? "-"}</td>
-                    <td className="px-5 py-3">
+                  <tr key={workOrder.id}>
+                    <td className="td-code">{workOrder.workOrderNo}</td>
+                    <td className="max-w-xs truncate">{workOrder.title}</td>
+                    <td className="td-mono">{workOrder.orderNo ?? "-"}</td>
+                    <td className="td-muted">
                       {workOrder.assignedToName ?? "Unassigned"}
                     </td>
-                    <td className="px-5 py-3">
+                    <td>
                       <select
                         value={workOrder.status}
                         onChange={(e) =>
@@ -159,7 +153,7 @@ export default function WorkOrdersPage() {
                           ))}
                       </select>
                     </td>
-                    <td className="px-5 py-3">
+                    <td>
                       <select
                         value={workOrder.priority}
                         onChange={(e) =>
@@ -177,7 +171,7 @@ export default function WorkOrdersPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="td-muted">
                       {workOrder.dueDate ? formatDate(workOrder.dueDate) : "-"}
                     </td>
                   </tr>

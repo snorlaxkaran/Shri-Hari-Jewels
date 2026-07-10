@@ -42,7 +42,7 @@ export default function BranchesPage() {
 
   if (!canManage) {
     return (
-      <div>
+      <div className="page-content">
         <PageHeader title="Branches" subtitle="Store locations" />
         <div className="surface-card p-8 text-center text-sm text-zinc-400">
           Only admins can manage branches.
@@ -52,7 +52,7 @@ export default function BranchesPage() {
   }
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Branches"
         subtitle={`${branches.length} active store${branches.length === 1 ? "" : "s"}`}

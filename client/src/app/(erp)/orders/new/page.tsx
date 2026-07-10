@@ -28,7 +28,7 @@ export default function NewOrderPage() {
   };
 
   return (
-    <>
+    <div className="page-content">
       <FormPageShell
         backHref={backHref}
         backLabel="Back to orders"
@@ -58,6 +58,6 @@ export default function NewOrderPage() {
         onConfirm={() => router.push(backHref)}
         onCancel={() => setLeaveOpen(false)}
       />
-    </>
+    </div>
   );
 }

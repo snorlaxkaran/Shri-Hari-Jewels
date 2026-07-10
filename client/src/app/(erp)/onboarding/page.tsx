@@ -21,7 +21,7 @@ export default function OnboardingPage() {
   ] as const;
 
   return (
-    <div className="p-6 max-w-xl space-y-6">
+    <div className="page-content max-w-xl space-y-6">
       <h1 className="text-xl font-semibold">Setup Wizard</h1>
       <p style={{ color: "var(--text-muted)" }}>
         Complete these steps to get your ERP ready for daily operations.
@@ -32,7 +32,7 @@ export default function OnboardingPage() {
           return (
             <li
               key={step.key}
-              className="flex items-center justify-between surface-card rounded-lg p-4"
+              className="flex items-center justify-between surface-card p-4"
             >
               <span>{step.label}</span>
               {done ? (

@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatusBadge from "@/app/(components)/StatusBadge";
-import FilterPill from "@/app/(components)/ui/FilterPill";
 import { useOrders } from "@/lib/orders/orders-context";
 import { useSales } from "@/lib/sales/sales-context";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -46,7 +45,7 @@ export default function OrdersPage() {
   }
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Orders"
         subtitle={`${filtered.length} custom orders`}
@@ -67,15 +66,23 @@ export default function OrdersPage() {
         </div>
       )}
 
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {statuses.map((s) => (
-          <FilterPill
-            key={s}
-            label={s}
-            active={statusFilter === s}
-            onClick={() => setStatusFilter(s)}
-          />
-        ))}
+      <div className="filter-bar">
+        <select
+          value={statusFilter}
+          onChange={(e) =>
+            setStatusFilter(e.target.value as OrderStatus | "All")
+          }
+          className="filter-select"
+        >
+          {statuses.map((s) => (
+            <option key={s} value={s}>
+              {s === "All" ? "All statuses" : s}
+            </option>
+          ))}
+        </select>
+        <span className="filter-count">
+          Showing {filtered.length} of {orders.length}
+        </span>
       </div>
 
       <div className="surface-card overflow-hidden">
@@ -85,39 +92,41 @@ export default function OrdersPage() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="data-table">
               <thead>
-                <tr className="bg-zinc-50 text-zinc-500">
-                  <th className="text-left px-5 py-3 font-medium">Order No.</th>
-                  <th className="text-left px-5 py-3 font-medium">Customer</th>
-                  <th className="text-left px-5 py-3 font-medium">Description</th>
-                  <th className="text-left px-5 py-3 font-medium">Est. Total</th>
-                  <th className="text-left px-5 py-3 font-medium">Status</th>
-                  <th className="text-left px-5 py-3 font-medium">Payment</th>
-                  <th className="text-left px-5 py-3 font-medium">Date</th>
+                <tr>
+                  <th>Order No.</th>
+                  <th>Customer</th>
+                  <th>Description</th>
+                  <th>Est. Total</th>
+                  <th>Status</th>
+                  <th>Payment</th>
+                  <th>Date</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((order) => (
-                  <tr key={order.id} className="border-t border-zinc-100 text-zinc-900">
-                    <td className="px-5 py-3 font-medium">{order.orderNo}</td>
-                    <td className="px-5 py-3">
+                  <tr key={order.id}>
+                    <td className="td-code">{order.orderNo}</td>
+                    <td className="td-muted">
                       <p>{order.customerName}</p>
-                      <p className="text-xs text-zinc-400">{order.customerMobile}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {order.customerMobile}
+                      </p>
                     </td>
-                    <td className="px-5 py-3 max-w-xs truncate">{order.description}</td>
-                    <td className="px-5 py-3">
+                    <td className="td-muted max-w-xs truncate">{order.description}</td>
+                    <td className="td-num">
                       {order.estimatedTotal
                         ? formatCurrency(order.estimatedTotal)
                         : "-"}
                     </td>
-                    <td className="px-5 py-3">
+                    <td>
                       <select
                         value={order.status}
                         onChange={(e) =>
                           handleStatusChange(order.id, e.target.value as OrderStatus)
                         }
-                        className="input-field text-xs py-1 px-2"
+                        className="filter-select"
                       >
                         {statuses
                           .filter((s) => s !== "All")
@@ -128,10 +137,10 @@ export default function OrdersPage() {
                           ))}
                       </select>
                     </td>
-                    <td className="px-5 py-3">
+                    <td>
                       <StatusBadge status={order.paymentStatus} />
                     </td>
-                    <td className="px-5 py-3">{formatDate(order.createdAt)}</td>
+                    <td className="td-muted">{formatDate(order.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>

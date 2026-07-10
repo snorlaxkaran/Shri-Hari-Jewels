@@ -293,7 +293,7 @@ export default function SalesPage() {
   }
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Record Sale"
         subtitle="POS — add items to cart and checkout"
@@ -505,25 +505,25 @@ export default function SalesPage() {
             <p className="px-5 py-8 text-sm text-zinc-400 text-center">No sales recorded yet.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="data-table">
                 <thead>
-                  <tr className="bg-zinc-50 text-zinc-500">
-                    <th className="text-left px-5 py-3 font-medium">Item</th>
-                    <th className="text-left px-5 py-3 font-medium">Customer</th>
-                    <th className="text-left px-5 py-3 font-medium">Deal</th>
-                    <th className="text-left px-5 py-3 font-medium">Date</th>
+                  <tr>
+                    <th>Item</th>
+                    <th>Customer</th>
+                    <th>Deal</th>
+                    <th>Date</th>
                   </tr>
                 </thead>
                 <tbody>
                   {analytics.recentSales.map((sale) => (
-                    <tr key={sale.id} className="border-t border-zinc-100 text-zinc-900">
-                      <td className="px-5 py-3">
+                    <tr key={sale.id}>
+                      <td className="td-code">
                         <p className="font-mono text-xs">{sale.itemCode}</p>
                         <p className="text-xs text-zinc-500">{sale.productName}</p>
                       </td>
-                      <td className="px-5 py-3">{sale.customerName ?? sale.customerPhone}</td>
-                      <td className="px-5 py-3 font-medium">{formatCurrency(sale.dealPrice)}</td>
-                      <td className="px-5 py-3 text-zinc-500">{formatDate(sale.soldAt)}</td>
+                      <td className="td-muted">{sale.customerName ?? sale.customerPhone}</td>
+                      <td className="td-num">{formatCurrency(sale.dealPrice)}</td>
+                      <td className="td-muted">{formatDate(sale.soldAt)}</td>
                     </tr>
                   ))}
                 </tbody>

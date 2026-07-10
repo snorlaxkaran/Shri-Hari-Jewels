@@ -107,7 +107,7 @@ export default function SettingsPage() {
   if (loading) return <PageSkeleton />;
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Settings"
         subtitle="Business details, tax registration, and payment configuration"

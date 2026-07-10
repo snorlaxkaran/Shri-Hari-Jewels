@@ -22,7 +22,7 @@ const EVENT_DOT: Record<ItemCodeHistoryEvent["type"], string> = {
 
 function SpecSkeleton() {
   return (
-    <div className="surface-card rounded-xl p-6 animate-pulse space-y-4">
+    <div className="surface-card p-6 animate-pulse space-y-4">
       <div className="h-6 w-48 bg-zinc-200 rounded" />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {Array.from({ length: 8 }).map((_, i) => (
@@ -38,7 +38,7 @@ function SpecSkeleton() {
 
 function TimelineSkeleton() {
   return (
-    <div className="surface-card rounded-xl p-6 animate-pulse space-y-6">
+    <div className="surface-card p-6 animate-pulse space-y-6">
       <div className="h-5 w-32 bg-zinc-200 rounded" />
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="flex gap-4">
@@ -106,7 +106,7 @@ export default function ItemCodeHistoryPage() {
   }, [load]);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-10">
+    <div className="page-content max-w-4xl mx-auto space-y-6 pb-10">
       <nav className="text-sm text-zinc-500 flex items-center gap-2 flex-wrap">
         <Link href="/inventory" className="hover:text-zinc-800 transition-colors">
           Products
@@ -144,7 +144,7 @@ export default function ItemCodeHistoryPage() {
 
       {!loading && history && (
         <>
-          <section className="surface-card rounded-xl p-6">
+          <section className="surface-card p-6">
             <div className="flex flex-wrap items-start gap-4 justify-between mb-5">
               <div className="flex items-start gap-4 min-w-0">
                 {history.spec.imageUrl ? (
@@ -301,7 +301,7 @@ export default function ItemCodeHistoryPage() {
             )}
           </section>
 
-          <section className="surface-card rounded-xl p-6">
+          <section className="surface-card p-6">
             <h2 className="text-sm font-semibold text-zinc-800 mb-6">Timeline</h2>
             {history.events.length === 0 ? (
               <p className="text-sm text-zinc-500">No lifecycle events recorded yet.</p>

@@ -49,7 +49,7 @@ export default function NewProductionRunPage() {
   }
 
   return (
-    <>
+    <div className="page-content">
       <FormPageShell
         backHref={backHref}
         backLabel={backLabel}
@@ -80,6 +80,6 @@ export default function NewProductionRunPage() {
         onConfirm={() => router.push(backHref)}
         onCancel={() => setLeaveOpen(false)}
       />
-    </>
+    </div>
   );
 }

@@ -3,15 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import {
-  ClipboardCheck,
-  IndianRupee,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { ClipboardCheck } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatusBadge from "@/app/(components)/StatusBadge";
+import ConfirmDialog from "@/app/(components)/ConfirmDialog";
+import RowActionsDropdown from "@/app/(components)/RowActionsDropdown";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canWriteInventory } from "@/lib/auth/permissions";
 import {
@@ -33,6 +30,7 @@ export default function EntryVerificationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<EntryVoucher | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,18 +48,13 @@ export default function EntryVerificationPage() {
     void load();
   }, [load]);
 
-  const handleDelete = async (voucher: EntryVoucher) => {
-    if (
-      !window.confirm(
-        `Delete voucher ${voucher.voucherCode} and all ${voucher.itemCount} inactive item(s)? This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
-    setDeletingId(voucher.id);
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeletingId(deleteTarget.id);
     setError("");
     try {
-      await deleteEntryVoucher(voucher.id);
+      await deleteEntryVoucher(deleteTarget.id);
+      setDeleteTarget(null);
       await load();
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to delete voucher."));
@@ -75,27 +68,28 @@ export default function EntryVerificationPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="page-content">
       <PageHeader
         title="Entry Verification"
         subtitle="Review bulk stock entries before they become live inventory"
       />
 
-      <div className="flex gap-2">
-        {(["Pending", "Verified"] as const).map((status) => (
-          <button
-            key={status}
-            type="button"
-            onClick={() => setTab(status)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              tab === status
-                ? "bg-zinc-900 text-white"
-                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-            }`}
-          >
-            {status === "Pending" ? "Pending" : "Verified"}
-          </button>
-        ))}
+      <div className="filter-bar">
+        <div className="flex gap-2">
+          {(["Pending", "Verified"] as const).map((status) => (
+            <button
+              key={status}
+              type="button"
+              onClick={() => setTab(status)}
+              className={`tab-btn ${tab === status ? "tab-btn-active" : "tab-btn-inactive"}`}
+            >
+              {status === "Pending" ? "Pending" : "Verified"}
+            </button>
+          ))}
+        </div>
+        <span className="filter-count">
+          Showing {vouchers.length} of {vouchers.length}
+        </span>
       </div>
 
       {error && (
@@ -104,18 +98,18 @@ export default function EntryVerificationPage() {
         </div>
       )}
 
-      <div className="surface-card rounded-xl overflow-hidden">
+      <div className="surface-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="data-table min-w-[720px]">
             <thead>
-              <tr className="bg-zinc-50 text-left text-zinc-500">
-                <th className="px-5 py-3 font-medium">Date</th>
-                <th className="px-5 py-3 font-medium">Voucher ID</th>
-                <th className="px-5 py-3 font-medium">Employee</th>
-                <th className="px-5 py-3 font-medium">Items</th>
-                <th className="px-5 py-3 font-medium">Status</th>
+              <tr>
+                <th>Date</th>
+                <th>Voucher ID</th>
+                <th>Employee</th>
+                <th>Items</th>
+                <th>Status</th>
                 {canManage && tab === "Pending" && (
-                  <th className="px-5 py-3 font-medium text-right">Actions</th>
+                  <th className="text-right">Actions</th>
                 )}
               </tr>
             </thead>
@@ -124,7 +118,8 @@ export default function EntryVerificationPage() {
                 <tr>
                   <td
                     colSpan={canManage && tab === "Pending" ? 6 : 5}
-                    className="px-5 py-10 text-center text-zinc-400"
+                    className="text-center td-muted"
+                    style={{ padding: "40px 12px" }}
                   >
                     {tab === "Pending"
                       ? "No vouchers awaiting verification."
@@ -133,28 +128,18 @@ export default function EntryVerificationPage() {
                 </tr>
               ) : (
                 vouchers.map((voucher) => (
-                  <tr
-                    key={voucher.id}
-                    className="border-t border-zinc-100 hover:bg-zinc-50/80"
-                  >
-                    <td className="px-5 py-3 text-zinc-700">
-                      {formatDateTime(voucher.createdAt)}
-                    </td>
-                    <td className="px-5 py-3">
-                      <Link
-                        href={`/entry-verification/${voucher.id}`}
-                        className="font-mono text-sm font-medium text-blue-700 hover:underline"
-                      >
+                  <tr key={voucher.id}>
+                    <td className="td-muted">{formatDateTime(voucher.createdAt)}</td>
+                    <td className="td-code">
+                      <Link href={`/entry-verification/${voucher.id}`}>
                         {voucher.voucherCode}
                       </Link>
                     </td>
-                    <td className="px-5 py-3 text-zinc-700">
-                      {voucher.createdByName}
-                    </td>
-                    <td className="px-5 py-3 text-zinc-700">
+                    <td className="td-muted">{voucher.createdByName}</td>
+                    <td className="td-num">
                       {voucher.pricedItemCount}/{voucher.itemCount} priced
                     </td>
-                    <td className="px-5 py-3">
+                    <td>
                       <StatusBadge
                         status={
                           voucher.status === "Pending" ? "Pending" : "Completed"
@@ -162,43 +147,28 @@ export default function EntryVerificationPage() {
                       />
                     </td>
                     {canManage && tab === "Pending" && (
-                      <td className="px-5 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              router.push(`/entry-verification/${voucher.id}`)
-                            }
-                            className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
-                            title="Edit voucher items"
-                            aria-label={`Edit ${voucher.voucherCode}`}
-                          >
-                            <Pencil size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              router.push(
-                                `/entry-verification/${voucher.id}?focus=prices`,
-                              )
-                            }
-                            className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
-                            title="Update prices"
-                            aria-label={`Update prices for ${voucher.voucherCode}`}
-                          >
-                            <IndianRupee size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleDelete(voucher)}
-                            disabled={deletingId === voucher.id}
-                            className="rounded-lg p-2 text-zinc-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                            title="Delete voucher"
-                            aria-label={`Delete ${voucher.voucherCode}`}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                      <td className="text-right">
+                        <RowActionsDropdown
+                          actions={[
+                            {
+                              label: "Edit",
+                              onClick: () =>
+                                router.push(`/entry-verification/${voucher.id}`),
+                            },
+                            {
+                              label: "View prices",
+                              onClick: () =>
+                                router.push(
+                                  `/entry-verification/${voucher.id}?focus=prices`,
+                                ),
+                            },
+                            {
+                              label: "Delete",
+                              destructive: true,
+                              onClick: () => setDeleteTarget(voucher),
+                            },
+                          ]}
+                        />
                       </td>
                     )}
                   </tr>
@@ -215,6 +185,20 @@ export default function EntryVerificationPage() {
           Verify a voucher only after every item has a list price set.
         </p>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete voucher?"
+        message={
+          deleteTarget
+            ? `Delete voucher ${deleteTarget.voucherCode} and all ${deleteTarget.itemCount} inactive item(s)? This cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete"
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteTarget(null)}
+        loading={deletingId !== null}
+      />
     </div>
   );
 }

@@ -37,7 +37,7 @@ export default function NewBranchPage() {
   }
 
   return (
-    <>
+    <div className="page-content">
       <FormPageShell
         backHref={backHref}
         backLabel="Back to branches"
@@ -65,6 +65,6 @@ export default function NewBranchPage() {
         onConfirm={() => router.push(backHref)}
         onCancel={() => setLeaveOpen(false)}
       />
-    </>
+    </div>
   );
 }

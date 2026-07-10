@@ -32,7 +32,8 @@ export default function AddUnitsPickerPage() {
   }
 
   return (
-    <FormPageShell
+    <div className="page-content">
+      <FormPageShell
       backHref={backHref}
       backLabel="Back to products"
       title="Add Units to SKU"
@@ -44,5 +45,6 @@ export default function AddUnitsPickerPage() {
         onSelect={(product) => router.push(`/inventory/${product.id}/add-units`)}
       />
     </FormPageShell>
+    </div>
   );
 }

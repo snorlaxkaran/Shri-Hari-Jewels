@@ -90,7 +90,7 @@ export default function NewDesignPage() {
   if (user && !canManage) return null;
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="page-content space-y-6 max-w-2xl">
       <Link
         href="/designs"
         className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-700"

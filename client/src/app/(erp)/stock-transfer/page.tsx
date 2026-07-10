@@ -254,7 +254,7 @@ function StockTransferScanPageContent() {
   }
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Scan & Send"
         subtitle="Scan item tags and send stock from Head Office to a customer branch"

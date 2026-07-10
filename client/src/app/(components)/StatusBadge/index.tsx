@@ -35,16 +35,34 @@ const styles: Record<string, { bg: string; color: string }> = {
 };
 
 export default function StatusBadge({ status }: { status: string }) {
-  const label =
-    status === "PendingVerification" ? "Inactive" : status;
+  const label = status === "PendingVerification" ? "Inactive" : status;
   const style =
     styles[status] ?? styles[label] ?? { bg: "#f4f4f5", color: "#52525b" };
 
   return (
     <span
-      className="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
-      style={{ backgroundColor: style.bg, color: style.color }}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        backgroundColor: style.bg,
+        color: style.color,
+        fontSize: 11,
+        fontWeight: 500,
+        padding: "2px 8px",
+        borderRadius: 12,
+        whiteSpace: "nowrap",
+      }}
     >
+      <span
+        style={{
+          width: 5,
+          height: 5,
+          borderRadius: "50%",
+          backgroundColor: style.color,
+          flexShrink: 0,
+        }}
+      />
       {label}
     </span>
   );

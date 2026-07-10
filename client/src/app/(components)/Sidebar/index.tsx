@@ -1,38 +1,28 @@
 "use client";
 
-import { Gem, MoreVertical, X } from "lucide-react";
-
+import { X } from "lucide-react";
 import Link from "next/link";
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-
 import { useAuth } from "@/lib/auth/auth-context";
-
-import { canAccessRoute, canViewStockTransfers, ROLE_LABELS } from "@/lib/auth/permissions";
-
+import { canAccessRoute, canViewStockTransfers } from "@/lib/auth/permissions";
 import { filterNavSections } from "@/lib/navigation";
 import { fetchIncomingTransferCount } from "@/lib/api/inventory";
 
 type SidebarContentProps = {
   pathname: string;
-
   onClose: () => void;
-
   showClose?: boolean;
 };
 
 const SidebarContent = ({
   pathname,
-
   onClose,
-
   showClose = false,
 }: SidebarContentProps) => {
   const router = useRouter();
   const prefetchedRoutes = useRef(new Set<string>());
-
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [incomingCount, setIncomingCount] = useState<number | undefined>();
 
   const sections = useMemo(() => {
@@ -67,66 +57,53 @@ const SidebarContent = ({
 
   return (
     <div
-      className="flex flex-col h-full w-[260px] overflow-y-auto border-r"
+      className="flex flex-col h-full w-[220px] overflow-y-auto border-r"
       style={{
         backgroundColor: "var(--sidebar-bg)",
-
         borderColor: "var(--sidebar-border)",
       }}
     >
-      <div
-        className="px-5 pt-6 pb-5 flex items-center gap-3 border-b"
-        style={{ borderColor: "var(--sidebar-border)" }}
-      >
-        <div className="w-9 h-9 rounded-lg brand-mark">
-          <Gem size={18} strokeWidth={1.5} />
-        </div>
-
-        <div>
-          <p className="text-sm font-display text-white leading-tight">
-            {user?.organizationName ?? "Jewellery"}
-          </p>
-
-          <p
-            className="text-[10px] tracking-[0.14em] uppercase"
-            style={{ color: "var(--sidebar-text)" }}
-          >
-            ERP
-          </p>
-        </div>
-
-        {showClose && (
+      {showClose && (
+        <div className="flex justify-end px-3 pt-2">
           <button
-            className="ml-auto p-1 rounded-md hover:bg-white/10 transition-colors"
+            className="p-1 rounded-md hover:bg-white/10 transition-colors"
             style={{ color: "var(--sidebar-text)" }}
             onClick={onClose}
             aria-label="Close sidebar"
           >
             <X size={18} />
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="flex-1 px-2" style={{ paddingTop: 8 }}>
         {sections.map((section, si) => (
-          <div key={section.title} className={si !== 0 ? "pt-4" : ""}>
+          <div key={section.title}>
             {si !== 0 && (
               <div
-                className="mb-3 mx-2 border-t"
-                style={{ borderColor: "var(--sidebar-border)" }}
+                style={{
+                  height: 1,
+                  background: "rgba(255,255,255,0.06)",
+                  margin: "8px 12px",
+                }}
               />
             )}
-
             <p
-              className="text-[10px] font-medium tracking-wider uppercase px-2 mb-2"
-              style={{ color: "var(--sidebar-text)", opacity: 0.75 }}
+              style={{
+                fontSize: 10.5,
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "var(--sidebar-text)",
+                opacity: si === 0 ? 0.6 : 0.6,
+                padding: si === 0 ? "12px 12px 4px" : "12px 12px 4px",
+              }}
             >
               {section.title}
             </p>
 
             {section.items.map((item) => {
               const isActive = pathname === item.href;
-
               const badge = item.badge;
 
               return (
@@ -140,19 +117,21 @@ const SidebarContent = ({
                     onClose();
                   }}
                   data-active={isActive}
-                  className="sidebar-nav-item w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-[13px] font-medium transition-colors duration-150"
+                  className="sidebar-nav-item w-full flex items-center text-left font-medium transition-colors duration-150"
                   style={{
+                    fontSize: 12.5,
+                    padding: "6px 14px",
+                    gap: 7,
+                    borderRadius: 5,
                     color: isActive
                       ? "var(--sidebar-text-active)"
                       : "var(--sidebar-text)",
                   }}
                 >
-                  <span className="sidebar-nav-icon flex-shrink-0 w-[18px] flex justify-center">
+                  <span className="sidebar-nav-icon flex-shrink-0 w-[16px] flex justify-center">
                     {item.icon}
                   </span>
-
                   <span className="flex-1">{item.label}</span>
-
                   {badge !== undefined && (
                     <span
                       className="text-[10px] font-semibold rounded-full px-2 py-0.5"
@@ -160,7 +139,6 @@ const SidebarContent = ({
                         background: isActive
                           ? "rgb(37 99 235 / 0.35)"
                           : "rgb(255 255 255 / 0.1)",
-
                         color: isActive ? "#dbeafe" : "var(--sidebar-text)",
                       }}
                     >
@@ -173,41 +151,12 @@ const SidebarContent = ({
           </div>
         ))}
       </nav>
-
-      <div
-        className="px-3 py-4 border-t"
-        style={{ borderColor: "var(--sidebar-border)" }}
-      >
-        <button
-          type="button"
-          onClick={logout}
-          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors hover:bg-white/5"
-          style={{ color: "var(--sidebar-text)" }}
-        >
-          <div className="w-8 h-8 rounded-full avatar text-xs flex-shrink-0">
-            {user?.name?.charAt(0) ?? "?"}
-          </div>
-
-          <div className="flex-1 text-left min-w-0">
-            <p className="text-[12.5px] font-medium truncate text-white">
-              {user?.name ?? "User"}
-            </p>
-
-            <p className="text-[11px]" style={{ color: "var(--sidebar-text)" }}>
-              {user ? ROLE_LABELS[user.role] : ""}
-            </p>
-          </div>
-
-          <MoreVertical size={15} className="flex-shrink-0 opacity-40" />
-        </button>
-      </div>
     </div>
   );
 };
 
 type SidebarProps = {
   mobileOpen: boolean;
-
   onMobileClose: () => void;
 };
 
@@ -216,17 +165,16 @@ const Sidebar = ({ mobileOpen, onMobileClose }: SidebarProps) => {
 
   return (
     <>
-      <aside className="hidden md:flex h-screen sticky top-0 flex-shrink-0">
+      <aside className="hidden md:flex flex-shrink-0 h-full">
         <SidebarContent pathname={pathname} onClose={() => {}} />
       </aside>
 
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-40 flex">
+        <div className="md:hidden fixed inset-0 z-40 flex" style={{ top: "var(--topbar-height)" }}>
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={onMobileClose}
           />
-
           <aside className="relative z-10 h-full shadow-2xl">
             <SidebarContent
               pathname={pathname}

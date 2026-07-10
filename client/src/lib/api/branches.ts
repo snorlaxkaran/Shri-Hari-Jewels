@@ -6,6 +6,11 @@ export const fetchBranches = async (): Promise<Branch[]> => {
   return data;
 };
 
+export const fetchUserBranches = async (): Promise<Branch[]> => {
+  const { data } = await api.get<Branch[]>("/api/branches/user/me");
+  return data;
+};
+
 export const createBranch = async (input: NewBranchInput): Promise<Branch> => {
   const { data } = await api.post<Branch>("/api/branches", input);
   return data;

@@ -127,7 +127,7 @@ function RawInventoryPageContent() {
   }
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Raw Materials"
         subtitle="Metal and stone inventory ledger"
@@ -208,22 +208,25 @@ function RawInventoryPageContent() {
       </div>
 
       {(tab === "metal" || tab === "certified") && (
-        <div className="relative mb-4 max-w-md">
-          <Search
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
-          />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={
-              tab === "metal"
-                ? "Search lot, vendor, location…"
-                : "Search certificate, vendor, color…"
-            }
-            className="input-field w-full pl-9 pr-4 py-2 text-sm"
-          />
+        <div className="filter-bar">
+          <div className="filter-search">
+            <Search size={14} className="text-zinc-400 shrink-0" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={
+                tab === "metal"
+                  ? "Search lot, vendor, location…"
+                  : "Search certificate, vendor, color…"
+              }
+            />
+          </div>
+          <span className="filter-count">
+            Showing{" "}
+            {tab === "metal" ? filteredMetal.length : filteredStones.length} of{" "}
+            {tab === "metal" ? metalLots.length : certifiedStoneLots.length}
+          </span>
         </div>
       )}
 
@@ -231,40 +234,40 @@ function RawInventoryPageContent() {
 
       {tab === "metal" && (
         <div className="surface-card overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="data-table">
             <thead>
-              <tr className="border-b border-zinc-100 text-left text-xs text-zinc-400">
-                <th className="px-4 py-3 font-medium">Lot</th>
-                <th className="px-4 py-3 font-medium">Metal</th>
-                <th className="px-4 py-3 font-medium">Weight</th>
-                <th className="px-4 py-3 font-medium">Rates (₹/g)</th>
-                <th className="px-4 py-3 font-medium">Value</th>
-                <th className="px-4 py-3 font-medium">Vendor</th>
-                <th className="px-4 py-3 font-medium">Location</th>
-                {canWrite && <th className="px-4 py-3 font-medium">Actions</th>}
+              <tr>
+                <th>Lot</th>
+                <th>Metal</th>
+                <th>Weight</th>
+                <th>Rates (₹/g)</th>
+                <th>Value</th>
+                <th>Vendor</th>
+                <th>Location</th>
+                {canWrite && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
               {filteredMetal.length === 0 ? (
                 <tr>
-                  <td colSpan={canWrite ? 8 : 7} className="px-4 py-8 text-center text-zinc-400">
+                  <td colSpan={canWrite ? 8 : 7} className="text-center td-muted py-8">
                     No metal lots found.
                   </td>
                 </tr>
               ) : (
                 filteredMetal.map((lot) => (
-                  <tr key={lot.id} className="border-b border-zinc-50 hover:bg-zinc-50/50">
-                    <td className="px-4 py-3 font-medium text-zinc-900">{lot.lotNumber}</td>
-                    <td className="px-4 py-3">
+                  <tr key={lot.id}>
+                    <td className="td-code">{lot.lotNumber}</td>
+                    <td>
                       {lot.metalType} · {lot.purity}
                     </td>
-                    <td className="px-4 py-3">{formatNumber(lot.weightGrams)} g</td>
-                    <td className="px-4 py-3 text-zinc-500">
+                    <td className="td-num">{formatNumber(lot.weightGrams)} g</td>
+                    <td className="td-muted">
                       {formatCurrency(lot.purchaseRate)} → {formatCurrency(lot.currentRate)}
                     </td>
-                    <td className="px-4 py-3 font-medium">{formatCurrency(lot.stockValue)}</td>
-                    <td className="px-4 py-3 text-zinc-600">{lot.vendor}</td>
-                    <td className="px-4 py-3">{lot.location}</td>
+                    <td className="td-num">{formatCurrency(lot.stockValue)}</td>
+                    <td className="td-muted">{lot.vendor}</td>
+                    <td>{lot.location}</td>
                     {canWrite && (
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
@@ -309,41 +312,39 @@ function RawInventoryPageContent() {
 
       {tab === "certified" && (
         <div className="surface-card overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="data-table">
             <thead>
-              <tr className="border-b border-zinc-100 text-left text-xs text-zinc-400">
-                <th className="px-4 py-3 font-medium">Certificate</th>
-                <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium">Carat</th>
-                <th className="px-4 py-3 font-medium">4C</th>
-                <th className="px-4 py-3 font-medium">Value</th>
-                <th className="px-4 py-3 font-medium">Vendor</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                {canWrite && <th className="px-4 py-3 font-medium">Actions</th>}
+              <tr>
+                <th>Certificate</th>
+                <th>Type</th>
+                <th>Carat</th>
+                <th>4C</th>
+                <th>Value</th>
+                <th>Vendor</th>
+                <th>Status</th>
+                {canWrite && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
               {filteredStones.length === 0 ? (
                 <tr>
-                  <td colSpan={canWrite ? 8 : 7} className="px-4 py-8 text-center text-zinc-400">
+                  <td colSpan={canWrite ? 8 : 7} className="text-center td-muted py-8">
                     No certified stones found.
                   </td>
                 </tr>
               ) : (
                 filteredStones.map((lot) => (
-                  <tr key={lot.id} className="border-b border-zinc-50 hover:bg-zinc-50/50">
-                    <td className="px-4 py-3 font-medium text-zinc-900">
-                      {lot.certificateNumber}
-                    </td>
-                    <td className="px-4 py-3">{STONE_TYPE_LABELS[lot.stoneType]}</td>
-                    <td className="px-4 py-3">{formatNumber(lot.carat)} ct</td>
-                    <td className="px-4 py-3 text-zinc-500 text-xs">
+                  <tr key={lot.id}>
+                    <td className="td-code">{lot.certificateNumber}</td>
+                    <td>{STONE_TYPE_LABELS[lot.stoneType]}</td>
+                    <td className="td-num">{formatNumber(lot.carat)} ct</td>
+                    <td className="td-muted text-xs">
                       {[lot.color, lot.clarity, lot.cut].filter(Boolean).join(" · ") || "—"}
                     </td>
-                    <td className="px-4 py-3 font-medium">
+                    <td className="td-num">
                       {lot.stockValue != null ? formatCurrency(lot.stockValue) : "—"}
                     </td>
-                    <td className="px-4 py-3 text-zinc-600">{lot.vendor}</td>
+                    <td className="td-muted">{lot.vendor}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={lot.status} />
                     </td>

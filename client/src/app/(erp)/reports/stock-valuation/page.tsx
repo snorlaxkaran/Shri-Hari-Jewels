@@ -14,7 +14,7 @@ export default function StockValuationReportPage() {
   if (!data) return <p className="p-6">Loading…</p>;
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="page-content space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-semibold">Stock Valuation</h1>
         <button

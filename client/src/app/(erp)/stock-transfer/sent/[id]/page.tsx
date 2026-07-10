@@ -220,7 +220,7 @@ export default function SentTransferDetailPage() {
 
   if (!transfer) {
     return (
-      <div>
+      <div className="page-content">
         <PageHeader title="Transfer Not Found" />
         {error && (
           <div className="px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">
@@ -238,7 +238,7 @@ export default function SentTransferDetailPage() {
     : transfer.toBranchName;
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title={`Transfer ${transfer.transferNo}`}
         subtitle={`${transfer.documentType} · ${transfer.itemCount} items · ${formatCurrency(transfer.totalValue)}`}

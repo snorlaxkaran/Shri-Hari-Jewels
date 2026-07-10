@@ -63,7 +63,7 @@ export default function EditCustomerPage({ params }: PageProps) {
   }
 
   return (
-    <>
+    <div className="page-content">
       <FormPageShell
         backHref={backHref}
         backLabel="Back to customer"
@@ -95,6 +95,6 @@ export default function EditCustomerPage({ params }: PageProps) {
         onConfirm={() => router.push(backHref)}
         onCancel={() => setLeaveOpen(false)}
       />
-    </>
+    </div>
   );
 }

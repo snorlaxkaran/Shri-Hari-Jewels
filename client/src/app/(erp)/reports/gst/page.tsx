@@ -48,7 +48,7 @@ export default function GstReportPage() {
   if (loading) return <p className="p-6">Loading GST report…</p>;
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="page-content space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">GST Report</h1>
         <button type="button" className="btn-primary" onClick={exportCsv}>

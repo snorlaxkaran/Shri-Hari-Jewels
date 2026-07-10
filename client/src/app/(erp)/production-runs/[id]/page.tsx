@@ -932,7 +932,7 @@ export default function ProductionRunDetailPage() {
 
   if (!run) {
     return (
-      <div className="space-y-4">
+      <div className="page-content space-y-4">
         <Link
           href="/production-runs"
           className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-700"
@@ -948,7 +948,7 @@ export default function ProductionRunDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="page-content space-y-6">
       <Link
         href="/production-runs"
         className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-700"

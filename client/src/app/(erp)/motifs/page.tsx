@@ -209,7 +209,7 @@ export default function MotifsPage() {
   if (loading) return <PageSkeleton />;
 
   return (
-    <div className="space-y-8">
+    <div className="page-content space-y-8">
       <PageHeader
         title="Motif Library"
         subtitle="Create motifs, upload images, or bulk import from Excel"
@@ -230,7 +230,7 @@ export default function MotifsPage() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <form
           onSubmit={handleSubmit}
-          className="surface-card rounded-xl p-5 space-y-4"
+          className="surface-card p-5 space-y-4"
         >
           <h2 className="text-base font-semibold text-zinc-900">Create motif</h2>
 
@@ -358,7 +358,7 @@ export default function MotifsPage() {
         {canManage ? (
           <MotifExcelImport onImport={handleBulkImport} />
         ) : (
-          <div className="surface-card rounded-xl p-5 text-sm text-zinc-500">
+          <div className="surface-card p-5 text-sm text-zinc-500">
             Excel import is available to Admin and Production Manager roles.
           </div>
         )}
@@ -404,7 +404,7 @@ export default function MotifsPage() {
         </div>
 
         {filtered.length === 0 ? (
-          <div className="surface-card rounded-xl p-8 text-center text-sm text-zinc-400">
+          <div className="surface-card p-8 text-center text-sm text-zinc-400">
             No motifs yet. Create one above or import from Excel.
           </div>
         ) : (
@@ -412,7 +412,7 @@ export default function MotifsPage() {
             {filtered.map((motif) => (
               <article
                 key={motif.id}
-                className="surface-card rounded-xl overflow-hidden border border-zinc-200"
+                className="surface-card overflow-hidden border border-zinc-200"
               >
                 <div className="aspect-[4/3] bg-zinc-100 relative">
                   {motif.imageUrl ? (

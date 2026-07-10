@@ -536,7 +536,7 @@ export default function DesignsPage() {
   }
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Design Builder"
         subtitle="Select a SKU, customize motifs & components, build jewellery"
@@ -569,7 +569,7 @@ export default function DesignsPage() {
       </div>
 
       {!selectedDesign ? (
-        <div className="surface-card px-5 py-12 text-center rounded-xl">
+        <div className="surface-card px-5 py-12 text-center">
           <p className="text-sm text-zinc-500">
             {designs.length === 0
               ? "No SKUs yet. Click New design to create one."
@@ -647,7 +647,7 @@ export default function DesignsPage() {
             </div>
 
             {!metal || !purity ? (
-              <div className="surface-card rounded-xl px-5 py-8 text-center">
+              <div className="surface-card px-5 py-8 text-center">
                 <p className="text-sm text-zinc-500">
                   Select metal and purity in Metal & pricing below to browse matching motifs.
                 </p>
@@ -655,7 +655,7 @@ export default function DesignsPage() {
             ) : motifsLoading ? (
               <p className="text-sm text-zinc-400">Loading motifs…</p>
             ) : filteredMotifs.length === 0 ? (
-              <div className="surface-card rounded-xl px-5 py-8 text-center">
+              <div className="surface-card px-5 py-8 text-center">
                 <p className="text-sm text-zinc-500">
                   {motifs.length === 0
                     ? "No motifs in the library yet. Create one to get started."
@@ -698,7 +698,7 @@ export default function DesignsPage() {
             castingElements.length > 0 ||
             stoneOptions.length > 0 ||
             castingOptions.length > 0) && (
-            <section className="surface-card rounded-xl p-5 space-y-4">
+            <section className="surface-card p-5 space-y-4">
               <h2 className="text-sm font-semibold text-zinc-700">
                 Stones & casting
               </h2>
@@ -827,7 +827,7 @@ export default function DesignsPage() {
           )}
 
           {/* Metal & pricing */}
-          <section className="surface-card rounded-xl p-5 space-y-4">
+          <section className="surface-card p-5 space-y-4">
             <h2 className="text-sm font-semibold text-zinc-700">
               Metal & pricing
             </h2>

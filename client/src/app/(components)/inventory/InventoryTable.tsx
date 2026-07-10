@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import RowActionsDropdown from "@/app/(components)/RowActionsDropdown";
 import StatusBadge from "@/app/(components)/StatusBadge";
 import ItemCodeLink from "@/app/(components)/inventory/ItemCodeLink";
 import { isInactiveUnit } from "@/lib/inventory/unit-status";
@@ -31,7 +32,6 @@ import {
   ArrowUp,
   ArrowUpDown,
   Filter,
-  Pencil,
 } from "lucide-react";
 
 type InventoryTableProps = {
@@ -137,14 +137,14 @@ function ColumnHeader({
 
   if (!column.sortField && column.id === "actions") {
     return (
-      <th className="px-3 py-3 text-right font-medium text-zinc-500 w-16">
+      <th className="text-right w-16">
         {column.label}
       </th>
     );
   }
 
   return (
-    <th className="relative px-3 py-3 font-medium text-zinc-500">
+    <th className="relative">
       <div className="flex items-center gap-1">
         {column.sortField ? (
           <button
@@ -231,19 +231,17 @@ export default function InventoryTable({
     switch (column.id) {
       case "itemCode":
         return (
-          <td className="px-3 py-2.5 font-mono text-[12px] text-zinc-700">
+          <td className="td-code">
             <ItemCodeLink itemCode={row.itemCode} />
           </td>
         );
       case "sku":
         return (
-          <td className="px-3 py-2.5 font-mono text-[12px] text-zinc-500">
-            {row.sku}
-          </td>
+          <td className="td-mono td-muted">{row.sku}</td>
         );
       case "name":
         return (
-          <td className="px-3 py-2.5">
+          <td>
             <div className="flex items-center gap-2 min-w-[160px]">
               {row.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -260,21 +258,21 @@ export default function InventoryTable({
                   style={{ backgroundColor: "var(--bg-muted)" }}
                 />
               )}
-              <span className="font-medium text-[13px] line-clamp-2">{row.name}</span>
+              <span className="font-medium line-clamp-2">{row.name}</span>
             </div>
           </td>
         );
       case "category":
-        return <td className="px-3 py-2.5">{row.category}</td>;
+        return <td className="td-muted">{row.category}</td>;
       case "metal":
-        return <td className="px-3 py-2.5">{row.metal}</td>;
+        return <td className="td-muted">{row.metal}</td>;
       case "purity":
-        return <td className="px-3 py-2.5">{row.purity}</td>;
+        return <td className="td-muted">{row.purity}</td>;
       case "weightGrams":
-        return <td className="px-3 py-2.5">{row.weightGrams}g</td>;
+        return <td className="td-num">{row.weightGrams}g</td>;
       case "price":
         return (
-          <td className="px-3 py-2.5">
+          <td className="td-num">
             <div>{formatCurrency(row.price)}</div>
             {row.priceSource === "sold" && (
               <p className="text-[10px] text-zinc-400">Sold at</p>
@@ -286,42 +284,38 @@ export default function InventoryTable({
         );
       case "createdAt":
         return (
-          <td className="px-3 py-2.5 text-zinc-600">
+          <td className="td-muted">
             {formatDate(row.createdAt)}
           </td>
         );
       case "ageing":
         return (
-          <td className="px-3 py-2.5">
+          <td>
             <AgeingBadge createdAt={row.createdAt} thresholds={ageingThresholds} />
           </td>
         );
       case "branchName":
         return (
-          <td className="px-3 py-2.5 text-zinc-600">{row.branchName ?? "—"}</td>
+          <td className="td-muted">{row.branchName ?? "—"}</td>
         );
       case "status":
         return (
-          <td className="px-3 py-2.5">
+          <td>
             <StatusBadge status={row.status} />
           </td>
         );
       case "actions":
         return (
-          <td className="px-3 py-2.5 text-right">
+          <td className="text-right">
             {canWrite && (
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onEditProduct(row);
-                }}
-                className="inline-flex items-center justify-center rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
-                aria-label={`Edit ${row.sku}`}
-                title="Edit product"
-              >
-                <Pencil size={15} />
-              </button>
+              <RowActionsDropdown
+                actions={[
+                  {
+                    label: "Edit",
+                    onClick: () => onEditProduct(row),
+                  },
+                ]}
+              />
             )}
           </td>
         );
@@ -338,9 +332,9 @@ export default function InventoryTable({
         onClearAll={onClearAllFilters}
       />
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1280px] text-sm">
+        <table className="data-table min-w-[1280px]">
           <thead>
-            <tr className="bg-zinc-50 text-zinc-500">
+            <tr>
               {columns.map((column) => (
                 <ColumnHeader
                   key={column.id}
@@ -391,9 +385,7 @@ export default function InventoryTable({
               rows.map((row) => (
                 <tr
                   key={row.unitId}
-                  className={`border-t border-zinc-100 text-zinc-900 transition-colors hover:bg-zinc-50 ${
-                    isInactiveUnit(row.status) ? "bg-zinc-50/80 opacity-80" : ""
-                  }`}
+                  className={isInactiveUnit(row.status) ? "opacity-80" : ""}
                 >
                   {columns.map((column) => renderCell(row, column))}
                 </tr>

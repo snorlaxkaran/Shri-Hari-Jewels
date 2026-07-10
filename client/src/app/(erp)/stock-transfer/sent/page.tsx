@@ -2,9 +2,11 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, Download, Search } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
+import RowActionsDropdown from "@/app/(components)/RowActionsDropdown";
 import TransferTabs from "@/app/(components)/stock-transfer/TransferTabs";
 import { fetchSentStockTransfers, cancelStockTransfer } from "@/lib/api/inventory";
 import { getApiErrorMessage } from "@/lib/api/client";
@@ -19,6 +21,7 @@ import type { StockTransfer } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 export default function SentStockPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const canAct = user ? canManageStockTransfers(user.role) : false;
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);
@@ -93,7 +96,7 @@ export default function SentStockPage() {
   }
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Sent to Stores"
         subtitle={`${filtered.length} transfer${filtered.length === 1 ? "" : "s"} · ${totalItems} items · ${formatCurrency(totalValue)}`}
@@ -118,24 +121,20 @@ export default function SentStockPage() {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="relative flex-1">
-          <Search
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
-          />
+      <div className="filter-bar">
+        <div className="filter-search">
+          <Search size={14} className="text-zinc-400 shrink-0" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search transfer no., store, item code, SKU..."
-            className="input-field w-full pl-9 pr-4 py-2 text-sm"
           />
         </div>
         <select
           value={storeFilter}
           onChange={(e) => setStoreFilter(e.target.value)}
-          className="input-field px-3 py-2 text-sm"
+          className="filter-select"
         >
           {stores.map((store) => (
             <option key={store} value={store}>
@@ -143,33 +142,33 @@ export default function SentStockPage() {
             </option>
           ))}
         </select>
+        <span className="filter-count">
+          Showing {filtered.length} of {transfers.length}
+        </span>
       </div>
 
       <div className="surface-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-sm">
+          <table className="data-table min-w-[900px]">
             <thead>
-              <tr className="bg-zinc-50 text-zinc-500">
-                <th className="w-10 px-3 py-3" />
-                <th className="text-left px-5 py-3 font-medium">Transfer No.</th>
-                <th className="text-left px-5 py-3 font-medium">Date</th>
-                <th className="text-left px-5 py-3 font-medium">Store</th>
-                <th className="text-left px-5 py-3 font-medium">Document</th>
-                <th className="text-left px-5 py-3 font-medium">Invoice No.</th>
-                <th className="text-left px-5 py-3 font-medium">Items</th>
-                <th className="text-left px-5 py-3 font-medium">Value</th>
-                <th className="text-left px-5 py-3 font-medium">Status</th>
-                <th className="text-left px-5 py-3 font-medium">Sent By</th>
-                <th className="text-left px-5 py-3 font-medium">Actions</th>
+              <tr>
+                <th className="w-10" />
+                <th>Transfer No.</th>
+                <th>Date</th>
+                <th>Store</th>
+                <th>Document</th>
+                <th>Invoice No.</th>
+                <th>Items</th>
+                <th>Value</th>
+                <th>Status</th>
+                <th>Sent By</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={11}
-                    className="px-5 py-10 text-center text-sm text-zinc-400"
-                  >
+                  <td colSpan={11} className="text-center td-muted py-10">
                     No transfers sent yet. Use Scan &amp; Send to transfer stock.
                   </td>
                 </tr>
@@ -178,8 +177,8 @@ export default function SentStockPage() {
                   const expanded = expandedId === transfer.id;
                   return (
                     <Fragment key={transfer.id}>
-                      <tr className="border-t border-zinc-100 text-zinc-900">
-                        <td className="px-3 py-3">
+                      <tr>
+                        <td>
                           <button
                             type="button"
                             onClick={() =>
@@ -195,20 +194,18 @@ export default function SentStockPage() {
                             )}
                           </button>
                         </td>
-                        <td className="px-5 py-3 font-mono text-xs">
-                          {transfer.transferNo}
-                        </td>
-                        <td className="px-5 py-3">
+                        <td className="td-code">{transfer.transferNo}</td>
+                        <td className="td-muted">
                           {formatDate(transfer.transferDate)}
                         </td>
-                        <td className="px-5 py-3">
+                        <td>
                           {transfer.customerBranchName ? (
                             <span>
-                              <span className="block text-zinc-900">
+                              <span className="block">
                                 {transfer.customerBranchName}
                               </span>
                               {transfer.customerName && (
-                                <span className="text-xs text-zinc-400">
+                                <span className="text-xs td-muted">
                                   {transfer.customerName}
                                 </span>
                               )}
@@ -217,41 +214,40 @@ export default function SentStockPage() {
                             transfer.toBranchName
                           )}
                         </td>
-                        <td className="px-5 py-3">{transfer.documentType}</td>
-                        <td className="px-5 py-3 font-mono text-xs">
-                          {transfer.invoiceNo ?? "—"}
-                        </td>
-                        <td className="px-5 py-3">{transfer.itemCount}</td>
-                        <td className="px-5 py-3">
+                        <td className="td-muted">{transfer.documentType}</td>
+                        <td className="td-mono">{transfer.invoiceNo ?? "—"}</td>
+                        <td className="td-num">{transfer.itemCount}</td>
+                        <td className="td-num">
                           {formatCurrency(transfer.totalValue)}
                         </td>
-                        <td className="px-5 py-3">
+                        <td>
                           <TransferStatusBadge status={transfer.status} />
                         </td>
-                        <td className="px-5 py-3">{transfer.createdByName}</td>
-                        <td className="px-5 py-3">
-                          <div className="flex flex-wrap gap-2">
-                            <Link
-                              href={`/stock-transfer/sent/${transfer.id}`}
-                              className="btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
-                            >
-                              View / Invoice
-                            </Link>
-                            {canAct && transfer.status === "Pending" && (
-                              <button
-                                type="button"
-                                onClick={() => handleCancel(transfer)}
-                                className="btn-secondary px-3 py-1.5 text-xs text-red-700"
-                              >
-                                Cancel
-                              </button>
-                            )}
-                          </div>
+                        <td className="td-muted">{transfer.createdByName}</td>
+                        <td className="text-right">
+                          <RowActionsDropdown
+                            actions={[
+                              {
+                                label: "View / Invoice",
+                                onClick: () =>
+                                  router.push(
+                                    `/stock-transfer/sent/${transfer.id}`,
+                                  ),
+                              },
+                              {
+                                label: "Cancel",
+                                onClick: () => handleCancel(transfer),
+                                destructive: true,
+                                hidden:
+                                  !canAct || transfer.status !== "Pending",
+                              },
+                            ]}
+                          />
                         </td>
                       </tr>
                       {expanded && (
                         <tr className="bg-zinc-50/80">
-                          <td colSpan={11} className="px-5 py-4">
+                          <td colSpan={11} className="py-4">
                             <div className="mb-3 flex justify-end">
                               <Link
                                 href={`/stock-transfer/sent/${transfer.id}`}
@@ -261,48 +257,31 @@ export default function SentStockPage() {
                               </Link>
                             </div>
                             <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-                              <table className="w-full min-w-[720px] text-sm">
+                              <table className="data-table min-w-[720px]">
                                 <thead>
-                                  <tr className="text-zinc-500">
-                                    <th className="text-left px-4 py-2 font-medium">
-                                      Item Code
-                                    </th>
-                                    <th className="text-left px-4 py-2 font-medium">
-                                      Product
-                                    </th>
-                                    <th className="text-left px-4 py-2 font-medium">
-                                      SKU
-                                    </th>
-                                    <th className="text-left px-4 py-2 font-medium">
-                                      Metal
-                                    </th>
-                                    <th className="text-left px-4 py-2 font-medium">
-                                      Price
-                                    </th>
+                                  <tr>
+                                    <th>Item Code</th>
+                                    <th>Product</th>
+                                    <th>SKU</th>
+                                    <th>Metal</th>
+                                    <th>Price</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {transfer.items.map((item) => (
-                                    <tr
-                                      key={item.id}
-                                      className="border-t border-zinc-100"
-                                    >
-                                      <td className="px-4 py-2 font-mono text-xs">
+                                    <tr key={item.id}>
+                                      <td className="td-code">
                                         <ItemCodeLink
                                           itemCode={item.itemCode}
                                           className="text-xs"
                                         />
                                       </td>
-                                      <td className="px-4 py-2">
-                                        {item.productName}
-                                      </td>
-                                      <td className="px-4 py-2 font-mono text-xs">
-                                        {item.sku}
-                                      </td>
-                                      <td className="px-4 py-2">
+                                      <td>{item.productName}</td>
+                                      <td className="td-mono">{item.sku}</td>
+                                      <td className="td-muted">
                                         {item.metal} {item.purity}
                                       </td>
-                                      <td className="px-4 py-2">
+                                      <td className="td-num">
                                         {formatCurrency(item.price)}
                                       </td>
                                     </tr>

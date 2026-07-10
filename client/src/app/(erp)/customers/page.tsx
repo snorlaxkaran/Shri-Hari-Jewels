@@ -63,7 +63,7 @@ function CustomersPageContent() {
   }
 
   return (
-    <div>
+    <div className="page-content">
       <PageHeader
         title="Customers"
         subtitle={`${filtered.length} registered customers`}
@@ -86,21 +86,20 @@ function CustomersPageContent() {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4 max-w-2xl">
-        <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+      <div className="filter-bar">
+        <div className="filter-search">
+          <Search size={14} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name, company, phone, or city…"
-            className="input-field w-full pl-9 pr-4 py-2 text-sm"
           />
         </div>
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="input-field px-3 py-2 text-sm sm:w-48"
+          className="filter-select"
         >
           <option value="All Types">All Types</option>
           {CUSTOMER_TYPES.map((type) => (
@@ -109,6 +108,9 @@ function CustomersPageContent() {
             </option>
           ))}
         </select>
+        <span className="filter-count">
+          Showing {filtered.length} of {customers.length}
+        </span>
       </div>
 
       {filtered.length === 0 ? (

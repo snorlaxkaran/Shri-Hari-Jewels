@@ -12,7 +12,7 @@ export default function AgeingStockReportPage() {
   }, []);
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="page-content space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-semibold">Ageing Stock (90+ days)</h1>
         <button
