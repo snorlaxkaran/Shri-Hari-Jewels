@@ -40,6 +40,10 @@ import { resolveCustomerBranchForTransfer } from "../customers/branches.js";
 import { CustomerError } from "../customers/service.js";
 import { getCurrentMarketRates } from "../market-rates/service.js";
 import { computeLiveListPriceForProduct } from "./unit-pricing.js";
+import {
+  backfillTransferredUnitBranches,
+  getLatestTransferLocationByItemCode,
+} from "./transfer-locations.js";
 
 const productInclude = {
   branch: true,
@@ -113,9 +117,31 @@ export const listProducts = async (
     orderBy: resolveProductOrderBy(sortBy, sortOrder),
   });
 
+  const itemCodesNeedingTransferLocation = products.flatMap((product) =>
+    product.units
+      .filter(
+        (unit) =>
+          unit.status === InventoryUnitStatus.Transferred ||
+          (unit.status === InventoryUnitStatus.Available &&
+            stockBranchId &&
+            unit.branchId !== stockBranchId),
+      )
+      .map((unit) => unit.itemCode),
+  );
+  const transferLocationByItemCode =
+    itemCodesNeedingTransferLocation.length > 0
+      ? await getLatestTransferLocationByItemCode(
+          itemCodesNeedingTransferLocation,
+        )
+      : new Map<string, string>();
+
   let items = products
     .map((product) =>
-      toInventoryItem(product, { stockBranchId, marketRates }),
+      toInventoryItem(product, {
+        stockBranchId,
+        marketRates,
+        transferLocationByItemCode,
+      }),
     )
     .filter((item) => item.units.length > 0);
 
@@ -520,18 +546,22 @@ export const createStockTransfer = async (
     throw new InventoryError("Scan at least one item to transfer.");
   }
 
+  let customerBranch: Awaited<
+    ReturnType<typeof resolveCustomerBranchForTransfer>
+  >["customerBranch"];
   try {
-    await resolveCustomerBranchForTransfer(
+    ({ customerBranch } = await resolveCustomerBranchForTransfer(
       input.customerId,
       input.customerBranchId,
       organizationId,
-    );
+    ));
   } catch (error) {
     if (error instanceof CustomerError) {
       throw new InventoryError(error.message, error.statusCode);
     }
     throw error;
   }
+  const destinationBranchId = customerBranch.branchId ?? null;
 
   const headOfficeBranchId =
     await getOrganizationHeadOfficeBranchId(organizationId);
@@ -589,7 +619,7 @@ export const createStockTransfer = async (
       data: {
         transferNo,
         fromBranchId: headOfficeBranchId,
-        toBranchId: headOfficeBranchId,
+        toBranchId: destinationBranchId ?? headOfficeBranchId,
         customerId: input.customerId,
         customerBranchId: input.customerBranchId,
         documentType: input.documentType,
@@ -634,7 +664,10 @@ export const createStockTransfer = async (
 
     await tx.inventoryUnit.updateMany({
       where: { itemCode: { in: cleanCodes } },
-      data: { status: unitStatus },
+      data: {
+        status: unitStatus,
+        ...(destinationBranchId ? { branchId: destinationBranchId } : {}),
+      },
     });
 
     for (const unit of units) {
@@ -814,10 +847,13 @@ export const repairInventory = async (actor?: {
 }) => {
   const reconcileReport = await reconcileInventoryWithSales();
   const wholesaleReport = await backfillMissingWholesaleSales();
+  const transferredBranchReport = await backfillTransferredUnitBranches();
   const report = {
     ...reconcileReport,
     wholesaleSalesCreated: wholesaleReport.salesCreated,
     wholesaleSalesSkipped: wholesaleReport.skipped,
+    transferredUnitsBranchUpdated: transferredBranchReport.updated,
+    transferredUnitsScanned: transferredBranchReport.scanned,
   };
   await recordInventoryAudit({
     entityType: "Product",

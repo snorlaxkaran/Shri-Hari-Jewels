@@ -15,6 +15,7 @@ type ProductWithRelations = Product & {
 type InventoryItemOptions = {
   stockBranchId?: string;
   marketRates?: MarketRatesCurrent;
+  transferLocationByItemCode?: Map<string, string>;
 };
 
 export const toInventoryItem = (
@@ -75,12 +76,20 @@ export const toInventoryItem = (
         options.marketRates,
       );
 
+      const transferLocation =
+        options.transferLocationByItemCode?.get(unit.itemCode);
+      const unitBranchName = unit.branch?.name;
+      const branchName =
+        unit.status === "Transferred" && transferLocation
+          ? transferLocation
+          : (unitBranchName ?? transferLocation);
+
       return {
         id: unit.id,
         itemCode: unit.itemCode,
         sku: product.sku,
         branchId: unit.branchId,
-        branchName: unit.branch?.name,
+        branchName,
         status:
           unit.status === "Available" &&
           options.stockBranchId &&

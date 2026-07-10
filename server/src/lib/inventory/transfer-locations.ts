@@ -1,0 +1,85 @@
+import { InventoryUnitStatus } from "@prisma/client";
+import { prisma } from "../db.js";
+
+const resolveTransferDestinationName = (transfer: {
+  toBranch: { name: string };
+  fromBranchId: string;
+  toBranchId: string;
+  customerBranch?: {
+    name: string;
+    linkedBranch?: { name: string } | null;
+  } | null;
+}): string | undefined =>
+  transfer.customerBranch?.linkedBranch?.name ??
+  transfer.customerBranch?.name ??
+  (transfer.toBranchId !== transfer.fromBranchId
+    ? transfer.toBranch.name
+    : undefined);
+
+/** Latest outbound transfer destination label per item code (for central stock location). */
+export const getLatestTransferLocationByItemCode = async (
+  itemCodes: string[],
+): Promise<Map<string, string>> => {
+  const uniqueCodes = [...new Set(itemCodes.map((code) => code.trim()).filter(Boolean))];
+  if (uniqueCodes.length === 0) return new Map();
+
+  const rows = await prisma.stockTransferItem.findMany({
+    where: { itemCode: { in: uniqueCodes } },
+    include: {
+      transfer: {
+        include: {
+          toBranch: true,
+          customerBranch: { include: { linkedBranch: true } },
+        },
+      },
+    },
+    orderBy: { transfer: { createdAt: "desc" } },
+  });
+
+  const locations = new Map<string, string>();
+  for (const row of rows) {
+    if (locations.has(row.itemCode)) continue;
+    const name = resolveTransferDestinationName(row.transfer);
+    if (name) locations.set(row.itemCode, name);
+  }
+
+  return locations;
+};
+
+/** Move Transferred units to the linked store branch recorded on their stock transfer. */
+export const backfillTransferredUnitBranches = async (): Promise<{
+  scanned: number;
+  updated: number;
+}> => {
+  const units = await prisma.inventoryUnit.findMany({
+    where: { status: InventoryUnitStatus.Transferred },
+    select: { id: true, itemCode: true, branchId: true },
+  });
+
+  let updated = 0;
+
+  for (const unit of units) {
+    const row = await prisma.stockTransferItem.findFirst({
+      where: { itemCode: unit.itemCode },
+      include: {
+        transfer: {
+          include: {
+            customerBranch: { include: { linkedBranch: true } },
+          },
+        },
+      },
+      orderBy: { transfer: { createdAt: "desc" } },
+    });
+
+    const destinationBranchId = row?.transfer.customerBranch?.branchId;
+    if (!destinationBranchId || unit.branchId === destinationBranchId) continue;
+
+    await prisma.inventoryUnit.update({
+      where: { id: unit.id },
+      data: { branchId: destinationBranchId },
+    });
+    updated += 1;
+  }
+
+  return { scanned: units.length, updated };
+};
