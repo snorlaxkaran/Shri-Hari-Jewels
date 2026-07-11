@@ -86,6 +86,7 @@ export type InventoryUnit = {
   price: number;
   priceSource: InventoryUnitPriceSource;
   createdAt: string;
+  branchTransferredAt?: string;
 };
 
 export type InventoryItem = {

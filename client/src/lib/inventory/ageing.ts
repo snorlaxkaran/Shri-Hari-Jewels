@@ -30,3 +30,12 @@ export const getAgeingLevel = (
 
 export const formatAgeInDays = (days: number): string =>
   days === 1 ? "1 day" : `${days} days`;
+
+export type UnitAgeingSource = {
+  createdAt: string;
+  branchTransferredAt?: string | null;
+};
+
+/** Age from HO transfer date when at a branch; otherwise from unit creation. */
+export const getUnitAgeingDate = (unit: UnitAgeingSource): string =>
+  unit.branchTransferredAt ?? unit.createdAt;

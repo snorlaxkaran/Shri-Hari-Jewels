@@ -1,4 +1,4 @@
-import { getAgeInDays } from "./ageing";
+import { getAgeInDays, getUnitAgeingDate } from "./ageing";
 import type { InventoryUnitRow } from "./unit-rows";
 
 export type InventorySortField =
@@ -66,7 +66,8 @@ export const sortInventoryUnitRows = (
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         break;
       case "ageing":
-        comparison = getAgeInDays(a.createdAt) - getAgeInDays(b.createdAt);
+        comparison =
+          getAgeInDays(getUnitAgeingDate(a)) - getAgeInDays(getUnitAgeingDate(b));
         break;
     }
 

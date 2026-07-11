@@ -12,6 +12,7 @@ import {
   formatAgeInDays,
   getAgeInDays,
   getAgeingLevel,
+  getUnitAgeingDate,
   type AgeingThresholds,
 } from "@/lib/inventory/ageing";
 import {
@@ -76,14 +77,15 @@ const BASE_COLUMNS: ColumnDef[] = [
 ];
 
 function AgeingBadge({
-  createdAt,
+  row,
   thresholds = DEFAULT_AGEING_THRESHOLDS,
 }: {
-  createdAt: string;
+  row: InventoryUnitRow;
   thresholds?: AgeingThresholds;
 }) {
-  const days = getAgeInDays(createdAt);
-  const level = getAgeingLevel(createdAt, thresholds);
+  const ageingDate = getUnitAgeingDate(row);
+  const days = getAgeInDays(ageingDate);
+  const level = getAgeingLevel(ageingDate, thresholds);
 
   if (level === "aged") {
     return (
@@ -313,7 +315,7 @@ export default function InventoryTable({
       case "ageing":
         return (
           <td>
-            <AgeingBadge createdAt={row.createdAt} thresholds={ageingThresholds} />
+            <AgeingBadge row={row} thresholds={ageingThresholds} />
           </td>
         );
       case "branchName":

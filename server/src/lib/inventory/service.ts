@@ -745,10 +745,15 @@ export const createStockTransfer = async (
     const unitUpdateData: {
       status: InventoryUnitStatus;
       branchId?: string;
+      branchTransferredAt?: Date | null;
     } = { status: unitStatus };
 
     if (!isInternalTransfer && toBranchId !== headOfficeBranchId) {
       unitUpdateData.branchId = toBranchId;
+    }
+
+    if (toBranchId !== headOfficeBranchId) {
+      unitUpdateData.branchTransferredAt = transferDate;
     }
 
     await tx.inventoryUnit.updateMany({

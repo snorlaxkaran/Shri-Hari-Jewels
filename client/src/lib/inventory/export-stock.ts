@@ -1,4 +1,5 @@
 import type { InventoryItem } from "@/lib/types";
+import { getAgeInDays, getUnitAgeingDate } from "./ageing";
 import type { InventoryUnitRow } from "./unit-rows";
 
 const csvCell = (value: string | number | null | undefined) => {
@@ -47,11 +48,13 @@ export const downloadUnitStockExcel = (rows: InventoryUnitRow[]) => {
     "Status",
     "Location",
     "Ageing (days)",
+    "Transferred Date",
     "Created Date",
   ];
 
-  const csvRows = rows.map((row) =>
-    [
+  const csvRows = rows.map((row) => {
+    const ageingDate = getUnitAgeingDate(row);
+    return [
       row.itemCode,
       row.name,
       row.sku,
@@ -65,12 +68,15 @@ export const downloadUnitStockExcel = (rows: InventoryUnitRow[]) => {
       row.priceSource,
       row.status,
       row.branchName,
-      Math.floor((Date.now() - new Date(row.createdAt).getTime()) / 86400000),
+      getAgeInDays(ageingDate),
+      row.branchTransferredAt
+        ? new Date(row.branchTransferredAt).toLocaleDateString("en-IN")
+        : "-",
       new Date(row.createdAt).toLocaleDateString("en-IN"),
     ]
       .map(csvCell)
-      .join(","),
-  );
+      .join(",");
+  });
 
   downloadCsv(`stock-${formatDateForFilename()}.csv`, headers, csvRows);
 };

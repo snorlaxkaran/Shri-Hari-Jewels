@@ -555,7 +555,10 @@ export const rejectStockTransfer = async (
 
     await tx.inventoryUnit.updateMany({
       where: { itemCode: { in: itemCodes } },
-      data: { status: InventoryUnitStatus.Available },
+      data: {
+        status: InventoryUnitStatus.Available,
+        branchTransferredAt: null,
+      },
     });
 
     for (const unit of units) {
@@ -682,7 +685,10 @@ export const partialAcceptStockTransfer = async (
     if (rejected.length > 0) {
       await tx.inventoryUnit.updateMany({
         where: { itemCode: { in: rejected } },
-        data: { status: InventoryUnitStatus.Available },
+        data: {
+          status: InventoryUnitStatus.Available,
+          branchTransferredAt: null,
+        },
       });
 
       for (const code of rejected) {
@@ -776,7 +782,10 @@ export const cancelStockTransfer = async (
 
     await tx.inventoryUnit.updateMany({
       where: { itemCode: { in: itemCodes } },
-      data: { status: InventoryUnitStatus.Available },
+      data: {
+        status: InventoryUnitStatus.Available,
+        branchTransferredAt: null,
+      },
     });
 
     for (const unit of units) {

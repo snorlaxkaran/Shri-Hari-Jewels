@@ -102,6 +102,7 @@ export const toInventoryItem = (
         price,
         priceSource,
         createdAt: unit.createdAt.toISOString(),
+        branchTransferredAt: unit.branchTransferredAt?.toISOString(),
       };
     }),
   };
