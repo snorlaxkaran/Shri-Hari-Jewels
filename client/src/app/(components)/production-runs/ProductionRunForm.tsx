@@ -92,6 +92,12 @@ export default function ProductionRunForm({
       setError("Sets ordered must be at least 1.");
       return;
     }
+    if (metalWarning) {
+      setError(
+        `Insufficient metal stock: need ${metalWarning.requiredGrams}g of ${metalWarning.metal} ${metalWarning.purity} for ${sets} sets (${metalWarning.perSetGrams}g per set), but only ${metalWarning.availableGrams}g is available.`,
+      );
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -157,7 +163,7 @@ export default function ProductionRunForm({
 
         {metalWarning && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            <p className="font-medium">Insufficient gold/metal stock</p>
+            <p className="font-medium">Insufficient metal stock — cannot start this run</p>
             <p className="mt-1">
               You requested <strong>{metalWarning.requestedSets} sets</strong> but only have enough{" "}
               {metalWarning.metal} {metalWarning.purity} for{" "}
@@ -166,9 +172,10 @@ export default function ProductionRunForm({
               </strong>
               .
             </p>
-            <p className="mt-1 text-xs text-red-700">
-              Need {metalWarning.requiredGrams}g · Available {metalWarning.availableGrams}g · Short by{" "}
-              {metalWarning.shortfallGrams}g ({metalWarning.perSetGrams}g per set)
+            <p className="mt-2 text-xs text-red-700">
+              Metal is reserved from Raw Inventory as soon as you start the run
+              ({metalWarning.perSetGrams}g × {metalWarning.requestedSets} sets ={" "}
+              {metalWarning.requiredGrams}g total).
             </p>
           </div>
         )}
@@ -217,7 +224,7 @@ export default function ProductionRunForm({
         )}
         <button
           type="submit"
-          disabled={submitting || designsWithElements.length === 0}
+          disabled={submitting || designsWithElements.length === 0 || !!metalWarning}
           className="btn-primary flex-1 px-4 py-2.5 text-sm"
         >
           {submitting ? "Creating…" : "Start Run"}

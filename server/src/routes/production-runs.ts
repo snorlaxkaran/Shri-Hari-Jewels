@@ -176,6 +176,7 @@ productionRunsRouter.post(
         req.body as NewProductionRunInput,
         branchId,
         req.organizationId!,
+        { id: req.user!.id, name: req.user!.name },
       );
       res.status(201).json(run);
     } catch (error) {
@@ -322,7 +323,11 @@ productionRunsRouter.delete(
   requireRole(canManageProductionRuns),
   async (req: AuthenticatedRequest, res) => {
     try {
-      await deleteProductionRun(routeParam(req.params.id), req.organizationId!);
+      await deleteProductionRun(
+        routeParam(req.params.id),
+        req.organizationId!,
+        { id: req.user!.id, name: req.user!.name },
+      );
       res.status(204).send();
     } catch (error) {
       if (error instanceof OrganizationAccessError) {

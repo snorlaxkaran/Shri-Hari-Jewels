@@ -1,17 +1,17 @@
 import { prisma } from "../db.js";
 import { calculatePhysicalMetalWeightPerSet } from "../pricing/jewelry-price.js";
 import type { MetalStockWarning } from "../../types.js";
+import { hydrateDesignElementsForMetal } from "./metal-weight.js";
 
 const roundWeight = (value: number) => Math.round(value * 100) / 100;
 
-type DesignElementForMetal = {
-  elementType: string;
-  qtyPerSet: number;
-  weightGramsPerPc: number | null;
-};
-
 export const computeMetalPerSetGrams = (
-  elements: DesignElementForMetal[],
+  elements: Array<{
+    elementType: string;
+    qtyPerSet: number;
+    weightGramsPerPc: number | null;
+    metalWeightGrams?: number | null;
+  }>,
 ): number =>
   calculatePhysicalMetalWeightPerSet(
     elements.map((el) => ({
@@ -19,7 +19,7 @@ export const computeMetalPerSetGrams = (
       elementType: el.elementType,
       qtyPerSet: el.qtyPerSet,
       weightGramsPerPc: el.weightGramsPerPc,
-      metalWeightGrams: null,
+      metalWeightGrams: el.metalWeightGrams ?? null,
     })),
   );
 
@@ -50,24 +50,12 @@ export const checkMetalStock = async (
     select: {
       metal: true,
       purity: true,
-      elements: {
-        select: {
-          type: true,
-          qtyPerSet: true,
-          weightGramsPerPc: true,
-        },
-      },
     },
   });
 
   if (!design?.metal || !design.purity) return null;
 
-  const elements = design.elements.map((el) => ({
-    elementType: el.type,
-    qtyPerSet: el.qtyPerSet,
-    weightGramsPerPc: el.weightGramsPerPc,
-  }));
-
+  const elements = await hydrateDesignElementsForMetal(designId);
   const perSetGrams = computeMetalPerSetGrams(elements);
   if (perSetGrams <= 0) return null;
 

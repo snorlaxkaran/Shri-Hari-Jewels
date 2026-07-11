@@ -1,8 +1,10 @@
 import type { Prisma } from "@prisma/client";
+import { prisma } from "../db.js";
 import {
   calculatePhysicalMetalWeightPerSet,
 } from "../pricing/jewelry-price.js";
 import { ProductionRunError } from "./errors.js";
+import { hydrateRunItemsForMetalInTx } from "./metal-weight.js";
 
 type TransactionClient = Prisma.TransactionClient;
 
@@ -15,12 +17,14 @@ type RunItemForMetal = {
   weightGramsPerPc: number | null;
   metalWeightGrams: number | null;
   metalLotId: string | null;
+  motifId?: string | null;
 };
 
 type RunForMetalDeduction = {
   id: string;
   runNo: string;
   branchId: string;
+  designId: string;
   setsOrdered: number;
   metalInventoryDeducted: boolean;
   items: RunItemForMetal[];
@@ -95,6 +99,30 @@ const deductFromLotInTx = async (
     previousWeight: lot.weightGrams,
     newWeight,
     delta: -amount,
+    reason,
+    performedById: actor.id,
+    performedByName: actor.name,
+  });
+};
+
+const restoreToLotInTx = async (
+  tx: TransactionClient,
+  lot: { id: string; lotNumber: string; weightGrams: number },
+  amount: number,
+  reason: string,
+  actor: Actor,
+) => {
+  const newWeight = roundWeight(lot.weightGrams + amount);
+  await tx.metalLot.update({
+    where: { id: lot.id },
+    data: { weightGrams: newWeight },
+  });
+  await recordMetalAuditInTx(tx, {
+    stockId: lot.id,
+    lotRef: lot.lotNumber,
+    previousWeight: lot.weightGrams,
+    newWeight,
+    delta: amount,
     reason,
     performedById: actor.id,
     performedByName: actor.name,
@@ -212,33 +240,93 @@ const deductMetalAcrossLotsInTx = async (
   }
 };
 
+const countRunMetalDeductionsInTx = async (
+  tx: TransactionClient,
+  runNo: string,
+): Promise<number> =>
+  tx.rawStockAuditLog.count({
+    where: {
+      stockType: "Metal",
+      reason: { contains: runNo },
+      delta: { lt: 0 },
+    },
+  });
+
+export const restoreRunMetalInventoryInTx = async (
+  tx: TransactionClient,
+  run: { id: string; runNo: string; metalInventoryDeducted: boolean },
+  actor: Actor,
+): Promise<void> => {
+  if (!run.metalInventoryDeducted) return;
+
+  const audits = await tx.rawStockAuditLog.findMany({
+    where: {
+      stockType: "Metal",
+      reason: { contains: run.runNo },
+      delta: { lt: 0 },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  for (const audit of audits) {
+    const lot = await tx.metalLot.findUnique({ where: { id: audit.stockId } });
+    if (!lot) continue;
+
+    const restoreAmount = roundWeight(-audit.delta);
+    await restoreToLotInTx(
+      tx,
+      lot,
+      restoreAmount,
+      `Production run ${run.runNo} — metal restored`,
+      actor,
+    );
+  }
+
+  await tx.productionRun.update({
+    where: { id: run.id },
+    data: { metalInventoryDeducted: false },
+  });
+};
+
 export const deductRunMetalInventoryInTx = async (
   tx: TransactionClient,
   run: RunForMetalDeduction,
   design: { metal: string | null; purity: string | null },
   actor: Actor,
 ): Promise<void> => {
-  if (run.metalInventoryDeducted) return;
+  if (run.metalInventoryDeducted) {
+    const deductions = await countRunMetalDeductionsInTx(tx, run.runNo);
+    if (deductions > 0) return;
 
-  const totalGrams = computeRunMetalWeightGrams(run.items, run.setsOrdered);
-  if (totalGrams <= 0) {
     await tx.productionRun.update({
       where: { id: run.id },
-      data: { metalInventoryDeducted: true },
+      data: { metalInventoryDeducted: false },
     });
-    return;
+  }
+
+  const hydratedItems = await hydrateRunItemsForMetalInTx(
+    tx,
+    run.designId,
+    run.items,
+  );
+  const totalGrams = computeRunMetalWeightGrams(hydratedItems, run.setsOrdered);
+
+  if (totalGrams <= 0) {
+    throw new ProductionRunError(
+      "Cannot reserve metal for this run: the design BOM has no per-set metal weight. Add motif or casting weights before starting production.",
+    );
   }
 
   if (!design.metal || !design.purity) {
     throw new ProductionRunError(
-      "Design metal and purity must be set before completing this run.",
+      "Design metal and purity must be set before reserving raw metal.",
     );
   }
 
   await deductMetalAcrossLotsInTx(
     tx,
     run.branchId,
-    run.items,
+    hydratedItems,
     { metal: design.metal, purity: design.purity },
     totalGrams,
     { runNo: run.runNo, setsOrdered: run.setsOrdered },
@@ -249,4 +337,78 @@ export const deductRunMetalInventoryInTx = async (
     where: { id: run.id },
     data: { metalInventoryDeducted: true },
   });
+};
+
+export const reconcileRunMetalInventoryInTx = async (
+  tx: TransactionClient,
+  run: RunForMetalDeduction,
+  design: { metal: string | null; purity: string | null },
+  actor: Actor,
+): Promise<void> => {
+  await restoreRunMetalInventoryInTx(
+    tx,
+    {
+      id: run.id,
+      runNo: run.runNo,
+      metalInventoryDeducted: run.metalInventoryDeducted,
+    },
+    actor,
+  );
+
+  await deductRunMetalInventoryInTx(
+    tx,
+    { ...run, metalInventoryDeducted: false },
+    design,
+    actor,
+  );
+};
+
+export const repairRunMetalInventoryIfNeeded = async (
+  runId: string,
+  actor: Actor,
+): Promise<boolean> => {
+  const run = await prisma.productionRun.findUnique({
+    where: { id: runId },
+    include: {
+      items: true,
+      design: { select: { metal: true, purity: true } },
+    },
+  });
+  if (!run) return false;
+
+  const deductions = await prisma.rawStockAuditLog.count({
+    where: {
+      stockType: "Metal",
+      reason: { contains: run.runNo },
+      delta: { lt: 0 },
+    },
+  });
+
+  if (deductions > 0) return false;
+
+  await prisma.$transaction(async (tx) => {
+    if (run.metalInventoryDeducted) {
+      await tx.productionRun.update({
+        where: { id: run.id },
+        data: { metalInventoryDeducted: false },
+      });
+    }
+
+    await deductRunMetalInventoryInTx(
+      tx,
+      {
+        id: run.id,
+        runNo: run.runNo,
+        branchId: run.branchId,
+        designId: run.designId,
+        setsOrdered: run.setsOrdered,
+        metalInventoryDeducted: false,
+        items: run.items,
+      },
+      { metal: run.design.metal, purity: run.design.purity },
+      actor,
+    );
+  });
+
+  return true;
 };

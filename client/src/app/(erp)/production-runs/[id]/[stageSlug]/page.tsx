@@ -233,11 +233,11 @@ export default function ProductionRunStagePage() {
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-800">
           <p className="font-medium">Metal stock was insufficient when this run was created</p>
           <p className="mt-1">
-            Ordered {run.metalStockWarning.requestedSets} sets but raw inventory only
-            had enough {run.metalStockWarning.metal} {run.metalStockWarning.purity} for{" "}
-            {run.metalStockWarning.maxSets} set
-            {run.metalStockWarning.maxSets !== 1 ? "s" : ""}. Completion may fail at
-            packaging unless stock is replenished.
+            This run should not have been started: ordered {run.metalStockWarning.requestedSets} sets
+            ({run.metalStockWarning.requiredGrams}g needed) but raw inventory only had{" "}
+            {run.metalStockWarning.availableGrams}g of {run.metalStockWarning.metal}{" "}
+            {run.metalStockWarning.purity}. Open the run again after adding stock to trigger a
+            repair, or delete and recreate the run.
           </p>
         </div>
       )}
@@ -245,8 +245,8 @@ export default function ProductionRunStagePage() {
       {stage === "Casting" && isCurrent && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-blue-200 bg-blue-50 text-blue-900">
           Marking casting received records the lot and weight for this element. Total metal
-          for all sets is deducted from <strong>Raw Inventory</strong> when the run
-          completes. Finished jewellery SKU is created on the last step.
+          for all sets was deducted from <strong>Raw Inventory</strong> when this production
+          run was started. Finished jewellery SKU is created on the last step.
         </div>
       )}
 

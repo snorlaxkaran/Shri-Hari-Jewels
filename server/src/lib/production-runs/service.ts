@@ -23,6 +23,13 @@ import {
 } from "./raw-material.js";
 import { checkStoneStock, computeStoneRequirements } from "./stone-requirement-check.js";
 import { checkMetalStock } from "./metal-stock.js";
+import { computeMetalPerSetGramsFromDesign } from "./metal-weight.js";
+import {
+  deductRunMetalInventoryInTx,
+  reconcileRunMetalInventoryInTx,
+  repairRunMetalInventoryIfNeeded,
+  restoreRunMetalInventoryInTx,
+} from "./metal-inventory.js";
 import { computeElementStoneDefaults } from "./stone-defaults.js";
 import {
   calculateFinishedGoodsForRunInTx,
@@ -315,6 +322,21 @@ export const getProductionRun = async (
     });
   }
 
+  try {
+    const repaired = await repairRunMetalInventoryIfNeeded(id, {
+      id: "system",
+      name: "Metal inventory repair",
+    });
+    if (repaired) {
+      run = await prisma.productionRun.findUniqueOrThrow({
+        where: { id },
+        include: runInclude,
+      });
+    }
+  } catch {
+    // Insufficient stock or missing weights — surface via run metadata instead
+  }
+
   const needsImageBackfill = run.items.some(
     (item) => !item.imageUrl || !item.motifId,
   );
@@ -355,6 +377,7 @@ export const createProductionRun = async (
   input: NewProductionRunInput,
   branchId: string,
   organizationId: string,
+  actor: { id: string; name: string },
 ): Promise<ProductionRun> => {
   if (!input.designId) {
     throw new ProductionRunError("Design is required.");
@@ -397,42 +420,78 @@ export const createProductionRun = async (
   }
 
   const runNo = await generateProductionRunNo(organizationId);
+
+  const perSetGrams = await computeMetalPerSetGramsFromDesign(input.designId);
+  if (perSetGrams <= 0) {
+    throw new ProductionRunError(
+      "Cannot start production: the design BOM has no metal weight per set. Add motif weights in the design builder first.",
+    );
+  }
+
   const [stoneStockWarnings, metalStockWarning, stoneDefaults] = await Promise.all([
     checkStoneStock(input.designId, input.setsOrdered, branchId),
     checkMetalStock(input.designId, input.setsOrdered, branchId),
     computeElementStoneDefaults(input.designId, input.setsOrdered),
   ]);
 
-  const run = await prisma.productionRun.create({
-    data: {
-      organizationId,
-      branchId,
-      runNo,
-      designId: input.designId,
-      setsOrdered: input.setsOrdered,
-      status: "Open",
-      items: {
-        create: design.elements.map((el, index) => {
-          const defaults = stoneDefaults.get(el.id);
-          return {
-            elementName: el.name,
-            elementType: el.type,
-            qtyPerSet: el.qtyPerSet,
-            totalQty: el.qtyPerSet * input.setsOrdered,
-            unitValue: el.unitValue,
-            weightGramsPerPc: el.weightGramsPerPc,
-            czStones: defaults?.czStones ?? undefined,
-            czWeight: defaults?.czWeight ?? undefined,
-            sortOrder: index,
-            motifId: el.motifId,
-            imageUrl: el.motif?.imageUrl ?? null,
-            stageCheckoffs: {},
-          };
-        }),
-      },
+  if (metalStockWarning) {
+    throw new ProductionRunError(
+      `Insufficient ${metalStockWarning.metal} ${metalStockWarning.purity} metal: need ${metalStockWarning.requiredGrams}g for ${input.setsOrdered} set${input.setsOrdered !== 1 ? "s" : ""} (${metalStockWarning.perSetGrams}g per set), but only ${metalStockWarning.availableGrams}g is available in Raw Inventory.`,
+    );
+  }
+
+  const run = await prisma.$transaction(
+    async (tx) => {
+      const created = await tx.productionRun.create({
+        data: {
+          organizationId,
+          branchId,
+          runNo,
+          designId: input.designId,
+          setsOrdered: input.setsOrdered,
+          status: "Open",
+          items: {
+            create: design.elements.map((el, index) => {
+              const defaults = stoneDefaults.get(el.id);
+              return {
+                elementName: el.name,
+                elementType: el.type,
+                qtyPerSet: el.qtyPerSet,
+                totalQty: el.qtyPerSet * input.setsOrdered,
+                unitValue: el.unitValue,
+                weightGramsPerPc: el.weightGramsPerPc,
+                czStones: defaults?.czStones ?? undefined,
+                czWeight: defaults?.czWeight ?? undefined,
+                sortOrder: index,
+                motifId: el.motifId,
+                imageUrl: el.motif?.imageUrl ?? null,
+                stageCheckoffs: {},
+              };
+            }),
+          },
+        },
+        include: runInclude,
+      });
+
+      await deductRunMetalInventoryInTx(
+        tx,
+        {
+          id: created.id,
+          runNo: created.runNo,
+          branchId: created.branchId,
+          designId: created.designId,
+          setsOrdered: created.setsOrdered,
+          metalInventoryDeducted: created.metalInventoryDeducted,
+          items: created.items,
+        },
+        { metal: design.metal, purity: design.purity },
+        actor,
+      );
+
+      return created;
     },
-    include: runInclude,
-  });
+    PRODUCTION_RUN_COMPLETION_TX_OPTIONS,
+  );
 
   return toProductionRun({
     ...run,
@@ -550,7 +609,10 @@ export const updateProductionRun = async (
 
   const existing = await prisma.productionRun.findUnique({
     where: { id },
-    include: { items: true },
+    include: {
+      items: true,
+      design: { select: { metal: true, purity: true } },
+    },
   });
   if (!existing) throw new ProductionRunError("Production run not found.", 404);
 
@@ -621,6 +683,26 @@ export const updateProductionRun = async (
             where: { id: item.id },
             data: { totalQty: item.qtyPerSet * input.setsOrdered! },
           });
+        }
+
+        if (existing.metalInventoryDeducted) {
+          await reconcileRunMetalInventoryInTx(
+            tx,
+            {
+              id: existing.id,
+              runNo: existing.runNo,
+              branchId: existing.branchId,
+              designId: existing.designId,
+              setsOrdered: input.setsOrdered,
+              metalInventoryDeducted: existing.metalInventoryDeducted,
+              items: existing.items,
+            },
+            {
+              metal: existing.design.metal,
+              purity: existing.design.purity,
+            },
+            actor,
+          );
         }
       }
 
@@ -778,12 +860,20 @@ export const updateProductionRunItem = async (
 export const deleteProductionRun = async (
   id: string,
   organizationId: string,
+  actor: { id: string; name: string },
 ): Promise<void> => {
   await assertProductionRunInOrganization(id, organizationId);
 
-  const existing = await prisma.productionRun.findUnique({ where: { id } });
+  const existing = await prisma.productionRun.findUnique({
+    where: { id },
+    select: { id: true, runNo: true, metalInventoryDeducted: true },
+  });
   if (!existing) throw new ProductionRunError("Production run not found.", 404);
-  await prisma.productionRun.delete({ where: { id } });
+
+  await prisma.$transaction(async (tx) => {
+    await restoreRunMetalInventoryInTx(tx, existing, actor);
+    await tx.productionRun.delete({ where: { id } });
+  });
 };
 
 export const exportProductionRunCsv = async (

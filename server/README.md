@@ -1,6 +1,21 @@
 # Shri Hari Jewels - API Server
 
-Express + Prisma + SQLite backend for the jewelry ERP.
+Express + Prisma + PostgreSQL backend for the jewelry ERP.
+
+## Number correctness (non-negotiable)
+
+Every quantity, weight, price, and stock figure shown in the app must be **100% arithmetically correct** and tied to real inventory movements. This is not optional polish — wrong numbers break trust and operations.
+
+**Rules we always follow:**
+
+1. **Production metal** — When a production run is started with `N` sets, raw metal deducted = `perSetGrams × N`, where `perSetGrams` is the physical metal in the design BOM (motif weights × qty per set + casting metal). Deduction happens **immediately on run creation**, not at packaging/completion. Gold, silver, platinum, and rose gold all use the same code path.
+2. **Weight resolution** — If a design element has no `weightGramsPerPc`, fall back to the linked motif library weight before calculating stock or deductions. Never silently treat missing weights as `0g` and skip deduction.
+3. **Insufficient stock blocks the action** — Starting a production run fails if Raw Inventory does not have enough matching metal (`metalType` + `purity`). Warnings alone are not enough.
+4. **Sets changes reconcile inventory** — If `setsOrdered` is edited on an existing run, metal already reserved is restored and re-deducted for the new set count.
+5. **Run deletion restores metal** — Deleting a production run puts reserved metal back into the matching lots (via audit log reversal).
+6. **Repairs** — Completed runs that were incorrectly marked as deducted without an audit trail are auto-repaired the next time the run is loaded.
+
+When changing pricing, BOM, production, or inventory code, verify the math end-to-end: per-set → × sets → deduct from lots → UI totals match.
 
 ## Motifs API (404 fix)
 

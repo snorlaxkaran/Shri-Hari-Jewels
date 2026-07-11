@@ -74,7 +74,7 @@ export const finalizeProductionRunInTx = async (
   actor: Actor,
   finishedGoods?: FinishedGoodsInput,
 ): Promise<void> => {
-  const run = await tx.productionRun.findUniqueOrThrow({
+  const run = await prisma.productionRun.findUniqueOrThrow({
     where: { id: runId },
     include: {
       items: true,
@@ -88,6 +88,7 @@ export const finalizeProductionRunInTx = async (
       id: run.id,
       runNo: run.runNo,
       branchId: run.branchId,
+      designId: run.designId,
       setsOrdered: run.setsOrdered,
       metalInventoryDeducted: run.metalInventoryDeducted,
       items: run.items,
