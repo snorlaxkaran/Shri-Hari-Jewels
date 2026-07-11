@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import {
   DESIGN_BUILDER_STEPS,
+  isDesignBuilderStepAccessible,
   type DesignBuilderStepSlug,
 } from "@/lib/designs/builder-stages";
 import type { Design } from "@/lib/types";
@@ -14,7 +15,7 @@ type DesignBuilderShellProps = {
   children: React.ReactNode;
 };
 
-const STAGE_ORDER = ["SKU", "CAD", "Mold Making", "Motifs", "Photo", "Complete"] as const;
+const STAGE_ORDER = ["SKU", "CAD", "Motifs", "Mold Making", "Photo", "Complete"] as const;
 
 const isStepComplete = (stepStage: string, designStage: string): boolean => {
   const stepIdx = STAGE_ORDER.indexOf(stepStage as typeof STAGE_ORDER[number]);
@@ -53,9 +54,9 @@ export default function DesignBuilderShell({
         {DESIGN_BUILDER_STEPS.map((step, idx) => {
           const href = `/designs/${design.id}/builder/${step.slug}`;
           const active = step.slug === currentSlug;
-          const stepIdx = DESIGN_BUILDER_STEPS.findIndex((s) => s.slug === step.slug);
-          const currentIdx = DESIGN_BUILDER_STEPS.findIndex((s) => s.slug === currentSlug);
-          const accessible = stepIdx <= currentIdx || design.builderStage === "Complete";
+          const accessible =
+            design.builderStage === "Complete" ||
+            isDesignBuilderStepAccessible(design.builderStage, step.stage);
           const done = isStepComplete(step.stage, design.builderStage);
 
           return accessible ? (

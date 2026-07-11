@@ -2,8 +2,8 @@ import type { DesignBuilderStage } from "@/lib/types";
 
 export const DESIGN_BUILDER_STEPS = [
   { slug: "cad", label: "CAD / Prototype", stage: "CAD" as DesignBuilderStage },
-  { slug: "mold", label: "Mold Making", stage: "Mold Making" as DesignBuilderStage },
   { slug: "motifs", label: "Choose Motifs", stage: "Motifs" as DesignBuilderStage },
+  { slug: "mold", label: "Mold / WAX", stage: "Mold Making" as DesignBuilderStage },
   { slug: "photo", label: "Finished Photo", stage: "Photo" as DesignBuilderStage },
 ] as const;
 
@@ -19,8 +19,8 @@ export const isDesignBuilderStepAccessible = (
   const order: DesignBuilderStage[] = [
     "SKU",
     "CAD",
-    "Mold Making",
     "Motifs",
+    "Mold Making",
     "Photo",
     "Complete",
   ];

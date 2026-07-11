@@ -86,6 +86,8 @@ const toDesign = (design: {
   purity: string | null;
   makingChargesPerSet: { toString(): string } | null;
   builderStage: Parameters<typeof toApiDesignBuilderStage>[0];
+  cadReady: boolean;
+  cadNotes: string | null;
   cadFileUrl: string | null;
   cadCompletedAt: Date | null;
   moldNotes: string | null;
@@ -109,6 +111,8 @@ const toDesign = (design: {
       ? moneyToNumber(String(design.makingChargesPerSet))
       : undefined,
   builderStage: toApiDesignBuilderStage(design.builderStage),
+  cadReady: design.cadReady,
+  cadNotes: design.cadNotes ?? undefined,
   cadFileUrl: design.cadFileUrl ?? undefined,
   cadCompletedAt: design.cadCompletedAt?.toISOString(),
   moldNotes: design.moldNotes ?? undefined,

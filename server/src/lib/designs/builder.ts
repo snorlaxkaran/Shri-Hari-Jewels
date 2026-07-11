@@ -18,6 +18,8 @@ type DesignForValidation = {
   code: string;
   metal: string | null;
   purity: string | null;
+  cadReady: boolean;
+  cadNotes: string | null;
   cadFileUrl: string | null;
   moldPhotoUrl: string | null;
   moldNotes: string | null;
@@ -42,6 +44,10 @@ export const saveAndAdvanceDesignBuilderStage = async (
 
   const merged: DesignForValidation = {
     ...design,
+    cadReady:
+      fields?.cadReady !== undefined ? fields.cadReady : design.cadReady,
+    cadNotes:
+      fields?.cadNotes !== undefined ? fields.cadNotes : design.cadNotes,
     cadFileUrl:
       fields?.cadFileUrl !== undefined ? fields.cadFileUrl : design.cadFileUrl,
     moldNotes:
@@ -70,6 +76,8 @@ export const saveAndAdvanceDesignBuilderStage = async (
   const now = new Date();
   const data: {
     builderStage: DbDesignBuilderStage;
+    cadReady?: boolean;
+    cadNotes?: string | null;
     cadFileUrl?: string | null;
     moldNotes?: string | null;
     moldPhotoUrl?: string | null;
@@ -82,6 +90,8 @@ export const saveAndAdvanceDesignBuilderStage = async (
     builderStage: toDbDesignBuilderStage(next),
   };
 
+  if (fields?.cadReady !== undefined) data.cadReady = fields.cadReady;
+  if (fields?.cadNotes !== undefined) data.cadNotes = fields.cadNotes ?? null;
   if (fields?.cadFileUrl !== undefined) data.cadFileUrl = fields.cadFileUrl;
   if (fields?.moldNotes !== undefined) data.moldNotes = fields.moldNotes;
   if (fields?.moldPhotoUrl !== undefined) data.moldPhotoUrl = fields.moldPhotoUrl;
@@ -124,6 +134,8 @@ export const updateDesignBuilderFields = async (
   const updated = await prisma.design.update({
     where: { id: designId },
     data: {
+      cadReady: input.cadReady === undefined ? undefined : input.cadReady,
+      cadNotes: input.cadNotes === undefined ? undefined : input.cadNotes,
       cadFileUrl:
         input.cadFileUrl === undefined ? undefined : input.cadFileUrl,
       moldNotes: input.moldNotes === undefined ? undefined : input.moldNotes,
@@ -155,8 +167,11 @@ const validateStageComplete = (
       }
       break;
     case "CAD":
-      if (!design.cadFileUrl) {
-        throw new DesignError("Upload a CAD file or render before continuing.");
+      if (!design.cadReady) {
+        throw new DesignError(
+          "Please confirm that the CAD is ready before continuing.",
+          400,
+        );
       }
       break;
     case "Mold Making":

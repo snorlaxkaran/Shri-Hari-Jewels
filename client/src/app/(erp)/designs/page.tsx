@@ -615,6 +615,23 @@ export default function DesignsPage() {
           )}
           {selectedDesign && (
             <>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-zinc-500">CAD:</span>
+                <span
+                  className={
+                    selectedDesign.cadReady
+                      ? "text-green-700 font-medium"
+                      : "text-amber-600"
+                  }
+                >
+                  {selectedDesign.cadReady ? "✓ Ready" : "Pending"}
+                </span>
+                {selectedDesign.cadNotes && (
+                  <span className="text-zinc-400 text-xs">
+                    — {selectedDesign.cadNotes}
+                  </span>
+                )}
+              </div>
               <DesignPriceDriftPanel
                 designId={selectedDesign.id}
                 canManage={canManage}

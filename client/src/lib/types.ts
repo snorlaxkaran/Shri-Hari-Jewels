@@ -672,6 +672,8 @@ export type Design = {
   purity?: Purity;
   makingChargesPerSet?: number;
   builderStage: DesignBuilderStage;
+  cadReady: boolean;
+  cadNotes?: string;
   cadFileUrl?: string;
   cadCompletedAt?: string;
   moldNotes?: string;
@@ -713,6 +715,8 @@ export type UpdateDesignInput = {
 };
 
 export type UpdateDesignBuilderInput = {
+  cadReady?: boolean;
+  cadNotes?: string | null;
   cadFileUrl?: string | null;
   moldNotes?: string | null;
   moldPhotoUrl?: string | null;

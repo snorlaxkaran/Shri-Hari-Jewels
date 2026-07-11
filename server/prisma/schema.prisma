@@ -542,6 +542,8 @@ model Design {
   purity              String?
   makingChargesPerSet Decimal? @db.Decimal(12, 2)
   builderStage        DesignBuilderStage @default(SKU)
+  cadReady            Boolean  @default(false)
+  cadNotes            String?
   cadFileUrl          String?  @db.Text
   cadCompletedAt      DateTime?
   moldNotes           String?

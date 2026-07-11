@@ -427,6 +427,8 @@ designsRouter.patch(
 );
 
 const hasBuilderFields = (body: UpdateDesignBuilderInput): boolean =>
+  body.cadReady !== undefined ||
+  body.cadNotes !== undefined ||
   body.cadFileUrl !== undefined ||
   body.moldNotes !== undefined ||
   body.moldPhotoUrl !== undefined ||

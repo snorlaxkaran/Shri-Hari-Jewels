@@ -3,8 +3,8 @@ import { DesignBuilderStage as DbDesignBuilderStage } from "@prisma/client";
 export const DESIGN_BUILDER_STAGES = [
   "SKU",
   "CAD",
-  "Mold Making",
   "Motifs",
+  "Mold Making",
   "Photo",
   "Complete",
 ] as const;
@@ -32,8 +32,8 @@ const API_TO_DB: Record<DesignBuilderStage, DbDesignBuilderStage> = {
 export const DESIGN_BUILDER_STAGE_SLUGS = [
   "sku",
   "cad",
-  "mold",
   "motifs",
+  "mold",
   "photo",
 ] as const;
 
@@ -42,8 +42,8 @@ export type DesignBuilderStageSlug = (typeof DESIGN_BUILDER_STAGE_SLUGS)[number]
 const SLUG_TO_STAGE: Record<DesignBuilderStageSlug, DesignBuilderStage> = {
   sku: "SKU",
   cad: "CAD",
-  mold: "Mold Making",
   motifs: "Motifs",
+  mold: "Mold Making",
   photo: "Photo",
 };
 
@@ -72,6 +72,8 @@ export const toDbDesignBuilderStage = (
 ): DbDesignBuilderStage => API_TO_DB[stage];
 
 export type UpdateDesignBuilderInput = {
+  cadReady?: boolean;
+  cadNotes?: string | null;
   cadFileUrl?: string | null;
   moldNotes?: string | null;
   moldPhotoUrl?: string | null;
