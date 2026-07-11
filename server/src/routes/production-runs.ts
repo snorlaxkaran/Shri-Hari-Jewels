@@ -15,6 +15,7 @@ import {
   ProductionRunError,
   updateProductionRun,
   updateProductionRunItem,
+  reserveProductionRunMetal,
 } from "../lib/production-runs/service.js";
 import { generateProductionRunStagePdf } from "../lib/production-runs/stage-pdf.js";
 import { completeProductionRunStage } from "../lib/production-runs/stage-service.js";
@@ -132,6 +133,32 @@ productionRunsRouter.get(
       }
       console.error("GET /api/production-runs/:id", error);
       res.status(500).json({ error: "Failed to fetch production run" });
+    }
+  },
+);
+
+productionRunsRouter.post(
+  "/:id/reserve-metal",
+  requireRole(canManageProductionRuns),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const run = await reserveProductionRunMetal(
+        routeParam(req.params.id),
+        req.organizationId!,
+        { id: req.user!.id, name: req.user!.name },
+      );
+      res.json(run);
+    } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      if (error instanceof ProductionRunError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/production-runs/:id/reserve-metal", error);
+      res.status(500).json({ error: "Failed to reserve metal for production run" });
     }
   },
 );

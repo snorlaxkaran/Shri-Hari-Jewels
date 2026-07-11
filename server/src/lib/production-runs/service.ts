@@ -30,6 +30,7 @@ import {
   repairRunMetalInventoryIfNeeded,
   restoreRunMetalInventoryInTx,
 } from "./metal-inventory.js";
+import { getRunMetalReservationStatus } from "./metal-reservation.js";
 import { computeElementStoneDefaults } from "./stone-defaults.js";
 import {
   calculateFinishedGoodsForRunInTx,
@@ -201,6 +202,7 @@ const toProductionRun = (run: {
   stageLogs?: Array<Parameters<typeof toStageLog>[0]>;
   stoneStockWarnings?: import("../../types.js").StoneStockWarning[];
   metalStockWarning?: import("../../types.js").MetalStockWarning;
+  metalReservation?: import("../../types.js").MetalReservationStatus;
 }): ProductionRun => {
   const items = (run.items ?? []).map(toProductionRunItem);
   const castingItems = items.filter((i) => i.elementType === "Casting");
@@ -241,6 +243,7 @@ const toProductionRun = (run: {
     finishedGoodsProductId: run.finishedGoodsProductId ?? undefined,
     stoneStockWarnings: run.stoneStockWarnings,
     metalStockWarning: run.metalStockWarning,
+    metalReservation: run.metalReservation,
     createdAt: run.createdAt.toISOString(),
     updatedAt: run.updatedAt.toISOString(),
   };
@@ -285,17 +288,33 @@ export const listProductionRuns = async (
 };
 
 const attachStockWarnings = async (run: {
+  id: string;
+  runNo: string;
   designId: string;
   setsOrdered: number;
   branchId: string;
+  design?: { metal: string | null; purity: string | null };
 }) => {
-  const [stoneStockWarnings, metalStockWarning] = await Promise.all([
-    checkStoneStock(run.designId, run.setsOrdered, run.branchId),
-    checkMetalStock(run.designId, run.setsOrdered, run.branchId),
-  ]);
+  const [stoneStockWarnings, metalStockWarning, metalReservation] =
+    await Promise.all([
+      checkStoneStock(run.designId, run.setsOrdered, run.branchId),
+      checkMetalStock(run.designId, run.setsOrdered, run.branchId),
+      getRunMetalReservationStatus({
+        id: run.id,
+        runNo: run.runNo,
+        branchId: run.branchId,
+        designId: run.designId,
+        setsOrdered: run.setsOrdered,
+        design: {
+          metal: run.design?.metal ?? null,
+          purity: run.design?.purity ?? null,
+        },
+      }),
+    ]);
   return {
     stoneStockWarnings,
     metalStockWarning: metalStockWarning ?? undefined,
+    metalReservation,
   };
 };
 
@@ -322,6 +341,7 @@ export const getProductionRun = async (
     });
   }
 
+  let repairError: string | undefined;
   try {
     const repaired = await repairRunMetalInventoryIfNeeded(id, {
       id: "system",
@@ -333,8 +353,13 @@ export const getProductionRun = async (
         include: runInclude,
       });
     }
-  } catch {
-    // Insufficient stock or missing weights — surface via run metadata instead
+  } catch (error) {
+    repairError =
+      error instanceof ProductionRunError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : "Metal reservation failed.";
   }
 
   const needsImageBackfill = run.items.some(
@@ -370,7 +395,14 @@ export const getProductionRun = async (
   }
 
   const warnings = await attachStockWarnings(run);
-  return toProductionRun({ ...run, ...warnings });
+  const productionRun = toProductionRun({ ...run, ...warnings });
+  if (repairError && productionRun.metalReservation && !productionRun.metalReservation.reserved) {
+    productionRun.metalReservation = {
+      ...productionRun.metalReservation,
+      error: repairError,
+    };
+  }
+  return productionRun;
 };
 
 export const createProductionRun = async (
@@ -855,6 +887,51 @@ export const updateProductionRunItem = async (
   });
 
   return getProductionRun(runId, organizationId);
+};
+
+export const reserveProductionRunMetal = async (
+  id: string,
+  organizationId: string,
+  actor: { id: string; name: string },
+): Promise<ProductionRun> => {
+  await assertProductionRunInOrganization(id, organizationId);
+
+  const statusBefore = await prisma.productionRun.findUnique({
+    where: { id },
+    include: {
+      items: true,
+      design: { select: { metal: true, purity: true } },
+    },
+  });
+  if (!statusBefore) throw new ProductionRunError("Production run not found.", 404);
+
+  const reservation = await getRunMetalReservationStatus({
+    id: statusBefore.id,
+    runNo: statusBefore.runNo,
+    branchId: statusBefore.branchId,
+    designId: statusBefore.designId,
+    setsOrdered: statusBefore.setsOrdered,
+    design: statusBefore.design,
+  });
+  if (reservation.reserved) {
+    return getProductionRun(id, organizationId);
+  }
+
+  try {
+    const repaired = await repairRunMetalInventoryIfNeeded(id, actor);
+    if (!repaired) {
+      throw new ProductionRunError(
+        reservation.error ?? "Could not reserve metal for this production run.",
+      );
+    }
+  } catch (error) {
+    if (error instanceof ProductionRunError) throw error;
+    throw new ProductionRunError(
+      error instanceof Error ? error.message : "Could not reserve metal.",
+    );
+  }
+
+  return getProductionRun(id, organizationId);
 };
 
 export const deleteProductionRun = async (

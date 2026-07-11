@@ -6,6 +6,7 @@ import Link from "next/link";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import ConfirmDialog from "@/app/(components)/ConfirmDialog";
 import DesignReferenceStrip from "@/app/(components)/production-runs/DesignReferenceStrip";
+import MetalReservationBanner from "@/app/(components)/production-runs/MetalReservationBanner";
 import ProductionRunElementCard from "@/app/(components)/production-runs/ProductionRunElementCard";
 import ProductionRunWizardShell from "@/app/(components)/production-runs/ProductionRunWizardShell";
 import StageWorksheetToolbar from "@/app/(components)/production-runs/StageWorksheetToolbar";
@@ -223,6 +224,14 @@ export default function ProductionRunStagePage() {
   return (
     <div className="page-content">
       <ProductionRunWizardShell run={run}>
+      <MetalReservationBanner
+        run={run}
+        canManage={canEditItems}
+        onUpdated={(updated) => {
+          setRun(updated);
+          void refreshList();
+        }}
+      />
       {error && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">
           {error}

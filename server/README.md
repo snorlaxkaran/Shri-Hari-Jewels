@@ -13,7 +13,8 @@ Every quantity, weight, price, and stock figure shown in the app must be **100% 
 3. **Insufficient stock blocks the action** — Starting a production run fails if Raw Inventory does not have enough matching metal (`metalType` + `purity`). Warnings alone are not enough.
 4. **Sets changes reconcile inventory** — If `setsOrdered` is edited on an existing run, metal already reserved is restored and re-deducted for the new set count.
 5. **Run deletion restores metal** — Deleting a production run puts reserved metal back into the matching lots (via audit log reversal).
-6. **Repairs** — Completed runs that were incorrectly marked as deducted without an audit trail are auto-repaired the next time the run is loaded.
+6. **Silver purity** — Designs and motifs use `925` for silver. Raw lots may be stored as `925` or `999` fine silver; deduction matches **any** silver lot on the branch when exact purity is not found. The Raw Inventory “Silver Stock” total sums all silver purities.
+7. **Repairs** — Completed runs that were incorrectly marked as deducted without an audit trail are auto-repaired the next time the run is loaded.
 
 When changing pricing, BOM, production, or inventory code, verify the math end-to-end: per-set → × sets → deduct from lots → UI totals match.
 

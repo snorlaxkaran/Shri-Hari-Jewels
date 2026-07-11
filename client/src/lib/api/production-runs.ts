@@ -24,6 +24,16 @@ export const fetchProductionRun = async (id: string): Promise<ProductionRun> => 
   return normalizeProductionRun(data);
 };
 
+export const reserveProductionRunMetal = async (
+  id: string,
+): Promise<ProductionRun> => {
+  const { data } = await api.post<ProductionRun>(
+    `/api/production-runs/${id}/reserve-metal`,
+    {},
+  );
+  return normalizeProductionRun(data);
+};
+
 export const fetchProductionRunPreview = async (
   designId: string,
   setsOrdered: number,

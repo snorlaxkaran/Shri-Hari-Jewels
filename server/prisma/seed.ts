@@ -307,7 +307,7 @@ async function seedDatabase() {
         branchId: headOffice.id,
         lotNumber: "SL-26-0001",
         metalType: "Silver",
-        purity: "999",
+        purity: "925",
         weightGrams: 2000,
         purchaseRate: 75,
         currentRate: 82,

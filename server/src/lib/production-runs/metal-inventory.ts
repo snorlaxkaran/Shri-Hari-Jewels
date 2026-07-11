@@ -5,6 +5,11 @@ import {
 } from "../pricing/jewelry-price.js";
 import { ProductionRunError } from "./errors.js";
 import { hydrateRunItemsForMetalInTx } from "./metal-weight.js";
+import {
+  describeMetalLotPool,
+  findMetalLotsForBranch,
+  sumMetalLotGrams,
+} from "./metal-lot-matching.js";
 
 type TransactionClient = Prisma.TransactionClient;
 
@@ -134,9 +139,9 @@ const buildInsufficientMetalError = async (
   branchId: string,
   design: { metal: string; purity: string },
   totalGrams: number,
-  matchingLots: Array<{ weightGrams: number }>,
+  matchingLots: Array<{ weightGrams: number; purity: string }>,
 ): Promise<string> => {
-  const matchingTotal = sumLotWeight(matchingLots);
+  const matchingTotal = sumMetalLotGrams(matchingLots);
   let message =
     `Insufficient ${design.metal} ${design.purity} metal: need ${totalGrams}g for this run, have ${matchingTotal}g in matching lots.`;
 
@@ -145,11 +150,15 @@ const buildInsufficientMetalError = async (
       where: { branchId, metalType: "Gold" },
       select: { weightGrams: true, purity: true },
     });
-    const allGoldTotal = sumLotWeight(allGoldLots);
+    const allGoldTotal = sumMetalLotGrams(allGoldLots);
     if (allGoldTotal > matchingTotal) {
       message +=
         ` Raw inventory shows ${allGoldTotal}g total gold (all purities); only ${matchingTotal}g is ${design.purity}.`;
     }
+  }
+
+  if (design.metal === "Silver" && matchingLots.length > 0) {
+    message += ` (${describeMetalLotPool(design.metal, design.purity, matchingLots)})`;
   }
 
   return message;
@@ -189,19 +198,16 @@ const deductMetalAcrossLotsInTx = async (
     return;
   }
 
-  const matchingLots = await tx.metalLot.findMany({
-    where: {
-      branchId,
-      metalType: design.metal,
-      purity: design.purity,
-      weightGrams: { gt: 0 },
-    },
-    orderBy: { weightGrams: "desc" },
-  });
+  const matchingLots = await findMetalLotsForBranch(
+    tx,
+    branchId,
+    design.metal,
+    design.purity,
+  );
 
   if (matchingLots.length === 0) {
     throw new ProductionRunError(
-      `No ${design.metal} ${design.purity} metal lot found. Add stock to Raw Inventory or select a lot on a casting element.`,
+      `No ${design.metal} stock found in Raw Inventory for this branch. Add a ${design.metal} lot or select a lot on a casting element.`,
     );
   }
 

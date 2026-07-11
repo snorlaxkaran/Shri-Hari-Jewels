@@ -2,6 +2,10 @@ import { prisma } from "../db.js";
 import { calculatePhysicalMetalWeightPerSet } from "../pricing/jewelry-price.js";
 import type { MetalStockWarning } from "../../types.js";
 import { hydrateDesignElementsForMetal } from "./metal-weight.js";
+import {
+  getAvailableMetalGramsForDesign,
+  sumMetalLotGrams,
+} from "./metal-lot-matching.js";
 
 const roundWeight = (value: number) => Math.round(value * 100) / 100;
 
@@ -27,18 +31,7 @@ export const getAvailableMetalGrams = async (
   branchId: string,
   metal: string,
   purity: string,
-): Promise<number> => {
-  const lots = await prisma.metalLot.findMany({
-    where: {
-      branchId,
-      metalType: metal,
-      purity,
-      weightGrams: { gt: 0 },
-    },
-    select: { weightGrams: true },
-  });
-  return roundWeight(lots.reduce((sum, lot) => sum + lot.weightGrams, 0));
-};
+): Promise<number> => getAvailableMetalGramsForDesign(branchId, metal, purity);
 
 export const checkMetalStock = async (
   designId: string,

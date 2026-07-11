@@ -978,6 +978,15 @@ export type MetalStockWarning = {
   maxSets: number;
 };
 
+export type MetalReservationStatus = {
+  reserved: boolean;
+  perSetGrams: number;
+  requiredGrams: number;
+  deductedGrams: number;
+  availableGrams: number;
+  error?: string;
+};
+
 export type ProductionRunPreview = {
   stoneStockWarnings: StoneStockWarning[];
   metalStockWarning: MetalStockWarning | null;
@@ -1137,6 +1146,7 @@ export type ProductionRun = {
   finishedGoodsProductId?: string;
   stoneStockWarnings?: StoneStockWarning[];
   metalStockWarning?: MetalStockWarning;
+  metalReservation?: MetalReservationStatus;
   createdAt: string;
   updatedAt: string;
 };

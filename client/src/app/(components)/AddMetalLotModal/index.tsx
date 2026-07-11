@@ -48,6 +48,15 @@ export default function AddMetalLotModal({
     setError("");
   }, [open]);
 
+  useEffect(() => {
+    if (metalType === "Silver" && purity !== "925") {
+      setPurity("925");
+    }
+  }, [metalType, purity]);
+
+  const availablePurities =
+    metalType === "Silver" ? (["925"] as Purity[]) : RAW_PURITIES;
+
   if (!open) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,7 +118,7 @@ export default function AddMetalLotModal({
                 value={purity}
                 onChange={(e) => setPurity(e.target.value as Purity)}
               >
-                {RAW_PURITIES.map((p) => (
+                {availablePurities.map((p) => (
                   <option key={p} value={p}>{p}</option>
                 ))}
               </select>
