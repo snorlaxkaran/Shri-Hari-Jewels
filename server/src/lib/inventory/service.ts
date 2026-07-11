@@ -42,6 +42,7 @@ import { getCurrentMarketRates } from "../market-rates/service.js";
 import { computeLiveListPriceForProduct } from "./unit-pricing.js";
 import {
   backfillTransferredUnitBranches,
+  getLatestBranchTransferDateByItemCode,
   getLatestTransferLocationByItemCode,
 } from "./transfer-locations.js";
 
@@ -94,8 +95,9 @@ export const listProducts = async (
   const sortBy = options.sortBy ?? "createdAt";
   const sortOrder = options.sortOrder ?? "desc";
 
-  const stockBranchId =
-    branchId ?? (await getOrganizationHeadOfficeBranchId(organizationId));
+  const headOfficeBranchId =
+    await getOrganizationHeadOfficeBranchId(organizationId);
+  const stockBranchId = branchId ?? headOfficeBranchId;
   const marketRates = await getCurrentMarketRates(organizationId);
 
   const branchUnitStatuses = [
@@ -154,12 +156,19 @@ export const listProducts = async (
         )
       : new Map<string, string>();
 
+  const allUnits = products.flatMap((product) => product.units);
+  const branchTransferDateByItemCode = await getLatestBranchTransferDateByItemCode(
+    allUnits,
+    headOfficeBranchId,
+  );
+
   let items = products
     .map((product) =>
       toInventoryItem(product, {
         stockBranchId,
         marketRates,
         transferLocationByItemCode,
+        branchTransferDateByItemCode,
       }),
     )
     .filter((item) => item.units.length > 0);

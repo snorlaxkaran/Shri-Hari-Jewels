@@ -16,6 +16,7 @@ type InventoryItemOptions = {
   stockBranchId?: string;
   marketRates?: MarketRatesCurrent;
   transferLocationByItemCode?: Map<string, string>;
+  branchTransferDateByItemCode?: Map<string, string>;
 };
 
 export const toInventoryItem = (
@@ -102,7 +103,9 @@ export const toInventoryItem = (
         price,
         priceSource,
         createdAt: unit.createdAt.toISOString(),
-        branchTransferredAt: unit.branchTransferredAt?.toISOString(),
+        branchTransferredAt:
+          unit.branchTransferredAt?.toISOString() ??
+          options.branchTransferDateByItemCode?.get(unit.itemCode),
       };
     }),
   };

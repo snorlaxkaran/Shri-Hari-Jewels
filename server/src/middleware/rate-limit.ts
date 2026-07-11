@@ -1,4 +1,7 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+
+const rateLimitIp = (ip: string | undefined) =>
+  ipKeyGenerator(ip ?? "unknown");
 
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -11,7 +14,8 @@ export const authRateLimiter = rateLimit({
       typeof req.body?.email === "string"
         ? req.body.email.trim().toLowerCase()
         : "";
-    return email ? `${req.ip}:${email}` : (req.ip ?? "unknown");
+    const ip = rateLimitIp(req.ip);
+    return email ? `${ip}:${email}` : ip;
   },
 });
 
@@ -26,6 +30,6 @@ export const loginRateLimiter = rateLimit({
       typeof req.body?.email === "string"
         ? req.body.email.trim().toLowerCase()
         : "";
-    return email ? `login:${email}` : `login:${req.ip ?? "unknown"}`;
+    return email ? `login:${email}` : `login:${rateLimitIp(req.ip)}`;
   },
 });

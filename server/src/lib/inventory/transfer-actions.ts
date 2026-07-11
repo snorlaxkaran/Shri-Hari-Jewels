@@ -474,6 +474,7 @@ export const acceptStockTransfer = async (
       data: {
         branchId: transfer.toBranchId,
         status: InventoryUnitStatus.Available,
+        branchTransferredAt: transfer.transferDate,
       },
     });
 
@@ -663,6 +664,7 @@ export const partialAcceptStockTransfer = async (
         data: {
           branchId: transfer.toBranchId,
           status: InventoryUnitStatus.Available,
+          branchTransferredAt: transfer.transferDate,
         },
       });
 
