@@ -1,9 +1,11 @@
 import { Router } from "express";
 import {
   createKarigarSettlement,
+  generateSettlementFromProductionRun,
   listKarigarSettlements,
   settleKarigarSettlement,
 } from "../lib/karigar/service.js";
+import { ProductionRunError } from "../lib/production-runs/errors.js";
 import { canManageProductionRuns } from "../lib/auth/permissions.js";
 import {
   authenticate,
@@ -26,11 +28,53 @@ karigarRouter.get(
         req.query.status === "Open" || req.query.status === "Settled"
           ? req.query.status
           : undefined;
-      const items = await listKarigarSettlements(req.organizationId!, status);
+      const karigarName =
+        typeof req.query.karigarName === "string"
+          ? req.query.karigarName
+          : undefined;
+      const fromDate =
+        typeof req.query.fromDate === "string" ? req.query.fromDate : undefined;
+      const toDate =
+        typeof req.query.toDate === "string" ? req.query.toDate : undefined;
+      const items = await listKarigarSettlements(req.organizationId!, {
+        status,
+        karigarName,
+        fromDate,
+        toDate,
+      });
       res.json({ items });
     } catch (error) {
       console.error("GET /api/karigar/settlements", error);
       res.status(500).json({ error: "Failed to list karigar settlements." });
+    }
+  },
+);
+
+karigarRouter.post(
+  "/settlements/generate",
+  authenticate,
+  requireOrganization,
+  requireRole(canManageProductionRuns),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = req.body as { productionRunId?: string };
+      if (!body.productionRunId) {
+        res.status(400).json({ error: "productionRunId is required." });
+        return;
+      }
+      const created = await generateSettlementFromProductionRun(
+        body.productionRunId,
+        req.organizationId!,
+        req.user!.name,
+      );
+      res.status(201).json({ created });
+    } catch (error) {
+      if (error instanceof ProductionRunError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/karigar/settlements/generate", error);
+      res.status(500).json({ error: "Failed to generate settlements." });
     }
   },
 );

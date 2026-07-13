@@ -68,6 +68,8 @@ export const navSections: NavSection[] = [
       { label: "Motifs", href: "/motifs", icon: icon(Gem) },
       { label: "Work orders", href: "/work-orders", icon: icon(Briefcase) },
       { label: "Production runs", href: "/production-runs", icon: icon(Factory) },
+      { label: "Production board", href: "/production-runs/dashboard", icon: icon(Factory) },
+      { label: "Karigar settlements", href: "/karigar-settlements", icon: icon(Briefcase) },
     ],
   },
   {
@@ -150,6 +152,8 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname === "/orders/new") return "New Order";
   if (pathname === "/work-orders/new") return "New Work Order";
   if (pathname === "/production-runs/new") return "New Production Run";
+  if (pathname === "/production-runs/dashboard") return "Production Dashboard";
+  if (pathname === "/karigar-settlements") return "Karigar Settlements";
   if (pathname.startsWith("/stock-transfer/proforma")) return "Proforma List";
   if (pathname.startsWith("/stock-transfer/incoming/") && pathname.endsWith("/receive")) {
     return "Verify Transfer";

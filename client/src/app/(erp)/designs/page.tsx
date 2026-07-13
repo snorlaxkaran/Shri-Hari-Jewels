@@ -15,12 +15,15 @@ import DesignBomImport from "@/app/(components)/designs/DesignBomImport";
 import DesignPriceDriftPanel from "@/app/(components)/designs/DesignPriceDriftPanel";
 import DesignHistoryPanel from "@/app/(components)/designs/DesignHistoryPanel";
 import { useAuth } from "@/lib/auth/auth-context";
-import { canManageDesigns } from "@/lib/auth/permissions";
+import { canManageDesigns, isMasterAdmin } from "@/lib/auth/permissions";
 import { useDesigns } from "@/lib/designs/designs-context";
 import { fetchMotifs } from "@/lib/api/motifs";
 import {
+  approveDesign,
   computeDesignElementDiff,
+  rejectDesignApproval,
   replaceDesignElements,
+  submitDesignForApproval,
 } from "@/lib/api/designs";
 import { designMetalToMotifMetal } from "@/lib/motifs/constants";
 import type {
@@ -107,6 +110,7 @@ export default function DesignsPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const canManage = user ? canManageDesigns(user.role) : false;
+  const isAdmin = user ? isMasterAdmin(user.role) : false;
   const {
     designs,
     hydrated,
@@ -134,6 +138,7 @@ export default function DesignsPage() {
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [approvalBusy, setApprovalBusy] = useState(false);
   const [bomDiffOpen, setBomDiffOpen] = useState(false);
   const [bomDiff, setBomDiff] = useState<DesignElementDiff | null>(null);
 
@@ -615,6 +620,101 @@ export default function DesignsPage() {
           )}
           {selectedDesign && (
             <>
+              <div className="surface-card px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-zinc-900">Production approval</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    {selectedDesign.approvalStatus === "Approved" && selectedDesign.approvedByName
+                      ? `Approved by ${selectedDesign.approvedByName}${selectedDesign.approvedAt ? ` on ${new Date(selectedDesign.approvedAt).toLocaleDateString("en-IN")}` : ""}`
+                      : selectedDesign.approvalStatus === "Rejected"
+                        ? selectedDesign.rejectionReason ?? "Design was rejected."
+                        : "Design must be approved before starting production."}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {canManage &&
+                    selectedDesign.approvalStatus !== "Approved" &&
+                    selectedDesign.approvalStatus !== "PendingApproval" && (
+                      <button
+                        type="button"
+                        disabled={!selectedDesign.cadReady || approvalBusy}
+                        title={
+                          selectedDesign.cadReady
+                            ? undefined
+                            : "Mark CAD ready in the design builder first"
+                        }
+                        onClick={() =>
+                          void (async () => {
+                            setApprovalBusy(true);
+                            try {
+                              await submitDesignForApproval(selectedDesign.id);
+                              await refresh();
+                              setSuccessMessage("Submitted for approval.");
+                            } catch (err) {
+                              setSaveError(getApiErrorMessage(err, "Failed to submit for approval."));
+                            } finally {
+                              setApprovalBusy(false);
+                            }
+                          })()
+                        }
+                        className="btn-secondary px-4 py-2 text-sm disabled:opacity-50"
+                      >
+                        Submit for Approval
+                      </button>
+                    )}
+                  {isAdmin && selectedDesign.approvalStatus === "PendingApproval" && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={approvalBusy}
+                        onClick={() =>
+                          void (async () => {
+                            setApprovalBusy(true);
+                            try {
+                              await approveDesign(selectedDesign.id);
+                              await refresh();
+                              setSuccessMessage("Design approved.");
+                            } catch (err) {
+                              setSaveError(getApiErrorMessage(err, "Failed to approve design."));
+                            } finally {
+                              setApprovalBusy(false);
+                            }
+                          })()
+                        }
+                        className="btn-primary px-4 py-2 text-sm"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        disabled={approvalBusy}
+                        onClick={() => {
+                          const reason = window.prompt("Rejection reason:");
+                          if (!reason?.trim()) return;
+                          void (async () => {
+                            setApprovalBusy(true);
+                            try {
+                              await rejectDesignApproval(
+                                selectedDesign.id,
+                                reason.trim(),
+                              );
+                              await refresh();
+                              setSuccessMessage("Design rejected.");
+                            } catch (err) {
+                              setSaveError(getApiErrorMessage(err, "Failed to reject design."));
+                            } finally {
+                              setApprovalBusy(false);
+                            }
+                          })();
+                        }}
+                        className="btn-secondary px-4 py-2 text-sm text-red-600"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-zinc-500">CAD:</span>
                 <span
@@ -981,8 +1081,16 @@ export default function DesignsPage() {
                     <button
                       type="button"
                       onClick={() => void handleSendToProduction()}
-                      disabled={saving}
-                      className="btn-secondary px-6 py-2 text-sm"
+                      disabled={
+                        saving ||
+                        selectedDesign.approvalStatus !== "Approved"
+                      }
+                      title={
+                        selectedDesign.approvalStatus === "Approved"
+                          ? undefined
+                          : "Design must be approved first"
+                      }
+                      className="btn-secondary px-6 py-2 text-sm disabled:opacity-50"
                     >
                       {saving ? "Saving…" : "Send to Production →"}
                     </button>

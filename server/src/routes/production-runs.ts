@@ -18,7 +18,13 @@ import {
   reserveProductionRunMetal,
 } from "../lib/production-runs/service.js";
 import { generateProductionRunStagePdf } from "../lib/production-runs/stage-pdf.js";
-import { completeProductionRunStage } from "../lib/production-runs/stage-service.js";
+import { completeProductionRunStage, rejectProductionRunStage } from "../lib/production-runs/stage-service.js";
+import {
+  issueMetalToKarigar,
+  listMetalIssuesForRun,
+  MetalIssueError,
+  recordMetalReturn,
+} from "../lib/production-runs/metal-issue-service.js";
 import { slugToStage } from "../lib/production-runs/stages.js";
 import { getShopSettings } from "../lib/settings/service.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
@@ -31,6 +37,7 @@ import type {
   UpdateProductionRunInput,
   UpdateProductionRunItemInput,
   CompleteProductionRunStageInput,
+  RejectProductionRunStageInput,
 } from "../types.js";
 
 export const productionRunsRouter = Router();
@@ -341,6 +348,142 @@ productionRunsRouter.post(
       }
       console.error("POST /api/production-runs/:id/stages/:stageSlug/complete", error);
       res.status(500).json({ error: "Failed to complete stage" });
+    }
+  },
+);
+
+productionRunsRouter.post(
+  "/:id/stages/:stageSlug/reject",
+  requireRole(canUpdateProductionRunItems),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const stage = slugToStage(routeParam(req.params.stageSlug));
+      if (!stage) {
+        res.status(400).json({ error: "Invalid stage." });
+        return;
+      }
+      const result = await rejectProductionRunStage(
+        routeParam(req.params.id),
+        stage,
+        req.body as RejectProductionRunStageInput,
+        { id: req.user!.id, name: req.user!.name },
+        req.organizationId!,
+      );
+      res.json(result);
+    } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      if (error instanceof ProductionRunError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/production-runs/:id/stages/:stageSlug/reject", error);
+      res.status(500).json({ error: "Failed to reject stage." });
+    }
+  },
+);
+
+productionRunsRouter.get(
+  "/:id/metal-issues",
+  requireRole(canViewProductionRuns),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const issues = await listMetalIssuesForRun(
+        routeParam(req.params.id),
+        req.organizationId!,
+      );
+      res.json(issues);
+    } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      if (error instanceof MetalIssueError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("GET /api/production-runs/:id/metal-issues", error);
+      res.status(500).json({ error: "Failed to list metal issues." });
+    }
+  },
+);
+
+productionRunsRouter.post(
+  "/:id/stages/:stageSlug/metal-issue",
+  requireRole(canUpdateProductionRunItems),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const stage = slugToStage(routeParam(req.params.stageSlug));
+      if (!stage) {
+        res.status(400).json({ error: "Invalid stage." });
+        return;
+      }
+      const body = req.body as {
+        karigarName?: string;
+        weightIssuedGrams?: number;
+        metalLotId?: string;
+        purity?: string;
+      };
+      const issue = await issueMetalToKarigar(
+        routeParam(req.params.id),
+        stage,
+        {
+          karigarName: String(body.karigarName ?? ""),
+          weightIssuedGrams: Number(body.weightIssuedGrams ?? 0),
+          metalLotId: body.metalLotId,
+          purity: String(body.purity ?? ""),
+        },
+        req.organizationId!,
+        { id: req.user!.id, name: req.user!.name },
+      );
+      res.status(201).json(issue);
+    } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      if (error instanceof MetalIssueError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/production-runs/:id/stages/:stageSlug/metal-issue", error);
+      res.status(500).json({ error: "Failed to issue metal." });
+    }
+  },
+);
+
+productionRunsRouter.post(
+  "/:id/metal-issues/:issueId/return",
+  requireRole(canUpdateProductionRunItems),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = req.body as {
+        weightReturnedGrams?: number;
+        lossReason?: string;
+      };
+      const issue = await recordMetalReturn(
+        routeParam(req.params.issueId),
+        {
+          weightReturnedGrams: Number(body.weightReturnedGrams ?? 0),
+          lossReason: body.lossReason,
+        },
+        req.organizationId!,
+        { id: req.user!.id, name: req.user!.name },
+      );
+      res.json(issue);
+    } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      if (error instanceof MetalIssueError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/production-runs/:id/metal-issues/:issueId/return", error);
+      res.status(500).json({ error: "Failed to record metal return." });
     }
   },
 );

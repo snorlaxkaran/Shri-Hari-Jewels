@@ -67,7 +67,7 @@ export const fetchLiveRates = async (): Promise<{
   };
 };
 
-const getLatestRate = async (metalType: string, purity: string) =>
+export const getLatestRate = async (metalType: string, purity: string) =>
   prisma.metalMarketRate.findFirst({
     where: { metalType, purity },
     orderBy: { fetchedAt: "desc" },

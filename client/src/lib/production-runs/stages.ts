@@ -13,6 +13,10 @@ export const PRODUCTION_RUN_STEPS = [
   { slug: "packaging", label: "Packaging", stage: "Packaging" as ProductionRunStage },
 ] as const;
 
+export const PRODUCTION_RUN_STAGES = PRODUCTION_RUN_STEPS.map(
+  (s) => s.stage,
+) as ProductionRunStage[];
+
 export type ProductionRunStepSlug = (typeof PRODUCTION_RUN_STEPS)[number]["slug"];
 
 export const productionRunStepHref = (runId: string, slug: ProductionRunStepSlug) =>

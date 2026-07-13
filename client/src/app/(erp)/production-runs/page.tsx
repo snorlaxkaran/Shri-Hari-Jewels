@@ -128,13 +128,21 @@ export default function ProductionRunsPage() {
         subtitle="Track casting, wax moulds, and stone usage per order"
         action={
           canManage ? (
-            <Link
-              href="/production-runs/new"
-              className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
-            >
-              <Plus size={16} />
-              New Run
-            </Link>
+            <div className="flex gap-2">
+              <Link
+                href="/production-runs/dashboard"
+                className="btn-secondary px-4 py-2 text-sm"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/production-runs/new"
+                className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
+              >
+                <Plus size={16} />
+                New Run
+              </Link>
+            </div>
           ) : undefined
         }
       />

@@ -1,4 +1,4 @@
-import { DesignBuilderStage, ProductionRunStatusEnum } from "@prisma/client";
+import { DesignApprovalStatus, DesignBuilderStage, ProductionRunStatusEnum } from "@prisma/client";
 import { prisma } from "../db.js";
 import { moneyToNumber } from "../money.js";
 import type {
@@ -94,7 +94,11 @@ const toStageLog = (row: {
   id: string;
   productionRunId: string;
   stage: string;
+  action?: string;
+  karigarName?: string | null;
   notes: string | null;
+  rejectionReason?: string | null;
+  rejectedToStage?: string | null;
   performedById: string | null;
   performedByName: string;
   createdAt: Date;
@@ -102,7 +106,15 @@ const toStageLog = (row: {
   id: row.id,
   productionRunId: row.productionRunId,
   stage: toApiProductionRunStage(row.stage as Parameters<typeof toApiProductionRunStage>[0]),
+  action: (row.action ?? "Completed") as ProductionRunStageLog["action"],
+  karigarName: row.karigarName ?? undefined,
   notes: row.notes ?? undefined,
+  rejectionReason: row.rejectionReason ?? undefined,
+  rejectedToStage: row.rejectedToStage
+    ? toApiProductionRunStage(
+        row.rejectedToStage as Parameters<typeof toApiProductionRunStage>[0],
+      )
+    : undefined,
   performedById: row.performedById ?? undefined,
   performedByName: row.performedByName,
   createdAt: row.createdAt.toISOString(),
@@ -448,6 +460,12 @@ export const createProductionRun = async (
   if (design.builderStage !== DesignBuilderStage.Complete) {
     throw new ProductionRunError(
       "Complete the design builder before starting a production run.",
+    );
+  }
+  if (design.approvalStatus !== DesignApprovalStatus.Approved) {
+    throw new ProductionRunError(
+      "Design must be approved before starting production.",
+      400,
     );
   }
 

@@ -10,6 +10,7 @@ import MetalReservationBanner from "@/app/(components)/production-runs/MetalRese
 import ProductionRunElementCard from "@/app/(components)/production-runs/ProductionRunElementCard";
 import ProductionRunWizardShell from "@/app/(components)/production-runs/ProductionRunWizardShell";
 import StageWorksheetToolbar from "@/app/(components)/production-runs/StageWorksheetToolbar";
+import MetalIssuePanel, { isMetalIssueStage } from "@/app/(components)/production-runs/MetalIssuePanel";
 import {
   CastingFields,
   StageCheckoffField,
@@ -21,9 +22,12 @@ import { canUpdateProductionRunItems } from "@/lib/auth/permissions";
 import { useProductionRuns } from "@/lib/production-runs/production-runs-context";
 import {
   completeProductionRunStage,
+  fetchMetalIssues,
   fetchProductionRun,
+  rejectProductionRunStage,
   updateProductionRunItem,
 } from "@/lib/api/production-runs";
+import { fetchCurrentMarketRates } from "@/lib/api/market-rates";
 import { fetchMetalLots, fetchCertifiedStoneLots } from "@/lib/api/raw-inventory";
 import {
   getStageItems,
@@ -32,6 +36,7 @@ import {
 } from "@/lib/production-runs/item-helpers";
 import { getStageWorksheetConfig } from "@/lib/production-runs/stage-config";
 import {
+  PRODUCTION_RUN_STAGES,
   PRODUCTION_RUN_STEPS,
   slugToProductionRunStage,
   stageToProductionRunSlug,
@@ -43,6 +48,7 @@ import type {
   MetalLot,
   ProductionRun,
   ProductionRunItem,
+  ProductionRunMetalIssue,
   ProductionRunStage,
   UpdateProductionRunItemInput,
 } from "@/lib/types";
@@ -128,6 +134,12 @@ export default function ProductionRunStagePage() {
   const [metalLots, setMetalLots] = useState<MetalLot[]>([]);
   const [stoneLots, setStoneLots] = useState<CertifiedStoneLot[]>([]);
   const [notes, setNotes] = useState("");
+  const [karigarName, setKarigarName] = useState("");
+  const [metalIssues, setMetalIssues] = useState<ProductionRunMetalIssue[]>([]);
+  const [goldRate, setGoldRate] = useState(0);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectToStage, setRejectToStage] = useState<ProductionRunStage>("Wax Pattern");
+  const [rejectReason, setRejectReason] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -136,14 +148,22 @@ export default function ProductionRunStagePage() {
   const loadRun = useCallback(async () => {
     setLoading(true);
     try {
-      const [runData, metals, stones] = await Promise.all([
+      const [runData, metals, stones, issues, rates] = await Promise.all([
         fetchProductionRun(runId),
         fetchMetalLots(),
         fetchCertifiedStoneLots(),
+        fetchMetalIssues(runId).catch(() => []),
+        fetchCurrentMarketRates().catch(() => null),
       ]);
       setRun(runData);
       setMetalLots(metals);
       setStoneLots(stones);
+      setMetalIssues(issues);
+      setGoldRate(rates?.gold22k ?? 0);
+      const latestKarigar = [...runData.stageLogs]
+        .reverse()
+        .find((l) => l.karigarName)?.karigarName;
+      if (latestKarigar) setKarigarName(latestKarigar);
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to load production run."));
     } finally {
@@ -173,10 +193,15 @@ export default function ProductionRunStagePage() {
 
   const handleComplete = async () => {
     if (!run || !stage) return;
+    if (!karigarName.trim()) {
+      setError("Assigned karigar is required.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
       const result = await completeProductionRunStage(runId, stageSlug, {
+        karigarName: karigarName.trim(),
         notes: notes.trim() || undefined,
       });
       await refreshList();
@@ -199,6 +224,29 @@ export default function ProductionRunStagePage() {
     }
   };
 
+  const handleReject = async () => {
+    if (!run || !stage || !rejectReason.trim()) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      await rejectProductionRunStage(runId, stageSlug, {
+        rejectedToStage: rejectToStage,
+        reason: rejectReason.trim(),
+        karigarName: karigarName.trim() || undefined,
+      });
+      await refreshList();
+      const updated = await fetchProductionRun(runId);
+      setRun(updated);
+      const slug = stageToProductionRunSlug(updated.currentStage);
+      if (slug) router.push(`/production-runs/${runId}/${slug}`);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to reject stage."));
+    } finally {
+      setSubmitting(false);
+      setRejectOpen(false);
+    }
+  };
+
   if (loading || !run || !stage) {
     return loading ? (
       <PageSkeleton />
@@ -208,7 +256,10 @@ export default function ProductionRunStagePage() {
   }
 
   const isCurrent = isProductionRunStepCurrent(run.currentStage, stage);
-  const completedStages = run.stageLogs.map((l) => l.stage);
+  const completedStages = run.stageLogs
+    .filter((l) => l.action === "Completed" || !l.action)
+    .map((l) => l.stage);
+  const earlierStages = PRODUCTION_RUN_STAGES.slice(0, PRODUCTION_RUN_STAGES.indexOf(stage));
   const isDone = completedStages.includes(stage);
   const stageItems = getStageItems(run, stage);
   const progress = getStageProgress(run, stage);
@@ -299,6 +350,34 @@ export default function ProductionRunStagePage() {
       )}
 
       <DesignReferenceStrip photos={run.designPhotos} />
+
+      {isCurrent && canEditItems && (
+        <div className="surface-card p-4 mb-4">
+          <label className={labelClass}>Assigned Karigar *</label>
+          <input
+            value={karigarName}
+            onChange={(e) => setKarigarName(e.target.value)}
+            className={inputClass}
+            placeholder="Name of karigar doing this stage"
+            required
+          />
+        </div>
+      )}
+
+      {isCurrent && isMetalIssueStage(stage) && (
+        <div className="mb-4">
+          <MetalIssuePanel
+            runId={runId}
+            stage={stage}
+            purity={run.designPurity ?? "22K"}
+            metalLots={metalLots}
+            issues={metalIssues}
+            canEdit={canEdit}
+            goldRatePerGram={goldRate}
+            onUpdated={setMetalIssues}
+          />
+        </div>
+      )}
 
       <div className="surface-card p-5 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
@@ -395,8 +474,27 @@ export default function ProductionRunStagePage() {
             {run.stageLogs.map((log) => (
               <li key={log.id} className="flex justify-between gap-4 text-zinc-600">
                 <span>
-                  {log.stage} — {log.performedByName}
-                  {log.notes ? `: ${log.notes}` : ""}
+                  <span
+                    className={
+                      log.action === "Rejected"
+                        ? "text-red-700 font-medium"
+                        : log.action === "Completed"
+                          ? "text-emerald-700"
+                          : ""
+                    }
+                  >
+                    {log.action ?? "Completed"}
+                  </span>
+                  {" · "}
+                  {log.stage}
+                  {log.karigarName ? ` · ${log.karigarName}` : ""}
+                  {log.action === "Rejected" && log.rejectedToStage
+                    ? ` → sent back to ${log.rejectedToStage}`
+                    : ""}
+                  {log.rejectionReason ? `: ${log.rejectionReason}` : ""}
+                  {log.notes ? ` — ${log.notes}` : ""}
+                  {" · "}
+                  {log.performedByName}
                 </span>
                 <span className="text-xs text-zinc-400 shrink-0">
                   {new Date(log.createdAt).toLocaleString()}
@@ -417,14 +515,29 @@ export default function ProductionRunStagePage() {
           </Link>
         )}
         {isCurrent && canEditItems && (
-          <button
-            type="button"
-            onClick={() => setConfirmOpen(true)}
-            disabled={submitting}
-            className="btn-primary flex-1 px-4 py-2.5 text-sm"
-          >
-            {nextStep ? `Complete & Next: ${nextStep.label}` : "Complete Run"}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => setConfirmOpen(true)}
+              disabled={submitting || !karigarName.trim()}
+              className="btn-primary flex-1 px-4 py-2.5 text-sm disabled:opacity-50"
+            >
+              {nextStep ? `Complete & Next: ${nextStep.label}` : "Complete Run"}
+            </button>
+            {earlierStages.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectToStage(earlierStages[earlierStages.length - 1]!);
+                  setRejectOpen(true);
+                }}
+                disabled={submitting}
+                className="btn-secondary flex-1 px-4 py-2.5 text-sm text-red-600 border-red-200"
+              >
+                Reject & Send Back
+              </button>
+            )}
+          </>
         )}
         {!isCurrent && nextStep && completedStages.includes(stage) && (
           <Link
@@ -438,11 +551,63 @@ export default function ProductionRunStagePage() {
 
       <ConfirmDialog
         open={confirmOpen}
-        message={`Mark "${stepMeta?.label}" as complete and continue?`}
+        message={`Mark "${stepMeta?.label}" as complete and continue? Karigar: ${karigarName || "(not set)"}`}
         onConfirm={() => void handleComplete()}
         onCancel={() => setConfirmOpen(false)}
         loading={submitting}
       />
+
+      {rejectOpen && (
+        <div className="modal-overlay">
+          <div className="modal-panel relative z-10 max-w-md w-full">
+            <div className="modal-header">Reject &amp; send back</div>
+            <div className="modal-body space-y-3">
+              <p className="text-sm text-zinc-600">Send this piece back for rework?</p>
+              <div>
+                <label className={labelClass}>Send back to stage</label>
+                <select
+                  value={rejectToStage}
+                  onChange={(e) => setRejectToStage(e.target.value as ProductionRunStage)}
+                  className={inputClass}
+                >
+                  {earlierStages.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Reason *</label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  className={`${inputClass} min-h-[80px]`}
+                  placeholder="Describe the defect or issue…"
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                onClick={() => setRejectOpen(false)}
+                disabled={submitting}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleReject()}
+                disabled={submitting || !rejectReason.trim()}
+                className="btn-primary"
+              >
+                {submitting ? "Saving…" : "Confirm reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </ProductionRunWizardShell>
     </div>
   );

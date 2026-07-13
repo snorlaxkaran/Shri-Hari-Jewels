@@ -22,7 +22,11 @@ export const normalizeProductionRun = (run: ProductionRun): ProductionRun => ({
   currentStage: normalizeProductionRunStage(run.currentStage),
   stageLogs: run.stageLogs.map((log) => ({
     ...log,
+    action: log.action ?? "Completed",
     stage: normalizeProductionRunStage(log.stage),
+    rejectedToStage: log.rejectedToStage
+      ? normalizeProductionRunStage(log.rejectedToStage)
+      : undefined,
   })),
 });
 

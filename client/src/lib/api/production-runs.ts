@@ -126,7 +126,7 @@ export const exportProductionRunCsv = async (
 export const completeProductionRunStage = async (
   runId: string,
   stageSlug: string,
-  input: CompleteProductionRunStageInput = {},
+  input: CompleteProductionRunStageInput,
 ): Promise<{ currentStage: ProductionRunStage; stageLogs: import("@/lib/types").ProductionRunStageLog[] }> => {
   const { data } = await api.post(
     `/api/production-runs/${runId}/stages/${stageSlug}/complete`,
@@ -137,7 +137,73 @@ export const completeProductionRunStage = async (
     currentStage: normalizeProductionRunStage(data.currentStage),
     stageLogs: data.stageLogs.map((log: import("@/lib/types").ProductionRunStageLog) => ({
       ...log,
+      action: log.action ?? "Completed",
       stage: normalizeProductionRunStage(log.stage),
+      rejectedToStage: log.rejectedToStage
+        ? normalizeProductionRunStage(log.rejectedToStage)
+        : undefined,
     })),
   };
+};
+
+export const rejectProductionRunStage = async (
+  runId: string,
+  stageSlug: string,
+  input: import("@/lib/types").RejectProductionRunStageInput,
+): Promise<{ currentStage: ProductionRunStage; stageLogs: import("@/lib/types").ProductionRunStageLog[] }> => {
+  const { data } = await api.post(
+    `/api/production-runs/${runId}/stages/${stageSlug}/reject`,
+    input,
+  );
+  return {
+    ...data,
+    currentStage: normalizeProductionRunStage(data.currentStage),
+    stageLogs: data.stageLogs.map((log: import("@/lib/types").ProductionRunStageLog) => ({
+      ...log,
+      action: log.action ?? "Completed",
+      stage: normalizeProductionRunStage(log.stage),
+      rejectedToStage: log.rejectedToStage
+        ? normalizeProductionRunStage(log.rejectedToStage)
+        : undefined,
+    })),
+  };
+};
+
+export const fetchMetalIssues = async (
+  runId: string,
+): Promise<import("@/lib/types").ProductionRunMetalIssue[]> => {
+  const { data } = await api.get(`/api/production-runs/${runId}/metal-issues`);
+  return data.map((issue: import("@/lib/types").ProductionRunMetalIssue) => ({
+    ...issue,
+    stage: normalizeProductionRunStage(issue.stage),
+  }));
+};
+
+export const issueMetalToKarigar = async (
+  runId: string,
+  stageSlug: string,
+  input: {
+    karigarName: string;
+    weightIssuedGrams: number;
+    metalLotId?: string;
+    purity: string;
+  },
+): Promise<import("@/lib/types").ProductionRunMetalIssue> => {
+  const { data } = await api.post(
+    `/api/production-runs/${runId}/stages/${stageSlug}/metal-issue`,
+    input,
+  );
+  return { ...data, stage: normalizeProductionRunStage(data.stage) };
+};
+
+export const recordMetalReturn = async (
+  runId: string,
+  issueId: string,
+  input: { weightReturnedGrams: number; lossReason?: string },
+): Promise<import("@/lib/types").ProductionRunMetalIssue> => {
+  const { data } = await api.post(
+    `/api/production-runs/${runId}/metal-issues/${issueId}/return`,
+    input,
+  );
+  return { ...data, stage: normalizeProductionRunStage(data.stage) };
 };

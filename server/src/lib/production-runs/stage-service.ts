@@ -1,4 +1,4 @@
-import { ProductionRunStatusEnum } from "@prisma/client";
+import { ProductionRunStatusEnum, StageLogAction } from "@prisma/client";
 import { prisma } from "../db.js";
 import { ProductionRunError } from "./errors.js";
 import { assertProductionRunInOrganization } from "../organizations/access.js";
@@ -10,12 +10,16 @@ import {
 } from "./run-completion.js";
 import { CHECKOFF_STAGES, STAGE_WORKSHEET_CONFIG } from "./stage-config.js";
 import {
+  getEarlierStages,
+  isStageBefore,
   nextProductionRunStage,
   toApiProductionRunStage,
   toDbProductionRunStage,
   type CompleteProductionRunStageInput,
   type ProductionRunStage,
   type ProductionRunStageLog,
+  type RejectProductionRunStageInput,
+  type StageLogAction as ApiStageLogAction,
 } from "./stages.js";
 
 type Actor = { id: string; name: string };
@@ -24,7 +28,11 @@ const toStageLog = (row: {
   id: string;
   productionRunId: string;
   stage: string;
+  action: string;
+  karigarName: string | null;
   notes: string | null;
+  rejectionReason: string | null;
+  rejectedToStage: string | null;
   performedById: string | null;
   performedByName: string;
   createdAt: Date;
@@ -32,7 +40,15 @@ const toStageLog = (row: {
   id: row.id,
   productionRunId: row.productionRunId,
   stage: toApiProductionRunStage(row.stage as Parameters<typeof toApiProductionRunStage>[0]),
+  action: row.action as ApiStageLogAction,
+  karigarName: row.karigarName ?? undefined,
   notes: row.notes ?? undefined,
+  rejectionReason: row.rejectionReason ?? undefined,
+  rejectedToStage: row.rejectedToStage
+    ? toApiProductionRunStage(
+        row.rejectedToStage as Parameters<typeof toApiProductionRunStage>[0],
+      )
+    : undefined,
   performedById: row.performedById ?? undefined,
   performedByName: row.performedByName,
   createdAt: row.createdAt.toISOString(),
@@ -59,6 +75,10 @@ export const completeProductionRunStage = async (
   stageLogs: ProductionRunStageLog[];
 }> => {
   await assertProductionRunInOrganization(runId, organizationId);
+
+  if (!input.karigarName?.trim()) {
+    throw new ProductionRunError("Assigned karigar is required to complete a stage.");
+  }
 
   const run = await prisma.productionRun.findUnique({
     where: { id: runId },
@@ -89,6 +109,8 @@ export const completeProductionRunStage = async (
         data: {
           productionRunId: runId,
           stage: toDbProductionRunStage(stage),
+          action: StageLogAction.Completed,
+          karigarName: input.karigarName.trim(),
           notes: input.notes?.trim() || null,
           performedById: actor.id,
           performedByName: actor.name,
@@ -127,6 +149,71 @@ export const completeProductionRunStage = async (
     stageLogs: logs,
   };
 };
+
+export const rejectProductionRunStage = async (
+  runId: string,
+  currentStage: ProductionRunStage,
+  input: RejectProductionRunStageInput,
+  actor: Actor,
+  organizationId: string,
+): Promise<{
+  currentStage: ProductionRunStage;
+  stageLogs: ProductionRunStageLog[];
+}> => {
+  await assertProductionRunInOrganization(runId, organizationId);
+
+  if (!input.reason?.trim()) {
+    throw new ProductionRunError("Rejection reason is required.");
+  }
+  if (!isStageBefore(input.rejectedToStage, currentStage)) {
+    throw new ProductionRunError(
+      "Can only send back to an earlier stage in the production flow.",
+    );
+  }
+
+  const run = await prisma.productionRun.findUnique({ where: { id: runId } });
+  if (!run) throw new ProductionRunError("Production run not found.", 404);
+
+  const current = toApiProductionRunStage(run.currentStage);
+  if (current !== currentStage) {
+    throw new ProductionRunError(
+      `Cannot reject "${currentStage}" — run is currently at "${current}".`,
+      400,
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.productionRunStageLog.create({
+      data: {
+        productionRunId: runId,
+        stage: toDbProductionRunStage(currentStage),
+        action: StageLogAction.Rejected,
+        karigarName: input.karigarName?.trim() || null,
+        rejectionReason: input.reason.trim(),
+        rejectedToStage: toDbProductionRunStage(input.rejectedToStage),
+        performedById: actor.id,
+        performedByName: actor.name,
+      },
+    });
+
+    await tx.productionRun.update({
+      where: { id: runId },
+      data: {
+        currentStage: toDbProductionRunStage(input.rejectedToStage),
+        status: ProductionRunStatusEnum.InProgress,
+      },
+    });
+  });
+
+  const logs = await listProductionRunStageLogs(runId);
+  const updated = await prisma.productionRun.findUnique({ where: { id: runId } });
+  return {
+    currentStage: toApiProductionRunStage(updated!.currentStage),
+    stageLogs: logs,
+  };
+};
+
+export { getEarlierStages };
 
 const parseStageCheckoffs = (
   value: unknown,
@@ -223,4 +310,5 @@ export const isStageAccessible = (
 
 export const getCompletedStages = (
   logs: ProductionRunStageLog[],
-): ProductionRunStage[] => logs.map((l) => l.stage);
+): ProductionRunStage[] =>
+  logs.filter((l) => l.action === "Completed").map((l) => l.stage);

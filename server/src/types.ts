@@ -931,6 +931,12 @@ export type DesignBuilderStage =
   | "Photo"
   | "Complete";
 
+export type DesignApprovalStatus =
+  | "Draft"
+  | "PendingApproval"
+  | "Approved"
+  | "Rejected";
+
 export type Design = {
   id: string;
   code: string;
@@ -950,6 +956,11 @@ export type Design = {
   finishedPhotoUrl?: string;
   finishedPhotoUrls?: string[];
   builderCompletedAt?: string;
+  approvalStatus: DesignApprovalStatus;
+  approvedById?: string;
+  approvedByName?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
   elements: DesignElement[];
   createdAt: string;
   updatedAt: string;
@@ -1377,7 +1388,11 @@ export type ProductionRunStageLog = {
   id: string;
   productionRunId: string;
   stage: ProductionRunStage;
+  action: "Started" | "Completed" | "Rejected";
+  karigarName?: string;
   notes?: string;
+  rejectionReason?: string;
+  rejectedToStage?: ProductionRunStage;
   performedById?: string;
   performedByName: string;
   createdAt: string;
@@ -1443,7 +1458,48 @@ export type ProductionRun = {
 };
 
 export type CompleteProductionRunStageInput = {
+  karigarName: string;
   notes?: string;
+};
+
+export type RejectProductionRunStageInput = {
+  rejectedToStage: ProductionRunStage;
+  reason: string;
+  karigarName?: string;
+};
+
+export type ProductionRunMetalIssue = {
+  id: string;
+  productionRunId: string;
+  stage: ProductionRunStage;
+  metalLotId?: string;
+  karigarName: string;
+  purity: string;
+  weightIssuedGrams: number;
+  weightReturnedGrams: number;
+  weightLossGrams: number;
+  lossReason?: string;
+  status: "Open" | "Settled";
+  issuedByName: string;
+  settledByName?: string;
+  issuedAt: string;
+  settledAt?: string;
+};
+
+export type KarigarSettlement = {
+  id: string;
+  karigarName: string;
+  productionRunId?: string;
+  metalIssuedGrams: number;
+  metalReturnedGrams: number;
+  wastageGrams: number;
+  wastageCost: number;
+  makingChargeWage: number;
+  totalPayable: number;
+  status: "Open" | "Settled";
+  notes?: string;
+  settledAt?: string;
+  createdAt: string;
 };
 
 export type NewProductionRunInput = {

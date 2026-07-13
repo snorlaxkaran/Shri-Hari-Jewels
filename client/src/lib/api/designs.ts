@@ -163,3 +163,21 @@ export const advanceDesignBuilder = async (
   );
   return data;
 };
+
+export const submitDesignForApproval = async (designId: string): Promise<Design> => {
+  const { data } = await api.post<Design>(`/api/designs/${designId}/submit-for-approval`, {});
+  return data;
+};
+
+export const approveDesign = async (designId: string): Promise<Design> => {
+  const { data } = await api.post<Design>(`/api/designs/${designId}/approve`, {});
+  return data;
+};
+
+export const rejectDesignApproval = async (
+  designId: string,
+  reason: string,
+): Promise<Design> => {
+  const { data } = await api.post<Design>(`/api/designs/${designId}/reject`, { reason });
+  return data;
+};

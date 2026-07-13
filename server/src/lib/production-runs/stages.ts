@@ -81,6 +81,22 @@ export const nextProductionRunStage = (
   return PRODUCTION_RUN_STAGES[idx + 1];
 };
 
+export const stageIndex = (stage: ProductionRunStage): number =>
+  PRODUCTION_RUN_STAGES.indexOf(stage);
+
+export const isStageBefore = (
+  earlier: ProductionRunStage,
+  later: ProductionRunStage,
+): boolean => stageIndex(earlier) < stageIndex(later);
+
+export const getEarlierStages = (
+  stage: ProductionRunStage,
+): ProductionRunStage[] => {
+  const idx = stageIndex(stage);
+  if (idx <= 0) return [];
+  return PRODUCTION_RUN_STAGES.slice(0, idx);
+};
+
 export const toApiProductionRunStage = (
   stage: DbProductionRunStage,
 ): ProductionRunStage => DB_TO_API[stage];
@@ -89,16 +105,29 @@ export const toDbProductionRunStage = (
   stage: ProductionRunStage,
 ): DbProductionRunStage => API_TO_DB[stage];
 
+export type StageLogAction = "Started" | "Completed" | "Rejected";
+
 export type ProductionRunStageLog = {
   id: string;
   productionRunId: string;
   stage: ProductionRunStage;
+  action: StageLogAction;
+  karigarName?: string;
   notes?: string;
+  rejectionReason?: string;
+  rejectedToStage?: ProductionRunStage;
   performedById?: string;
   performedByName: string;
   createdAt: string;
 };
 
 export type CompleteProductionRunStageInput = {
+  karigarName: string;
   notes?: string;
+};
+
+export type RejectProductionRunStageInput = {
+  rejectedToStage: ProductionRunStage;
+  reason: string;
+  karigarName?: string;
 };

@@ -3,7 +3,25 @@
 import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import Link from "next/link";
-import type { Design } from "@/lib/types";
+import type { Design, DesignApprovalStatus } from "@/lib/types";
+
+const approvalBadgeClass = (status: DesignApprovalStatus = "Draft") => {
+  switch (status) {
+    case "Approved":
+      return "bg-emerald-100 text-emerald-700";
+    case "PendingApproval":
+      return "bg-amber-100 text-amber-800";
+    case "Rejected":
+      return "bg-red-100 text-red-700";
+    default:
+      return "bg-zinc-100 text-zinc-600";
+  }
+};
+
+const approvalLabel = (status: DesignApprovalStatus = "Draft") => {
+  if (status === "PendingApproval") return "Pending";
+  return status;
+};
 
 type SkuDesignListProps = {
   designs: Design[];
@@ -88,6 +106,11 @@ export default function SkuDesignList({
                     <span className="px-2 py-1 rounded-full bg-zinc-100 text-zinc-600">
                       {design.elements.length} element
                       {design.elements.length !== 1 ? "s" : ""}
+                    </span>
+                    <span
+                      className={`px-2 py-1 rounded-full ${approvalBadgeClass(design.approvalStatus)}`}
+                    >
+                      {approvalLabel(design.approvalStatus)}
                     </span>
                     <span
                       className={`px-2 py-1 rounded-full ${

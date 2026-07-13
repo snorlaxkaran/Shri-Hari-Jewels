@@ -1,3 +1,4 @@
+import { DesignApprovalStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import { moneyToNumber } from "../money.js";
 import type {
@@ -19,6 +20,16 @@ import {
   isValidDesignPurity,
 } from "./validation.js";
 import { toApiDesignBuilderStage } from "./builder-stages.js";
+
+export type DesignApprovalStatusApi =
+  | "Draft"
+  | "PendingApproval"
+  | "Approved"
+  | "Rejected";
+
+const toApiDesignApprovalStatus = (
+  status: DesignApprovalStatus,
+): DesignApprovalStatusApi => status as DesignApprovalStatusApi;
 
 export const DESIGN_CATEGORIES: DesignCategory[] = [
   "Necklace",
@@ -96,6 +107,11 @@ const toDesign = (design: {
   finishedPhotoUrl: string | null;
   finishedPhotoUrls: string[];
   builderCompletedAt: Date | null;
+  approvalStatus: Parameters<typeof toApiDesignApprovalStatus>[0];
+  approvedById: string | null;
+  approvedByName: string | null;
+  approvedAt: Date | null;
+  rejectionReason: string | null;
   createdAt: Date;
   updatedAt: Date;
   elements?: Array<Parameters<typeof toDesignElement>[0]>;
@@ -122,6 +138,11 @@ const toDesign = (design: {
   finishedPhotoUrls:
     design.finishedPhotoUrls.length > 0 ? design.finishedPhotoUrls : undefined,
   builderCompletedAt: design.builderCompletedAt?.toISOString(),
+  approvalStatus: toApiDesignApprovalStatus(design.approvalStatus),
+  approvedById: design.approvedById ?? undefined,
+  approvedByName: design.approvedByName ?? undefined,
+  approvedAt: design.approvedAt?.toISOString(),
+  rejectionReason: design.rejectionReason ?? undefined,
   elements: (design.elements ?? []).map(toDesignElement),
   createdAt: design.createdAt.toISOString(),
   updatedAt: design.updatedAt.toISOString(),
@@ -675,4 +696,91 @@ export const computeDesignElementDiff = (
   }
 
   return { added, removed, changed };
+};
+
+export const submitDesignForApproval = async (
+  id: string,
+  organizationId: string,
+): Promise<Design> => {
+  const design = await prisma.design.findFirst({
+    where: { id, organizationId },
+    include: designInclude,
+  });
+  if (!design) throw new DesignError("Design not found.", 404);
+  if (!design.cadReady) {
+    throw new DesignError("CAD must be marked ready before submitting for approval.");
+  }
+  if (design.approvalStatus === DesignApprovalStatus.Approved) {
+    throw new DesignError("Design is already approved.");
+  }
+
+  const updated = await prisma.design.update({
+    where: { id },
+    data: {
+      approvalStatus: DesignApprovalStatus.PendingApproval,
+      rejectionReason: null,
+    },
+    include: designInclude,
+  });
+  return toDesign(updated);
+};
+
+export const approveDesign = async (
+  id: string,
+  organizationId: string,
+  actor: Actor,
+): Promise<Design> => {
+  const design = await prisma.design.findFirst({
+    where: { id, organizationId },
+    include: designInclude,
+  });
+  if (!design) throw new DesignError("Design not found.", 404);
+  if (design.approvalStatus !== DesignApprovalStatus.PendingApproval) {
+    throw new DesignError("Design must be pending approval.");
+  }
+
+  const updated = await prisma.design.update({
+    where: { id },
+    data: {
+      approvalStatus: DesignApprovalStatus.Approved,
+      approvedById: actor.id,
+      approvedByName: actor.name,
+      approvedAt: new Date(),
+      rejectionReason: null,
+    },
+    include: designInclude,
+  });
+  return toDesign(updated);
+};
+
+export const rejectDesignApproval = async (
+  id: string,
+  organizationId: string,
+  reason: string,
+): Promise<Design> => {
+  if (!reason?.trim()) {
+    throw new DesignError("Rejection reason is required.");
+  }
+
+  const design = await prisma.design.findFirst({
+    where: { id, organizationId },
+    include: designInclude,
+  });
+  if (!design) throw new DesignError("Design not found.", 404);
+  if (design.approvalStatus !== DesignApprovalStatus.PendingApproval) {
+    throw new DesignError("Design must be pending approval.");
+  }
+
+  const updated = await prisma.design.update({
+    where: { id },
+    data: {
+      approvalStatus: DesignApprovalStatus.Rejected,
+      rejectionReason: reason.trim(),
+      approvedById: null,
+      approvedByName: null,
+      approvedAt: null,
+    },
+    include: designInclude,
+  });
+  return toDesign(updated);
 };

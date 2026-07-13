@@ -2,16 +2,20 @@ import { Router } from "express";
 import {
   canManageDesigns,
   canViewDesigns,
+  isMasterAdmin,
 } from "../lib/auth/permissions.js";
 import {
   addDesignElement,
+  approveDesign,
   computeDesignElementDiff,
   createDesign,
   deleteDesign,
   deleteDesignElement,
   DesignError,
   listDesigns,
+  rejectDesignApproval,
   replaceDesignElements,
+  submitDesignForApproval,
   updateDesign,
   updateDesignElement,
 } from "../lib/designs/service.js";
@@ -434,6 +438,72 @@ const hasBuilderFields = (body: UpdateDesignBuilderInput): boolean =>
   body.moldPhotoUrl !== undefined ||
   body.finishedPhotoUrl !== undefined ||
   body.finishedPhotoUrls !== undefined;
+
+designsRouter.post(
+  "/:id/submit-for-approval",
+  requireRole(canManageDesigns),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const design = await submitDesignForApproval(
+        routeParam(req.params.id),
+        req.organizationId!,
+      );
+      res.json(design);
+    } catch (error) {
+      if (error instanceof DesignError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/designs/:id/submit-for-approval", error);
+      res.status(500).json({ error: "Failed to submit design for approval." });
+    }
+  },
+);
+
+designsRouter.post(
+  "/:id/approve",
+  requireRole(isMasterAdmin),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const design = await approveDesign(
+        routeParam(req.params.id),
+        req.organizationId!,
+        actorFrom(req),
+      );
+      res.json(design);
+    } catch (error) {
+      if (error instanceof DesignError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/designs/:id/approve", error);
+      res.status(500).json({ error: "Failed to approve design." });
+    }
+  },
+);
+
+designsRouter.post(
+  "/:id/reject",
+  requireRole(isMasterAdmin),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = req.body as { reason?: string };
+      const design = await rejectDesignApproval(
+        routeParam(req.params.id),
+        req.organizationId!,
+        String(body.reason ?? ""),
+      );
+      res.json(design);
+    } catch (error) {
+      if (error instanceof DesignError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/designs/:id/reject", error);
+      res.status(500).json({ error: "Failed to reject design." });
+    }
+  },
+);
 
 designsRouter.post(
   "/:id/builder/advance",

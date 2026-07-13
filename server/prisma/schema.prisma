@@ -102,6 +102,19 @@ enum StoneIssueStatus {
   Settled
 }
 
+enum StageLogAction {
+  Started
+  Completed
+  Rejected
+}
+
+enum DesignApprovalStatus {
+  Draft
+  PendingApproval
+  Approved
+  Rejected
+}
+
 enum DesignBuilderStage {
   SKU         @map("SKU")
   CAD         @map("CAD")
@@ -173,6 +186,7 @@ model Branch {
   stoneStocks        StoneStock[]
   stoneStockMovements StoneStockMovement[]
   stoneIssues ProductionRunStoneIssue[]
+  metalIssues ProductionRunMetalIssue[]
   stockTransfersFrom StockTransfer[] @relation("StockTransferFromBranch")
   stockTransfersTo   StockTransfer[] @relation("StockTransferToBranch")
   customerBranches   CustomerBranch[]
@@ -552,6 +566,11 @@ model Design {
   finishedPhotoUrl    String?  @db.Text
   finishedPhotoUrls   String[] @default([])
   builderCompletedAt  DateTime?
+  approvalStatus      DesignApprovalStatus @default(Draft)
+  approvedById        String?
+  approvedByName      String?
+  approvedAt          DateTime?
+  rejectionReason     String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -651,6 +670,7 @@ model ProductionRun {
   items        ProductionRunItem[]
   stageLogs    ProductionRunStageLog[]
   stoneIssues  ProductionRunStoneIssue[]
+  metalIssues  ProductionRunMetalIssue[]
   finishedGoodsProduct Product? @relation("ProductionRunFinishedGoods", fields: [finishedGoodsProductId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, runNo])
@@ -665,7 +685,11 @@ model ProductionRunStageLog {
   id              String   @id @default(uuid())
   productionRunId String
   stage           ProductionRunStage
+  action          StageLogAction @default(Started)
+  karigarName     String?
   notes           String?
+  rejectionReason String?
+  rejectedToStage ProductionRunStage?
   performedById   String?
   performedByName String
   createdAt       DateTime @default(now())
@@ -845,11 +869,42 @@ model MetalLot {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  branch      Branch                    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  metalIssues ProductionRunMetalIssue[]
 
   @@index([branchId])
   @@index([metalType])
   @@index([location])
+}
+
+model ProductionRunMetalIssue {
+  id                  String             @id @default(uuid())
+  branchId            String
+  productionRunId     String
+  stage               ProductionRunStage
+  metalLotId          String?
+  karigarName         String
+  purity              String
+  weightIssuedGrams   Decimal            @db.Decimal(10, 3)
+  weightReturnedGrams Decimal            @default(0) @db.Decimal(10, 3)
+  weightLossGrams     Decimal            @default(0) @db.Decimal(10, 3)
+  lossReason          String?
+  status              StoneIssueStatus   @default(Open)
+  issuedByName        String
+  settledByName       String?
+  issuedAt            DateTime           @default(now())
+  settledAt           DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  branch        Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  productionRun ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: Cascade)
+  metalLot      MetalLot?     @relation(fields: [metalLotId], references: [id], onDelete: SetNull)
+
+  @@index([branchId])
+  @@index([productionRunId])
+  @@index([stage])
+  @@index([status])
 }
 
 model CertifiedStoneLot {
