@@ -451,36 +451,11 @@ const main = async () => {
   await ensureMultiTenantOrganizations();
   await ensureOrgScopedInventoryIdentifiers();
   await ensureTenantStorefront();
-  console.log("Deploy schema migration complete.");
+  console.log("Deploy schema migration complete."  );
 };
 
-const ensureTenantStorefront = async () => {
-  console.log("Ensure tenant storefront schema and demo org backfill…");
-
-  await run(
-    "Ensure WebOrder enums…",
-    `
-    DO $$
-    BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'WebOrderStatus') THEN
-        CREATE TYPE "WebOrderStatus" AS ENUM ('Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled');
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'WebOrderPaymentStatus') THEN
-        CREATE TYPE "WebOrderPaymentStatus" AS ENUM ('Unpaid', 'Paid', 'Refunded');
-      END IF;
-    END $$;
-    `,
-  );
-
-  const alters = [
-    `ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS "customDomain" TEXT`,
-    `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "publishedToStorefront" BOOLEAN NOT NULL DEFAULT false`,
-    `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "storefrontDescription" TEXT`,
-    `ALTER TABLE "WebOrderItem" ADD COLUMN IF NOT EXISTS "reservedUnitIds" JSONB NOT NULL DEFAULT '[]'`,
-  ];
-  for (const sql of alters) {
-    await run(`Apply: ${sql.slice(0, 60)}…`, sql);
-  }
+const ensureStorefrontTables = async () => {
+  console.log("Ensure storefront tables…");
 
   await run(
     "Ensure StorefrontSettings table…",
@@ -509,6 +484,218 @@ const ensureTenantStorefront = async () => {
     )
     `,
   );
+
+  await run(
+    "Ensure StorefrontCollection table…",
+    `
+    CREATE TABLE IF NOT EXISTS "StorefrontCollection" (
+      "id" TEXT NOT NULL,
+      "organizationId" TEXT NOT NULL,
+      "name" TEXT NOT NULL,
+      "slug" TEXT NOT NULL,
+      "description" TEXT,
+      "imageUrl" TEXT,
+      "sortOrder" INTEGER NOT NULL DEFAULT 0,
+      "active" BOOLEAN NOT NULL DEFAULT true,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "StorefrontCollection_pkey" PRIMARY KEY ("id")
+    )
+    `,
+  );
+
+  await run(
+    "Ensure StorefrontCollectionProduct table…",
+    `
+    CREATE TABLE IF NOT EXISTS "StorefrontCollectionProduct" (
+      "id" TEXT NOT NULL,
+      "collectionId" TEXT NOT NULL,
+      "productId" TEXT NOT NULL,
+      "sortOrder" INTEGER NOT NULL DEFAULT 0,
+      CONSTRAINT "StorefrontCollectionProduct_pkey" PRIMARY KEY ("id")
+    )
+    `,
+  );
+
+  await run(
+    "Ensure WebOrder table…",
+    `
+    CREATE TABLE IF NOT EXISTS "WebOrder" (
+      "id" TEXT NOT NULL,
+      "organizationId" TEXT NOT NULL,
+      "branchId" TEXT NOT NULL,
+      "orderNo" TEXT NOT NULL,
+      "customerId" TEXT,
+      "customerName" TEXT NOT NULL,
+      "customerEmail" TEXT,
+      "customerMobile" TEXT NOT NULL,
+      "addressLine1" TEXT NOT NULL,
+      "addressLine2" TEXT,
+      "city" TEXT NOT NULL,
+      "state" TEXT NOT NULL,
+      "pincode" TEXT NOT NULL,
+      "country" TEXT NOT NULL DEFAULT 'India',
+      "status" "WebOrderStatus" NOT NULL DEFAULT 'Pending',
+      "paymentStatus" "WebOrderPaymentStatus" NOT NULL DEFAULT 'Unpaid',
+      "totalAmount" DECIMAL(12,2) NOT NULL,
+      "notes" TEXT,
+      "erpOrderId" TEXT,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "WebOrder_pkey" PRIMARY KEY ("id")
+    )
+    `,
+  );
+
+  await run(
+    "Ensure WebOrderItem table…",
+    `
+    CREATE TABLE IF NOT EXISTS "WebOrderItem" (
+      "id" TEXT NOT NULL,
+      "webOrderId" TEXT NOT NULL,
+      "productId" TEXT NOT NULL,
+      "productSku" TEXT NOT NULL,
+      "productName" TEXT NOT NULL,
+      "quantity" INTEGER NOT NULL DEFAULT 1,
+      "unitPrice" DECIMAL(12,2) NOT NULL,
+      "lineTotal" DECIMAL(12,2) NOT NULL,
+      "reservedUnitIds" JSONB NOT NULL DEFAULT '[]',
+      CONSTRAINT "WebOrderItem_pkey" PRIMARY KEY ("id")
+    )
+    `,
+  );
+
+  const indexes = [
+    `CREATE UNIQUE INDEX IF NOT EXISTS "StorefrontSettings_organizationId_key" ON "StorefrontSettings"("organizationId")`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "StorefrontCollection_organizationId_slug_key" ON "StorefrontCollection"("organizationId", "slug")`,
+    `CREATE INDEX IF NOT EXISTS "StorefrontCollection_organizationId_idx" ON "StorefrontCollection"("organizationId")`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "StorefrontCollectionProduct_collectionId_productId_key" ON "StorefrontCollectionProduct"("collectionId", "productId")`,
+    `CREATE INDEX IF NOT EXISTS "StorefrontCollectionProduct_collectionId_idx" ON "StorefrontCollectionProduct"("collectionId")`,
+    `CREATE INDEX IF NOT EXISTS "StorefrontCollectionProduct_productId_idx" ON "StorefrontCollectionProduct"("productId")`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "WebOrder_organizationId_orderNo_key" ON "WebOrder"("organizationId", "orderNo")`,
+    `CREATE INDEX IF NOT EXISTS "WebOrder_organizationId_idx" ON "WebOrder"("organizationId")`,
+    `CREATE INDEX IF NOT EXISTS "WebOrder_branchId_idx" ON "WebOrder"("branchId")`,
+    `CREATE INDEX IF NOT EXISTS "WebOrder_status_idx" ON "WebOrder"("status")`,
+    `CREATE INDEX IF NOT EXISTS "WebOrder_createdAt_idx" ON "WebOrder"("createdAt")`,
+    `CREATE INDEX IF NOT EXISTS "WebOrderItem_webOrderId_idx" ON "WebOrderItem"("webOrderId")`,
+    `CREATE INDEX IF NOT EXISTS "WebOrderItem_productId_idx" ON "WebOrderItem"("productId")`,
+  ];
+  for (const sql of indexes) {
+    await run(`Apply: ${sql.slice(0, 72).replace(/\s+/g, " ")}…`, sql);
+  }
+
+  await run(
+    "Ensure storefront foreign keys…",
+    `
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'StorefrontSettings_organizationId_fkey') THEN
+        ALTER TABLE "StorefrontSettings"
+          ADD CONSTRAINT "StorefrontSettings_organizationId_fkey"
+          FOREIGN KEY ("organizationId") REFERENCES "Organization"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'StorefrontCollection_organizationId_fkey') THEN
+        ALTER TABLE "StorefrontCollection"
+          ADD CONSTRAINT "StorefrontCollection_organizationId_fkey"
+          FOREIGN KEY ("organizationId") REFERENCES "Organization"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'StorefrontCollectionProduct_collectionId_fkey') THEN
+        ALTER TABLE "StorefrontCollectionProduct"
+          ADD CONSTRAINT "StorefrontCollectionProduct_collectionId_fkey"
+          FOREIGN KEY ("collectionId") REFERENCES "StorefrontCollection"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'StorefrontCollectionProduct_productId_fkey') THEN
+        ALTER TABLE "StorefrontCollectionProduct"
+          ADD CONSTRAINT "StorefrontCollectionProduct_productId_fkey"
+          FOREIGN KEY ("productId") REFERENCES "Product"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'WebOrder_organizationId_fkey') THEN
+        ALTER TABLE "WebOrder"
+          ADD CONSTRAINT "WebOrder_organizationId_fkey"
+          FOREIGN KEY ("organizationId") REFERENCES "Organization"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'WebOrder_branchId_fkey') THEN
+        ALTER TABLE "WebOrder"
+          ADD CONSTRAINT "WebOrder_branchId_fkey"
+          FOREIGN KEY ("branchId") REFERENCES "Branch"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'WebOrder_customerId_fkey') THEN
+        ALTER TABLE "WebOrder"
+          ADD CONSTRAINT "WebOrder_customerId_fkey"
+          FOREIGN KEY ("customerId") REFERENCES "Customer"("id")
+          ON DELETE SET NULL ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'WebOrderItem_webOrderId_fkey') THEN
+        ALTER TABLE "WebOrderItem"
+          ADD CONSTRAINT "WebOrderItem_webOrderId_fkey"
+          FOREIGN KEY ("webOrderId") REFERENCES "WebOrder"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'WebOrderItem_productId_fkey') THEN
+        ALTER TABLE "WebOrderItem"
+          ADD CONSTRAINT "WebOrderItem_productId_fkey"
+          FOREIGN KEY ("productId") REFERENCES "Product"("id")
+          ON DELETE RESTRICT ON UPDATE CASCADE;
+      END IF;
+    END $$;
+    `,
+  );
+};
+
+const ensureTenantStorefront = async () => {
+  console.log("Ensure tenant storefront schema and demo org backfill…");
+
+  await run(
+    "Ensure WebOrder enums…",
+    `
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'WebOrderStatus') THEN
+        CREATE TYPE "WebOrderStatus" AS ENUM ('Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled');
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'WebOrderPaymentStatus') THEN
+        CREATE TYPE "WebOrderPaymentStatus" AS ENUM ('Unpaid', 'Paid', 'Refunded');
+      END IF;
+    END $$;
+    `,
+  );
+
+  const alters = [
+    `ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS "customDomain" TEXT`,
+    `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "publishedToStorefront" BOOLEAN NOT NULL DEFAULT false`,
+    `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "storefrontDescription" TEXT`,
+  ];
+  for (const sql of alters) {
+    await run(`Apply: ${sql.slice(0, 60)}…`, sql);
+  }
+
+  await run(
+    "Ensure Organization.customDomain index…",
+    `CREATE UNIQUE INDEX IF NOT EXISTS "Organization_customDomain_key" ON "Organization"("customDomain")`,
+  );
+
+  await ensureStorefrontTables();
+
+  if (await tableExists("WebOrderItem")) {
+    await run(
+      "Ensure WebOrderItem.reservedUnitIds column…",
+      `ALTER TABLE "WebOrderItem" ADD COLUMN IF NOT EXISTS "reservedUnitIds" JSONB NOT NULL DEFAULT '[]'`,
+    );
+  }
 
   await run(
     "Backfill StorefrontSettings rows…",
