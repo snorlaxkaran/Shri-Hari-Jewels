@@ -25,8 +25,20 @@ If **Motif Library** shows "Could not load motifs" or Excel import returns **404
 1. Open [Render Dashboard](https://dashboard.render.com) → **shri-hari-jewels-api**
 2. Click **Manual Deploy** → **Deploy latest commit**
 3. Wait for the build to finish (watch logs for `Status enum migration complete` and `Deploy schema migration complete`)
-4. Verify: open `https://shri-hari-jewels-api.onrender.com/api/health` — you should see `"features": { "motifs": true }`
+4. Verify: open `https://shri-hari-jewels-api.onrender.com/api/health` — you should see `"features": { "motifs": true, "storefront": true }`
 5. Hard-refresh the app and open **Motifs** again
+
+## Storefront API (404 / blank shop)
+
+If `/shop/{slug}` is blank or the API returns **Cannot GET /api/storefront/...**, Render has not deployed the latest API yet.
+
+1. Open [Render Dashboard](https://dashboard.render.com) → **shri-hari-jewels-api**
+2. **Manual Deploy** → **Deploy latest commit** (branch `main`)
+3. Wait for build logs: `Ensure tenant storefront schema`, `Deploy schema migration complete`, then `API running`
+4. Verify:
+   - `https://shri-hari-jewels-api.onrender.com/api/health` includes `"storefront": true`
+   - `https://shri-hari-jewels-api.onrender.com/api/storefront/shree-hari-jewels/status` returns JSON with `"enabled": true`
+5. Open `https://shri-hari-jewels.vercel.app/shop/shree-hari-jewels`
 
 ### Local development (both frontend + backend)
 
