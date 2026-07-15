@@ -273,6 +273,14 @@ export default function PlatformCompaniesPage() {
                         {company.branchCount} branch(es) · {company.userCount} user(s)
                         {!company.active && " · Inactive"}
                       </p>
+                      <a
+                        href={`/shop/${company.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs mt-1 inline-block text-blue-600 hover:underline"
+                      >
+                        /shop/{company.slug} →
+                      </a>
                     </div>
                   </div>
                   <button

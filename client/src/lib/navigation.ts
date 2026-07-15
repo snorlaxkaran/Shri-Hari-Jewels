@@ -16,6 +16,7 @@ import {
   ShoppingCart,
   Store,
   Users,
+  Globe,
 } from "lucide-react";
 import { createElement } from "react";
 
@@ -80,6 +81,16 @@ export const navSections: NavSection[] = [
       { label: "Stock valuation", href: "/reports/stock-valuation", icon: icon(Diamond) },
       { label: "Ageing stock", href: "/reports/ageing-stock", icon: icon(PackageOpen) },
       { label: "Staff performance", href: "/reports/staff-performance", icon: icon(Users) },
+    ],
+  },
+  {
+    title: "Online Store",
+    items: [
+      { label: "Store dashboard", href: "/storefront", icon: icon(Globe) },
+      { label: "Store settings", href: "/storefront/settings", icon: icon(Settings) },
+      { label: "Publish products", href: "/storefront/products", icon: icon(Package) },
+      { label: "Collections", href: "/storefront/collections", icon: icon(Palette) },
+      { label: "Web orders", href: "/storefront/orders", icon: icon(ShoppingBag) },
     ],
   },
   {
@@ -168,6 +179,11 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname.match(/^\/production-runs\/[^/]+\/[^/]+$/)) {
     return "Production Run";
   }
+  if (pathname === "/storefront/settings") return "Store Settings";
+  if (pathname === "/storefront/products") return "Publish Products";
+  if (pathname === "/storefront/collections") return "Collections";
+  if (pathname === "/storefront/orders") return "Web Orders";
+  if (pathname === "/storefront") return "Online Store";
   for (const section of navSections) {
     const match = section.items.find((item) => item.href === pathname);
     if (match) return match.label;

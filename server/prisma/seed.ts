@@ -211,6 +211,27 @@ async function seedDatabase() {
     },
   });
 
+  await prisma.storefrontSettings.upsert({
+    where: { organizationId: organization.id },
+    update: {
+      enabled: true,
+      tagline: "Fine handcrafted jewellery since generations",
+      heroTitle: "Timeless Elegance",
+      heroSubtitle: "Discover our exclusive collection of gold and diamond jewellery",
+      aboutText: "Shree Hari Jewels brings you the finest handcrafted jewellery, blending traditional artistry with contemporary design.",
+      contactPhone: headOffice.phone,
+    },
+    create: {
+      organizationId: organization.id,
+      enabled: true,
+      tagline: "Fine handcrafted jewellery since generations",
+      heroTitle: "Timeless Elegance",
+      heroSubtitle: "Discover our exclusive collection of gold and diamond jewellery",
+      aboutText: "Shree Hari Jewels brings you the finest handcrafted jewellery, blending traditional artistry with contemporary design.",
+      contactPhone: headOffice.phone,
+    },
+  });
+
   const customer = await prisma.customer.upsert({
     where: {
       organizationId_mobile: {
@@ -257,6 +278,8 @@ async function seedDatabase() {
         stock: 2,
         status: "InStock",
         imageColor: "#d4af37",
+        publishedToStorefront: true,
+        storefrontDescription: "A timeless 22K gold ring perfect for everyday elegance.",
         units: {
           create: [
             {
@@ -273,6 +296,15 @@ async function seedDatabase() {
             },
           ],
         },
+      },
+    });
+  } else {
+    await prisma.product.update({
+      where: { id: existingProduct.id },
+      data: {
+        publishedToStorefront: true,
+        storefrontDescription:
+          "A timeless 22K gold ring perfect for everyday elegance.",
       },
     });
   }

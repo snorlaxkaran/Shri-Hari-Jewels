@@ -31,6 +31,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/designs",
     "/motifs",
     "/production-runs",
+    "/storefront",
   ],
   Store: ["/dashboard", "/inventory", "/stock-transfer", "/sales", "/customers"],
   Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs"],
@@ -38,6 +39,9 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
 };
 
 export const canAccessRoute = (role: UserRole, pathname: string): boolean => {
+  if (pathname.startsWith("/storefront/settings") && role !== "Admin") {
+    return false;
+  }
   const allowed = ROUTE_ACCESS[role];
   if (allowed.includes("*")) return true;
   return allowed.some(
@@ -84,6 +88,9 @@ export const isMasterAdmin = (role: UserRole): boolean =>
 export const canManageBranches = (role: UserRole): boolean => role === "Admin";
 
 export const canManageSettings = (role: UserRole): boolean => role === "Admin";
+
+export const canManageStorefront = (role: UserRole): boolean =>
+  role === "Admin" || role === "SalesManager";
 
 export const canManageStockTransfers = (role: UserRole): boolean =>
   role === "Admin" || role === "ProductionManager" || role === "SalesManager";
