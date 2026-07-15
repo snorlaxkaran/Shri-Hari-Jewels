@@ -42,8 +42,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && typeof window !== "undefined") {
-      const onLoginPage = window.location.pathname === "/login";
-      if (!onLoginPage) {
+      const path = window.location.pathname;
+      const onLoginPage = path === "/login";
+      const onPublicStore = path.startsWith("/shop/");
+      if (!onLoginPage && !onPublicStore) {
         window.sessionStorage.removeItem("shj_auth_token");
         window.localStorage.removeItem("shj_auth_token");
         clearAuthToken();

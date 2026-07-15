@@ -39,6 +39,8 @@ import { schemesRouter } from "./routes/schemes.js";
 import { karigarRouter } from "./routes/karigar.js";
 import { einvoiceRouter } from "./routes/einvoice.js";
 import { onboardingRouter } from "./routes/onboarding.js";
+import { storefrontRouter } from "./routes/storefront.js";
+import { storefrontAdminRouter } from "./routes/storefront-admin.js";
 import { startScheduledJobs } from "./jobs/scheduler.js";
 
 if (process.env.SENTRY_DSN) {
@@ -142,6 +144,7 @@ app.get("/api/health", async (_req, res) => {
       motifs: true,
       security: true,
       reports: true,
+      storefront: true,
     },
   });
 });
@@ -176,6 +179,8 @@ app.use("/api/schemes", schemesRouter);
 app.use("/api/karigar", karigarRouter);
 app.use("/api/einvoice", einvoiceRouter);
 app.use("/api/onboarding", onboardingRouter);
+app.use("/api/storefront", storefrontRouter);
+app.use("/api/storefront-admin", storefrontAdminRouter);
 
 if (process.env.SENTRY_DSN) {
   Sentry.setupExpressErrorHandler(app);

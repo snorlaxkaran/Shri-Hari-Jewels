@@ -127,6 +127,9 @@ export const canManageOrganizations = (role: UserRole): boolean =>
 
 export const canManageSettings = (role: UserRole): boolean => role === "Admin";
 
+export const canManageStorefront = (role: UserRole): boolean =>
+  role === "Admin" || role === "SalesManager";
+
 export const canManageBranches = (role: UserRole): boolean => role === "Admin";
 
 export const canViewDesigns = (role: UserRole): boolean =>

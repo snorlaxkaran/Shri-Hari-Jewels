@@ -158,6 +158,13 @@ export const createOrganization = async (
       },
     });
 
+    await tx.storefrontSettings.create({
+      data: {
+        organizationId: created.id,
+        enabled: false,
+      },
+    });
+
     const admin = await tx.user.create({
       data: {
         organizationId: created.id,

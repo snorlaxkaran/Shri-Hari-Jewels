@@ -1,12 +1,5 @@
-import ComingSoon from "@/app/(components)/ComingSoon";
+import { redirect } from "next/navigation";
 
 export default function GalleryPage() {
-  return (
-    <div className="page-content">
-      <ComingSoon
-      title="Gallery"
-      description="A product image gallery will be available once catalogue features are connected to inventory."
-    />
-    </div>
-  );
+  redirect("/storefront/products");
 }
