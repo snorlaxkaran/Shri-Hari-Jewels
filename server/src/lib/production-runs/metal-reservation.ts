@@ -33,7 +33,7 @@ export const getRunMetalReservationStatus = async (run: {
     select: { delta: true },
   });
   const deductedGrams = roundWeight(
-    audits.reduce((sum, row) => sum + -row.delta, 0),
+    audits.reduce((sum, row) => sum + -(row.delta ?? 0), 0),
   );
 
   const metal = run.design.metal ?? "";

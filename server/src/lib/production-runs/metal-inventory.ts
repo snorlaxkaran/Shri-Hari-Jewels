@@ -4,7 +4,10 @@ import {
   calculatePhysicalMetalWeightPerSet,
 } from "../pricing/jewelry-price.js";
 import { ProductionRunError } from "./errors.js";
-import { hydrateRunItemsForMetalInTx } from "./metal-weight.js";
+import {
+  hydrateRunItemsForMetalInTx,
+  type MetalWeightItem,
+} from "./metal-weight.js";
 import {
   describeMetalLotPool,
   findMetalLotsForBranch,
@@ -36,6 +39,17 @@ type RunForMetalDeduction = {
 };
 
 const roundWeight = (value: number) => Math.round(value * 100) / 100;
+
+const toRunItemsForMetal = (items: MetalWeightItem[]): RunItemForMetal[] =>
+  items.map((item) => ({
+    elementName: item.elementName,
+    elementType: item.elementType,
+    qtyPerSet: item.qtyPerSet,
+    weightGramsPerPc: item.weightGramsPerPc,
+    metalWeightGrams: item.metalWeightGrams ?? null,
+    metalLotId: item.metalLotId ?? null,
+    motifId: item.motifId ?? null,
+  }));
 
 export const computeRunMetalWeightGrams = (
   items: RunItemForMetal[],
@@ -278,7 +292,7 @@ export const restoreRunMetalInventoryInTx = async (
     const lot = await tx.metalLot.findUnique({ where: { id: audit.stockId } });
     if (!lot) continue;
 
-    const restoreAmount = roundWeight(-audit.delta);
+    const restoreAmount = roundWeight(-(audit.delta ?? 0));
     await restoreToLotInTx(
       tx,
       lot,
@@ -315,7 +329,8 @@ export const deductRunMetalInventoryInTx = async (
     run.designId,
     run.items,
   );
-  const totalGrams = computeRunMetalWeightGrams(hydratedItems, run.setsOrdered);
+  const metalItems = toRunItemsForMetal(hydratedItems);
+  const totalGrams = computeRunMetalWeightGrams(metalItems, run.setsOrdered);
 
   if (totalGrams <= 0) {
     throw new ProductionRunError(
@@ -332,7 +347,7 @@ export const deductRunMetalInventoryInTx = async (
   await deductMetalAcrossLotsInTx(
     tx,
     run.branchId,
-    hydratedItems,
+    metalItems,
     { metal: design.metal, purity: design.purity },
     totalGrams,
     { runNo: run.runNo, setsOrdered: run.setsOrdered },
