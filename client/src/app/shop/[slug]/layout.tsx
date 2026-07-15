@@ -31,7 +31,17 @@ export default async function StorefrontLayout({ children, params }: Props) {
   try {
     status = await fetchStorefrontStatus(slug);
   } catch {
-    return null;
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#faf9f7] px-4 text-center">
+        <div className="max-w-md">
+          <p className="text-4xl mb-6">⏳</p>
+          <h1 className="text-2xl font-light text-zinc-800">Store is starting up</h1>
+          <p className="mt-4 text-zinc-600 leading-relaxed">
+            The online store is being deployed. Please refresh in a minute.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   if (!status.exists || !status.active) {
@@ -51,7 +61,17 @@ export default async function StorefrontLayout({ children, params }: Props) {
   try {
     config = await fetchStorefrontConfig(slug);
   } catch {
-    return null;
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#faf9f7] px-4 text-center">
+        <div className="max-w-md">
+          <p className="text-4xl mb-6">⏳</p>
+          <h1 className="text-2xl font-light text-zinc-800">Store is starting up</h1>
+          <p className="mt-4 text-zinc-600 leading-relaxed">
+            The store backend is updating. Please refresh shortly.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
