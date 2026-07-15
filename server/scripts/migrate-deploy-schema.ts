@@ -450,7 +450,109 @@ const main = async () => {
   await ensureInventoryUnitListPrice();
   await ensureMultiTenantOrganizations();
   await ensureOrgScopedInventoryIdentifiers();
+  await ensureTenantStorefront();
   console.log("Deploy schema migration complete.");
+};
+
+const ensureTenantStorefront = async () => {
+  console.log("Ensure tenant storefront schema and demo org backfill…");
+
+  await run(
+    "Ensure WebOrder enums…",
+    `
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'WebOrderStatus') THEN
+        CREATE TYPE "WebOrderStatus" AS ENUM ('Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled');
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'WebOrderPaymentStatus') THEN
+        CREATE TYPE "WebOrderPaymentStatus" AS ENUM ('Unpaid', 'Paid', 'Refunded');
+      END IF;
+    END $$;
+    `,
+  );
+
+  const alters = [
+    `ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS "customDomain" TEXT`,
+    `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "publishedToStorefront" BOOLEAN NOT NULL DEFAULT false`,
+    `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "storefrontDescription" TEXT`,
+    `ALTER TABLE "WebOrderItem" ADD COLUMN IF NOT EXISTS "reservedUnitIds" JSONB NOT NULL DEFAULT '[]'`,
+  ];
+  for (const sql of alters) {
+    await run(`Apply: ${sql.slice(0, 60)}…`, sql);
+  }
+
+  await run(
+    "Ensure StorefrontSettings table…",
+    `
+    CREATE TABLE IF NOT EXISTS "StorefrontSettings" (
+      "id" TEXT NOT NULL,
+      "organizationId" TEXT NOT NULL,
+      "enabled" BOOLEAN NOT NULL DEFAULT false,
+      "tagline" TEXT,
+      "heroTitle" TEXT,
+      "heroSubtitle" TEXT,
+      "aboutText" TEXT,
+      "primaryColor" TEXT NOT NULL DEFAULT '#b8860b',
+      "accentColor" TEXT NOT NULL DEFAULT '#1a1a1a',
+      "logoUrl" TEXT,
+      "bannerUrl" TEXT,
+      "contactEmail" TEXT,
+      "contactPhone" TEXT,
+      "instagramUrl" TEXT,
+      "facebookUrl" TEXT,
+      "whatsappNumber" TEXT,
+      "shippingNote" TEXT,
+      "returnPolicy" TEXT,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "StorefrontSettings_pkey" PRIMARY KEY ("id")
+    )
+    `,
+  );
+
+  await run(
+    "Backfill StorefrontSettings rows…",
+    `
+    INSERT INTO "StorefrontSettings" ("id", "organizationId", "enabled", "primaryColor", "accentColor", "updatedAt")
+    SELECT gen_random_uuid()::text, o."id", false, '#b8860b', '#1a1a1a', NOW()
+    FROM "Organization" o
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "StorefrontSettings" s WHERE s."organizationId" = o."id"
+    )
+    `,
+  );
+
+  await run(
+    "Enable demo org storefront…",
+    `
+    UPDATE "StorefrontSettings" s
+    SET
+      "enabled" = true,
+      "tagline" = COALESCE(s."tagline", 'Fine handcrafted jewellery since generations'),
+      "heroTitle" = COALESCE(s."heroTitle", 'Timeless Elegance'),
+      "heroSubtitle" = COALESCE(s."heroSubtitle", 'Discover our exclusive collection of gold and diamond jewellery'),
+      "aboutText" = COALESCE(s."aboutText", 'Shree Hari Jewels brings you the finest handcrafted jewellery, blending traditional artistry with contemporary design.'),
+      "updatedAt" = NOW()
+    FROM "Organization" o
+    WHERE s."organizationId" = o."id"
+      AND o."slug" = 'shree-hari-jewels'
+    `,
+  );
+
+  await run(
+    "Publish in-stock products for demo org…",
+    `
+    UPDATE "Product" p
+    SET
+      "publishedToStorefront" = true,
+      "storefrontDescription" = COALESCE(p."storefrontDescription", 'Handcrafted jewellery piece from our collection.')
+    FROM "Organization" o
+    WHERE p."organizationId" = o."id"
+      AND o."slug" = 'shree-hari-jewels'
+      AND p."stock" > 0
+      AND p."publishedToStorefront" = false
+    `,
+  );
 };
 
 main()
