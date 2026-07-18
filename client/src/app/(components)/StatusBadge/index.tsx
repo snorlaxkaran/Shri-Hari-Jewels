@@ -44,6 +44,15 @@ const styles: Record<string, { color: string }> = {
   Transfer: { color: "#0073bb" },
   Adjustment: { color: "#d45b07" },
   Issued: { color: "#545b64" },
+  Received: { color: "#d45b07" },
+  Estimated: { color: "#0073bb" },
+  "Awaiting Approval": { color: "#d45b07" },
+  Approved: { color: "#1d8102" },
+  "In Progress": { color: "#0073bb" },
+  "Quality Check": { color: "#0073bb" },
+  "Ready for Pickup": { color: "#1d8102" },
+  Rejected: { color: "#d13212" },
+  "Partially Paid": { color: "#d45b07" },
 };
 
 export default function StatusBadge({ status }: { status: string }) {

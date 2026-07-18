@@ -593,6 +593,172 @@ export type UpdateWorkOrderInput = {
   notes?: string | null;
 };
 
+export type RepairStatus =
+  | "Received"
+  | "Estimated"
+  | "Awaiting Approval"
+  | "Approved"
+  | "In Progress"
+  | "Quality Check"
+  | "Ready for Pickup"
+  | "Delivered"
+  | "Rejected"
+  | "Cancelled";
+
+export type RepairStatusLog = {
+  id: string;
+  status: RepairStatus;
+  notes?: string;
+  performedByName: string;
+  createdAt: string;
+};
+
+export type RepairPhoto = {
+  id: string;
+  url: string;
+  stage: string;
+  createdAt: string;
+};
+
+export type RepairOrder = {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  repairNo: string;
+  customerId?: string;
+  customerName: string;
+  customerMobile: string;
+  itemDescription: string;
+  intakeCondition?: string;
+  intakePhotoUrls: string[];
+  requestedWork: string;
+  estimatedCost?: number;
+  estimatedReadyDate?: string;
+  depositAmount: number;
+  finalCost?: number;
+  status: RepairStatus;
+  assignedKarigarName?: string;
+  approvedAt?: string;
+  approvedVia?: string;
+  rejectionReason?: string;
+  deliveredAt?: string;
+  deliveredToName?: string;
+  redoOf?: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+  invoiceId?: string;
+  invoiceNo?: string;
+  statusLogs?: RepairStatusLog[];
+  photos?: RepairPhoto[];
+};
+
+export type NewRepairOrderInput = {
+  customerId?: string;
+  customerName: string;
+  customerMobile: string;
+  itemDescription: string;
+  intakeCondition?: string;
+  intakePhotoUrls?: string[];
+  requestedWork: string;
+  estimatedCost?: number;
+  estimatedReadyDate?: string;
+  depositAmount?: number;
+};
+
+export type EstimateRepairInput = {
+  estimatedCost: number;
+  estimatedReadyDate?: string;
+  notes?: string;
+};
+
+export type ApproveRepairInput = {
+  approvedVia?: string;
+};
+
+export type RejectRepairInput = {
+  rejectionReason: string;
+};
+
+export type UpdateRepairStatusInput = {
+  status: RepairStatus;
+  assignedKarigarName?: string;
+  notes?: string;
+};
+
+export type DeliverRepairInput = {
+  finalCost: number;
+  deliveredToName: string;
+  paymentMode?: PaymentMode;
+};
+
+export type Vendor = {
+  id: string;
+  organizationId: string;
+  name: string;
+  gstNumber?: string;
+  panNumber?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  openingBalance: number;
+  createdAt: string;
+};
+
+export type NewVendorInput = {
+  name: string;
+  gstNumber?: string;
+  panNumber?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  openingBalance?: number;
+};
+
+export type UpdateVendorInput = Partial<NewVendorInput>;
+
+export type PurchaseBill = {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  vendorId: string;
+  vendorName?: string;
+  vendorGstNumber?: string;
+  billNo: string;
+  billDate: string;
+  entryVoucherId?: string;
+  entryVoucherCode?: string;
+  subtotal: number;
+  gstAmount: number;
+  total: number;
+  paidAmount: number;
+  status: string;
+  createdAt: string;
+};
+
+export type NewPurchaseBillInput = {
+  vendorId: string;
+  billNo: string;
+  billDate: string;
+  entryVoucherId?: string;
+  subtotal: number;
+  gstAmount?: number;
+  total: number;
+  paidAmount?: number;
+};
+
+export type TallyExportType = "sales" | "purchases" | "receipts" | "payments";
+
+export type TallyExportLog = {
+  id: string;
+  fromDate: string;
+  toDate: string;
+  types: TallyExportType[];
+  exportedByName: string;
+  fileName?: string;
+  createdAt: string;
+};
+
 export type SalePaymentStatus = "Pending" | "Completed";
 
 export type Sale = {
@@ -619,7 +785,7 @@ export type InvoiceStatus = "Paid" | "Pending";
 
 export type InvoiceItem = {
   id: string;
-  saleId: string;
+  saleId?: string;
   itemCode: string;
   productName: string;
   sku: string;

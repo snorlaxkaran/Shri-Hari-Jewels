@@ -7,7 +7,7 @@ import { moneyToNumber } from "../money.js";
 
 const toInvoiceItem = (item: PrismaInvoiceItem): InvoiceItem => ({
   id: item.id,
-  saleId: item.saleId,
+  saleId: item.saleId ?? undefined,
   itemCode: item.itemCode,
   productName: item.productName,
   sku: item.sku,

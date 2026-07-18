@@ -18,6 +18,7 @@ import {
   Users,
   Globe,
   UserPlus,
+  Wrench,
 } from "lucide-react";
 import { createElement } from "react";
 
@@ -61,6 +62,7 @@ export const navSections: NavSection[] = [
       { label: "Orders", href: "/orders", icon: icon(ShoppingBag) },
       { label: "Customers", href: "/customers", icon: icon(Users) },
       { label: "Leads", href: "/leads", icon: icon(UserPlus) },
+      { label: "Repairs", href: "/repairs", icon: icon(Wrench) },
       { label: "Invoices", href: "/invoices", icon: icon(FileText) },
     ],
   },
@@ -105,6 +107,8 @@ export const navSections: NavSection[] = [
     title: "System",
     items: [
       { label: "Branches", href: "/branches", icon: icon(Store) },
+      { label: "Vendors", href: "/vendors", icon: icon(Briefcase) },
+      { label: "Purchase bills", href: "/purchase-bills", icon: icon(FileText) },
       { label: "Settings", href: "/settings", icon: icon(Settings) },
     ],
   },
@@ -172,6 +176,9 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname === "/branches/new") return "Add Branch";
   if (pathname === "/orders/new") return "New Order";
   if (pathname === "/work-orders/new") return "New Work Order";
+  if (pathname === "/repairs/new") return "New Repair";
+  if (pathname.startsWith("/repairs/")) return "Repair Detail";
+  if (pathname === "/settings/tally-export") return "Tally Export";
   if (pathname === "/production-runs/new") return "New Production Run";
   if (pathname === "/production-runs/dashboard") return "Production Dashboard";
   if (pathname === "/karigar-settlements") return "Karigar Settlements";

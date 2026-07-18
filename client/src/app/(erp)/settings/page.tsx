@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import UsersPanel from "@/app/(components)/settings/UsersPanel";
 import { useAuth } from "@/lib/auth/auth-context";
-import { canManageSettings } from "@/lib/auth/permissions";
+import { canExportTally, canManageSettings } from "@/lib/auth/permissions";
 import { fetchSettings, updateSettings } from "@/lib/api/settings";
 import { getApiErrorMessage } from "@/lib/api/client";
 import type { ShopSettings } from "@/lib/types";
@@ -121,6 +122,18 @@ export default function SettingsPage() {
       {success && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-emerald-200 bg-emerald-50 text-emerald-700">
           {success}
+        </div>
+      )}
+
+      {user && canExportTally(user.role) && (
+        <div className="surface-card p-5 mb-6 max-w-2xl">
+          <h2 className="text-sm font-semibold text-zinc-900 mb-1">Accounting & Tally</h2>
+          <p className="text-sm text-zinc-500 mb-3">
+            Export sales, purchase, receipt, and payment vouchers as XML for Tally Prime import.
+          </p>
+          <Link href="/settings/tally-export" className="btn-secondary inline-flex px-4 py-2 text-sm">
+            Open Tally export
+          </Link>
         </div>
       )}
 

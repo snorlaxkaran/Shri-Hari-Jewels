@@ -28,6 +28,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/production-runs",
     "/karigar-settlements",
     "/sales-analytics",
+    "/repairs",
   ],
   SalesManager: [
     "/dashboard",
@@ -39,15 +40,16 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/orders",
     "/customers",
     "/leads",
+    "/repairs",
     "/sales-analytics",
     "/invoices",
     "/designs",
     "/motifs",
     "/production-runs",
   ],
-  Store: ["/dashboard", "/inventory", "/stock-transfer", "/sales", "/customers"],
-  Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs"],
-  Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory"],
+  Store: ["/dashboard", "/inventory", "/stock-transfer", "/sales", "/customers", "/repairs"],
+  Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs", "/repairs"],
+  Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory", "/vendors", "/purchase-bills", "/settings/tally-export"],
 };
 
 export const canAccessRoute = (role: UserRole, pathname: string): boolean => {
@@ -167,6 +169,22 @@ export const canViewStockTransfers = (role: UserRole): boolean =>
 
 export const canUpdateProductionRunItems = (role: UserRole): boolean =>
   role === "Admin" || role === "ProductionManager" || role === "Karigar";
+
+export const canViewRepairs = (role: UserRole): boolean =>
+  role === "Admin" ||
+  role === "SalesManager" ||
+  role === "Store" ||
+  role === "ProductionManager" ||
+  role === "Karigar";
+
+export const canManageRepairs = (role: UserRole): boolean =>
+  role === "Admin" || role === "SalesManager" || role === "Store";
+
+export const canManageAccounting = (role: UserRole): boolean =>
+  role === "Admin" || role === "Accountant";
+
+export const canExportTally = (role: UserRole): boolean =>
+  role === "Admin" || role === "Accountant";
 
 export const isAuthenticatedRole = (role: string): role is UserRole =>
   ALL_ROLES.includes(role as UserRole);

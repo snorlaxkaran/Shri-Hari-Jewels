@@ -28,6 +28,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Office temp lock files (created while a document is open)
+~$*
+
 # misc
 *.tsbuildinfo
 .vercel

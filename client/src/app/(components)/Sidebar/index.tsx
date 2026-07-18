@@ -7,12 +7,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   canAccessRoute,
+  canManageCustomers,
+  canViewRepairs,
   canViewStockTransfers,
 } from "@/lib/auth/permissions";
 import { filterNavSections } from "@/lib/navigation";
 import { fetchIncomingTransferCount } from "@/lib/api/inventory";
 import { fetchFollowUpsDueCount } from "@/lib/api/leads";
-import { canManageCustomers } from "@/lib/auth/permissions";
+import { fetchReadyForPickupCount } from "@/lib/api/repairs";
 
 type SidebarContentProps = {
   pathname: string;
@@ -30,6 +32,7 @@ const SidebarContent = ({
   const { user } = useAuth();
   const [incomingCount, setIncomingCount] = useState<number | undefined>();
   const [followUpsDueCount, setFollowUpsDueCount] = useState<number | undefined>();
+  const [readyForPickupCount, setReadyForPickupCount] = useState<number | undefined>();
 
   const sections = useMemo(() => {
     if (!user) return [];
@@ -43,10 +46,13 @@ const SidebarContent = ({
         if (item.href === "/leads" && followUpsDueCount != null && followUpsDueCount > 0) {
           return { ...item, badge: followUpsDueCount };
         }
+        if (item.href === "/repairs" && readyForPickupCount != null && readyForPickupCount > 0) {
+          return { ...item, badge: readyForPickupCount };
+        }
         return item;
       }),
     }));
-  }, [user, incomingCount, followUpsDueCount]);
+  }, [user, incomingCount, followUpsDueCount, readyForPickupCount]);
 
   useEffect(() => {
     if (!user || !canViewStockTransfers(user.role)) return;
@@ -60,6 +66,13 @@ const SidebarContent = ({
     fetchFollowUpsDueCount()
       .then(setFollowUpsDueCount)
       .catch(() => setFollowUpsDueCount(undefined));
+  }, [user, pathname]);
+
+  useEffect(() => {
+    if (!user || !canViewRepairs(user.role)) return;
+    fetchReadyForPickupCount()
+      .then(setReadyForPickupCount)
+      .catch(() => setReadyForPickupCount(undefined));
   }, [user, pathname]);
 
   const prefetchRoute = useCallback(
