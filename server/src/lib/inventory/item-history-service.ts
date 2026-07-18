@@ -181,7 +181,7 @@ export const getItemCodeHistory = async (
       },
       sale: {
         include: {
-          invoice: { select: { invoiceNo: true } },
+          invoiceItem: { include: { invoice: { select: { invoiceNo: true } } } },
           customer: { select: { name: true, mobile: true } },
         },
       },
@@ -318,7 +318,7 @@ export const getItemCodeHistory = async (
 
   if (unit.sale) {
     const hasSaleEvent = events.some((event) => event.type === "sale");
-    const invoiceNo = unit.sale.invoice?.invoiceNo;
+    const invoiceNo = unit.sale.invoiceItem?.invoice?.invoiceNo;
     if (!hasSaleEvent) {
       events.push({
         id: `sale-${unit.sale.id}`,
@@ -380,7 +380,7 @@ export const getItemCodeHistory = async (
     sale: unit.sale
       ? {
           saleId: unit.sale.id,
-          invoiceNo: unit.sale.invoice?.invoiceNo,
+          invoiceNo: unit.sale.invoiceItem?.invoice?.invoiceNo,
           customerName: unit.sale.customerName ?? unit.sale.customerPhone,
           dealPrice: moneyToNumber(unit.sale.dealPrice),
           listPrice: moneyToNumber(unit.sale.listPrice),

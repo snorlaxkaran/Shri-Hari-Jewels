@@ -86,7 +86,7 @@ export default function InvoicesPage() {
                 <tr>
                   <th>Invoice</th>
                   <th>Customer</th>
-                  <th>Product</th>
+                  <th>Items</th>
                   <th>Amount</th>
                   <th>Payment</th>
                   <th>Status</th>
@@ -104,11 +104,13 @@ export default function InvoicesPage() {
                         {inv.customerMobile}
                       </p>
                     </td>
-                    <td className="td-mono">
-                      <p>{inv.itemCode}</p>
-                      <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                        {inv.productName}
-                      </p>
+                    <td className="td-num">
+                      {inv.itemCount}
+                      {inv.itemCount === 1 && inv.items[0] ? (
+                        <p className="text-xs td-muted font-normal mt-0.5">
+                          {inv.items[0].itemCode}
+                        </p>
+                      ) : null}
                     </td>
                     <td className="td-num">{formatCurrency(inv.total)}</td>
                     <td className="td-muted">{inv.paymentMode}</td>

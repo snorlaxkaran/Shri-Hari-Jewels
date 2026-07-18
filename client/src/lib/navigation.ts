@@ -17,6 +17,7 @@ import {
   Store,
   Users,
   Globe,
+  UserPlus,
 } from "lucide-react";
 import { createElement } from "react";
 
@@ -59,6 +60,7 @@ export const navSections: NavSection[] = [
       { label: "Sales", href: "/sales", icon: icon(ShoppingCart) },
       { label: "Orders", href: "/orders", icon: icon(ShoppingBag) },
       { label: "Customers", href: "/customers", icon: icon(Users) },
+      { label: "Leads", href: "/leads", icon: icon(UserPlus) },
       { label: "Invoices", href: "/invoices", icon: icon(FileText) },
     ],
   },
@@ -77,6 +79,12 @@ export const navSections: NavSection[] = [
     title: "Reports",
     items: [
       { label: "Sales analytics", href: "/sales-analytics", icon: icon(BarChart2) },
+      { label: "Category report", href: "/reports/category", icon: icon(BarChart2) },
+      { label: "Department report", href: "/reports/department", icon: icon(BarChart2) },
+      { label: "Customer report", href: "/reports/customer", icon: icon(Users) },
+      { label: "Location-wise", href: "/reports/location-wise", icon: icon(Store) },
+      { label: "CAD pipeline", href: "/reports/cad", icon: icon(Palette) },
+      { label: "Stock snapshot", href: "/reports/stock-report", icon: icon(Package) },
       { label: "GST report", href: "/reports/gst", icon: icon(FileText) },
       { label: "Stock valuation", href: "/reports/stock-valuation", icon: icon(Diamond) },
       { label: "Ageing stock", href: "/reports/ageing-stock", icon: icon(PackageOpen) },
@@ -157,6 +165,8 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname.startsWith("/inventory/item/")) return "Item History";
   if (pathname.startsWith("/entry-verification/")) return "Entry Verification";
   if (pathname === "/entry-verification") return "Entry Verification";
+  if (pathname === "/leads/calendar") return "Leads Calendar";
+  if (pathname.startsWith("/leads/")) return "Lead Detail";
   if (pathname === "/customers/new") return "Add Customer";
   if (pathname.match(/^\/customers\/[^/]+\/edit$/)) return "Edit Customer";
   if (pathname === "/branches/new") return "Add Branch";

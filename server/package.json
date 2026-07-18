@@ -45,6 +45,7 @@
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.4.1",
+    "nodemailer": "^9.0.3",
     "otplib": "^13.4.1",
     "pdfkit": "^0.19.1",
     "pino": "^10.3.1",
@@ -57,6 +58,7 @@
   },
   "devDependencies": {
     "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^8.0.1",
     "@types/qrcode": "^1.5.6",
     "@vitest/coverage-v8": "^4.1.10",
     "vitest": "^4.1.10"

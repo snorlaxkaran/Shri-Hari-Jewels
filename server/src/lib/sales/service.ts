@@ -2,7 +2,7 @@ import { organizationBranchFilter } from "../branches/access.js";
 import { InventoryUnitStatus, SalePaymentStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import { toInvoice } from "../invoices/mappers.js";
-import { createInvoiceForSale } from "../invoices/service.js";
+import { createInvoiceForCart, getInvoiceForSale } from "../invoices/service.js";
 import { syncProductStockInTx } from "../inventory/stock-sync.js";
 import { recordSaleAuditInTx } from "./audit.js";
 import {
@@ -149,16 +149,16 @@ const validateSaleInput = async (
 
 const buildCompletedResult = async (
   saleId: string,
+  organizationId: string,
 ): Promise<RecordSaleResult> => {
-  const sale = await prisma.sale.findUnique({
-    where: { id: saleId },
-    include: { invoice: true },
-  });
+  const sale = await prisma.sale.findUnique({ where: { id: saleId } });
   if (!sale) throw new SaleError("Sale not found.", 404);
+
+  const invoice = await getInvoiceForSale(saleId, organizationId);
 
   return {
     sale: toSale(sale),
-    invoice: sale.invoice ? toInvoice(sale.invoice) : undefined,
+    invoice: invoice ?? undefined,
     requiresConfirmation: false,
     autoCapture: isRazorpayEnabled(),
   };
@@ -167,17 +167,21 @@ const buildCompletedResult = async (
 export const completeSale = async (
   saleId: string,
   paymentRef?: string,
+  organizationId?: string,
 ): Promise<RecordSaleResult> => {
   const existing = await prisma.sale.findUnique({
     where: { id: saleId },
-    include: { invoice: true },
+    include: { branch: { select: { organizationId: true } } },
   });
 
   if (!existing) throw new SaleError("Sale not found.", 404);
+  const orgId = organizationId ?? existing.branch.organizationId;
+
   if (existing.paymentStatus === "Completed") {
+    const invoice = await getInvoiceForSale(saleId, orgId);
     return {
       sale: toSale(existing),
-      invoice: existing.invoice ? toInvoice(existing.invoice) : undefined,
+      invoice: invoice ?? undefined,
       requiresConfirmation: false,
       autoCapture: isRazorpayEnabled(),
     };
@@ -237,7 +241,7 @@ export const completeSale = async (
       newUnitStatus: InventoryUnitStatus.Sold,
     });
 
-    const invoice = await createInvoiceForSale(updatedSale, tx);
+    const invoice = await createInvoiceForCart([updatedSale], orgId, tx);
     await recordSaleAuditInTx(tx, {
       saleId: updatedSale.id,
       invoiceId: invoice.id,
@@ -264,11 +268,14 @@ export const completeSale = async (
 export const syncPendingSalePayment = async (
   saleId: string,
 ): Promise<RecordSaleResult> => {
-  const sale = await prisma.sale.findUnique({ where: { id: saleId } });
+  const sale = await prisma.sale.findUnique({
+    where: { id: saleId },
+    include: { branch: { select: { organizationId: true } } },
+  });
   if (!sale) throw new SaleError("Sale not found.", 404);
 
   if (sale.paymentStatus === "Completed") {
-    return buildCompletedResult(saleId);
+    return buildCompletedResult(saleId, sale.branch.organizationId);
   }
 
   if (!sale.razorpayQrId) {
@@ -442,7 +449,7 @@ export const recordSale = async (
       newUnitStatus: InventoryUnitStatus.Sold,
     });
 
-    const invoice = await createInvoiceForSale(created, tx);
+    const invoice = await createInvoiceForCart([created], organizationId, tx);
     await recordSaleAuditInTx(tx, {
       saleId: created.id,
       invoiceId: invoice.id,

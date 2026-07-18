@@ -11,6 +11,8 @@ import {
 } from "@/lib/auth/permissions";
 import { filterNavSections } from "@/lib/navigation";
 import { fetchIncomingTransferCount } from "@/lib/api/inventory";
+import { fetchFollowUpsDueCount } from "@/lib/api/leads";
+import { canManageCustomers } from "@/lib/auth/permissions";
 
 type SidebarContentProps = {
   pathname: string;
@@ -27,26 +29,37 @@ const SidebarContent = ({
   const prefetchedRoutes = useRef(new Set<string>());
   const { user } = useAuth();
   const [incomingCount, setIncomingCount] = useState<number | undefined>();
+  const [followUpsDueCount, setFollowUpsDueCount] = useState<number | undefined>();
 
   const sections = useMemo(() => {
     if (!user) return [];
     const base = filterNavSections((href) => canAccessRoute(user.role, href));
-    if (incomingCount == null || incomingCount <= 0) return base;
     return base.map((section) => ({
       ...section,
-      items: section.items.map((item) =>
-        item.href === "/stock-transfer/incoming"
-          ? { ...item, badge: incomingCount }
-          : item,
-      ),
+      items: section.items.map((item) => {
+        if (item.href === "/stock-transfer/incoming" && incomingCount != null && incomingCount > 0) {
+          return { ...item, badge: incomingCount };
+        }
+        if (item.href === "/leads" && followUpsDueCount != null && followUpsDueCount > 0) {
+          return { ...item, badge: followUpsDueCount };
+        }
+        return item;
+      }),
     }));
-  }, [user, incomingCount]);
+  }, [user, incomingCount, followUpsDueCount]);
 
   useEffect(() => {
     if (!user || !canViewStockTransfers(user.role)) return;
     fetchIncomingTransferCount()
       .then(setIncomingCount)
       .catch(() => setIncomingCount(undefined));
+  }, [user, pathname]);
+
+  useEffect(() => {
+    if (!user || !canManageCustomers(user.role)) return;
+    fetchFollowUpsDueCount()
+      .then(setFollowUpsDueCount)
+      .catch(() => setFollowUpsDueCount(undefined));
   }, [user, pathname]);
 
   const prefetchRoute = useCallback(

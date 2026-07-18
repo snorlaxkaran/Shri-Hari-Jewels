@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { InventoryUnitStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import { toInvoice } from "../invoices/mappers.js";
-import { createInvoiceForSale } from "../invoices/service.js";
+import { createInvoiceForCart } from "../invoices/service.js";
 import { syncProductStockInTx } from "../inventory/stock-sync.js";
 import {
   closeUpiQrCode,
@@ -121,11 +121,7 @@ const completeOneSaleInTx = async (
   });
   if (!sale) throw new SaleError("Sale not found.", 404);
   if (sale.paymentStatus === "Completed") {
-    const existingInvoice = await tx.invoice.findUnique({
-      where: { saleId },
-    });
-    if (!existingInvoice) throw new SaleError("Invoice not found.", 404);
-    return { sale, invoice: toInvoice(existingInvoice) };
+    return sale;
   }
 
   const updatedSale = await tx.sale.update({
@@ -152,8 +148,7 @@ const completeOneSaleInTx = async (
     newUnitStatus: InventoryUnitStatus.Sold,
   });
 
-  const invoice = await createInvoiceForSale(updatedSale, tx);
-  return { sale: updatedSale, invoice };
+  return updatedSale;
 };
 
 export const completeCartGroup = async (
@@ -170,15 +165,18 @@ export const completeCartGroup = async (
 
   const allCompleted = groupSales.every((s) => s.paymentStatus === "Completed");
   if (allCompleted) {
+    const existingInvoice = cartGroupId
+      ? await prisma.invoice.findFirst({
+          where: { cartGroupId },
+          include: { items: true },
+        })
+      : null;
     const withInvoices = await prisma.sale.findMany({
       where: { cartGroupId },
-      include: { invoice: true },
     });
     return {
       sales: withInvoices.map(toSale),
-      invoices: withInvoices
-        .map((s) => (s.invoice ? toInvoice(s.invoice) : null))
-        .filter((i): i is NonNullable<typeof i> => i !== null),
+      invoices: existingInvoice ? [toInvoice(existingInvoice)] : [],
       total: moneyToNumber(sumMoney(withInvoices.map((s) => s.dealPrice))),
       primarySaleId: groupSales[0].id,
       requiresConfirmation: false,
@@ -186,26 +184,36 @@ export const completeCartGroup = async (
     };
   }
 
+  const branch = await prisma.branch.findUnique({
+    where: { id: groupSales[0].branchId },
+    select: { organizationId: true },
+  });
+  if (!branch) throw new SaleError("Branch not found.", 404);
+
   const qrId = groupSales.find((s) => s.razorpayQrId)?.razorpayQrId;
 
-  const results = await prisma.$transaction(async (tx) => {
-    const completed = [];
+  await prisma.$transaction(async (tx) => {
     for (const sale of groupSales) {
       if (sale.paymentStatus === "Completed") continue;
-      completed.push(await completeOneSaleInTx(sale.id, paymentRef, tx));
+      await completeOneSaleInTx(sale.id, paymentRef, tx);
     }
-    return completed;
   });
 
   if (qrId) await closeUpiQrCode(qrId);
 
-  const sales = results.map((r) => toSale(r.sale));
-  const invoices = results.map((r) => r.invoice);
+  const updatedSales = await prisma.sale.findMany({
+    where: { cartGroupId },
+    orderBy: { soldAt: "asc" },
+  });
+
+  const invoice = await prisma.$transaction(async (tx) =>
+    createInvoiceForCart(updatedSales, branch.organizationId, tx),
+  );
 
   return {
-    sales,
-    invoices,
-    total: moneyToNumber(sumMoney(sales.map((s) => s.dealPrice))),
+    sales: updatedSales.map(toSale),
+    invoices: [invoice],
+    total: moneyToNumber(sumMoney(updatedSales.map((s) => s.dealPrice))),
     primarySaleId: groupSales[0].id,
     requiresConfirmation: false,
     autoCapture: isRazorpayEnabled(),
@@ -365,7 +373,7 @@ export const recordCartSale = async (
   }
 
   const results = await prisma.$transaction(async (tx) => {
-    const completed = [];
+    const createdSales = [];
 
     for (const item of items) {
       const created = await tx.sale.create({
@@ -403,17 +411,22 @@ export const recordCartSale = async (
         newUnitStatus: InventoryUnitStatus.Sold,
       });
 
-      const invoice = await createInvoiceForSale(created, tx);
-      completed.push({ sale: created, invoice });
+      createdSales.push(created);
     }
-    return completed;
+
+    const invoice = await createInvoiceForCart(
+      createdSales,
+      organizationId,
+      tx,
+    );
+    return { sales: createdSales, invoice };
   });
 
   return {
-    sales: results.map((r) => toSale(r.sale)),
-    invoices: results.map((r) => r.invoice),
+    sales: results.sales.map(toSale),
+    invoices: [results.invoice],
     total,
-    primarySaleId: results[0].sale.id,
+    primarySaleId: results.sales[0].id,
     requiresConfirmation: false,
     autoCapture: false,
   };

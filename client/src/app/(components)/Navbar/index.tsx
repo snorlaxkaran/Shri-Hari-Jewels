@@ -101,7 +101,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
             onChange={(e) => setSearchValue(e.target.value)}
             onFocus={() => searchResults.length > 0 && setShowSearch(true)}
             onBlur={() => setTimeout(() => setShowSearch(false), 150)}
-            placeholder="Search products, customers, invoices…"
+            placeholder="Search products, designs, orders…"
             className="input-field pl-9 pr-4 py-2 text-sm w-52 md:w-80 transition-all duration-150"
           />
           {showSearch && searchResults.length > 0 && (

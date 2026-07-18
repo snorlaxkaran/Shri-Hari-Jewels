@@ -339,6 +339,113 @@ export type Customer = {
   createdAt: string;
 };
 
+export type LeadSource =
+  | "Walk-in"
+  | "Referral"
+  | "Phone"
+  | "WhatsApp"
+  | "Instagram"
+  | "Website"
+  | "Other";
+
+export type LeadStage =
+  | "New"
+  | "Qualification"
+  | "Follow-up"
+  | "Opportunity"
+  | "Quotation"
+  | "Won"
+  | "Lost";
+
+export type Lead = {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  name: string;
+  mobile: string;
+  email?: string;
+  source: LeadSource;
+  stage: LeadStage;
+  interestedIn?: string;
+  budgetMin?: number;
+  budgetMax?: number;
+  assignedToId?: string;
+  assignedToName?: string;
+  customerId?: string;
+  lostReason?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Appointment = {
+  id: string;
+  leadId: string;
+  branchId: string;
+  title: string;
+  scheduledAt: string;
+  notes?: string;
+  reminderSent: boolean;
+  completed: boolean;
+  createdByName: string;
+  createdAt: string;
+};
+
+export type FollowUp = {
+  id: string;
+  leadId: string;
+  dueAt: string;
+  note?: string;
+  outcome?: string;
+  completedAt?: string;
+  createdByName: string;
+  createdAt: string;
+};
+
+export type LeadDetail = Lead & {
+  appointments: Appointment[];
+  followUps: FollowUp[];
+};
+
+export type NewLeadInput = {
+  branchId: string;
+  name: string;
+  mobile: string;
+  email?: string;
+  source: LeadSource;
+  stage?: LeadStage;
+  interestedIn?: string;
+  budgetMin?: number;
+  budgetMax?: number;
+  assignedToId?: string;
+  assignedToName?: string;
+};
+
+export type UpdateLeadInput = {
+  name?: string;
+  mobile?: string;
+  email?: string | null;
+  source?: LeadSource;
+  stage?: LeadStage;
+  interestedIn?: string | null;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
+  assignedToId?: string | null;
+  assignedToName?: string | null;
+  lostReason?: string | null;
+};
+
+export type NewAppointmentInput = {
+  title: string;
+  scheduledAt: string;
+  notes?: string;
+  branchId?: string;
+};
+
+export type NewFollowUpInput = {
+  dueAt: string;
+  note?: string;
+};
+
 export type NewCustomerInput = {
   name: string;
   mobile: string;
@@ -581,23 +688,41 @@ export type Sale = {
 
 export type InvoiceStatus = "Paid" | "Pending";
 
-export type Invoice = {
+export type InvoiceItem = {
   id: string;
-  invoiceNo: string;
   saleId: string;
-  customerId?: string;
-  customerName: string;
-  customerMobile: string;
   itemCode: string;
   productName: string;
   sku: string;
+  hsnCode?: string;
+  metal: string;
   listPrice: number;
   discount: number;
+  amount: number;
+};
+
+export type Invoice = {
+  id: string;
+  invoiceNo: string;
+  cartGroupId?: string;
+  customerId?: string;
+  customerName: string;
+  customerMobile: string;
+  subtotal: number;
+  discount: number;
+  taxableValue: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  roundOff: number;
   total: number;
   paymentMode: PaymentMode;
   paymentRef?: string;
   status: InvoiceStatus;
+  placeOfSupply?: string;
   createdAt: string;
+  items: InvoiceItem[];
+  itemCount: number;
 };
 
 export type ShopSettings = {
@@ -706,6 +831,7 @@ export type DashboardStats = {
   activeCustomers: number;
   customersChange: number;
   todaySales: number;
+  todaySalesCount: number;
   monthlySales: number;
   pendingOrders: number;
   customerCount: number;

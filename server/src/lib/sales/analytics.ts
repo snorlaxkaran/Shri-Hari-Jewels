@@ -241,6 +241,7 @@ export const getSalesAnalytics = async (
       uniqueCustomerIdsInRange(sales, lastMonthStart, thisMonthStart),
     ),
     todaySales,
+    todaySalesCount: todaySalesList.length,
     monthlySales,
     pendingOrders,
     customerCount,

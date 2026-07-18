@@ -1,7 +1,16 @@
 import { api } from "./client";
 
 export type SearchResult = {
-  type: "product" | "customer" | "sale" | "invoice" | "order";
+  type:
+    | "product"
+    | "customer"
+    | "sale"
+    | "invoice"
+    | "order"
+    | "design"
+    | "motif"
+    | "productionRun"
+    | "workOrder";
   id: string;
   label: string;
   sublabel?: string;

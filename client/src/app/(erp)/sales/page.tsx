@@ -119,10 +119,8 @@ export default function SalesPage() {
     setFormError("");
   };
 
-  const openInvoices = async (invoices: { id: string; invoiceNo: string }[]) => {
-    for (const inv of invoices) {
-      await openInvoicePdf(inv.id, `${inv.invoiceNo}.pdf`);
-    }
+  const openInvoice = async (invoice: { id: string; invoiceNo: string }) => {
+    await openInvoicePdf(invoice.id, `${invoice.invoiceNo}.pdf`);
   };
 
   const finishCartSale = async (
@@ -142,12 +140,10 @@ export default function SalesPage() {
     setUpiAutoCapture(false);
     setPendingPrimarySaleId("");
 
-    const invoices = result.invoices ?? [];
-    if (invoices.length > 0) {
-      setSuccessMessage(
-        `Sale complete — ${invoices.length} invoice${invoices.length > 1 ? "s" : ""} generated.`,
-      );
-      await openInvoices(invoices);
+    const invoice = result.invoices?.[0];
+    if (invoice) {
+      setSuccessMessage("Sale complete — invoice generated.");
+      await openInvoice(invoice);
     } else {
       setSuccessMessage(`Sold ${result.sales.length} item(s) successfully.`);
     }

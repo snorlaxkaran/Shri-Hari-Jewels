@@ -2,12 +2,23 @@ import { prisma } from "../db.js";
 import { organizationBranchFilter } from "../branches/access.js";
 
 export type GlobalSearchResult = {
-  type: "product" | "customer" | "sale" | "invoice" | "order";
+  type:
+    | "product"
+    | "customer"
+    | "sale"
+    | "invoice"
+    | "order"
+    | "design"
+    | "motif"
+    | "productionRun"
+    | "workOrder";
   id: string;
   label: string;
   sublabel?: string;
   href: string;
 };
+
+const SEARCH_TYPES = 9;
 
 export const globalSearch = async (
   organizationId: string,
@@ -18,10 +29,20 @@ export const globalSearch = async (
   const q = query.trim();
   if (q.length < 2) return [];
 
-  const perType = Math.ceil(limit / 5);
+  const perType = Math.ceil(limit / SEARCH_TYPES);
   const results: GlobalSearchResult[] = [];
 
-  const [products, customers, sales, invoices, orders] = await Promise.all([
+  const [
+    products,
+    customers,
+    sales,
+    invoices,
+    orders,
+    designs,
+    motifs,
+    productionRuns,
+    workOrders,
+  ] = await Promise.all([
     prisma.product.findMany({
       where: {
         organizationId,
@@ -65,8 +86,8 @@ export const globalSearch = async (
         ...organizationBranchFilter(organizationId, branchId),
         OR: [
           { invoiceNo: { contains: q, mode: "insensitive" } },
-          { itemCode: { contains: q, mode: "insensitive" } },
           { customerName: { contains: q, mode: "insensitive" } },
+          { items: { some: { itemCode: { contains: q, mode: "insensitive" } } } },
         ],
       },
       select: { id: true, invoiceNo: true, customerName: true },
@@ -81,6 +102,48 @@ export const globalSearch = async (
         ],
       },
       include: { customer: { select: { name: true } } },
+      take: perType,
+    }),
+    prisma.design.findMany({
+      where: {
+        organizationId,
+        ...(branchId ? { branchId } : {}),
+        OR: [
+          { code: { contains: q, mode: "insensitive" } },
+          { name: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, code: true, name: true },
+      take: perType,
+    }),
+    prisma.motif.findMany({
+      where: {
+        ...(branchId ? { branchId } : {}),
+        branch: { organizationId },
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { description: { contains: q, mode: "insensitive" } },
+          { subCategory: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, name: true, subCategory: true },
+      take: perType,
+    }),
+    prisma.productionRun.findMany({
+      where: {
+        organizationId,
+        ...(branchId ? { branchId } : {}),
+        runNo: { contains: q, mode: "insensitive" },
+      },
+      select: { id: true, runNo: true, design: { select: { code: true } } },
+      take: perType,
+    }),
+    prisma.workOrder.findMany({
+      where: {
+        ...organizationBranchFilter(organizationId, branchId),
+        workOrderNo: { contains: q, mode: "insensitive" },
+      },
+      select: { id: true, workOrderNo: true, description: true },
       take: perType,
     }),
   ]);
@@ -128,6 +191,42 @@ export const globalSearch = async (
       label: o.orderNo,
       sublabel: o.customer.name,
       href: `/orders`,
+    });
+  }
+  for (const d of designs) {
+    results.push({
+      type: "design",
+      id: d.id,
+      label: d.code,
+      sublabel: d.name ?? undefined,
+      href: `/designs?search=${encodeURIComponent(d.code)}`,
+    });
+  }
+  for (const m of motifs) {
+    results.push({
+      type: "motif",
+      id: m.id,
+      label: m.name,
+      sublabel: m.subCategory,
+      href: `/motifs`,
+    });
+  }
+  for (const r of productionRuns) {
+    results.push({
+      type: "productionRun",
+      id: r.id,
+      label: r.runNo,
+      sublabel: r.design.code,
+      href: `/production-runs/${r.id}`,
+    });
+  }
+  for (const w of workOrders) {
+    results.push({
+      type: "workOrder",
+      id: w.id,
+      label: w.workOrderNo,
+      sublabel: w.description ?? undefined,
+      href: `/work-orders`,
     });
   }
 

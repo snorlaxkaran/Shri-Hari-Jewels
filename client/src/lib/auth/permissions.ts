@@ -26,6 +26,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/sales",
     "/orders",
     "/customers",
+    "/leads",
     "/sales-analytics",
     "/invoices",
     "/designs",

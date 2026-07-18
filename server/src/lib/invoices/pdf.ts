@@ -89,6 +89,9 @@ export const generateInvoicePdf = (
       `Payment Status: ${invoice.status}`,
       `Payment Mode: ${invoice.paymentMode}`,
     ];
+    if (invoice.placeOfSupply) {
+      invoiceMetaLines.push(`Place of Supply: ${invoice.placeOfSupply}`);
+    }
     if (invoice.paymentRef) {
       invoiceMetaLines.push(`Payment Ref: ${invoice.paymentRef}`);
     }
@@ -106,53 +109,44 @@ export const generateInvoicePdf = (
 
     ensureSpace(doc, 120);
     const itemTableTop = doc.y;
-    const colSr = contentWidth * 0.06;
-    const colDesc = contentWidth * 0.44;
-    const colSku = contentWidth * 0.18;
-    const colRate = contentWidth * 0.16;
-    const colAmount = contentWidth - colSr - colDesc - colSku - colRate;
+    const colSr = contentWidth * 0.05;
+    const colDesc = contentWidth * 0.24;
+    const colHsn = contentWidth * 0.1;
+    const colSku = contentWidth * 0.14;
+    const colRate = contentWidth * 0.13;
+    const colDisc = contentWidth * 0.1;
+    const colAmount =
+      contentWidth - colSr - colDesc - colHsn - colSku - colRate - colDisc;
 
     const itemRows = [
       {
-        cells: ["#", "Description", "SKU / Item Code", "Rate", "Amount"],
+        cells: ["#", "Description", "HSN", "SKU / Code", "Rate", "Disc.", "Amount"],
         bold: true,
-        alignments: ["center", "left", "left", "right", "right"] as const,
+        alignments: ["center", "left", "center", "left", "right", "right", "right"] as const,
         minHeight: 24,
       },
-      {
+      ...invoice.items.map((item, index) => ({
         cells: [
-          "1",
-          invoice.productName,
-          `${invoice.sku}\n${invoice.itemCode}`,
-          formatRupee(invoice.listPrice),
-          formatRupee(invoice.listPrice),
+          String(index + 1),
+          item.productName,
+          item.hsnCode ?? "—",
+          `${item.sku}\n${item.itemCode}`,
+          formatRupee(item.listPrice),
+          item.discount > 0 ? formatRupee(item.discount) : "—",
+          formatRupee(item.amount),
         ],
-        alignments: ["center", "left", "left", "right", "right"] as const,
-        minHeight: 36,
-      },
+        alignments: ["center", "left", "center", "left", "right", "right", "right"] as const,
+        minHeight: 32,
+      })),
     ];
-
-    if (invoice.discount > 0) {
-      itemRows.push({
-        cells: [
-          "",
-          "Discount",
-          "",
-          "",
-          `-${formatRupee(invoice.discount)}`,
-        ],
-        alignments: ["center", "left", "left", "right", "right"] as const,
-        minHeight: 22,
-      });
-    }
 
     const itemTableBottom = drawBorderedTable(
       doc,
       left,
       itemTableTop,
-      [colSr, colDesc, colSku, colRate, colAmount],
+      [colSr, colDesc, colHsn, colSku, colRate, colDisc, colAmount],
       itemRows,
-      { headerRowCount: 1, defaultFontSize: 9, headerFontSize: 9 },
+      { headerRowCount: 1, defaultFontSize: 8, headerFontSize: 8 },
     );
 
     doc.y = itemTableBottom + 10;
@@ -168,18 +162,50 @@ export const generateInvoicePdf = (
       minHeight?: number;
     }> = [
       {
-        cells: ["Subtotal", formatRupee(invoice.listPrice)],
+        cells: ["Subtotal", formatRupee(invoice.subtotal)],
         alignments: ["left", "right"] as const,
       },
     ];
+
     if (invoice.discount > 0) {
       totalsRows.push({
         cells: ["Discount", `-${formatRupee(invoice.discount)}`],
         alignments: ["left", "right"] as const,
       });
     }
+
     totalsRows.push({
-      cells: ["Grand Total", formatRupee(invoice.total)],
+      cells: ["Taxable Value", formatRupee(invoice.taxableValue)],
+      alignments: ["left", "right"] as const,
+    });
+
+    if (invoice.cgst > 0) {
+      totalsRows.push({
+        cells: ["CGST @ 1.5%", formatRupee(invoice.cgst)],
+        alignments: ["left", "right"] as const,
+      });
+    }
+    if (invoice.sgst > 0) {
+      totalsRows.push({
+        cells: ["SGST @ 1.5%", formatRupee(invoice.sgst)],
+        alignments: ["left", "right"] as const,
+      });
+    }
+    if (invoice.igst > 0) {
+      totalsRows.push({
+        cells: ["IGST @ 3%", formatRupee(invoice.igst)],
+        alignments: ["left", "right"] as const,
+      });
+    }
+    if (invoice.roundOff !== 0) {
+      totalsRows.push({
+        cells: ["Round Off", formatRupee(invoice.roundOff)],
+        alignments: ["left", "right"] as const,
+      });
+    }
+
+    totalsRows.push({
+      cells: ["Payable Amount", formatRupee(invoice.total)],
       bold: true,
       alignments: ["left", "right"] as const,
       minHeight: 26,

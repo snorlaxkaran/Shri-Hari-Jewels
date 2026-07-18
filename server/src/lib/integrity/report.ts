@@ -114,11 +114,11 @@ export const runIntegrityReport = async (): Promise<IntegrityMismatch[]> => {
 
   const sales = await prisma.sale.findMany({
     where: { paymentStatus: "Completed" },
-    include: { invoice: true },
+    include: { invoiceItem: { include: { invoice: true } } },
   });
 
   for (const sale of sales) {
-    if (!sale.invoice) {
+    if (!sale.invoiceItem?.invoice) {
       const mismatch: IntegrityMismatch = {
         category: "sale_invoice",
         entityType: "Sale",
@@ -130,9 +130,14 @@ export const runIntegrityReport = async (): Promise<IntegrityMismatch[]> => {
       continue;
     }
 
-    const invoiceTotal = moneyToNumber(sale.invoice.total);
+    const itemAmount = sale.invoiceItem
+      ? moneyToNumber(sale.invoiceItem.amount)
+      : 0;
+    const invoiceTotal = sale.invoiceItem?.invoice
+      ? moneyToNumber(sale.invoiceItem.invoice.total)
+      : 0;
     const dealPrice = moneyToNumber(sale.dealPrice);
-    if (Math.abs(invoiceTotal - dealPrice) > 0.009) {
+    if (Math.abs(itemAmount - dealPrice) > 0.009) {
       const mismatch: IntegrityMismatch = {
         category: "sale_invoice",
         entityType: "Sale",

@@ -34,6 +34,7 @@ import { approvalsRouter } from "./routes/approvals.js";
 import { notificationsRouter } from "./routes/notifications.js";
 import { searchRouter } from "./routes/search.js";
 import { reportsRouter } from "./routes/reports.js";
+import { leadsRouter } from "./routes/leads.js";
 import { exchangeRouter } from "./routes/exchange.js";
 import { schemesRouter } from "./routes/schemes.js";
 import { karigarRouter } from "./routes/karigar.js";
@@ -42,6 +43,7 @@ import { onboardingRouter } from "./routes/onboarding.js";
 import { storefrontRouter } from "./routes/storefront.js";
 import { storefrontAdminRouter } from "./routes/storefront-admin.js";
 import { startScheduledJobs } from "./jobs/scheduler.js";
+import { startLeadReminderJob } from "./lib/leads/reminder-job.js";
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -173,6 +175,7 @@ app.use("/api/audit", auditRouter);
 app.use("/api/approvals", approvalsRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/search", searchRouter);
+app.use("/api/leads", leadsRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/exchange", exchangeRouter);
 app.use("/api/schemes", schemesRouter);
@@ -194,5 +197,6 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 app.listen(port, () => {
   logger.info({ port }, "API running");
   startScheduledJobs();
+  startLeadReminderJob();
   void syncMotifPricesOnStartup();
 });
