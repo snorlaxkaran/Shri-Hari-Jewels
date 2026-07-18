@@ -10,6 +10,7 @@ const filtersToParams = (filters: ReportFilters): Record<string, string> => {
   if (filters.from) params.from = filters.from;
   if (filters.to) params.to = filters.to;
   if (filters.groupBySku) params.groupBySku = "true";
+  if (filters.minDays != null) params.minDays = String(filters.minDays);
   return params;
 };
 
@@ -23,12 +24,10 @@ export const downloadReportPdf = async (
   const url = `${API_BASE_URL}/api/reports/${reportKey}/pdf?${params.toString()}`;
 
   const response = await fetch(url, {
-    method: "POST",
+    method: "GET",
     headers: {
       Authorization: token ? `Bearer ${token}` : "",
-      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ filters }),
   });
 
   if (!response.ok) {

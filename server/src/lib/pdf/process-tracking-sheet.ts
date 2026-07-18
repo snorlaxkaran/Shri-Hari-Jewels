@@ -79,7 +79,7 @@ const buildPrefillMap = (run?: ProductionRun): Map<string, ProcessPrefill> => {
     if (!processLabel) continue;
     const existing = map.get(processLabel) ?? {};
     map.set(processLabel, {
-      ...existing,
+      orderDate: existing.orderDate ?? formatDateIn(log.createdAt),
       compilationDate: formatDateIn(log.createdAt),
       sign: log.performedByName || existing.sign,
     });

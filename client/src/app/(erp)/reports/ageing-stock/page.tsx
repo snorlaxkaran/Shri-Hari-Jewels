@@ -14,7 +14,7 @@ type AgeingItem = {
 };
 
 export default function AgeingStockReportPage() {
-  const [filters, setFilters] = useState<ReportFilters>({});
+  const [filters, setFilters] = useState<ReportFilters>({ minDays: 90 });
   const [items, setItems] = useState<AgeingItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -23,7 +23,7 @@ export default function AgeingStockReportPage() {
     try {
       const { data } = await api.get<{ items: AgeingItem[] }>("/api/reports/ageing-stock", {
         params: {
-          minDays: 90,
+          minDays: filters.minDays ?? 90,
           branchId: filters.branchId,
           category: filters.category,
           department: filters.department,

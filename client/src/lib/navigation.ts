@@ -27,12 +27,48 @@ export type NavItem = {
   href: string;
   icon: React.ReactNode;
   badge?: string | number;
+  /** Temporary marker for features shipped on 2026-07-18 */
+  highlightToday?: boolean;
 };
 
 export type NavSection = {
   title: string;
   items: NavItem[];
 };
+
+/** Routes added or updated in today's commits — remove when review is done. */
+export const TODAY_HIGHLIGHT_HREFS = [
+  "/dashboard",
+  "/sales",
+  "/invoices",
+  "/leads",
+  "/repairs",
+  "/vendors",
+  "/purchase-bills",
+  "/settings",
+  "/settings/tally-export",
+  "/sales-analytics",
+  "/reports/category",
+  "/reports/department",
+  "/reports/customer",
+  "/reports/location-wise",
+  "/reports/cad",
+  "/reports/stock-report",
+  "/reports/gst",
+  "/reports/stock-valuation",
+  "/reports/ageing-stock",
+  "/reports/staff-performance",
+] as const;
+
+export const isTodayHighlightRoute = (pathname: string): boolean =>
+  TODAY_HIGHLIGHT_HREFS.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
+
+const markToday = (item: Omit<NavItem, "highlightToday">): NavItem => ({
+  ...item,
+  highlightToday: isTodayHighlightRoute(item.href),
+});
 
 const icon = (Component: React.ElementType) =>
   createElement(Component, { size: 17 });
@@ -58,12 +94,12 @@ export const navSections: NavSection[] = [
   {
     title: "Sales",
     items: [
-      { label: "Sales", href: "/sales", icon: icon(ShoppingCart) },
+      markToday({ label: "Sales", href: "/sales", icon: icon(ShoppingCart) }),
       { label: "Orders", href: "/orders", icon: icon(ShoppingBag) },
       { label: "Customers", href: "/customers", icon: icon(Users) },
-      { label: "Leads", href: "/leads", icon: icon(UserPlus) },
-      { label: "Repairs", href: "/repairs", icon: icon(Wrench) },
-      { label: "Invoices", href: "/invoices", icon: icon(FileText) },
+      markToday({ label: "Leads", href: "/leads", icon: icon(UserPlus) }),
+      markToday({ label: "Repairs", href: "/repairs", icon: icon(Wrench) }),
+      markToday({ label: "Invoices", href: "/invoices", icon: icon(FileText) }),
     ],
   },
   {
@@ -80,17 +116,17 @@ export const navSections: NavSection[] = [
   {
     title: "Reports",
     items: [
-      { label: "Sales analytics", href: "/sales-analytics", icon: icon(BarChart2) },
-      { label: "Category report", href: "/reports/category", icon: icon(BarChart2) },
-      { label: "Department report", href: "/reports/department", icon: icon(BarChart2) },
-      { label: "Customer report", href: "/reports/customer", icon: icon(Users) },
-      { label: "Location-wise", href: "/reports/location-wise", icon: icon(Store) },
-      { label: "CAD pipeline", href: "/reports/cad", icon: icon(Palette) },
-      { label: "Stock snapshot", href: "/reports/stock-report", icon: icon(Package) },
-      { label: "GST report", href: "/reports/gst", icon: icon(FileText) },
-      { label: "Stock valuation", href: "/reports/stock-valuation", icon: icon(Diamond) },
-      { label: "Ageing stock", href: "/reports/ageing-stock", icon: icon(PackageOpen) },
-      { label: "Staff performance", href: "/reports/staff-performance", icon: icon(Users) },
+      markToday({ label: "Sales analytics", href: "/sales-analytics", icon: icon(BarChart2) }),
+      markToday({ label: "Category report", href: "/reports/category", icon: icon(BarChart2) }),
+      markToday({ label: "Department report", href: "/reports/department", icon: icon(BarChart2) }),
+      markToday({ label: "Customer report", href: "/reports/customer", icon: icon(Users) }),
+      markToday({ label: "Location-wise", href: "/reports/location-wise", icon: icon(Store) }),
+      markToday({ label: "CAD pipeline", href: "/reports/cad", icon: icon(Palette) }),
+      markToday({ label: "Stock snapshot", href: "/reports/stock-report", icon: icon(Package) }),
+      markToday({ label: "GST report", href: "/reports/gst", icon: icon(FileText) }),
+      markToday({ label: "Stock valuation", href: "/reports/stock-valuation", icon: icon(Diamond) }),
+      markToday({ label: "Ageing stock", href: "/reports/ageing-stock", icon: icon(PackageOpen) }),
+      markToday({ label: "Staff performance", href: "/reports/staff-performance", icon: icon(Users) }),
     ],
   },
   {
@@ -107,9 +143,9 @@ export const navSections: NavSection[] = [
     title: "System",
     items: [
       { label: "Branches", href: "/branches", icon: icon(Store) },
-      { label: "Vendors", href: "/vendors", icon: icon(Briefcase) },
-      { label: "Purchase bills", href: "/purchase-bills", icon: icon(FileText) },
-      { label: "Settings", href: "/settings", icon: icon(Settings) },
+      markToday({ label: "Vendors", href: "/vendors", icon: icon(Briefcase) }),
+      markToday({ label: "Purchase bills", href: "/purchase-bills", icon: icon(FileText) }),
+      markToday({ label: "Settings", href: "/settings", icon: icon(Settings) }),
     ],
   },
 ];

@@ -16,6 +16,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/production-runs",
     "/karigar-settlements",
     "/sales-analytics",
+    "/reports",
     "/repairs",
   ],
   SalesManager: [
@@ -30,6 +31,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/leads",
     "/repairs",
     "/sales-analytics",
+    "/reports",
     "/invoices",
     "/designs",
     "/motifs",
@@ -38,11 +40,17 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
   ],
   Store: ["/dashboard", "/inventory", "/stock-transfer", "/sales", "/customers", "/repairs"],
   Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs", "/repairs"],
-  Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory", "/vendors", "/purchase-bills", "/settings/tally-export"],
+  Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/reports", "/raw-inventory", "/vendors", "/purchase-bills", "/settings/tally-export"],
 };
 
+export const canViewReports = (role: UserRole): boolean =>
+  role === "Admin" ||
+  role === "SalesManager" ||
+  role === "Accountant" ||
+  role === "ProductionManager";
+
 export const canAccessRoute = (role: UserRole, pathname: string): boolean => {
-  if (pathname.startsWith("/storefront/settings") && role !== "Admin") {
+  if (pathname.startsWith("/storefront/settings") && !canManageStorefront(role)) {
     return false;
   }
   const allowed = ROUTE_ACCESS[role];

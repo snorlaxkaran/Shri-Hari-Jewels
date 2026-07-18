@@ -134,6 +134,7 @@ const SidebarContent = ({
               const isActive =
                 pathname === item.href || pathname.startsWith(`${item.href}/`);
               const badge = item.badge;
+              const isToday = item.highlightToday;
 
               return (
                 <Link
@@ -146,6 +147,7 @@ const SidebarContent = ({
                     onClose();
                   }}
                   data-active={isActive}
+                  data-today-highlight={isToday || undefined}
                   className="sidebar-nav-item w-full flex items-center text-left transition-colors duration-150"
                   style={{
                     fontSize: 13,
@@ -156,6 +158,13 @@ const SidebarContent = ({
                     color: isActive
                       ? "var(--sidebar-text-active)"
                       : "var(--sidebar-text)",
+                    backgroundColor: isToday
+                      ? isActive
+                        ? "rgba(252, 165, 165, 0.28)"
+                        : "rgba(252, 165, 165, 0.18)"
+                      : undefined,
+                    borderLeft: isToday ? "3px solid #fca5a5" : undefined,
+                    paddingLeft: isToday ? 13 : 16,
                   }}
                 >
                   <span className="sidebar-nav-icon flex-shrink-0 w-[16px] flex justify-center">

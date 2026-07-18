@@ -43,6 +43,78 @@ export const ensureSpace = (
   }
 };
 
+const pageBottom = (doc: PDFKit.PDFDocument): number =>
+  doc.page.height - doc.page.margins.bottom;
+
+const computeRowHeight = (
+  doc: PDFKit.PDFDocument,
+  row: TableRow,
+  columnWidths: number[],
+  opts: Required<BorderedTableOptions>,
+  isHeader: boolean,
+): number => {
+  const fontSize = row.fontSize ?? (isHeader ? opts.headerFontSize : opts.defaultFontSize);
+  const minHeight = row.minHeight ?? opts.defaultRowHeight;
+
+  doc.fontSize(fontSize);
+  doc.font(row.bold || isHeader ? "Helvetica-Bold" : "Helvetica");
+
+  let rowHeight = minHeight;
+  for (let col = 0; col < row.cells.length; col += 1) {
+    const padding = 8;
+    const textHeight = doc.heightOfString(row.cells[col] ?? "", {
+      width: columnWidths[col] - padding,
+      align: row.alignments?.[col] ?? "left",
+    });
+    rowHeight = Math.max(rowHeight, textHeight + 8);
+  }
+
+  return rowHeight;
+};
+
+const drawTableRow = (
+  doc: PDFKit.PDFDocument,
+  startX: number,
+  y: number,
+  columnWidths: number[],
+  row: TableRow,
+  opts: Required<BorderedTableOptions>,
+  isHeader: boolean,
+  tableWidth: number,
+): number => {
+  const fontSize = row.fontSize ?? (isHeader ? opts.headerFontSize : opts.defaultFontSize);
+  const rowHeight = computeRowHeight(doc, row, columnWidths, opts, isHeader);
+
+  doc.fontSize(fontSize);
+  doc.font(row.bold || isHeader ? "Helvetica-Bold" : "Helvetica");
+
+  if (isHeader) {
+    doc
+      .rect(startX, y, tableWidth, rowHeight)
+      .fillAndStroke(opts.headerFill, opts.strokeColor);
+    doc.fillColor("#000000");
+  }
+
+  let x = startX;
+  for (let col = 0; col < row.cells.length; col += 1) {
+    doc.rect(x, y, columnWidths[col], rowHeight).stroke();
+
+    const align = row.alignments?.[col] ?? (col === 0 ? "left" : "center");
+    doc.font(row.bold || isHeader ? "Helvetica-Bold" : "Helvetica");
+    doc.fontSize(fontSize);
+    doc.fillColor("#000000");
+    doc.text(row.cells[col] ?? "", x + 4, y + 4, {
+      width: columnWidths[col] - 8,
+      align,
+      lineBreak: true,
+    });
+
+    x += columnWidths[col];
+  }
+
+  return y + rowHeight;
+};
+
 export const drawBorderedTable = (
   doc: PDFKit.PDFDocument,
   startX: number,
@@ -53,60 +125,51 @@ export const drawBorderedTable = (
 ): number => {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const tableWidth = columnWidths.reduce((sum, width) => sum + width, 0);
+  const headerRows = rows.slice(0, opts.headerRowCount);
 
   doc.save();
   doc.lineWidth(opts.lineWidth).strokeColor(opts.strokeColor);
 
   let y = startY;
 
+  const redrawHeaders = (): void => {
+    for (let rowIndex = 0; rowIndex < headerRows.length; rowIndex += 1) {
+      y = drawTableRow(
+        doc,
+        startX,
+        y,
+        columnWidths,
+        headerRows[rowIndex],
+        opts,
+        true,
+        tableWidth,
+      );
+    }
+  };
+
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
     const row = rows[rowIndex];
     const isHeader = rowIndex < opts.headerRowCount;
-    const fontSize = row.fontSize ?? (isHeader ? opts.headerFontSize : opts.defaultFontSize);
-    const minHeight = row.minHeight ?? opts.defaultRowHeight;
+    const rowHeight = computeRowHeight(doc, row, columnWidths, opts, isHeader);
 
-    doc.fontSize(fontSize);
-    doc.font(row.bold || isHeader ? "Helvetica-Bold" : "Helvetica");
-
-    let rowHeight = minHeight;
-    for (let col = 0; col < row.cells.length; col += 1) {
-      const padding = 8;
-      const textHeight = doc.heightOfString(row.cells[col] ?? "", {
-        width: columnWidths[col] - padding,
-        align: row.alignments?.[col] ?? "left",
-      });
-      rowHeight = Math.max(rowHeight, textHeight + 8);
-    }
-
-    if (isHeader) {
-      doc
-        .rect(startX, y, tableWidth, rowHeight)
-        .fillAndStroke(opts.headerFill, opts.strokeColor);
-      doc.fillColor("#000000");
-    }
-
-    let x = startX;
-    for (let col = 0; col < row.cells.length; col += 1) {
-      if (!isHeader) {
-        doc.rect(x, y, columnWidths[col], rowHeight).stroke();
-      } else {
-        doc.rect(x, y, columnWidths[col], rowHeight).stroke();
+    if (y + rowHeight > pageBottom(doc)) {
+      doc.addPage();
+      y = doc.page.margins.top;
+      if (!isHeader && headerRows.length > 0) {
+        redrawHeaders();
       }
-
-      const align = row.alignments?.[col] ?? (col === 0 ? "left" : "center");
-      doc.font(row.bold || isHeader ? "Helvetica-Bold" : "Helvetica");
-      doc.fontSize(fontSize);
-      doc.fillColor("#000000");
-      doc.text(row.cells[col] ?? "", x + 4, y + 4, {
-        width: columnWidths[col] - 8,
-        align,
-        lineBreak: true,
-      });
-
-      x += columnWidths[col];
     }
 
-    y += rowHeight;
+    y = drawTableRow(
+      doc,
+      startX,
+      y,
+      columnWidths,
+      row,
+      opts,
+      isHeader,
+      tableWidth,
+    );
   }
 
   doc.restore();

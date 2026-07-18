@@ -14,6 +14,7 @@ export type ReportFilters = {
   from?: string;
   to?: string;
   groupBySku?: boolean;
+  minDays?: number;
 };
 
 export type ReportExportData = {

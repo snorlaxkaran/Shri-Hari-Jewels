@@ -126,7 +126,10 @@ export default function SettingsPage() {
       )}
 
       {user && canExportTally(user.role) && (
-        <div className="surface-card p-5 mb-6 max-w-2xl">
+        <div
+          className="surface-card p-5 mb-6 max-w-2xl"
+          style={{ backgroundColor: "#fee2e2", borderColor: "#fca5a5" }}
+        >
           <h2 className="text-sm font-semibold text-zinc-900 mb-1">Accounting & Tally</h2>
           <p className="text-sm text-zinc-500 mb-3">
             Export sales, purchase, receipt, and payment vouchers as XML for Tally Prime import.

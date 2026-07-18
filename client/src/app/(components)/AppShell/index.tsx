@@ -1,14 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import TopBar from "@/app/(components)/TopBar";
 import Breadcrumbs from "@/app/(components)/Breadcrumbs";
 import NavigationProgress from "@/app/(components)/NavigationProgress";
 import Sidebar from "@/app/(components)/Sidebar";
 import MarketRateBanner from "@/app/(components)/MarketRateBanner";
+import { isTodayHighlightRoute } from "@/lib/navigation";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+  const highlightToday = isTodayHighlightRoute(pathname);
 
   return (
     <div
@@ -37,7 +41,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         >
           <Breadcrumbs />
           <MarketRateBanner />
-          <main style={{ flex: 1, padding: "20px 24px" }}>{children}</main>
+          <main
+            style={{
+              flex: 1,
+              padding: "20px 24px",
+              backgroundColor: highlightToday ? "#fee2e2" : undefined,
+            }}
+          >
+            {children}
+          </main>
         </div>
       </div>
     </div>

@@ -125,6 +125,12 @@ export const canViewAnalytics = (role: UserRole): boolean =>
   role === "ProductionManager" ||
   role === "Karigar";
 
+export const canViewReports = (role: UserRole): boolean =>
+  role === "Admin" ||
+  role === "SalesManager" ||
+  role === "Accountant" ||
+  role === "ProductionManager";
+
 export const canManageOrganizations = (role: UserRole): boolean =>
   role === "SuperAdmin";
 

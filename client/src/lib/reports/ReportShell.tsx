@@ -75,6 +75,7 @@ export default function ReportShell({
   const [emailTo, setEmailTo] = useState("");
   const [emailError, setEmailError] = useState("");
   const [actionMessage, setActionMessage] = useState("");
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => {
     if (!enabledFilters.includes("branch")) return;
@@ -112,10 +113,12 @@ export default function ReportShell({
   const handleExportPdf = async () => {
     setExporting("pdf");
     setActionMessage("");
+    setActionError("");
     try {
       await downloadReportPdf(reportKey, filters, `${exportData.filename}.pdf`);
+      setActionMessage("PDF downloaded successfully.");
     } catch (err) {
-      setActionMessage(getApiErrorMessage(err, "PDF export failed."));
+      setActionError(getApiErrorMessage(err, "PDF export failed."));
     } finally {
       setExporting(null);
     }
@@ -124,6 +127,8 @@ export default function ReportShell({
   const handleEmail = async () => {
     setEmailError("");
     setExporting("email");
+    setActionMessage("");
+    setActionError("");
     try {
       await emailReport(reportKey, emailTo.trim(), filters);
       setActionMessage("Report emailed successfully.");
@@ -176,6 +181,12 @@ export default function ReportShell({
       {actionMessage && (
         <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
           {actionMessage}
+        </p>
+      )}
+
+      {actionError && (
+        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {actionError}
         </p>
       )}
 

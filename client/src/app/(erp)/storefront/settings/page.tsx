@@ -6,7 +6,7 @@ import Link from "next/link";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import { useAuth } from "@/lib/auth/auth-context";
-import { canManageSettings } from "@/lib/auth/permissions";
+import { canManageStorefront } from "@/lib/auth/permissions";
 import {
   fetchStorefrontAdminSettings,
   updateStorefrontAdminSettings,
@@ -23,12 +23,12 @@ export default function StorefrontSettingsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (user && !canManageSettings(user.role)) {
+    if (user && !canManageStorefront(user.role)) {
       router.replace("/storefront");
     }
   }, [user, router]);
 
-  if (user && !canManageSettings(user.role)) {
+  if (user && !canManageStorefront(user.role)) {
     return null;
   }
 

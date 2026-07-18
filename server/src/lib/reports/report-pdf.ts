@@ -69,17 +69,18 @@ export const generateReportPdf = (
         alignments: columns.map((c) => c.align ?? "left"),
       },
       ...rows.map((row) => ({
-        cells: row,
+        cells: row.map((cell) => sanitizeCell(cell)),
         alignments: columns.map((c) => c.align ?? "left"),
       })),
     ];
 
     ensureSpace(doc, 40);
-    drawBorderedTable(doc, left, doc.y, columnWidths, tableRows, {
+    const tableBottom = drawBorderedTable(doc, left, doc.y, columnWidths, tableRows, {
       headerRowCount: 1,
       defaultFontSize: 8,
       headerFontSize: 8,
     });
+    doc.y = tableBottom + 8;
 
     doc.end();
   });
@@ -90,3 +91,6 @@ const formatFilterLabel = (key: string): string =>
     .replace(/^./, (c) => c.toUpperCase())
     .replace(/Id$/, "")
     .trim();
+
+const sanitizeCell = (value: string): string =>
+  (value ?? "").replace(/\0/g, "");

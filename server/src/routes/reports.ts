@@ -17,7 +17,7 @@ import { buildReportTable, isReportKey } from "../lib/reports/export-data.js";
 import { generateReportPdf } from "../lib/reports/report-pdf.js";
 import { sendEmailWithAttachment, isEmailConfigured } from "../lib/email/service.js";
 import { getShopSettings } from "../lib/settings/service.js";
-import { canManageCustomers } from "../lib/auth/permissions.js";
+import { canViewReports } from "../lib/auth/permissions.js";
 import {
   authenticate,
   requireRole,
@@ -125,7 +125,58 @@ const buildFilterLabels = async (
     labels.customer = customer?.name;
   }
 
+  if (filters.minDays != null && Number.isFinite(filters.minDays)) {
+    labels.minDays = `${filters.minDays}+ days`;
+  }
+
   return labels;
+};
+
+const handleReportPdf = async (
+  req: AuthenticatedRequest,
+  res: import("express").Response,
+): Promise<void> => {
+  const reportKeyRaw = req.params.reportKey;
+  const reportKey = Array.isArray(reportKeyRaw) ? reportKeyRaw[0] : reportKeyRaw;
+  if (!reportKey || !isReportKey(reportKey)) {
+    res.status(404).json({ error: "Report not found." });
+    return;
+  }
+
+  const { from, to } = parseDateRange(req);
+  const filters = parseReportFilters(req);
+  const branchId = await resolveBranchId(req, filters);
+
+  const table = await buildReportTable(reportKey, {
+    organizationId: req.organizationId!,
+    from,
+    to,
+    branchId,
+    filters,
+  });
+
+  const settings = await getShopSettings(req.organizationId!);
+  const filterLabels = await buildFilterLabels(
+    req.organizationId!,
+    { ...filters, branchId: branchId ?? filters.branchId },
+    from,
+    to,
+  );
+
+  const pdf = await generateReportPdf(
+    table.title,
+    table.columns,
+    table.rows,
+    filterLabels,
+    settings,
+  );
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${table.filename}.pdf"`,
+  );
+  res.send(pdf);
 };
 
 export const reportsRouter = Router();
@@ -134,7 +185,7 @@ reportsRouter.get(
   "/gst",
   authenticate,
   requireOrganization,
-  requireRole(canManageCustomers),
+  requireRole(canViewReports),
   async (req: AuthenticatedRequest, res) => {
     try {
       const { from, to } = parseDateRange(req);
@@ -153,7 +204,7 @@ reportsRouter.get(
   "/stock-valuation",
   authenticate,
   requireOrganization,
-  requireRole(canManageCustomers),
+  requireRole(canViewReports),
   async (req: AuthenticatedRequest, res) => {
     try {
       const filters = parseReportFilters(req);
@@ -171,7 +222,7 @@ reportsRouter.get(
   "/staff-performance",
   authenticate,
   requireOrganization,
-  requireRole(canManageCustomers),
+  requireRole(canViewReports),
   async (req: AuthenticatedRequest, res) => {
     try {
       const { from, to } = parseDateRange(req);
@@ -196,7 +247,7 @@ reportsRouter.get(
   "/ageing-stock",
   authenticate,
   requireOrganization,
-  requireRole(canManageCustomers),
+  requireRole(canViewReports),
   async (req: AuthenticatedRequest, res) => {
     try {
       const minDays = Number(req.query.minDays ?? 90);
@@ -220,7 +271,7 @@ reportsRouter.get(
   "/category",
   authenticate,
   requireOrganization,
-  requireRole(canManageCustomers),
+  requireRole(canViewReports),
   async (req: AuthenticatedRequest, res) => {
     try {
       const { from, to } = parseDateRange(req);
@@ -239,7 +290,7 @@ reportsRouter.get(
   "/department",
   authenticate,
   requireOrganization,
-  requireRole(canManageCustomers),
+  requireRole(canViewReports),
   async (req: AuthenticatedRequest, res) => {
     try {
       const { from, to } = parseDateRange(req);
@@ -258,7 +309,7 @@ reportsRouter.get(
   "/customer",
   authenticate,
   requireOrganization,
-  requireRole(canManageCustomers),
+  requireRole(canViewReports),
   async (req: AuthenticatedRequest, res) => {
     try {
       const { from, to } = parseDateRange(req);
@@ -277,7 +328,7 @@ reportsRouter.get(
   "/location-wise",
   authenticate,
   requireOrganization,
-  requireRole(canManageCustomers),
+  requireRole(canViewReports),
   async (req: AuthenticatedRequest, res) => {
     try {
       const { from, to } = parseDateRange(req);
@@ -295,7 +346,7 @@ reportsRouter.get(
   "/cad",
   authenticate,
   requireOrganization,
-  requireRole(canManageCustomers),
+  requireRole(canViewReports),
   async (req: AuthenticatedRequest, res) => {
     try {
       const filters = parseReportFilters(req);
@@ -313,7 +364,7 @@ reportsRouter.get(
   "/stock-report",
   authenticate,
   requireOrganization,
-  requireRole(canManageCustomers),
+  requireRole(canViewReports),
   async (req: AuthenticatedRequest, res) => {
     try {
       const filters = parseReportFilters(req);
@@ -327,54 +378,29 @@ reportsRouter.get(
   },
 );
 
+reportsRouter.get(
+  "/:reportKey/pdf",
+  authenticate,
+  requireOrganization,
+  requireRole(canViewReports),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      await handleReportPdf(req, res);
+    } catch (error) {
+      console.error("GET /api/reports/:reportKey/pdf", error);
+      res.status(500).json({ error: "Failed to generate report PDF." });
+    }
+  },
+);
+
 reportsRouter.post(
   "/:reportKey/pdf",
   authenticate,
   requireOrganization,
-  requireRole(canManageCustomers),
+  requireRole(canViewReports),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const reportKeyRaw = req.params.reportKey;
-      const reportKey = Array.isArray(reportKeyRaw) ? reportKeyRaw[0] : reportKeyRaw;
-      if (!reportKey || !isReportKey(reportKey)) {
-        res.status(404).json({ error: "Report not found." });
-        return;
-      }
-
-      const { from, to } = parseDateRange(req);
-      const filters = parseReportFilters(req);
-      const branchId = await resolveBranchId(req, filters);
-
-      const table = await buildReportTable(reportKey, {
-        organizationId: req.organizationId!,
-        from,
-        to,
-        branchId,
-        filters,
-      });
-
-      const settings = await getShopSettings(req.organizationId!);
-      const filterLabels = await buildFilterLabels(
-        req.organizationId!,
-        { ...filters, branchId: branchId ?? filters.branchId },
-        from,
-        to,
-      );
-
-      const pdf = await generateReportPdf(
-        table.title,
-        table.columns,
-        table.rows,
-        filterLabels,
-        settings,
-      );
-
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${table.filename}.pdf"`,
-      );
-      res.send(pdf);
+      await handleReportPdf(req, res);
     } catch (error) {
       console.error("POST /api/reports/:reportKey/pdf", error);
       res.status(500).json({ error: "Failed to generate report PDF." });
@@ -386,7 +412,7 @@ reportsRouter.post(
   "/:reportKey/email",
   authenticate,
   requireOrganization,
-  requireRole(canManageCustomers),
+  requireRole(canViewReports),
   async (req: AuthenticatedRequest, res) => {
     try {
       if (!isEmailConfigured()) {
