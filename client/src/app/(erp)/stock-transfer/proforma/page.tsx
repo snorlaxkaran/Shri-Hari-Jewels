@@ -221,8 +221,7 @@ export default function ProformaListPage() {
         <span className="filter-count">{filtered.length} transfers</span>
       </div>
 
-      <div className="surface-card overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="data-table-wrap">
           <table className="data-table min-w-[1000px]">
             <thead>
               <tr>
@@ -316,7 +315,6 @@ export default function ProformaListPage() {
               )}
             </tbody>
           </table>
-        </div>
       </div>
 
       <p className="mt-4 text-sm text-zinc-500">

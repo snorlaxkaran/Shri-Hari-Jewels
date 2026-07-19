@@ -212,24 +212,24 @@ export default function CustomerFinancialFields({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border border-zinc-200 rounded-lg overflow-hidden">
+    <div>
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-left bg-zinc-50 hover:bg-zinc-100 transition-colors"
+        className="form-collapsible-trigger"
       >
-        <span className="text-xs font-medium text-zinc-600">
+        <span className="section-title">
           Billing, Tax & Bank Details
-          <span className="ml-1.5 font-normal text-zinc-400">(optional — for B2B)</span>
+          <span className="ml-1.5 text-sm font-normal text-zinc-400">(optional — for B2B)</span>
         </span>
         <ChevronDown
           size={16}
-          className={`text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`text-zinc-400 transition-transform shrink-0 ${open ? "rotate-180" : ""}`}
         />
       </button>
 
       {open && (
-        <div className="p-4 space-y-4 border-t border-zinc-200">
+        <div className="form-collapsible-body space-y-4">
           <CustomerTaxFields values={values} onChange={onChange} />
           <div>
             <p className="text-xs font-medium text-zinc-600 mb-2">Billing Address</p>
@@ -257,23 +257,23 @@ export function CustomerTaxBankSectionCollapsible({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border border-zinc-200 rounded-lg overflow-hidden">
+    <div>
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-left bg-zinc-50 hover:bg-zinc-100 transition-colors"
+        className="form-collapsible-trigger"
       >
-        <span className="text-xs font-medium text-zinc-600">
+        <span className="section-title">
           Tax & Banking
-          <span className="ml-1.5 font-normal text-zinc-400">(optional — for B2B)</span>
+          <span className="ml-1.5 text-sm font-normal text-zinc-400">(optional — for B2B)</span>
         </span>
         <ChevronDown
           size={16}
-          className={`text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`text-zinc-400 transition-transform shrink-0 ${open ? "rotate-180" : ""}`}
         />
       </button>
       {open && (
-        <div className="p-4 border-t border-zinc-200">
+        <div className="form-collapsible-body">
           <CustomerTaxBankFields values={values} onChange={onChange} />
         </div>
       )}

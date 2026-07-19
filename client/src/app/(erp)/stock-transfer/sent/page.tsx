@@ -144,8 +144,7 @@ export default function SentStockPage() {
         <span className="filter-count">{filtered.length} transfers</span>
       </div>
 
-      <div className="surface-card overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="data-table-wrap">
           <table className="data-table min-w-[900px]">
             <thead>
               <tr>
@@ -295,7 +294,6 @@ export default function SentStockPage() {
               )}
             </tbody>
           </table>
-        </div>
       </div>
     </div>
   );

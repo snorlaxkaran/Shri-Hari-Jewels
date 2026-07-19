@@ -74,14 +74,13 @@ export default function InvoicesPage() {
         <span className="filter-count">{filtered.length} invoices</span>
       </div>
 
-      <div className="surface-card overflow-hidden">
+      <div className="data-table-wrap">
         {filtered.length === 0 ? (
-          <p className="px-5 py-8 text-sm text-zinc-400 text-center">
+          <p className="py-8 text-sm text-zinc-400 text-center">
             No invoices yet. Complete a sale to generate one automatically.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="data-table">
+          <table className="data-table">
               <thead>
                 <tr>
                   <th>Invoice</th>
@@ -135,7 +134,6 @@ export default function InvoicesPage() {
                 ))}
               </tbody>
             </table>
-          </div>
         )}
       </div>
     </div>
