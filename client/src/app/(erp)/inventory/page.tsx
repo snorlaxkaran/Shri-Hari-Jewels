@@ -9,7 +9,7 @@ import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatCard from "@/app/(components)/StatCard";
 import IncomingTransfersPanel from "@/app/(components)/stock-transfer/IncomingTransfersPanel";
 import { useAuth } from "@/lib/auth/auth-context";
-import { canWriteInventory } from "@/lib/auth/permissions";
+import { canManageHallmark, canWriteInventory } from "@/lib/auth/permissions";
 import { fetchBranches, fetchUserBranches } from "@/lib/api/branches";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import {
@@ -52,6 +52,11 @@ const SetAsideModal = dynamic(
   { ssr: false },
 );
 
+const UpdateHallmarkModal = dynamic(
+  () => import("@/app/(components)/hallmark/UpdateHallmarkModal"),
+  { ssr: false },
+);
+
 const InventoryTable = dynamic(
   () => import("@/app/(components)/inventory/InventoryTable"),
   {
@@ -67,6 +72,7 @@ export default function InventoryPage() {
   const { user } = useAuth();
   const { items, hydrated, loading, error, refresh } = useInventory();
   const canAdd = user ? canWriteInventory(user.role) : false;
+  const canRecordHallmark = user ? canManageHallmark(user.role) : false;
   const isBranchView = user?.role === "Store";
   const [search, setSearch] = useState("");
   const [metalTab, setMetalTab] = useState<ProductMetalTab>("all");
@@ -77,6 +83,7 @@ export default function InventoryPage() {
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
   const [hallmarkFilter, setHallmarkFilter] = useState<HallmarkFilter>("");
   const [setAsideRow, setSetAsideRow] = useState<InventoryUnitRow | null>(null);
+  const [hallmarkRow, setHallmarkRow] = useState<InventoryUnitRow | null>(null);
 
   useEffect(() => {
     fetchBranches()
@@ -310,9 +317,11 @@ export default function InventoryPage() {
           onSort={handleSort}
           showBranchColumn={showBranchColumn}
           canWrite={canAdd}
+          canManageHallmark={canRecordHallmark}
           onEditProduct={handleEditUnitRow}
           onSetAside={handleSetAside}
           onReleaseHold={handleReleaseHold}
+          onUpdateHallmark={setHallmarkRow}
         />
       </div>
 
@@ -321,6 +330,14 @@ export default function InventoryPage() {
         row={setAsideRow}
         onClose={() => setSetAsideRow(null)}
         onSubmit={handleSetAsideSubmit}
+      />
+
+      <UpdateHallmarkModal
+        open={hallmarkRow !== null}
+        itemCode={hallmarkRow?.itemCode ?? ""}
+        unitId={hallmarkRow?.unitId ?? ""}
+        onClose={() => setHallmarkRow(null)}
+        onSaved={() => void refresh()}
       />
     </div>
   );

@@ -5,7 +5,9 @@ export type HallmarkFilter = "" | "pending" | "done" | "exempt";
 const HALLMARK_METALS = new Set(["Gold", "Rose Gold", "Platinum"]);
 const MIN_HALLMARK_WEIGHT_GRAMS = 2;
 
-export const requiresHallmark = (row: InventoryUnitRow): boolean =>
+export const requiresHallmark = (
+  row: Pick<InventoryUnitRow, "metal" | "weightGrams">,
+): boolean =>
   HALLMARK_METALS.has(row.metal) && row.weightGrams >= MIN_HALLMARK_WEIGHT_GRAMS;
 
 export const isHallmarkedUnit = (row: InventoryUnitRow): boolean =>

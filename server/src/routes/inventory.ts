@@ -24,6 +24,9 @@ import {
   holdUnitForCustomer,
   releaseStaffHold,
 } from "../lib/inventory/hold-service.js";
+import { updateUnitHallmark } from "../lib/hallmark/service.js";
+import { HallmarkError } from "../lib/hallmark/errors.js";
+import { canManageHallmark } from "../lib/auth/permissions.js";
 import { getItemCodeHistory } from "../lib/inventory/item-history-service.js";
 import { importLegacyStock } from "../lib/inventory/stock-import.js";
 import {
@@ -57,6 +60,7 @@ import type {
   NewProductInput,
   PartialAcceptTransferInput,
   UpdateProductInput,
+  UpdateUnitHallmarkInput,
 } from "../types.js";
 import { StockTransferStatus } from "@prisma/client";
 import { getShopSettings } from "../lib/settings/service.js";
@@ -694,6 +698,34 @@ inventoryRouter.delete(
       }
       console.error("DELETE /api/inventory/units/:unitId", error);
       res.status(500).json({ error: "Failed to remove unit" });
+    }
+  },
+);
+
+inventoryRouter.patch(
+  "/units/:unitId/hallmark",
+  requireRole(canManageHallmark),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = req.body as UpdateUnitHallmarkInput;
+      if (!body.huid?.trim()) {
+        res.status(400).json({ error: "HUID is required." });
+        return;
+      }
+      const result = await updateUnitHallmark(
+        routeParam(req.params.unitId),
+        req.organizationId!,
+        body,
+        { id: req.user!.id, name: req.user!.name },
+      );
+      res.json(result);
+    } catch (error) {
+      if (error instanceof HallmarkError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("PATCH /api/inventory/units/:unitId/hallmark", error);
+      res.status(500).json({ error: "Failed to update hallmark." });
     }
   },
 );

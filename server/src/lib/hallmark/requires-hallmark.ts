@@ -27,3 +27,16 @@ export const validateHuid = (value: string): string => {
   }
   return huid;
 };
+
+export const isUnitSellable = (
+  unit: {
+    huid?: string | null;
+    hallmarkNumber?: string | null;
+    status?: string;
+  },
+  product: { metal: string; weightGrams: number },
+): boolean => {
+  if (unit.status && unit.status !== "Available") return false;
+  if (requiresHallmark(product) && !isHallmarked(unit)) return false;
+  return true;
+};

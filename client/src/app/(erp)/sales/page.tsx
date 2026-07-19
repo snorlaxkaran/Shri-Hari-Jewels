@@ -91,6 +91,12 @@ export default function SalesPage() {
     setLookupError("");
     try {
       const result = await lookupSaleUnit(trimmed);
+      if (result.hallmarkPending) {
+        setLookupError(
+          "This item requires BIS hallmark (HUID) before it can be sold. Record the HUID from Central Stock first.",
+        );
+        return;
+      }
       setCart((prev) => [
         ...prev,
         {
@@ -197,6 +203,13 @@ export default function SalesPage() {
     }
     if (cart.some((item) => item.dealPrice <= 0)) {
       setFormError("Each item needs a deal price greater than zero.");
+      return;
+    }
+
+    if (cart.some((item) => item.hallmarkPending)) {
+      setFormError(
+        "One or more items need BIS hallmark (HUID) before they can be sold.",
+      );
       return;
     }
 
@@ -491,7 +504,12 @@ export default function SalesPage() {
 
             <button
               type="submit"
-              disabled={submitting || cart.length === 0 || !customerSelection?.customerId}
+              disabled={
+                submitting ||
+                cart.length === 0 ||
+                !customerSelection?.customerId ||
+                cart.some((item) => item.hallmarkPending)
+              }
               className="btn-primary w-full px-4 py-2.5 text-sm disabled:opacity-50"
             >
               {submitting

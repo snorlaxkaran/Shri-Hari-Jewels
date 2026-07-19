@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isHallmarked,
+  isUnitSellable,
   requiresHallmark,
   validateHuid,
 } from "../lib/hallmark/requires-hallmark.js";
@@ -21,5 +22,26 @@ describe("hallmark rules", () => {
   it("validates 6-character HUID format", () => {
     expect(validateHuid("a1b2c3")).toBe("A1B2C3");
     expect(() => validateHuid("ABC")).toThrow();
+  });
+
+  it("blocks unhallmarked gold from sale eligibility", () => {
+    expect(
+      isUnitSellable(
+        { status: "Available", huid: null, hallmarkNumber: null },
+        { metal: "Gold", weightGrams: 5 },
+      ),
+    ).toBe(false);
+    expect(
+      isUnitSellable(
+        { status: "Available", huid: "A1B2C3", hallmarkNumber: "A1B2C3" },
+        { metal: "Gold", weightGrams: 5 },
+      ),
+    ).toBe(true);
+    expect(
+      isUnitSellable(
+        { status: "Available" },
+        { metal: "Silver", weightGrams: 10 },
+      ),
+    ).toBe(true);
   });
 });

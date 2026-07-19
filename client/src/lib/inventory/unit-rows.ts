@@ -30,6 +30,7 @@ export type InventoryUnitRow = {
   imageColor: string;
   huid?: string;
   hallmarkNumber?: string;
+  hallmarkPending?: boolean;
   heldForCustomerName?: string;
   heldForCustomerId?: string;
   heldAt?: string;
@@ -65,6 +66,7 @@ export const flattenInventoryToUnitRows = (
       imageColor: product.imageColor,
       huid: unit.huid,
       hallmarkNumber: unit.hallmarkNumber,
+      hallmarkPending: unit.hallmarkPending,
       heldForCustomerName: unit.heldForCustomerName,
       heldForCustomerId: unit.heldForCustomerId,
       heldAt: unit.heldAt,

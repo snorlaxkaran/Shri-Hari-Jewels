@@ -825,6 +825,11 @@ export type UpdateHallmarkBatchInput = {
   hallmarkingFeeTotal?: number | null;
 };
 
+export type UpdateUnitHallmarkInput = {
+  huid: string;
+  hallmarkCenter?: string;
+};
+
 export type Vendor = {
   id: string;
   organizationId: string;

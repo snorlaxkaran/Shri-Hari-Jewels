@@ -22,6 +22,10 @@ import {
   type ColumnFilters,
   type FilterColumnId,
 } from "@/lib/inventory/filters";
+import {
+  isHallmarkedUnit,
+  requiresHallmark,
+} from "@/lib/inventory/hallmark-filter";
 import type {
   InventorySortField,
   InventorySortOrder,
@@ -50,9 +54,11 @@ type InventoryTableProps = {
   showBranchColumn?: boolean;
   ageingThresholds?: AgeingThresholds;
   canWrite?: boolean;
+  canManageHallmark?: boolean;
   onEditProduct: (row: InventoryUnitRow) => void;
   onSetAside?: (row: InventoryUnitRow) => void;
   onReleaseHold?: (row: InventoryUnitRow) => void;
+  onUpdateHallmark?: (row: InventoryUnitRow) => void;
 };
 
 type ColumnDef = {
@@ -76,6 +82,7 @@ const BASE_COLUMNS: ColumnDef[] = [
   { id: "ageing", label: "Ageing", sortField: "ageing" },
   { id: "branchName", label: "Location", sortField: "branchName", filterColumn: "branchName" },
   { id: "status", label: "Status", sortField: "status", filterColumn: "status" },
+  { id: "hallmark", label: "Hallmark" },
   { id: "actions", label: "" },
 ];
 
@@ -208,9 +215,11 @@ export default function InventoryTable({
   showBranchColumn = false,
   ageingThresholds = DEFAULT_AGEING_THRESHOLDS,
   canWrite = false,
+  canManageHallmark = false,
   onEditProduct,
   onSetAside,
   onReleaseHold,
+  onUpdateHallmark,
 }: InventoryTableProps) {
   const [openFilterColumn, setOpenFilterColumn] =
     useState<FilterColumnId | null>(null);
@@ -338,12 +347,39 @@ export default function InventoryTable({
             </div>
           </td>
         );
+      case "hallmark":
+        return (
+          <td>
+            {!requiresHallmark(row) ? (
+              <span className="text-xs text-zinc-400">Exempt</span>
+            ) : isHallmarkedUnit(row) ? (
+              <span className="text-xs font-mono text-emerald-700">
+                {row.huid ?? row.hallmarkNumber}
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200">
+                Needs HUID
+              </span>
+            )}
+          </td>
+        );
       case "actions":
         return (
           <td className="text-right">
             {canWrite && (
               <RowActionsDropdown
                 actions={[
+                  ...(row.status === "Available" &&
+                  requiresHallmark(row) &&
+                  !isHallmarkedUnit(row) &&
+                  canManageHallmark
+                    ? [
+                        {
+                          label: "Record HUID",
+                          onClick: () => onUpdateHallmark?.(row),
+                        },
+                      ]
+                    : []),
                   ...(row.status === "Available"
                     ? [
                         {

@@ -87,14 +87,21 @@ export const lookupUnitForSale = async (
   }
 
   const product = unit.product;
+
+  if (requiresHallmark(product) && !isHallmarked(unit)) {
+    throw new SaleError(
+      `${itemCode.trim()} requires BIS hallmark (HUID) before it can be sold. Record the HUID from Central Stock first.`,
+      400,
+    );
+  }
+
   const marketRates = await getCurrentMarketRates();
   const { listPrice, priceBreakdown } = computeListPriceBreakdownForProduct(
     product,
     marketRates,
   );
 
-  const hallmarkPending =
-    requiresHallmark(product) && !isHallmarked(unit);
+  const hallmarkPending = false;
 
   return {
     itemCode: unit.itemCode,

@@ -289,6 +289,63 @@ export const receiveHallmarkBatch = async (
   return getHallmarkBatch(id, organizationId);
 };
 
+export const updateUnitHallmark = async (
+  unitId: string,
+  organizationId: string,
+  input: { huid: string; hallmarkCenter?: string },
+  _actor: { id: string; name: string },
+): Promise<{ itemCode: string; huid: string; hallmarkCenter?: string }> => {
+  const huid = validateHuid(input.huid);
+  const hallmarkCenter = input.hallmarkCenter?.trim() || null;
+
+  const unit = await prisma.inventoryUnit.findFirst({
+    where: { id: unitId, organizationId },
+    include: { product: true },
+  });
+
+  if (!unit) {
+    throw new HallmarkError("Item not found.", 404);
+  }
+  if (unit.status !== InventoryUnitStatus.Available) {
+    throw new HallmarkError(
+      `${unit.itemCode} is ${unit.status} and cannot be hallmarked.`,
+    );
+  }
+  if (!requiresHallmark(unit.product)) {
+    throw new HallmarkError(
+      `${unit.itemCode} does not require BIS hallmarking (metal/weight).`,
+    );
+  }
+  if (isHallmarked(unit)) {
+    throw new HallmarkError(`${unit.itemCode} is already hallmarked.`);
+  }
+
+  const duplicate = await prisma.inventoryUnit.findFirst({
+    where: { organizationId, huid, id: { not: unitId } },
+    select: { itemCode: true },
+  });
+  if (duplicate) {
+    throw new HallmarkError(
+      `HUID ${huid} is already assigned to ${duplicate.itemCode}.`,
+    );
+  }
+
+  await prisma.inventoryUnit.update({
+    where: { id: unitId },
+    data: {
+      huid,
+      hallmarkNumber: huid,
+      hallmarkCenter,
+    },
+  });
+
+  return {
+    itemCode: unit.itemCode,
+    huid,
+    hallmarkCenter: hallmarkCenter ?? undefined,
+  };
+};
+
 export const updateHallmarkBatch = async (
   id: string,
   organizationId: string,

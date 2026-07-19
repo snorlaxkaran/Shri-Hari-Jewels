@@ -9,9 +9,15 @@ import {
   useBarcodeLabelPrint,
 } from "@/app/(components)/inventory/BarcodeLabelPrint";
 import HuidLink from "@/app/(components)/hallmark/HuidLink";
+import UpdateHallmarkModal from "@/app/(components)/hallmark/UpdateHallmarkModal";
 import StatusBadge from "@/app/(components)/StatusBadge";
 import { fetchItemCodeHistory } from "@/lib/api/inventory";
 import { getApiErrorMessage } from "@/lib/api/client";
+import { useAuth } from "@/lib/auth/auth-context";
+import { canManageHallmark } from "@/lib/auth/permissions";
+import {
+  requiresHallmark,
+} from "@/lib/inventory/hallmark-filter";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import type { ItemCodeHistory, ItemCodeHistoryEvent } from "@/lib/types";
 
@@ -88,9 +94,12 @@ function TimelineEvent({ event }: { event: ItemCodeHistoryEvent }) {
 export default function ItemCodeHistoryPage() {
   const params = useParams<{ itemCode: string }>();
   const itemCode = decodeURIComponent(params.itemCode ?? "");
+  const { user } = useAuth();
+  const canRecordHallmark = user ? canManageHallmark(user.role) : false;
   const [history, setHistory] = useState<ItemCodeHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [hallmarkModalOpen, setHallmarkModalOpen] = useState(false);
   const { printLabels, sheet: labelPrintSheet } = useBarcodeLabelPrint();
 
   const load = useCallback(async () => {
@@ -252,7 +261,7 @@ export default function ItemCodeHistoryPage() {
                   </dd>
                 </div>
               )}
-              {history.spec.hallmarkNumber && (
+              {history.spec.hallmarkNumber ? (
                 <div>
                   <dt className="text-xs text-zinc-500">Hallmark</dt>
                   <dd className="font-medium text-zinc-800">
@@ -262,7 +271,32 @@ export default function ItemCodeHistoryPage() {
                       : ""}
                   </dd>
                 </div>
-              )}
+              ) : requiresHallmark({
+                metal: history.spec.metal,
+                weightGrams: history.spec.weightGrams,
+              }) ? (
+                <div className="col-span-2 md:col-span-4">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-amber-900">
+                        Hallmark required before sale
+                      </p>
+                      <p className="text-xs text-amber-800 mt-0.5">
+                        Record the BIS HUID for this gold piece to make it available for sale.
+                      </p>
+                    </div>
+                    {canRecordHallmark && history.spec.status === "Available" && (
+                      <button
+                        type="button"
+                        onClick={() => setHallmarkModalOpen(true)}
+                        className="btn-primary px-3 py-2 text-sm shrink-0"
+                      >
+                        Record HUID
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : null}
             </dl>
 
             {history.spec.designStones.length > 0 && (
@@ -340,6 +374,16 @@ export default function ItemCodeHistoryPage() {
             )}
           </section>
         </>
+      )}
+
+      {history && (
+        <UpdateHallmarkModal
+          open={hallmarkModalOpen}
+          itemCode={history.itemCode}
+          unitId={history.spec.unitId}
+          onClose={() => setHallmarkModalOpen(false)}
+          onSaved={() => void load()}
+        />
       )}
     </div>
   );

@@ -2,6 +2,10 @@ import { InventoryUnitStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import { getOrganizationHeadOfficeBranchId } from "../branches/access.js";
 import { syncProductStockInTx } from "../inventory/stock-sync.js";
+import {
+  isHallmarked,
+  requiresHallmark,
+} from "../hallmark/requires-hallmark.js";
 import { moneyToNumber, multiplyMoney, sumMoney, toMoney } from "../money.js";
 import { generateOrderNo } from "../orders/order-no.js";
 import {
@@ -26,16 +30,24 @@ const productInclude = {
 };
 
 const countAvailableUnits = async (
-  productId: string,
+  product: { id: string; metal: string; weightGrams: number },
   organizationId: string,
-): Promise<number> =>
-  prisma.inventoryUnit.count({
+): Promise<number> => {
+  const units = await prisma.inventoryUnit.findMany({
     where: {
-      productId,
+      productId: product.id,
       organizationId,
       status: InventoryUnitStatus.Available,
     },
+    select: { huid: true, hallmarkNumber: true },
   });
+
+  if (!requiresHallmark(product)) {
+    return units.length;
+  }
+
+  return units.filter((unit) => isHallmarked(unit)).length;
+};
 
 export const getStorefrontConfig = async (
   organizationId: string,
@@ -126,7 +138,7 @@ export const listStorefrontProducts = async (
   ]);
 
   const stockCounts = await Promise.all(
-    products.map((p) => countAvailableUnits(p.id, organizationId)),
+    products.map((p) => countAvailableUnits(p, organizationId)),
   );
 
   return {
@@ -154,7 +166,7 @@ export const getStorefrontProduct = async (
     throw new StorefrontError("Product not found.", 404);
   }
 
-  const stock = await countAvailableUnits(product.id, organizationId);
+  const stock = await countAvailableUnits(product, organizationId);
   return toStorefrontProduct(product, stock);
 };
 
@@ -303,7 +315,7 @@ export const placeWebOrder = async (
       throw new StorefrontError("Product not found.", 404);
     }
 
-    const available = await countAvailableUnits(product.id, organizationId);
+    const available = await countAvailableUnits(product, organizationId);
     if (available < qty) {
       throw new StorefrontError(
         `"${product.name}" has only ${available} unit(s) available.`,
@@ -361,15 +373,21 @@ export const placeWebOrder = async (
     const orderNo = generateWebOrderNo(existingWebOrders.map((o) => o.orderNo));
 
     for (const line of lineItems) {
-      const units = await tx.inventoryUnit.findMany({
+      const product = productMap.get(line.productId)!;
+      const allUnits = await tx.inventoryUnit.findMany({
         where: {
           productId: line.productId,
           organizationId,
           status: InventoryUnitStatus.Available,
         },
-        take: line.quantity,
         orderBy: { createdAt: "asc" },
       });
+
+      const units = (
+        requiresHallmark(product)
+          ? allUnits.filter((unit) => isHallmarked(unit))
+          : allUnits
+      ).slice(0, line.quantity);
 
       if (units.length < line.quantity) {
         throw new StorefrontError(

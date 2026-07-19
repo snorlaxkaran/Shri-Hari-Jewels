@@ -9,6 +9,7 @@ import type {
   StockTransferDocumentType,
   StockTransferStatus,
   UpdateProductInput,
+  UpdateUnitHallmarkInput,
 } from "@/lib/types";
 import { api, API_BASE_URL, getAuthToken } from "./client";
 
@@ -109,6 +110,17 @@ export const releaseInventoryUnitHold = async (
 ): Promise<InventoryItem> => {
   const { data } = await api.post<InventoryItem>(
     `/api/inventory/units/${unitId}/release-hold`,
+  );
+  return data;
+};
+
+export const updateUnitHallmark = async (
+  unitId: string,
+  input: UpdateUnitHallmarkInput,
+): Promise<{ itemCode: string; huid: string; hallmarkCenter?: string }> => {
+  const { data } = await api.patch<{ itemCode: string; huid: string; hallmarkCenter?: string }>(
+    `/api/inventory/units/${unitId}/hallmark`,
+    input,
   );
   return data;
 };
