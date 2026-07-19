@@ -22,6 +22,7 @@
     "db:verify-unit-pricing": "tsx scripts/verify-unit-pricing.ts",
     "db:audit": "tsx scripts/run-erp-audit.ts",
     "db:apply-audit-fixes": "tsx scripts/apply-erp-audit-fixes.ts",
+    "db:reset-shreehari": "tsx scripts/reset-shreehari-data.ts",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "db:seed-if-empty": "tsx prisma/seed-if-empty.ts",
