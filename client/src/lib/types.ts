@@ -2150,3 +2150,115 @@ export type EntryVoucher = {
 export type EntryVoucherDetail = EntryVoucher & {
   items: EntryVoucherItem[];
 };
+
+// --- HR / Payroll ---
+
+export type AttendanceStatus =
+  | "Present"
+  | "Absent"
+  | "Half Day"
+  | "Leave"
+  | "Holiday"
+  | "Week Off";
+
+export type PayrollRunStatus = "Draft" | "Finalized" | "Paid";
+
+export type Employee = {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  userId?: string;
+  name: string;
+  designation: string;
+  dateOfJoining: string;
+  active: boolean;
+  monthlySalary?: number;
+  dailyWage?: number;
+  basicPercent: number;
+  hraPercent: number;
+  pfApplicable: boolean;
+  esiApplicable: boolean;
+  professionalTaxApplicable: boolean;
+  bankAccountNo?: string;
+  bankIfsc?: string;
+  createdAt: string;
+};
+
+export type NewEmployeeInput = {
+  branchId: string;
+  userId?: string;
+  name: string;
+  designation: string;
+  dateOfJoining: string;
+  active?: boolean;
+  monthlySalary?: number;
+  dailyWage?: number;
+  basicPercent?: number;
+  hraPercent?: number;
+  pfApplicable?: boolean;
+  esiApplicable?: boolean;
+  professionalTaxApplicable?: boolean;
+  bankAccountNo?: string;
+  bankIfsc?: string;
+};
+
+export type UpdateEmployeeInput = Partial<NewEmployeeInput>;
+
+export type AttendanceGrid = {
+  month: number;
+  year: number;
+  branchId: string;
+  dates: string[];
+  employees: Array<{
+    id: string;
+    name: string;
+    designation: string;
+    userId?: string;
+    days: Array<{ date: string; status?: AttendanceStatus }>;
+  }>;
+};
+
+export type PayrollRun = {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  month: number;
+  year: number;
+  status: PayrollRunStatus;
+  generatedByName: string;
+  finalizedAt?: string;
+  paidAt?: string;
+  createdAt: string;
+  items?: PayslipItem[];
+};
+
+export type PayslipItem = {
+  id: string;
+  payrollRunId: string;
+  employeeId: string;
+  employeeName?: string;
+  daysPresent: number;
+  daysInMonth: number;
+  lossOfPayDays: number;
+  basicPay: number;
+  hra: number;
+  otherAllowances: number;
+  grossPay: number;
+  pfDeduction: number;
+  esiDeduction: number;
+  professionalTax: number;
+  otherDeductions: number;
+  netPay: number;
+  paidAt?: string;
+};
+
+export type PayrollAttendancePreview = {
+  employeeId: string;
+  employeeName: string;
+  daysPresent: number;
+  daysAbsent: number;
+  daysLeave: number;
+  lossOfPayDays: number;
+  unmarkedWeekdays: number;
+  incomplete: boolean;
+};

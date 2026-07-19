@@ -22,6 +22,9 @@ import {
   UserPlus,
   Wrench,
   Wallet,
+  CalendarDays,
+  UserCog,
+  Banknote,
 } from "lucide-react";
 import { createElement } from "react";
 
@@ -151,6 +154,9 @@ export const navSections: NavSection[] = [
       markToday({ label: "Vendors", href: "/vendors", icon: icon(Briefcase) }),
       markToday({ label: "Purchase bills", href: "/purchase-bills", icon: icon(FileText) }),
       { label: "Expenses", href: "/expenses", icon: icon(Wallet) },
+      { label: "Employees", href: "/employees", icon: icon(UserCog) },
+      { label: "Attendance", href: "/attendance", icon: icon(CalendarDays) },
+      { label: "Payroll", href: "/payroll", icon: icon(Banknote) },
       markToday({ label: "Settings", href: "/settings", icon: icon(Settings) }),
     ],
   },
@@ -228,6 +234,11 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname.startsWith("/repairs/")) return "Repair Detail";
   if (pathname === "/expenses/new") return "New Expense Request";
   if (pathname === "/expenses") return "Expenses";
+  if (pathname === "/employees") return "Employees";
+  if (pathname === "/attendance") return "Attendance";
+  if (pathname === "/payroll/new") return "New Payroll Run";
+  if (pathname.startsWith("/payroll/")) return "Payroll Run";
+  if (pathname === "/payroll") return "Payroll";
   if (pathname === "/settings/tally-export") return "Tally Export";
   if (pathname === "/production-runs/new") return "New Production Run";
   if (pathname === "/production-runs/dashboard") return "Production Dashboard";

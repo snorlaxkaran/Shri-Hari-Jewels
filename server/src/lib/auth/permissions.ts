@@ -53,7 +53,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
   ],
   Store: ["/dashboard", "/inventory", "/stock-transfer", "/sales", "/customers", "/repairs", "/hallmark", "/expenses"],
   Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs", "/repairs", "/expenses"],
-  Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory", "/vendors", "/purchase-bills", "/settings/tally-export", "/expenses"],
+  Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory", "/vendors", "/purchase-bills", "/settings/tally-export", "/expenses", "/employees", "/attendance", "/payroll"],
 };
 
 export const canAccessRoute = (role: UserRole, pathname: string): boolean => {
@@ -215,6 +215,21 @@ export const canManageExpenses = (role: UserRole): boolean =>
 
 export const canExportTally = (role: UserRole): boolean =>
   role === "Admin" || role === "Accountant";
+
+export const canViewPayroll = (role: UserRole): boolean =>
+  role === "Admin" || role === "Accountant";
+
+export const canManagePayroll = (role: UserRole): boolean =>
+  role === "Admin" || role === "Accountant";
+
+/** Staff linked to an Employee record can self-mark attendance. */
+export const canMarkOwnAttendance = (role: UserRole): boolean =>
+  role === "Admin" ||
+  role === "Accountant" ||
+  role === "SalesManager" ||
+  role === "Store" ||
+  role === "ProductionManager" ||
+  role === "Karigar";
 
 export const isAuthenticatedRole = (role: string): role is UserRole =>
   ALL_ROLES.includes(role as UserRole);

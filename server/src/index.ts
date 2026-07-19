@@ -51,6 +51,11 @@ import { storefrontRouter } from "./routes/storefront.js";
 import { storefrontAdminRouter } from "./routes/storefront-admin.js";
 import { hallmarkBatchesRouter } from "./routes/hallmark-batches.js";
 import { expensesRouter, pettyCashFloatRouter } from "./routes/expenses.js";
+import {
+  employeesRouter,
+  attendanceRouter,
+  payrollRunsRouter,
+} from "./routes/hr.js";
 import { startScheduledJobs } from "./jobs/scheduler.js";
 import { startLeadReminderJob } from "./lib/leads/reminder-job.js";
 
@@ -201,6 +206,9 @@ app.use("/api/onboarding", onboardingRouter);
 app.use("/api/hallmark-batches", hallmarkBatchesRouter);
 app.use("/api/expenses", expensesRouter);
 app.use("/api/petty-cash-float", pettyCashFloatRouter);
+app.use("/api/employees", employeesRouter);
+app.use("/api/attendance", attendanceRouter);
+app.use("/api/payroll-runs", payrollRunsRouter);
 app.use("/api/storefront", storefrontRouter);
 app.use("/api/storefront-admin", storefrontAdminRouter);
 

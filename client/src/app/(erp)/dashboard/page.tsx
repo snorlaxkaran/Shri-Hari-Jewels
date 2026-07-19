@@ -7,6 +7,7 @@ import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatCard from "@/app/(components)/StatCard";
 import LiveSalesSummary from "@/app/(components)/dashboard/LiveSalesSummary";
+import AttendanceSelfMark from "@/app/(components)/dashboard/AttendanceSelfMark";
 import { useSales } from "@/lib/sales/sales-context";
 import { formatCompact, formatCurrency, formatDate } from "@/lib/format";
 import { fetchHallmarkPendingCount } from "@/lib/api/hallmark";
@@ -62,6 +63,8 @@ export default function DashboardPage() {
       )}
 
       <LiveSalesSummary />
+
+      <AttendanceSelfMark />
 
       <div
         className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-[10px]"
