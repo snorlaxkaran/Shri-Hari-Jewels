@@ -1078,7 +1078,7 @@ model InvoiceItem {
 model ProductImage {
   id        String @id @default(uuid())
   productId String
-  url       String
+  url       String @db.Text
   name      String
   sortOrder Int    @default(0)
 

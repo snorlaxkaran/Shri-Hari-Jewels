@@ -25,6 +25,7 @@ export const fetchInventory = async (options?: {
       hallmarkStatus: options?.hallmarkStatus,
     },
     headers: { "Cache-Control": "no-cache" },
+    timeout: 60000,
   });
   return data;
 };
@@ -70,9 +71,11 @@ export const updateProduct = async (
   productId: string,
   input: UpdateProductInput,
 ): Promise<InventoryItem> => {
+  const hasImages = (input.images?.length ?? 0) > 0;
   const { data } = await api.patch<InventoryItem>(
     `/api/inventory/${productId}`,
     input,
+    { timeout: hasImages ? 60000 : 15000 },
   );
   return data;
 };

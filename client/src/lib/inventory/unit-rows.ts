@@ -1,3 +1,4 @@
+import { getProductCoverFromItem } from "@/lib/inventory/product-images";
 import type {
   InventoryItem,
   InventoryUnitPriceSource,
@@ -26,6 +27,7 @@ export type InventoryUnitRow = {
   createdAt: string;
   branchTransferredAt?: string;
   imageUrl?: string;
+  imageColor: string;
   huid?: string;
   hallmarkNumber?: string;
   heldForCustomerName?: string;
@@ -59,7 +61,8 @@ export const flattenInventoryToUnitRows = (
       branchName: unit.branchName,
       createdAt: unit.createdAt,
       branchTransferredAt: unit.branchTransferredAt,
-      imageUrl: product.images?.[0]?.url,
+      imageUrl: getProductCoverFromItem(product),
+      imageColor: product.imageColor,
       huid: unit.huid,
       hallmarkNumber: unit.hallmarkNumber,
       heldForCustomerName: unit.heldForCustomerName,

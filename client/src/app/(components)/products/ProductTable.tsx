@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Pencil } from "lucide-react";
 import StatusBadge from "@/app/(components)/StatusBadge";
 import { getActiveUnitCount } from "@/lib/inventory/metal-stats";
+import { getProductCoverFromItem } from "@/lib/inventory/product-images";
 import type { InventoryItem } from "@/lib/types";
 
 type ProductTableProps = {
@@ -12,12 +13,12 @@ type ProductTableProps = {
 };
 
 function ProductThumb({ product }: { product: InventoryItem }) {
-  const primary = product.images[0];
-  if (primary?.url) {
+  const coverUrl = getProductCoverFromItem(product);
+  if (coverUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={primary.url}
+        src={coverUrl}
         alt=""
         className="h-10 w-10 rounded-md object-cover border border-zinc-200"
       />

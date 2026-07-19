@@ -887,7 +887,7 @@ export const updateProduct = async (
 
   const category = (input.category ?? existing.category) as ProductCategory;
 
-  const updated = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     if (input.images) {
       await tx.productImage.deleteMany({ where: { productId } });
       if (input.images.length > 0) {
@@ -902,7 +902,7 @@ export const updateProduct = async (
       }
     }
 
-    return tx.product.update({
+    await tx.product.update({
       where: { id: productId },
       data: {
         ...(input.name !== undefined && { name: input.name.trim() }),
@@ -923,11 +923,16 @@ export const updateProduct = async (
           imageColor: CATEGORY_COLORS[category] ?? existing.imageColor,
         }),
       },
-      include: productInclude,
     });
   });
 
-  return toInventoryItem(updated, { marketRates: await getCurrentMarketRates() });
+  const refreshed = await prisma.product.findUnique({
+    where: { id: productId },
+    include: productInclude,
+  });
+  if (!refreshed) return null;
+
+  return toInventoryItem(refreshed, { marketRates: await getCurrentMarketRates() });
 };
 
 export const deleteProduct = async (productId: string): Promise<boolean> => {

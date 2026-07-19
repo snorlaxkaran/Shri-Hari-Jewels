@@ -284,8 +284,12 @@ export default function InventoryTable({
                 />
               ) : (
                 <div
-                  className="h-9 w-9 flex-shrink-0 rounded-lg"
-                  style={{ backgroundColor: "var(--bg-muted)" }}
+                  className="h-9 w-9 flex-shrink-0 rounded-lg border"
+                  style={{
+                    backgroundColor: row.imageColor || "var(--bg-muted)",
+                    borderColor: "var(--border)",
+                  }}
+                  aria-hidden
                 />
               )}
               <span className="font-medium line-clamp-2">{row.name}</span>

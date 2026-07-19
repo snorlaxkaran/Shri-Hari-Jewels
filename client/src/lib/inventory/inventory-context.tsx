@@ -159,8 +159,9 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const updateProduct = useCallback(async (id: string, input: UpdateProductInput) => {
     const updated = await updateProductApi(id, input);
     setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
+    await refresh({ silent: true });
     return updated;
-  }, []);
+  }, [refresh]);
 
   const deleteProduct = useCallback(async (id: string) => {
     await deleteProductApi(id);
