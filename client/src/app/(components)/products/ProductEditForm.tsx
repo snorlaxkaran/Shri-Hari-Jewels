@@ -155,6 +155,27 @@ export default function ProductEditForm({
               autoFocus
             />
           </div>
+          <div className="sm:col-span-2">
+            <label className={labelClass}>Collection</label>
+            <select
+              value={productCollectionId}
+              onChange={(e) => {
+                setProductCollectionId(e.target.value);
+                markDirty();
+              }}
+              className={`${fieldClass} max-w-md`}
+            >
+              <option value="">No collection</option>
+              {collections.map((collection) => (
+                <option key={collection.id} value={collection.id}>
+                  {collection.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-zinc-400">
+              Assign this SKU to a collection. Click Save Changes below to apply.
+            </p>
+          </div>
           <div>
             <label className={labelClass}>Category *</label>
             <select
@@ -168,24 +189,6 @@ export default function ProductEditForm({
               {PRODUCT_CATEGORIES.map((c) => (
                 <option key={c} value={c}>
                   {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>Collection</label>
-            <select
-              value={productCollectionId}
-              onChange={(e) => {
-                setProductCollectionId(e.target.value);
-                markDirty();
-              }}
-              className={fieldClass}
-            >
-              <option value="">No collection</option>
-              {collections.map((collection) => (
-                <option key={collection.id} value={collection.id}>
-                  {collection.name}
                 </option>
               ))}
             </select>
