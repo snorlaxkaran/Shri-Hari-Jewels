@@ -1,11 +1,10 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { API_BASE_URL } from "@/lib/api/client";
 
 export default function SharedInvoicePage() {
   const { token } = useParams<{ token: string }>();
-  const pdfUrl = `${API_BASE_URL}/api/public/invoices/${encodeURIComponent(token)}/pdf`;
+  const pdfUrl = `/api/invoice-share/${encodeURIComponent(token)}/pdf`;
 
   return (
     <main
