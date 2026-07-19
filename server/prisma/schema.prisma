@@ -412,10 +412,17 @@ model ShopSettings {
   pincode      String?
   country      String?  @default("India")
   phone        String?
+  email        String?
   upiVpa       String?
   panNumber    String?
   gstNumber    String?
+  cinNumber    String?
   gstRegisteredName String?
+  goldHsnCode       String? @default("7113")
+  silverHsnCode     String? @default("7113")
+  imitationHsnCode  String? @default("71179010")
+  invoiceTerms             String?
+  registeredOfficeAddress  String?
   bankAccountName   String?
   bankAccountNumber String?
   bankIfsc          String?

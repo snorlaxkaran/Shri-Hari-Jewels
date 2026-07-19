@@ -12,11 +12,18 @@ export const formatShopAddress = (settings: ShopSettings): string | null =>
     country: settings.country,
   }) ?? settings.address;
 
+export type DocumentHeaderOptions = {
+  subtitle?: string;
+  includeAddressAndPhone?: boolean;
+};
+
 export const drawDocumentHeader = (
   doc: PDFKit.PDFDocument,
   settings: ShopSettings,
   documentTitle: string,
+  options?: DocumentHeaderOptions,
 ): number => {
+  const includeAddressAndPhone = options?.includeAddressAndPhone ?? true;
   const left = doc.page.margins.left;
   const right = doc.page.width - doc.page.margins.right;
   const width = right - left;
@@ -27,28 +34,45 @@ export const drawDocumentHeader = (
 
   let y = doc.y + 4;
 
-  if (settings.gstRegisteredName && settings.gstRegisteredName !== settings.businessName) {
+  if (options?.subtitle) {
+    doc.font("Helvetica").fontSize(10).fillColor("#374151");
+    doc.text(options.subtitle, left, y, { width, align: "center" });
+    y = doc.y + 4;
+  }
+
+  if (
+    includeAddressAndPhone &&
+    settings.gstRegisteredName &&
+    settings.gstRegisteredName !== settings.businessName
+  ) {
     doc.font("Helvetica").fontSize(9).fillColor("#4b5563");
     doc.text(settings.gstRegisteredName, left, y, { width, align: "center" });
     y = doc.y + 2;
   }
 
-  const shopAddress = formatShopAddress(settings);
-  doc.font("Helvetica").fontSize(9).fillColor("#4b5563");
-  if (shopAddress) {
-    doc.text(shopAddress, left, y, { width, align: "center" });
-    y = doc.y + 2;
-  }
-  if (settings.phone) {
-    doc.text(`Phone: ${settings.phone}`, left, y, { width, align: "center" });
-    y = doc.y + 2;
+  if (includeAddressAndPhone) {
+    const shopAddress = formatShopAddress(settings);
+    doc.font("Helvetica").fontSize(9).fillColor("#4b5563");
+    if (shopAddress) {
+      doc.text(shopAddress, left, y, { width, align: "center" });
+      y = doc.y + 2;
+    }
+    if (settings.phone) {
+      doc.text(`Phone: ${settings.phone}`, left, y, { width, align: "center" });
+      y = doc.y + 2;
+    }
   }
 
-  const taxLines: string[] = [];
-  if (settings.gstNumber) taxLines.push(`GSTIN: ${settings.gstNumber}`);
-  if (settings.panNumber) taxLines.push(`PAN: ${settings.panNumber}`);
-  if (taxLines.length > 0) {
-    doc.text(taxLines.join("  |  "), left, y, { width, align: "center" });
+  const taxLine = [
+    settings.panNumber ? `PAN ${settings.panNumber}` : null,
+    settings.gstNumber ? `GSTN ${settings.gstNumber}` : null,
+    settings.cinNumber ? `CIN ${settings.cinNumber}` : null,
+  ]
+    .filter(Boolean)
+    .join("   ");
+  if (taxLine.length > 0) {
+    doc.font("Helvetica").fontSize(9).fillColor("#4b5563");
+    doc.text(taxLine, left, y, { width, align: "center" });
     y = doc.y + 6;
   }
 

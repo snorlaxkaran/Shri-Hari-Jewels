@@ -5,6 +5,12 @@ export const formatRupee = (amount: number): string =>
     maximumFractionDigits: 0,
   }).format(amount);
 
+export const formatRupeeDecimal = (amount: number): string =>
+  new Intl.NumberFormat("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+
 export const formatDateIn = (value?: string | null): string => {
   if (!value) return "";
   const parsed = new Date(value);

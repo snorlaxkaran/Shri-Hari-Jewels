@@ -7,6 +7,9 @@ import {
   validatePincodeIfPresent,
 } from "../validation/india.js";
 
+const DEFAULT_INVOICE_TERMS =
+  "Goods once sold will not be taken back. Subject to Jaipur jurisdiction only.";
+
 const DEFAULT_SETTINGS: ShopSettings = {
   businessName: "Jewellery Business",
   address: null,
@@ -17,10 +20,17 @@ const DEFAULT_SETTINGS: ShopSettings = {
   pincode: null,
   country: "India",
   phone: null,
+  email: null,
   upiVpa: null,
   panNumber: null,
   gstNumber: null,
+  cinNumber: null,
   gstRegisteredName: null,
+  goldHsnCode: "7113",
+  silverHsnCode: "7113",
+  imitationHsnCode: "71179010",
+  invoiceTerms: DEFAULT_INVOICE_TERMS,
+  registeredOfficeAddress: null,
   bankAccountName: null,
   bankAccountNumber: null,
   bankIfsc: null,
@@ -46,10 +56,17 @@ const toShopSettings = (settings: {
   pincode: string | null;
   country: string | null;
   phone: string | null;
+  email: string | null;
   upiVpa: string | null;
   panNumber: string | null;
   gstNumber: string | null;
+  cinNumber: string | null;
   gstRegisteredName: string | null;
+  goldHsnCode: string | null;
+  silverHsnCode: string | null;
+  imitationHsnCode: string | null;
+  invoiceTerms: string | null;
+  registeredOfficeAddress: string | null;
   bankAccountName: string | null;
   bankAccountNumber: string | null;
   bankIfsc: string | null;
@@ -67,10 +84,17 @@ const toShopSettings = (settings: {
   pincode: settings.pincode,
   country: settings.country,
   phone: settings.phone,
+  email: settings.email,
   upiVpa: settings.upiVpa,
   panNumber: settings.panNumber,
   gstNumber: settings.gstNumber,
+  cinNumber: settings.cinNumber,
   gstRegisteredName: settings.gstRegisteredName,
+  goldHsnCode: settings.goldHsnCode ?? "7113",
+  silverHsnCode: settings.silverHsnCode ?? "7113",
+  imitationHsnCode: settings.imitationHsnCode ?? "71179010",
+  invoiceTerms: settings.invoiceTerms ?? DEFAULT_INVOICE_TERMS,
+  registeredOfficeAddress: settings.registeredOfficeAddress,
   bankAccountName: settings.bankAccountName,
   bankAccountNumber: settings.bankAccountNumber,
   bankIfsc: settings.bankIfsc,
@@ -140,10 +164,17 @@ export const updateShopSettings = async (
       pincode: validated.pincode,
       country: trimOrNull(input.country) ?? "India",
       phone: trimOrNull(input.phone),
+      email: trimOrNull(input.email),
       upiVpa: trimOrNull(input.upiVpa),
       panNumber: validated.panNumber,
       gstNumber: validated.gstNumber,
+      cinNumber: trimOrNull(input.cinNumber),
       gstRegisteredName: validated.gstRegisteredName,
+      goldHsnCode: trimOrNull(input.goldHsnCode) ?? "7113",
+      silverHsnCode: trimOrNull(input.silverHsnCode) ?? "7113",
+      imitationHsnCode: trimOrNull(input.imitationHsnCode) ?? "71179010",
+      invoiceTerms: trimOrNull(input.invoiceTerms) ?? DEFAULT_INVOICE_TERMS,
+      registeredOfficeAddress: trimOrNull(input.registeredOfficeAddress),
       bankAccountName: trimOrNull(input.bankAccountName),
       bankAccountNumber: trimOrNull(input.bankAccountNumber),
       bankIfsc: validated.bankIfsc,
@@ -167,11 +198,28 @@ export const updateShopSettings = async (
         country: trimOrNull(input.country) ?? "India",
       }),
       ...(input.phone !== undefined && { phone: trimOrNull(input.phone) }),
+      ...(input.email !== undefined && { email: trimOrNull(input.email) }),
       ...(input.upiVpa !== undefined && { upiVpa: trimOrNull(input.upiVpa) }),
       ...(input.panNumber !== undefined && { panNumber: validated.panNumber }),
       ...(input.gstNumber !== undefined && { gstNumber: validated.gstNumber }),
+      ...(input.cinNumber !== undefined && { cinNumber: trimOrNull(input.cinNumber) }),
       ...(input.gstRegisteredName !== undefined && {
         gstRegisteredName: validated.gstRegisteredName,
+      }),
+      ...(input.goldHsnCode !== undefined && {
+        goldHsnCode: trimOrNull(input.goldHsnCode) ?? "7113",
+      }),
+      ...(input.silverHsnCode !== undefined && {
+        silverHsnCode: trimOrNull(input.silverHsnCode) ?? "7113",
+      }),
+      ...(input.imitationHsnCode !== undefined && {
+        imitationHsnCode: trimOrNull(input.imitationHsnCode) ?? "71179010",
+      }),
+      ...(input.invoiceTerms !== undefined && {
+        invoiceTerms: trimOrNull(input.invoiceTerms) ?? DEFAULT_INVOICE_TERMS,
+      }),
+      ...(input.registeredOfficeAddress !== undefined && {
+        registeredOfficeAddress: trimOrNull(input.registeredOfficeAddress),
       }),
       ...(input.bankAccountName !== undefined && {
         bankAccountName: trimOrNull(input.bankAccountName),

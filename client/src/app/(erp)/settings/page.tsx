@@ -34,6 +34,13 @@ export default function SettingsPage() {
   const [upiVpa, setUpiVpa] = useState("");
   const [panNumber, setPanNumber] = useState("");
   const [gstNumber, setGstNumber] = useState("");
+  const [cinNumber, setCinNumber] = useState("");
+  const [email, setEmail] = useState("");
+  const [goldHsnCode, setGoldHsnCode] = useState("7113");
+  const [silverHsnCode, setSilverHsnCode] = useState("7113");
+  const [imitationHsnCode, setImitationHsnCode] = useState("71179010");
+  const [invoiceTerms, setInvoiceTerms] = useState("");
+  const [registeredOfficeAddress, setRegisteredOfficeAddress] = useState("");
   const [gstRegisteredName, setGstRegisteredName] = useState("");
   const [bankAccountName, setBankAccountName] = useState("");
   const [bankAccountNumber, setBankAccountNumber] = useState("");
@@ -57,6 +64,16 @@ export default function SettingsPage() {
         setUpiVpa(data.upiVpa ?? "");
         setPanNumber(data.panNumber ?? "");
         setGstNumber(data.gstNumber ?? "");
+        setCinNumber(data.cinNumber ?? "");
+        setEmail(data.email ?? "");
+        setGoldHsnCode(data.goldHsnCode ?? "7113");
+        setSilverHsnCode(data.silverHsnCode ?? "7113");
+        setImitationHsnCode(data.imitationHsnCode ?? "71179010");
+        setInvoiceTerms(
+          data.invoiceTerms ??
+            "Goods once sold will not be taken back. Subject to Jaipur jurisdiction only.",
+        );
+        setRegisteredOfficeAddress(data.registeredOfficeAddress ?? "");
         setGstRegisteredName(data.gstRegisteredName ?? "");
         setBankAccountName(data.bankAccountName ?? "");
         setBankAccountNumber(data.bankAccountNumber ?? "");
@@ -87,6 +104,13 @@ export default function SettingsPage() {
         upiVpa: upiVpa.trim(),
         panNumber: panNumber.trim(),
         gstNumber: gstNumber.trim(),
+        cinNumber: cinNumber.trim(),
+        email: email.trim(),
+        goldHsnCode: goldHsnCode.trim(),
+        silverHsnCode: silverHsnCode.trim(),
+        imitationHsnCode: imitationHsnCode.trim(),
+        invoiceTerms: invoiceTerms.trim(),
+        registeredOfficeAddress: registeredOfficeAddress.trim(),
         gstRegisteredName: gstRegisteredName.trim(),
         bankAccountName: bankAccountName.trim(),
         bankAccountNumber: bankAccountNumber.trim(),
@@ -160,6 +184,16 @@ export default function SettingsPage() {
             <label className={labelClass}>Phone</label>
             <input value={phone} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
           </div>
+          <div>
+            <label className={labelClass}>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Shown on wholesale invoices"
+              className={fieldClass}
+            />
+          </div>
         </div>
 
         <div className="surface-card p-5 space-y-4">
@@ -219,6 +253,67 @@ export default function SettingsPage() {
                 className={fieldClass}
               />
             </div>
+            <div>
+              <label className={labelClass}>CIN</label>
+              <input
+                value={cinNumber}
+                onChange={(e) => setCinNumber(e.target.value.toUpperCase())}
+                placeholder="Corporate identification number"
+                className={fieldClass}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="surface-card p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-zinc-900">Wholesale Invoice</h2>
+          <p className="text-xs text-zinc-500">
+            HSN codes and terms appear on wholesale GST transfer invoices.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className={labelClass}>Gold HSN</label>
+              <input
+                value={goldHsnCode}
+                onChange={(e) => setGoldHsnCode(e.target.value)}
+                className={fieldClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Silver HSN</label>
+              <input
+                value={silverHsnCode}
+                onChange={(e) => setSilverHsnCode(e.target.value)}
+                className={fieldClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Imitation HSN</label>
+              <input
+                value={imitationHsnCode}
+                onChange={(e) => setImitationHsnCode(e.target.value)}
+                className={fieldClass}
+              />
+            </div>
+          </div>
+          <div>
+            <label className={labelClass}>Invoice terms</label>
+            <textarea
+              value={invoiceTerms}
+              onChange={(e) => setInvoiceTerms(e.target.value)}
+              rows={3}
+              className={fieldClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Registered office address</label>
+            <textarea
+              value={registeredOfficeAddress}
+              onChange={(e) => setRegisteredOfficeAddress(e.target.value)}
+              rows={2}
+              placeholder="Shown in the invoice footer (separate from branch address)"
+              className={fieldClass}
+            />
           </div>
         </div>
 
