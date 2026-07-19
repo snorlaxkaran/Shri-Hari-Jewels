@@ -53,17 +53,17 @@ type InventoryTableProps = {
   onEditProduct: (row: InventoryUnitRow) => void;
   onSetAside?: (row: InventoryUnitRow) => void;
   onReleaseHold?: (row: InventoryUnitRow) => void;
-  onPrintLabels?: (rows: InventoryUnitRow[]) => void;
 };
 
 type ColumnDef = {
-  id: FilterColumnId | "ageing" | "actions";
+  id: FilterColumnId | "photo" | "ageing" | "actions";
   label: string;
   sortField?: InventorySortField;
   filterColumn?: FilterColumnId;
 };
 
 const BASE_COLUMNS: ColumnDef[] = [
+  { id: "photo", label: "" },
   { id: "itemCode", label: "Item Code", sortField: "itemCode", filterColumn: "itemCode" },
   { id: "sku", label: "SKU", sortField: "sku", filterColumn: "sku" },
   { id: "name", label: "Product", sortField: "name", filterColumn: "name" },
@@ -140,9 +140,12 @@ function ColumnHeader({
     : ArrowUpDown;
   const filterActive = isFilterActive(filter);
 
-  if (!column.sortField && column.id === "actions") {
+  if (!column.sortField && (column.id === "actions" || column.id === "photo")) {
     return (
-      <th className="text-right w-16" style={{ padding: "8px 12px" }}>
+      <th
+        className={column.id === "photo" ? "col-photo" : "text-right w-16"}
+        style={{ padding: column.id === "photo" ? "3px 6px" : "8px 12px" }}
+      >
         {column.label}
       </th>
     );
@@ -208,32 +211,9 @@ export default function InventoryTable({
   onEditProduct,
   onSetAside,
   onReleaseHold,
-  onPrintLabels,
 }: InventoryTableProps) {
   const [openFilterColumn, setOpenFilterColumn] =
     useState<FilterColumnId | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  const allSelected =
-    rows.length > 0 && rows.every((row) => selectedIds.has(row.unitId));
-  const someSelected = rows.some((row) => selectedIds.has(row.unitId));
-
-  const toggleAll = () => {
-    if (allSelected) {
-      setSelectedIds(new Set());
-      return;
-    }
-    setSelectedIds(new Set(rows.map((row) => row.unitId)));
-  };
-
-  const toggleRow = (unitId: string) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(unitId)) next.delete(unitId);
-      else next.add(unitId);
-      return next;
-    });
-  };
 
   const columns = useMemo(
     () =>
@@ -255,10 +235,30 @@ export default function InventoryTable({
     return map;
   }, [columns, filterSourceRows]);
 
-  const columnCount = columns.length + 1;
+  const columnCount = columns.length;
 
   const renderCell = (row: InventoryUnitRow, column: ColumnDef) => {
     switch (column.id) {
+      case "photo":
+        return (
+          <td className="col-photo">
+            {row.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={row.imageUrl}
+                alt={row.name}
+                loading="lazy"
+                className="inventory-photo"
+              />
+            ) : (
+              <div
+                className="inventory-photo inventory-photo-placeholder"
+                style={{ backgroundColor: row.imageColor || "var(--bg-muted)" }}
+                aria-hidden
+              />
+            )}
+          </td>
+        );
       case "itemCode":
         return (
           <td className="td-code">
@@ -272,28 +272,7 @@ export default function InventoryTable({
       case "name":
         return (
           <td>
-            <div className="flex items-center gap-2 min-w-[160px]">
-              {row.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={row.imageUrl}
-                  alt={row.name}
-                  loading="lazy"
-                  className="h-9 w-9 flex-shrink-0 rounded-lg border object-cover"
-                  style={{ borderColor: "var(--border)" }}
-                />
-              ) : (
-                <div
-                  className="h-9 w-9 flex-shrink-0 rounded-lg border"
-                  style={{
-                    backgroundColor: row.imageColor || "var(--bg-muted)",
-                    borderColor: "var(--border)",
-                  }}
-                  aria-hidden
-                />
-              )}
-              <span className="font-medium line-clamp-2">{row.name}</span>
-            </div>
+            <span className="font-medium line-clamp-3 min-w-[160px]">{row.name}</span>
           </td>
         );
       case "category":
@@ -403,20 +382,9 @@ export default function InventoryTable({
         onClearAll={onClearAllFilters}
       />
       <div className="data-table-wrap">
-        <table className="data-table min-w-[1280px]">
+        <table className="data-table inventory-table min-w-[1280px]">
           <thead>
             <tr>
-              <th className="col-checkbox">
-                <input
-                  type="checkbox"
-                  aria-label="Select all rows"
-                  checked={allSelected}
-                  ref={(input) => {
-                    if (input) input.indeterminate = someSelected && !allSelected;
-                  }}
-                  onChange={toggleAll}
-                />
-              </th>
               {columns.map((column) => (
                 <ColumnHeader
                   key={column.id}
@@ -467,21 +435,8 @@ export default function InventoryTable({
               rows.map((row) => (
                 <tr
                   key={row.unitId}
-                  className={[
-                    isInactiveUnit(row.status) ? "opacity-80" : "",
-                    selectedIds.has(row.unitId) ? "row-selected" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
+                  className={isInactiveUnit(row.status) ? "opacity-80" : ""}
                 >
-                  <td className="col-checkbox">
-                    <input
-                      type="checkbox"
-                      aria-label={`Select ${row.itemCode}`}
-                      checked={selectedIds.has(row.unitId)}
-                      onChange={() => toggleRow(row.unitId)}
-                    />
-                  </td>
                   {columns.map((column) => renderCell(row, column))}
                 </tr>
               ))
@@ -493,22 +448,8 @@ export default function InventoryTable({
         <div className="table-pagination">
           <span>
             Showing 1–{rows.length} of {rows.length} items
-            {selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}
           </span>
           <div className="table-pagination-actions">
-            {selectedIds.size > 0 && onPrintLabels && (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() =>
-                  onPrintLabels(
-                    rows.filter((row) => selectedIds.has(row.unitId)),
-                  )
-                }
-              >
-                Print Labels ({selectedIds.size})
-              </button>
-            )}
             <button type="button" className="btn-secondary" disabled>
               Previous
             </button>

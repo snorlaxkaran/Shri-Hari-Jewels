@@ -357,6 +357,36 @@ body,
   padding: 0 8px;
 }
 
+/* Central stock — Excel-style tall rows with product photo in first column */
+.data-table.inventory-table tbody tr {
+  height: 107px;
+}
+
+.data-table.inventory-table td {
+  height: 107px;
+  vertical-align: middle;
+}
+
+.data-table.inventory-table th.col-photo,
+.data-table.inventory-table td.col-photo {
+  width: 112px;
+  min-width: 112px;
+  padding: 3px 6px;
+}
+
+.data-table.inventory-table .inventory-photo {
+  display: block;
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.data-table.inventory-table .inventory-photo-placeholder {
+  border: 1px solid var(--border);
+}
+
 .data-table input[type="checkbox"] {
   width: 14px;
   height: 14px;
@@ -368,6 +398,7 @@ body,
   font-family: monospace;
   font-size: 12px;
   color: var(--accent);
+  white-space: nowrap;
 }
 
 .td-muted {

@@ -45,11 +45,7 @@ import {
 } from "@/lib/inventory/hallmark-filter";
 import type { Branch } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
-import { Diamond, Download, Gem, PackagePlus, Plus, Printer, Search } from "lucide-react";
-import {
-  rowToBarcodeLabel,
-  useBarcodeLabelPrint,
-} from "@/app/(components)/inventory/BarcodeLabelPrint";
+import { Diamond, Download, Gem, PackagePlus, Plus, Search } from "lucide-react";
 
 const SetAsideModal = dynamic(
   () => import("@/app/(components)/inventory/SetAsideModal"),
@@ -81,7 +77,6 @@ export default function InventoryPage() {
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
   const [hallmarkFilter, setHallmarkFilter] = useState<HallmarkFilter>("");
   const [setAsideRow, setSetAsideRow] = useState<InventoryUnitRow | null>(null);
-  const { printLabels, sheet: labelPrintSheet } = useBarcodeLabelPrint();
 
   useEffect(() => {
     fetchBranches()
@@ -190,7 +185,6 @@ export default function InventoryPage() {
 
   return (
     <div className="page-content">
-      {labelPrintSheet}
       <PageHeader
         title={
           isBranchView && userBranchName
@@ -319,9 +313,6 @@ export default function InventoryPage() {
           onEditProduct={handleEditUnitRow}
           onSetAside={handleSetAside}
           onReleaseHold={handleReleaseHold}
-          onPrintLabels={(rows) =>
-            printLabels(rows.map((row) => rowToBarcodeLabel(row)))
-          }
         />
       </div>
 
