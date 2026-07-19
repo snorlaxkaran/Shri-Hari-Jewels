@@ -27,6 +27,19 @@ const enumExists = async (enumName: string): Promise<boolean> => {
   return rows[0]?.exists ?? false;
 };
 
+const columnExists = async (table: string, column: string): Promise<boolean> => {
+  const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND lower(table_name) = lower(${table})
+        AND lower(column_name) = lower(${column})
+    ) AS exists
+  `;
+  return rows[0]?.exists ?? false;
+};
+
 const run = async (label: string, sql: string) => {
   console.log(label);
   await prisma.$executeRawUnsafe(sql);
@@ -106,6 +119,229 @@ const ensureInventoryUnitTransferred = async () => {
     END $$;
     `,
   );
+};
+
+const ensureInvoiceItemTable = async () => {
+  await run(
+    "Ensure InvoiceItem table…",
+    `
+    CREATE TABLE IF NOT EXISTS "InvoiceItem" (
+      "id" TEXT NOT NULL,
+      "invoiceId" TEXT NOT NULL,
+      "saleId" TEXT,
+      "itemCode" TEXT NOT NULL,
+      "productName" TEXT NOT NULL,
+      "sku" TEXT NOT NULL,
+      "hsnCode" TEXT,
+      "metal" TEXT NOT NULL DEFAULT 'Base Metal',
+      "listPrice" DECIMAL(12,2) NOT NULL,
+      "discount" DECIMAL(12,2) NOT NULL DEFAULT 0,
+      "amount" DECIMAL(12,2) NOT NULL,
+      CONSTRAINT "InvoiceItem_pkey" PRIMARY KEY ("id")
+    )
+    `,
+  );
+
+  const itemIndexes = [
+    `CREATE UNIQUE INDEX IF NOT EXISTS "InvoiceItem_saleId_key" ON "InvoiceItem"("saleId")`,
+    `CREATE INDEX IF NOT EXISTS "InvoiceItem_invoiceId_idx" ON "InvoiceItem"("invoiceId")`,
+  ];
+  for (const sql of itemIndexes) {
+    await run(`Apply: ${sql.slice(0, 60)}…`, sql);
+  }
+
+  await run(
+    "Ensure InvoiceItem foreign keys…",
+    `
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'InvoiceItem_invoiceId_fkey') THEN
+        ALTER TABLE "InvoiceItem"
+          ADD CONSTRAINT "InvoiceItem_invoiceId_fkey"
+          FOREIGN KEY ("invoiceId") REFERENCES "Invoice"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'InvoiceItem_saleId_fkey') THEN
+        ALTER TABLE "InvoiceItem"
+          ADD CONSTRAINT "InvoiceItem_saleId_fkey"
+          FOREIGN KEY ("saleId") REFERENCES "Sale"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+    END $$;
+    `,
+  );
+};
+
+const ensureInvoiceGstHeaderSchema = async () => {
+  if (!(await tableExists("Invoice"))) {
+    console.log("Skip Invoice GST header migration — Invoice table not found yet.");
+    return;
+  }
+
+  console.log("Ensure Invoice GST header columns and backfill…");
+
+  await ensureInvoiceItemTable();
+
+  const invoiceColumnAlters = [
+    `ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "subtotal" DECIMAL(12,2)`,
+    `ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "taxableValue" DECIMAL(12,2)`,
+    `ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "cgst" DECIMAL(12,2)`,
+    `ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "sgst" DECIMAL(12,2)`,
+    `ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "igst" DECIMAL(12,2)`,
+    `ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "roundOff" DECIMAL(12,2)`,
+    `ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "cartGroupId" TEXT`,
+    `ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "placeOfSupply" TEXT`,
+  ];
+  for (const sql of invoiceColumnAlters) {
+    await run(`Apply: ${sql.slice(0, 60)}…`, sql);
+  }
+
+  if (await tableExists("InvoiceItem")) {
+    const itemColumnAlters = [
+      `ALTER TABLE "InvoiceItem" ADD COLUMN IF NOT EXISTS "hsnCode" TEXT`,
+      `ALTER TABLE "InvoiceItem" ADD COLUMN IF NOT EXISTS "metal" TEXT`,
+      `UPDATE "InvoiceItem" SET "metal" = 'Base Metal' WHERE "metal" IS NULL`,
+    ];
+    for (const sql of itemColumnAlters) {
+      await run(`Apply: ${sql.slice(0, 60)}…`, sql);
+    }
+
+    const hasLegacyListPrice = await columnExists("Invoice", "listPrice");
+    if (hasLegacyListPrice) {
+      await run(
+        "Migrate legacy Invoice line columns into InvoiceItem…",
+        `
+        INSERT INTO "InvoiceItem" (
+          "id",
+          "invoiceId",
+          "saleId",
+          "itemCode",
+          "productName",
+          "sku",
+          "hsnCode",
+          "metal",
+          "listPrice",
+          "discount",
+          "amount"
+        )
+        SELECT
+          gen_random_uuid()::text,
+          i."id",
+          i."saleId",
+          COALESCE(i."itemCode", 'LEGACY'),
+          COALESCE(i."productName", 'Item'),
+          COALESCE(i."sku", 'LEGACY'),
+          NULL,
+          'Base Metal',
+          COALESCE(i."listPrice", i."total", 0),
+          COALESCE(i."discount", 0),
+          COALESCE(i."total", 0)
+        FROM "Invoice" i
+        WHERE NOT EXISTS (
+          SELECT 1 FROM "InvoiceItem" ii WHERE ii."invoiceId" = i."id"
+        )
+        `,
+      );
+    }
+
+    await run(
+      "Backfill Invoice subtotal and taxableValue from line items…",
+      `
+      UPDATE "Invoice" i
+      SET
+        "subtotal" = COALESCE(
+          i."subtotal",
+          (
+            SELECT COALESCE(SUM(ii."listPrice"), 0)
+            FROM "InvoiceItem" ii
+            WHERE ii."invoiceId" = i."id"
+          )
+        ),
+        "taxableValue" = COALESCE(
+          i."taxableValue",
+          (
+            SELECT COALESCE(SUM(ii."amount"), 0)
+            FROM "InvoiceItem" ii
+            WHERE ii."invoiceId" = i."id"
+          )
+        )
+      WHERE i."subtotal" IS NULL OR i."taxableValue" IS NULL
+      `,
+    );
+  }
+
+  if (await columnExists("Invoice", "listPrice")) {
+    await run(
+      "Backfill Invoice headers from legacy listPrice/total columns…",
+      `
+      UPDATE "Invoice"
+      SET
+        "subtotal" = COALESCE("subtotal", "listPrice", "total", 0),
+        "taxableValue" = COALESCE(
+          "taxableValue",
+          GREATEST(COALESCE("total", 0) - COALESCE("discount", 0), 0),
+          "total",
+          0
+        )
+      WHERE "subtotal" IS NULL OR "taxableValue" IS NULL
+      `,
+    );
+  }
+
+  await run(
+    "Backfill remaining Invoice GST header values…",
+    `
+    UPDATE "Invoice"
+    SET
+      "subtotal" = COALESCE("subtotal", "total", 0),
+      "taxableValue" = COALESCE("taxableValue", "total", 0),
+      "discount" = COALESCE("discount", 0),
+      "cgst" = COALESCE("cgst", 0),
+      "sgst" = COALESCE("sgst", 0),
+      "igst" = COALESCE("igst", 0),
+      "roundOff" = COALESCE("roundOff", 0)
+    WHERE
+      "subtotal" IS NULL
+      OR "taxableValue" IS NULL
+      OR "discount" IS NULL
+      OR "cgst" IS NULL
+      OR "sgst" IS NULL
+      OR "igst" IS NULL
+      OR "roundOff" IS NULL
+    `,
+  );
+
+  const notNullAlters = [
+    `ALTER TABLE "Invoice" ALTER COLUMN "subtotal" SET DEFAULT 0`,
+    `ALTER TABLE "Invoice" ALTER COLUMN "taxableValue" SET DEFAULT 0`,
+    `ALTER TABLE "Invoice" ALTER COLUMN "discount" SET DEFAULT 0`,
+    `ALTER TABLE "Invoice" ALTER COLUMN "cgst" SET DEFAULT 0`,
+    `ALTER TABLE "Invoice" ALTER COLUMN "sgst" SET DEFAULT 0`,
+    `ALTER TABLE "Invoice" ALTER COLUMN "igst" SET DEFAULT 0`,
+    `ALTER TABLE "Invoice" ALTER COLUMN "roundOff" SET DEFAULT 0`,
+    `ALTER TABLE "Invoice" ALTER COLUMN "subtotal" SET NOT NULL`,
+    `ALTER TABLE "Invoice" ALTER COLUMN "taxableValue" SET NOT NULL`,
+    `ALTER TABLE "Invoice" ALTER COLUMN "discount" SET NOT NULL`,
+    `ALTER TABLE "Invoice" ALTER COLUMN "cgst" SET NOT NULL`,
+    `ALTER TABLE "Invoice" ALTER COLUMN "sgst" SET NOT NULL`,
+    `ALTER TABLE "Invoice" ALTER COLUMN "igst" SET NOT NULL`,
+    `ALTER TABLE "Invoice" ALTER COLUMN "roundOff" SET NOT NULL`,
+  ];
+  for (const sql of notNullAlters) {
+    await run(`Apply: ${sql.slice(0, 60)}…`, sql);
+  }
+
+  if (await tableExists("InvoiceItem") && (await columnExists("InvoiceItem", "metal"))) {
+    const itemNotNullAlters = [
+      `UPDATE "InvoiceItem" SET "metal" = 'Base Metal' WHERE "metal" IS NULL`,
+      `ALTER TABLE "InvoiceItem" ALTER COLUMN "metal" SET DEFAULT 'Base Metal'`,
+      `ALTER TABLE "InvoiceItem" ALTER COLUMN "metal" SET NOT NULL`,
+    ];
+    for (const sql of itemNotNullAlters) {
+      await run(`Apply: ${sql.slice(0, 60)}…`, sql);
+    }
+  }
 };
 
 const ensureTransferInvoiceSchema = async () => {
@@ -454,6 +690,7 @@ const main = async () => {
   await ensureInventoryUnitTransferred();
   await ensureStockTransferStatus();
   await ensureTransferInvoiceSchema();
+  await ensureInvoiceGstHeaderSchema();
   await ensureInventoryUnitListPrice();
   await ensureMultiTenantOrganizations();
   await ensureOrgScopedInventoryIdentifiers();
