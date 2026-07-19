@@ -11,6 +11,7 @@ import ProductionRunElementCard from "@/app/(components)/production-runs/Product
 import ProductionRunWizardShell from "@/app/(components)/production-runs/ProductionRunWizardShell";
 import StageWorksheetToolbar from "@/app/(components)/production-runs/StageWorksheetToolbar";
 import MetalIssuePanel, { isMetalIssueStage } from "@/app/(components)/production-runs/MetalIssuePanel";
+import QcWorksheet from "@/app/(components)/production-runs/QcWorksheet";
 import {
   CastingFields,
   StageCheckoffField,
@@ -24,9 +25,11 @@ import {
   completeProductionRunStage,
   fetchMetalIssues,
   fetchProductionRun,
+  fetchQcRecords,
   rejectProductionRunStage,
   updateProductionRunItem,
 } from "@/lib/api/production-runs";
+import { fetchSettings } from "@/lib/api/settings";
 import { fetchCurrentMarketRates } from "@/lib/api/market-rates";
 import { fetchMetalLots, fetchCertifiedStoneLots } from "@/lib/api/raw-inventory";
 import {
@@ -49,6 +52,7 @@ import type {
   ProductionRun,
   ProductionRunItem,
   ProductionRunMetalIssue,
+  ProductionRunQcRecord,
   ProductionRunStage,
   UpdateProductionRunItemInput,
 } from "@/lib/types";
@@ -56,8 +60,16 @@ import type {
 const inputClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
 
-function isItemDoneForStage(item: ProductionRunItem, stage: ProductionRunStage): boolean {
+function isItemDoneForStage(
+  item: ProductionRunItem,
+  stage: ProductionRunStage,
+  qcRecords: ProductionRunQcRecord[] = [],
+): boolean {
   const config = getStageWorksheetConfig(stage);
+  if (config.mode === "qc") {
+    const latest = qcRecords.find((r) => r.productionRunItemId === item.id);
+    return latest?.result === "Pass";
+  }
   if (config.mode === "wax") {
     return item.elementType === "Stone"
       ? true
@@ -136,6 +148,9 @@ export default function ProductionRunStagePage() {
   const [notes, setNotes] = useState("");
   const [karigarName, setKarigarName] = useState("");
   const [metalIssues, setMetalIssues] = useState<ProductionRunMetalIssue[]>([]);
+  const [qcRecords, setQcRecords] = useState<ProductionRunQcRecord[]>([]);
+  const [metalWastageAlertPercent, setMetalWastageAlertPercent] = useState(3);
+  const [returnIssueId, setReturnIssueId] = useState<string | null>(null);
   const [goldRate, setGoldRate] = useState(0);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectToStage, setRejectToStage] = useState<ProductionRunStage>("Wax Pattern");
@@ -148,17 +163,21 @@ export default function ProductionRunStagePage() {
   const loadRun = useCallback(async () => {
     setLoading(true);
     try {
-      const [runData, metals, stones, issues, rates] = await Promise.all([
+      const [runData, metals, stones, issues, rates, settings, qc] = await Promise.all([
         fetchProductionRun(runId),
         fetchMetalLots(),
         fetchCertifiedStoneLots(),
         fetchMetalIssues(runId).catch(() => []),
         fetchCurrentMarketRates().catch(() => null),
+        fetchSettings().catch(() => null),
+        fetchQcRecords(runId).catch(() => []),
       ]);
       setRun(runData);
       setMetalLots(metals);
       setStoneLots(stones);
       setMetalIssues(issues);
+      setQcRecords(qc);
+      setMetalWastageAlertPercent(settings?.metalWastageAlertPercent ?? 3);
       setGoldRate(rates?.gold22k ?? 0);
       const latestKarigar = [...runData.stageLogs]
         .reverse()
@@ -271,6 +290,43 @@ export default function ProductionRunStagePage() {
   const waxReadyCount = waxRequiredItems.filter(
     (item) => item.waxCount != null && item.waxCount >= 0,
   ).length;
+  const stageOpenIssues = metalIssues.filter(
+    (issue) => issue.stage === stage && issue.status === "Open",
+  );
+  const openMetalTotal = stageOpenIssues.reduce(
+    (sum, issue) => sum + issue.weightIssuedGrams,
+    0,
+  );
+  const metalReturnBlocked =
+    isCurrent && isMetalIssueStage(stage) && stageOpenIssues.length > 0;
+
+  const scrollToMetalPanel = () => {
+    const firstOpen = stageOpenIssues[0];
+    if (firstOpen) {
+      setReturnIssueId(firstOpen.id);
+    }
+    document.getElementById("metal-issue-panel")?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  };
+
+  const handleQcSubmitted = async (result: {
+    qcRecord: ProductionRunQcRecord;
+    warning?: string;
+    rejectedToStage?: ProductionRunStage;
+  }) => {
+    setQcRecords((prev) => [result.qcRecord, ...prev]);
+    await refreshList();
+    const updated = await fetchProductionRun(runId);
+    setRun(updated);
+    if (result.rejectedToStage) {
+      const slug = stageToProductionRunSlug(result.rejectedToStage);
+      if (slug) router.push(`/production-runs/${runId}/${slug}`);
+    } else {
+      setQcRecords(await fetchQcRecords(runId).catch(() => []));
+    }
+  };
 
   return (
     <div className="page-content">
@@ -374,6 +430,9 @@ export default function ProductionRunStagePage() {
             issues={metalIssues}
             canEdit={canEdit}
             goldRatePerGram={goldRate}
+            metalWastageAlertPercent={metalWastageAlertPercent}
+            returnIssueId={returnIssueId}
+            onReturnIssueIdChange={setReturnIssueId}
             onUpdated={setMetalIssues}
           />
         </div>
@@ -407,6 +466,14 @@ export default function ProductionRunStagePage() {
           <p className="text-sm text-zinc-500">
             No elements apply to this stage for this run.
           </p>
+        ) : worksheetConfig.mode === "qc" ? (
+          <QcWorksheet
+            runId={runId}
+            items={stageItems}
+            qcRecords={qcRecords}
+            canEdit={canEdit}
+            onSubmitted={(result) => void handleQcSubmitted(result)}
+          />
         ) : (
           <div className="space-y-4">
             {stageItems.map((item, index) => (
@@ -414,7 +481,7 @@ export default function ProductionRunStagePage() {
                 key={item.id}
                 item={item}
                 index={index}
-                done={isItemDoneForStage(item, stage)}
+                done={isItemDoneForStage(item, stage, qcRecords)}
               >
                 {renderStageFields(
                   stage,
@@ -505,7 +572,21 @@ export default function ProductionRunStagePage() {
         </div>
       )}
 
-      <div className="flex gap-3 mt-6">
+      <div className="flex flex-col gap-3 mt-6">
+        {metalReturnBlocked && (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+            Cannot complete — {openMetalTotal}g still checked out to{" "}
+            {stageOpenIssues.map((issue) => issue.karigarName).join(", ")}.{" "}
+            <button
+              type="button"
+              onClick={scrollToMetalPanel}
+              className="font-medium underline"
+            >
+              Record return first
+            </button>
+          </p>
+        )}
+        <div className="flex gap-3">
         {prevStep && (
           <Link
             href={`/production-runs/${runId}/${prevStep.slug}`}
@@ -519,7 +600,7 @@ export default function ProductionRunStagePage() {
             <button
               type="button"
               onClick={() => setConfirmOpen(true)}
-              disabled={submitting || !karigarName.trim()}
+              disabled={submitting || !karigarName.trim() || metalReturnBlocked}
               className="btn-primary flex-1 px-4 py-2.5 text-sm disabled:opacity-50"
             >
               {nextStep ? `Complete & Next: ${nextStep.label}` : "Complete Run"}
@@ -547,6 +628,7 @@ export default function ProductionRunStagePage() {
             Next: {nextStep.label}
           </Link>
         )}
+        </div>
       </div>
 
       <ConfirmDialog

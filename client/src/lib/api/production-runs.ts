@@ -207,3 +207,41 @@ export const recordMetalReturn = async (
   );
   return { ...data, stage: normalizeProductionRunStage(data.stage) };
 };
+
+export const fetchQcRecords = async (
+  runId: string,
+): Promise<import("@/lib/types").ProductionRunQcRecord[]> => {
+  const { data } = await api.get(`/api/production-runs/${runId}/qc-records`);
+  return data;
+};
+
+export const fetchNcrs = async (
+  runId: string,
+): Promise<import("@/lib/types").NonConformanceReport[]> => {
+  const { data } = await api.get(`/api/production-runs/${runId}/ncrs`);
+  return data.map((ncr: import("@/lib/types").NonConformanceReport) => ({
+    ...ncr,
+    sentToStage: normalizeProductionRunStage(ncr.sentToStage),
+  }));
+};
+
+export const submitProductionRunItemQc = async (
+  runId: string,
+  itemId: string,
+  input: import("@/lib/types").SubmitProductionRunQcInput,
+): Promise<{
+  qcRecord: import("@/lib/types").ProductionRunQcRecord;
+  warning?: string;
+  rejectedToStage?: ProductionRunStage;
+}> => {
+  const { data } = await api.post(
+    `/api/production-runs/${runId}/items/${itemId}/qc`,
+    input,
+  );
+  return {
+    ...data,
+    rejectedToStage: data.rejectedToStage
+      ? normalizeProductionRunStage(data.rejectedToStage)
+      : undefined,
+  };
+};

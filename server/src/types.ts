@@ -1015,6 +1015,7 @@ export type ShopSettings = {
   goldMakingChargesPct: number;
   silverMakingChargesPct: number;
   makingChargesOverrideNote: string | null;
+  metalWastageAlertPercent: number;
 };
 
 export type UpdateShopSettingsInput = {
@@ -1045,6 +1046,7 @@ export type UpdateShopSettingsInput = {
   goldMakingChargesPct?: number;
   silverMakingChargesPct?: number;
   makingChargesOverrideNote?: string;
+  metalWastageAlertPercent?: number;
 };
 
 export type RecordSaleResult = {

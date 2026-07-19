@@ -115,6 +115,17 @@ enum StageLogAction {
   Rejected
 }
 
+enum QcResult {
+  Pass
+  Fail
+}
+
+enum NcrSeverity {
+  Minor
+  Major
+  Critical
+}
+
 enum DesignApprovalStatus {
   Draft
   PendingApproval
@@ -441,6 +452,7 @@ model ShopSettings {
   silverMakingChargesPct         Decimal  @default(17.00) @db.Decimal(5, 2)
   makingChargesOverrideNote      String?
   discountApprovalThresholdPct   Decimal  @default(10.00) @db.Decimal(5, 2)
+  metalWastageAlertPercent       Decimal  @default(3.00) @db.Decimal(5, 2)
   onboardingCompletedAt          DateTime?
   updatedAt                      DateTime @updatedAt
 
@@ -895,6 +907,7 @@ model ProductionRun {
   stageLogs    ProductionRunStageLog[]
   stoneIssues  ProductionRunStoneIssue[]
   metalIssues  ProductionRunMetalIssue[]
+  qcRecords    ProductionRunQcRecord[]
   finishedGoodsProduct Product? @relation("ProductionRunFinishedGoods", fields: [finishedGoodsProductId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, runNo])
@@ -952,8 +965,47 @@ model ProductionRunItem {
   stageCheckoffs      Json      @default("{}")
 
   productionRun ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: Cascade)
+  qcRecords     ProductionRunQcRecord[]
 
   @@index([productionRunId])
+}
+
+model ProductionRunQcRecord {
+  id                  String   @id @default(uuid())
+  productionRunId     String
+  productionRunItemId String
+  result              QcResult
+  checklistResults    Json
+  inspectedByName     String
+  photoUrls           String[] @default([])
+  createdAt           DateTime @default(now())
+
+  productionRun     ProductionRun         @relation(fields: [productionRunId], references: [id], onDelete: Cascade)
+  productionRunItem ProductionRunItem     @relation(fields: [productionRunItemId], references: [id], onDelete: Cascade)
+  ncr               NonConformanceReport?
+
+  @@index([productionRunId])
+  @@index([productionRunItemId])
+}
+
+model NonConformanceReport {
+  id               String             @id @default(uuid())
+  qcRecordId       String             @unique
+  ncrNo            String
+  severity         NcrSeverity
+  failedCriteria   String[]
+  description      String
+  rootCause        String?
+  correctiveAction String?
+  sentToStage      ProductionRunStage
+  resolvedAt       DateTime?
+  createdByName    String
+  createdAt        DateTime           @default(now())
+
+  qcRecord ProductionRunQcRecord @relation(fields: [qcRecordId], references: [id], onDelete: Cascade)
+
+  @@index([severity])
+  @@index([ncrNo])
 }
 
 model WorkOrder {

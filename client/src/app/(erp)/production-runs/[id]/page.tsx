@@ -15,8 +15,10 @@ import { useProductionRuns } from "@/lib/production-runs/production-runs-context
 import {
   exportProductionRunCsv,
   fetchFinishedGoodsDefaults,
+  fetchNcrs,
   fetchProductionRun,
 } from "@/lib/api/production-runs";
+import { NcrHistorySection } from "@/app/(components)/production-runs/QcWorksheet";
 import { fetchMetalLots, fetchCertifiedStoneLots } from "@/lib/api/raw-inventory";
 import { PRODUCT_CATEGORIES, type ProductCategory } from "@/lib/inventory/categories";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -36,6 +38,7 @@ import type {
   ProductionRun,
   ProductionRunItem,
   ProductionRunStatus,
+  NonConformanceReport,
   Purity,
   CertifiedStoneLot,
   UpdateProductionRunItemInput,
@@ -779,13 +782,18 @@ export default function ProductionRunDetailPage() {
   );
   const [loadingDefaults, setLoadingDefaults] = useState(false);
   const [defaultsError, setDefaultsError] = useState("");
+  const [ncrs, setNcrs] = useState<NonConformanceReport[]>([]);
 
   const loadRun = useCallback(async () => {
     setLoading(true);
     setPageError("");
     try {
-      const data = await fetchProductionRun(runId);
+      const [data, ncrData] = await Promise.all([
+        fetchProductionRun(runId),
+        fetchNcrs(runId).catch(() => []),
+      ]);
       setRun(data);
+      setNcrs(ncrData);
       setStatusDraft(null);
       setShowCreateSku(false);
       setSkuDefaults(null);
@@ -1034,6 +1042,8 @@ export default function ProductionRunDetailPage() {
           <p className="text-xs text-red-500 mt-3">{statusError}</p>
         )}
       </div>
+
+      <NcrHistorySection ncrs={ncrs} />
 
       <div className="space-y-4">
         {run.items.map((item) => (

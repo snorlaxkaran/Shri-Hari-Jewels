@@ -25,7 +25,13 @@ import {
   MetalIssueError,
   recordMetalReturn,
 } from "../lib/production-runs/metal-issue-service.js";
-import { slugToStage } from "../lib/production-runs/stages.js";
+import {
+  listNcrsForRun,
+  listQcRecordsForRun,
+  QcError,
+  submitProductionRunItemQc,
+} from "../lib/production-runs/qc-service.js";
+import { slugToStage, PRODUCTION_RUN_STAGES, type ProductionRunStage } from "../lib/production-runs/stages.js";
 import { getShopSettings } from "../lib/settings/service.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
 import { attachOrganization } from "../middleware/organization.js";
@@ -381,6 +387,115 @@ productionRunsRouter.post(
       }
       console.error("POST /api/production-runs/:id/stages/:stageSlug/reject", error);
       res.status(500).json({ error: "Failed to reject stage." });
+    }
+  },
+);
+
+productionRunsRouter.get(
+  "/:id/qc-records",
+  requireRole(canViewProductionRuns),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const records = await listQcRecordsForRun(
+        routeParam(req.params.id),
+        req.organizationId!,
+      );
+      res.json(records);
+    } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      if (error instanceof QcError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("GET /api/production-runs/:id/qc-records", error);
+      res.status(500).json({ error: "Failed to list QC records." });
+    }
+  },
+);
+
+productionRunsRouter.get(
+  "/:id/ncrs",
+  requireRole(canViewProductionRuns),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const ncrs = await listNcrsForRun(
+        routeParam(req.params.id),
+        req.organizationId!,
+      );
+      res.json(ncrs);
+    } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      if (error instanceof QcError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("GET /api/production-runs/:id/ncrs", error);
+      res.status(500).json({ error: "Failed to list NCRs." });
+    }
+  },
+);
+
+productionRunsRouter.post(
+  "/:id/items/:itemId/qc",
+  requireRole(canUpdateProductionRunItems),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = req.body as {
+        checklistResults?: Record<string, boolean>;
+        inspectedByName?: string;
+        photoUrls?: string[];
+        severity?: "Minor" | "Major" | "Critical";
+        description?: string;
+        failedCriteria?: string[];
+        sentToStage?: string;
+      };
+      const parseSentToStage = (value?: string): ProductionRunStage | undefined => {
+        if (!value) return undefined;
+        const fromSlug = slugToStage(value);
+        if (fromSlug) return fromSlug;
+        if (PRODUCTION_RUN_STAGES.includes(value as ProductionRunStage)) {
+          return value as ProductionRunStage;
+        }
+        return undefined;
+      };
+
+      const result = await submitProductionRunItemQc(
+        routeParam(req.params.id),
+        routeParam(req.params.itemId),
+        {
+          checklistResults: body.checklistResults ?? {},
+          inspectedByName: String(body.inspectedByName ?? ""),
+          photoUrls: body.photoUrls,
+          severity: body.severity,
+          description: body.description,
+          failedCriteria: body.failedCriteria,
+          sentToStage: parseSentToStage(body.sentToStage),
+        },
+        { id: req.user!.id, name: req.user!.name },
+        req.organizationId!,
+      );
+      res.status(201).json(result);
+    } catch (error) {
+      if (error instanceof OrganizationAccessError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      if (error instanceof QcError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      if (error instanceof ProductionRunError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/production-runs/:id/items/:itemId/qc", error);
+      res.status(500).json({ error: "Failed to submit QC." });
     }
   },
 );

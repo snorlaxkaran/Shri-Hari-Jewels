@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { MetalLot, ProductionRunMetalIssue, ProductionRunStage } from "@/lib/types";
 import {
   fetchMetalIssues,
@@ -23,6 +23,9 @@ type MetalIssuePanelProps = {
   issues: ProductionRunMetalIssue[];
   canEdit: boolean;
   goldRatePerGram?: number;
+  metalWastageAlertPercent?: number;
+  returnIssueId?: string | null;
+  onReturnIssueIdChange?: (id: string | null) => void;
   onUpdated: (issues: ProductionRunMetalIssue[]) => void;
 };
 
@@ -34,6 +37,9 @@ export default function MetalIssuePanel({
   issues,
   canEdit,
   goldRatePerGram = 0,
+  metalWastageAlertPercent = 3,
+  returnIssueId: externalReturnIssueId,
+  onReturnIssueIdChange,
   onUpdated,
 }: MetalIssuePanelProps) {
   const [error, setError] = useState("");
@@ -56,6 +62,34 @@ export default function MetalIssuePanel({
   const lossGrams = returning
     ? Math.max(0, returning.weightIssuedGrams - returnedNum)
     : 0;
+  const lossPct =
+    returning && returning.weightIssuedGrams > 0
+      ? (lossGrams / returning.weightIssuedGrams) * 100
+      : 0;
+  const lossExceedsThreshold = lossPct > metalWastageAlertPercent;
+
+  useEffect(() => {
+    if (externalReturnIssueId) {
+      const issue = stageIssues.find((i) => i.id === externalReturnIssueId);
+      if (issue) {
+        setReturnIssueId(externalReturnIssueId);
+        setWeightReturned(String(issue.weightIssuedGrams));
+      }
+    }
+  }, [externalReturnIssueId, stageIssues]);
+
+  const openReturnModal = (issueId: string, issuedGrams: number) => {
+    setReturnIssueId(issueId);
+    setWeightReturned(String(issuedGrams));
+    onReturnIssueIdChange?.(issueId);
+  };
+
+  const closeReturnModal = () => {
+    setReturnIssueId(null);
+    setWeightReturned("");
+    setLossReason("");
+    onReturnIssueIdChange?.(null);
+  };
 
   const handleIssue = async () => {
     setBusy(true);
@@ -81,6 +115,12 @@ export default function MetalIssuePanel({
 
   const handleReturn = async () => {
     if (!returnIssueId) return;
+    if (lossExceedsThreshold && !lossReason.trim()) {
+      setError(
+        `Loss of ${lossPct.toFixed(1)}% exceeds the ${metalWastageAlertPercent}% threshold — please explain the wastage.`,
+      );
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -89,9 +129,7 @@ export default function MetalIssuePanel({
         lossReason: lossGrams > 0 ? lossReason : undefined,
       });
       onUpdated(await fetchMetalIssues(runId));
-      setReturnIssueId(null);
-      setWeightReturned("");
-      setLossReason("");
+      closeReturnModal();
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to record return."));
     } finally {
@@ -100,7 +138,10 @@ export default function MetalIssuePanel({
   };
 
   return (
-    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-3">
+    <div
+      id="metal-issue-panel"
+      className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-3"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-zinc-900">Metal issue / recovery</h3>
         {canEdit && !openIssue && (
@@ -113,6 +154,12 @@ export default function MetalIssuePanel({
           </button>
         )}
       </div>
+
+      {openIssue && (
+        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+          Open: {openIssue.weightIssuedGrams}g with {openIssue.karigarName} — record return before completing this stage.
+        </p>
+      )}
 
       {error && <p className="text-xs text-red-600">{error}</p>}
 
@@ -180,14 +227,16 @@ export default function MetalIssuePanel({
                   {issue.status === "Settled" &&
                     ` · ${issue.weightReturnedGrams}g returned · ${issue.weightLossGrams}g loss`}
                 </span>
+                {issue.status === "Open" && (
+                  <span className="ml-2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                    Open
+                  </span>
+                )}
               </div>
               {canEdit && issue.status === "Open" && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setReturnIssueId(issue.id);
-                    setWeightReturned(String(issue.weightIssuedGrams));
-                  }}
+                  onClick={() => openReturnModal(issue.id, issue.weightIssuedGrams)}
                   className="btn-secondary px-3 py-1 text-xs"
                 >
                   Record Return
@@ -212,17 +261,23 @@ export default function MetalIssuePanel({
           />
           {lossGrams > 0 && (
             <>
-              <p className="text-xs text-amber-700">
-                Loss: {lossGrams.toFixed(3)}g
+              <p
+                className={`text-xs ${lossExceedsThreshold ? "text-amber-800 font-medium" : "text-amber-700"}`}
+              >
+                Loss: {lossGrams.toFixed(3)}g ({lossPct.toFixed(1)}%)
+                {lossExceedsThreshold &&
+                  ` — exceeds ${metalWastageAlertPercent}% alert threshold; please confirm and explain`}
                 {goldRatePerGram > 0 &&
                   ` · ₹${(lossGrams * goldRatePerGram).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`}
               </p>
-              <input
-                value={lossReason}
-                onChange={(e) => setLossReason(e.target.value)}
-                placeholder="Loss reason (required)"
-                className="input-field w-full px-3 py-2 text-sm"
-              />
+              {lossExceedsThreshold && (
+                <input
+                  value={lossReason}
+                  onChange={(e) => setLossReason(e.target.value)}
+                  placeholder="Loss reason (required above threshold)"
+                  className="input-field w-full px-3 py-2 text-sm"
+                />
+              )}
             </>
           )}
           <div className="flex gap-2">
@@ -236,7 +291,7 @@ export default function MetalIssuePanel({
             </button>
             <button
               type="button"
-              onClick={() => setReturnIssueId(null)}
+              onClick={closeReturnModal}
               className="btn-secondary px-3 py-1.5 text-xs"
             >
               Cancel

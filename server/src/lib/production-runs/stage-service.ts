@@ -8,6 +8,7 @@ import {
   finalizeProductionRunInTx,
   PRODUCTION_RUN_COMPLETION_TX_OPTIONS,
 } from "./run-completion.js";
+import { isMetalIssueStage } from "./metal-issue-service.js";
 import { CHECKOFF_STAGES, STAGE_WORKSHEET_CONFIG } from "./stage-config.js";
 import {
   getEarlierStages,
@@ -94,7 +95,7 @@ export const completeProductionRunStage = async (
     );
   }
 
-  validateStageComplete(run, stage);
+  await validateStageComplete(run, stage);
 
   const next = nextProductionRunStage(stage);
   const isLast = next === null;
@@ -228,9 +229,11 @@ const parseStageCheckoffs = (
   return out;
 };
 
-const validateStageComplete = (
+const validateStageComplete = async (
   run: {
+    id: string;
     items: Array<{
+      id: string;
       elementType: string;
       waxCount: number | null;
       castingReceived: boolean;
@@ -240,7 +243,26 @@ const validateStageComplete = (
     }>;
   },
   stage: ProductionRunStage,
-): void => {
+): Promise<void> => {
+  if (isMetalIssueStage(stage)) {
+    const openIssues = await prisma.productionRunMetalIssue.findMany({
+      where: {
+        productionRunId: run.id,
+        stage: toDbProductionRunStage(stage),
+        status: "Open",
+      },
+    });
+    if (openIssues.length > 0) {
+      const total = openIssues.reduce(
+        (sum, i) => sum + Number(i.weightIssuedGrams),
+        0,
+      );
+      throw new ProductionRunError(
+        `${openIssues.length} metal issue(s) totalling ${total}g are still unsettled for this stage (issued to: ${openIssues.map((i) => i.karigarName).join(", ")}). Record the return before completing this stage.`,
+      );
+    }
+  }
+
   switch (stage) {
     case "Wax Pattern": {
       if (run.items.length === 0) break;
@@ -277,6 +299,27 @@ const validateStageComplete = (
       ) {
         throw new ProductionRunError(
           "Enter CZ stone counts or weights for all stone/motif elements before continuing.",
+        );
+      }
+      break;
+    }
+    case "Quality Check": {
+      const records = await prisma.productionRunQcRecord.findMany({
+        where: { productionRunId: run.id },
+        orderBy: { createdAt: "desc" },
+      });
+      const latestByItem = new Map<string, (typeof records)[number]>();
+      for (const record of records) {
+        if (!latestByItem.has(record.productionRunItemId)) {
+          latestByItem.set(record.productionRunItemId, record);
+        }
+      }
+      const pending = run.items.filter(
+        (item) => latestByItem.get(item.id)?.result !== "Pass",
+      );
+      if (pending.length > 0) {
+        throw new ProductionRunError(
+          `Complete QC inspection for all elements before continuing (${pending.length} pending or failed).`,
         );
       }
       break;

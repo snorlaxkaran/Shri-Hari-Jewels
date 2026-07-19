@@ -929,6 +929,7 @@ export type ShopSettings = {
   goldMakingChargesPct: number;
   silverMakingChargesPct: number;
   makingChargesOverrideNote: string | null;
+  metalWastageAlertPercent: number;
 };
 
 export type UpdateShopSettingsInput = {
@@ -959,6 +960,7 @@ export type UpdateShopSettingsInput = {
   goldMakingChargesPct?: number;
   silverMakingChargesPct?: number;
   makingChargesOverrideNote?: string;
+  metalWastageAlertPercent?: number;
 };
 
 export type MarketRatesCurrent = {
@@ -1579,6 +1581,47 @@ export type ProductionRunMetalIssue = {
   settledByName?: string;
   issuedAt: string;
   settledAt?: string;
+};
+
+export type QcResult = "Pass" | "Fail";
+export type NcrSeverity = "Minor" | "Major" | "Critical";
+
+export type ProductionRunQcRecord = {
+  id: string;
+  productionRunId: string;
+  productionRunItemId: string;
+  result: QcResult;
+  checklistResults: Record<string, boolean>;
+  inspectedByName: string;
+  photoUrls: string[];
+  createdAt: string;
+  ncr?: NonConformanceReport;
+};
+
+export type NonConformanceReport = {
+  id: string;
+  qcRecordId: string;
+  ncrNo: string;
+  severity: NcrSeverity;
+  failedCriteria: string[];
+  description: string;
+  rootCause?: string;
+  correctiveAction?: string;
+  sentToStage: ProductionRunStage;
+  resolvedAt?: string;
+  createdByName: string;
+  createdAt: string;
+  elementName?: string;
+};
+
+export type SubmitProductionRunQcInput = {
+  checklistResults: Record<string, boolean>;
+  inspectedByName: string;
+  photoUrls?: string[];
+  severity?: NcrSeverity;
+  description?: string;
+  failedCriteria?: string[];
+  sentToStage?: ProductionRunStage;
 };
 
 export type KarigarSettlement = {

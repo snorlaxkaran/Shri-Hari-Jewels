@@ -38,6 +38,7 @@ const DEFAULT_SETTINGS: ShopSettings = {
   goldMakingChargesPct: 17,
   silverMakingChargesPct: 17,
   makingChargesOverrideNote: null,
+  metalWastageAlertPercent: 3,
 };
 
 const trimOrNull = (value: string | undefined): string | null => {
@@ -74,6 +75,7 @@ const toShopSettings = (settings: {
   goldMakingChargesPct?: { toString(): string } | number | null;
   silverMakingChargesPct?: { toString(): string } | number | null;
   makingChargesOverrideNote?: string | null;
+  metalWastageAlertPercent?: { toString(): string } | number | null;
 }): ShopSettings => ({
   businessName: settings.businessName,
   address: settings.address,
@@ -102,6 +104,7 @@ const toShopSettings = (settings: {
   goldMakingChargesPct: Number(settings.goldMakingChargesPct ?? 17),
   silverMakingChargesPct: Number(settings.silverMakingChargesPct ?? 17),
   makingChargesOverrideNote: settings.makingChargesOverrideNote ?? null,
+  metalWastageAlertPercent: Number(settings.metalWastageAlertPercent ?? 3),
 });
 
 const validateSettingsInput = (input: UpdateShopSettingsInput) => {
@@ -237,6 +240,9 @@ export const updateShopSettings = async (
       }),
       ...(input.makingChargesOverrideNote !== undefined && {
         makingChargesOverrideNote: trimOrNull(input.makingChargesOverrideNote),
+      }),
+      ...(input.metalWastageAlertPercent !== undefined && {
+        metalWastageAlertPercent: input.metalWastageAlertPercent,
       }),
     },
   });

@@ -5,6 +5,7 @@ export type StageWorksheetMode =
   | "casting"
   | "stone-setting"
   | "checkoff"
+  | "qc"
   | "confirm";
 
 export type StageWorksheetConfig = {
@@ -72,10 +73,9 @@ export const STAGE_WORKSHEET_CONFIG: Record<
     exportHint: "Plating checklist with motif images",
   },
   "Quality Check": {
-    mode: "checkoff",
-    checkoffStage: "Quality Check",
+    mode: "qc",
     instructions:
-      "Inspect each element against the motif and finished design photos. Check off approved pieces.",
+      "Inspect each element against the specification checklist. Record pass/fail with inspector name; failures generate an NCR and send the run back for rework.",
     exportHint: "QC checklist with motif and design references",
   },
   Packaging: {
@@ -94,3 +94,13 @@ export const CHECKOFF_STAGES: ProductionRunStage[] = (
 )
   .filter(([, cfg]) => cfg.mode === "checkoff" && cfg.checkoffStage)
   .map(([, cfg]) => cfg.checkoffStage!);
+
+export const QC_CHECKLIST: string[] = [
+  "Weight matches design spec (±tolerance)",
+  "Stone count matches BOM",
+  "No visible casting defects (porosity, pitting)",
+  "Plating/finish is even, no discoloration",
+  "Prongs/settings secure — stones don't move when tested",
+  "Hallmark/HUID present and matches item record",
+  "Matches motif/design reference photo",
+];

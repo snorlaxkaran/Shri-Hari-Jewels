@@ -2,7 +2,7 @@ import { StageLogAction } from "@prisma/client";
 import { prisma } from "../db.js";
 import { moneyToNumber, toMoney } from "../money.js";
 import { assertProductionRunInOrganization } from "../organizations/access.js";
-import { ProductionRunError } from "./errors.js";
+import { getShopSettings } from "../settings/service.js";
 import {
   toApiProductionRunStage,
   toDbProductionRunStage,
@@ -10,6 +10,15 @@ import {
 } from "./stages.js";
 
 type Actor = { id: string; name: string };
+
+export const METAL_ISSUE_STAGES: ProductionRunStage[] = [
+  "Wax Pattern",
+  "Casting",
+  "Assembly",
+];
+
+export const isMetalIssueStage = (stage: ProductionRunStage) =>
+  METAL_ISSUE_STAGES.includes(stage);
 
 export class MetalIssueError extends Error {
   constructor(
@@ -227,8 +236,13 @@ export const recordMetalReturn = async (
   }
 
   const weightLoss = roundWeight(issued - input.weightReturnedGrams);
-  if (weightLoss > 0 && !input.lossReason?.trim()) {
-    throw new MetalIssueError("Loss reason is required when there is metal wastage.");
+  const settings = await getShopSettings(organizationId);
+  const thresholdPct = settings.metalWastageAlertPercent ?? 3;
+  const lossPct = issued > 0 ? (weightLoss / issued) * 100 : 0;
+  if (lossPct > thresholdPct && !input.lossReason?.trim()) {
+    throw new MetalIssueError(
+      `Loss of ${lossPct.toFixed(1)}% exceeds the ${thresholdPct}% alert threshold — a loss reason is required.`,
+    );
   }
 
   const updated = await prisma.$transaction(async (tx) => {
