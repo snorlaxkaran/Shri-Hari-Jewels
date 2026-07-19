@@ -7,10 +7,41 @@ export function asPdfBlob(blob: Blob): Blob {
 /**
  * Open a blank tab during the user click (before any await) so pop-up blockers
  * allow the PDF viewer tab. Pass the returned window to openPdfBlob.
+ *
+ * Do not use noopener here — it returns null and we lose the tab reference.
  */
 export function preparePdfViewerTab(): Window | null {
-  return window.open("about:blank", "_blank", "noopener,noreferrer");
+  const tab = window.open("about:blank", "_blank");
+  if (tab) tab.opener = null;
+  return tab;
 }
+
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+const renderPdfInTab = (tab: Window, url: string, title?: string): void => {
+  const pageTitle = escapeHtml(title ?? "Document");
+  tab.document.open();
+  tab.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>${pageTitle}</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #525659; }
+    embed { display: block; width: 100%; height: 100%; border: 0; }
+  </style>
+</head>
+<body>
+  <embed src="${url}" type="application/pdf" />
+</body>
+</html>`);
+  tab.document.close();
+};
 
 /**
  * Open a PDF in a new browser tab using the built-in viewer (print, download, zoom).
@@ -22,13 +53,25 @@ export function openPdfBlob(
   existingTab?: Window | null,
 ): void {
   const url = URL.createObjectURL(asPdfBlob(blob));
-  const tab = existingTab ?? window.open("about:blank", "_blank", "noopener,noreferrer");
-  if (tab) {
-    if (title) tab.document.title = title;
-    tab.location.href = url;
+  const tab = existingTab ?? window.open("about:blank", "_blank");
+
+  if (tab && !tab.closed) {
+    if (!existingTab) tab.opener = null;
+    try {
+      renderPdfInTab(tab, url, title);
+    } catch {
+      tab.location.href = url;
+    }
   } else {
-    downloadPdfBlob(blob, title?.endsWith(".pdf") ? title : `${title ?? "document"}.pdf`);
+    const opened = window.open(url, "_blank");
+    if (!opened) {
+      downloadPdfBlob(
+        blob,
+        title?.endsWith(".pdf") ? title : `${title ?? "document"}.pdf`,
+      );
+    }
   }
+
   window.setTimeout(() => URL.revokeObjectURL(url), 120_000);
 }
 
