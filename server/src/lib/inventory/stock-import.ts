@@ -20,6 +20,7 @@ export type { BulkStockImportResult, LegacyStockImportRow };
 
 const productInclude = {
   branch: true,
+  productCollection: { select: { id: true, name: true } },
   units: {
     include: { branch: true, sale: true },
     orderBy: { createdAt: "asc" as const },

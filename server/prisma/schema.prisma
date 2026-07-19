@@ -466,11 +466,13 @@ model Product {
   publishedToStorefront   Boolean  @default(false)
   storefrontDescription   String?  @db.Text
   productionRunId         String?  @unique
+  productCollectionId     String?
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  productCollection ProductCollection? @relation(fields: [productCollectionId], references: [id], onDelete: SetNull)
   units        InventoryUnit[]
   images       ProductImage[]
   productionRun ProductionRun? @relation("ProductionRunFinishedGoods")
@@ -480,6 +482,7 @@ model Product {
   @@unique([organizationId, sku])
   @@index([branchId])
   @@index([organizationId])
+  @@index([productCollectionId])
 }
 
 model InventoryUnit {
@@ -1757,6 +1760,7 @@ model ProductCollection {
   updatedAt      DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
 
   @@unique([organizationId, name])
   @@index([organizationId])

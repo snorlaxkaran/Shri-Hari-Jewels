@@ -17,7 +17,7 @@ import {
   fetchProductCollections,
 } from "@/lib/api/product-collections";
 import { getApiErrorMessage } from "@/lib/api/client";
-import type { InventoryItem } from "@/lib/types";
+import type { InventoryItem, ProductCollection } from "@/lib/types";
 
 const ProductTable = dynamic(
   () => import("@/app/(components)/products/ProductTable"),
@@ -38,7 +38,7 @@ function sortProducts(items: InventoryItem[]): InventoryItem[] {
 
 export default function ProductsPage() {
   const { user } = useAuth();
-  const { items, hydrated, loading, error } = useInventory();
+  const { items, hydrated, loading, error, updateProduct } = useInventory();
   const canWrite = user ? canWriteInventory(user.role) : false;
   const [search, setSearch] = useState("");
   const [metalTab, setMetalTab] = useState<ProductMetalTab>("all");
@@ -46,22 +46,20 @@ export default function ProductsPage() {
   const [collectionName, setCollectionName] = useState("");
   const [collectionError, setCollectionError] = useState("");
   const [collectionSubmitting, setCollectionSubmitting] = useState(false);
-  const [recentCollections, setRecentCollections] = useState<
-    Array<{ name: string; createdAt: string }>
-  >([]);
+  const [collections, setCollections] = useState<ProductCollection[]>([]);
+  const [assigningProductId, setAssigningProductId] = useState<string | null>(null);
 
-  const loadRecentCollections = useCallback(async () => {
+  const loadCollections = useCallback(async () => {
     try {
-      const rows = await fetchProductCollections(false);
-      setRecentCollections(rows.slice(0, 5).map((row) => ({ name: row.name, createdAt: row.createdAt })));
+      setCollections(await fetchProductCollections());
     } catch {
-      setRecentCollections([]);
+      setCollections([]);
     }
   }, []);
 
   useEffect(() => {
-    void loadRecentCollections();
-  }, [loadRecentCollections]);
+    void loadCollections();
+  }, [loadCollections]);
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -71,7 +69,8 @@ export default function ProductsPage() {
           !needle ||
           product.name.toLowerCase().includes(needle) ||
           product.sku.toLowerCase().includes(needle) ||
-          product.category.toLowerCase().includes(needle);
+          product.category.toLowerCase().includes(needle) ||
+          product.productCollectionName?.toLowerCase().includes(needle);
         const matchesMetal = matchesProductMetalTab(product.metal, metalTab);
         return matchesSearch && matchesMetal;
       }),
@@ -86,11 +85,23 @@ export default function ProductsPage() {
       await createProductCollection({ name: collectionName.trim() });
       setCollectionName("");
       setShowCollectionForm(false);
-      await loadRecentCollections();
+      await loadCollections();
     } catch (err) {
       setCollectionError(getApiErrorMessage(err, "Failed to create collection."));
     } finally {
       setCollectionSubmitting(false);
+    }
+  };
+
+  const handleCollectionChange = async (productId: string, collectionId: string | null) => {
+    setAssigningProductId(productId);
+    setCollectionError("");
+    try {
+      await updateProduct(productId, { productCollectionId: collectionId });
+    } catch (err) {
+      setCollectionError(getApiErrorMessage(err, "Failed to assign collection."));
+    } finally {
+      setAssigningProductId(null);
     }
   };
 
@@ -155,18 +166,6 @@ export default function ProductsPage() {
         </form>
       )}
 
-      {recentCollections.length > 0 && (
-        <p className="mb-4 text-xs text-zinc-500">
-          Collections:{" "}
-          {recentCollections.map((collection, index) => (
-            <span key={collection.name}>
-              {index > 0 ? " · " : ""}
-              {collection.name}
-            </span>
-          ))}
-        </p>
-      )}
-
       <div className="filter-bar">
         {(
           [
@@ -190,7 +189,7 @@ export default function ProductsPage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, SKU, or category…"
+            placeholder="Search by name, SKU, category, or collection…"
           />
         </div>
         <span className="filter-count">
@@ -199,7 +198,13 @@ export default function ProductsPage() {
       </div>
 
       <div className="data-table-wrap w-full">
-        <ProductTable products={filtered} canWrite={canWrite} />
+        <ProductTable
+          products={filtered}
+          collections={collections}
+          canWrite={canWrite}
+          assigningProductId={assigningProductId}
+          onCollectionChange={canWrite ? handleCollectionChange : undefined}
+        />
       </div>
     </div>
   );

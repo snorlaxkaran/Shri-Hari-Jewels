@@ -5,11 +5,16 @@ import { Pencil } from "lucide-react";
 import StatusBadge from "@/app/(components)/StatusBadge";
 import { getActiveUnitCount } from "@/lib/inventory/metal-stats";
 import { getProductCoverFromItem } from "@/lib/inventory/product-images";
-import type { InventoryItem } from "@/lib/types";
+import type { InventoryItem, ProductCollection } from "@/lib/types";
+
+const fieldClass = "input-field w-full px-2 py-1.5 text-sm min-w-[8rem]";
 
 type ProductTableProps = {
   products: InventoryItem[];
+  collections: ProductCollection[];
   canWrite: boolean;
+  assigningProductId?: string | null;
+  onCollectionChange?: (productId: string, collectionId: string | null) => void;
 };
 
 function ProductThumb({ product }: { product: InventoryItem }) {
@@ -33,7 +38,13 @@ function ProductThumb({ product }: { product: InventoryItem }) {
   );
 }
 
-export default function ProductTable({ products, canWrite }: ProductTableProps) {
+export default function ProductTable({
+  products,
+  collections,
+  canWrite,
+  assigningProductId,
+  onCollectionChange,
+}: ProductTableProps) {
   if (products.length === 0) {
     return (
       <p className="p-8 text-center text-sm text-zinc-500">No products found.</p>
@@ -49,6 +60,7 @@ export default function ProductTable({ products, canWrite }: ProductTableProps) 
             <th className="p-3">SKU</th>
             <th className="p-3">Name</th>
             <th className="p-3">Category</th>
+            <th className="p-3">Collection</th>
             <th className="p-3">Metal</th>
             <th className="p-3">Purity</th>
             <th className="p-3">Units</th>
@@ -59,6 +71,8 @@ export default function ProductTable({ products, canWrite }: ProductTableProps) 
         <tbody>
           {products.map((product) => {
             const unitCount = getActiveUnitCount(product);
+            const isAssigning = assigningProductId === product.id;
+
             return (
               <tr key={product.id} className="border-b border-zinc-100 hover:bg-zinc-50">
                 <td className="p-3">
@@ -67,6 +81,32 @@ export default function ProductTable({ products, canWrite }: ProductTableProps) 
                 <td className="p-3 font-mono text-xs text-zinc-500">{product.sku}</td>
                 <td className="p-3 font-medium text-zinc-900">{product.name}</td>
                 <td className="p-3 text-zinc-600">{product.category}</td>
+                <td className="p-3">
+                  {canWrite && onCollectionChange ? (
+                    <select
+                      className={fieldClass}
+                      value={product.productCollectionId ?? ""}
+                      disabled={isAssigning}
+                      onChange={(e) =>
+                        onCollectionChange(
+                          product.id,
+                          e.target.value ? e.target.value : null,
+                        )
+                      }
+                    >
+                      <option value="">No collection</option>
+                      {collections.map((collection) => (
+                        <option key={collection.id} value={collection.id}>
+                          {collection.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-zinc-600">
+                      {product.productCollectionName ?? "—"}
+                    </span>
+                  )}
+                </td>
                 <td className="p-3 text-zinc-600">{product.metal}</td>
                 <td className="p-3 text-zinc-600">{product.purity}</td>
                 <td className="p-3 text-zinc-600">{unitCount}</td>

@@ -49,6 +49,7 @@ import {
 
 const productInclude = {
   branch: true,
+  productCollection: { select: { id: true, name: true } },
   units: {
     include: { branch: true, sale: true },
     orderBy: { createdAt: "asc" as const },
@@ -887,6 +888,19 @@ export const updateProduct = async (
 
   const category = (input.category ?? existing.category) as ProductCategory;
 
+  if (input.productCollectionId !== undefined && input.productCollectionId !== null) {
+    const collection = await prisma.productCollection.findFirst({
+      where: {
+        id: input.productCollectionId,
+        organizationId: existing.organizationId,
+        isActive: true,
+      },
+    });
+    if (!collection) {
+      throw new InventoryError("Collection not found.", 404);
+    }
+  }
+
   await prisma.$transaction(async (tx) => {
     if (input.images) {
       await tx.productImage.deleteMany({ where: { productId } });
@@ -921,6 +935,9 @@ export const updateProduct = async (
         ...(input.price !== undefined && { price: input.price }),
         ...(input.category !== undefined && {
           imageColor: CATEGORY_COLORS[category] ?? existing.imageColor,
+        }),
+        ...(input.productCollectionId !== undefined && {
+          productCollectionId: input.productCollectionId,
         }),
       },
     });

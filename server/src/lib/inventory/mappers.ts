@@ -9,6 +9,7 @@ import { isHallmarked, requiresHallmark } from "../hallmark/requires-hallmark.js
 
 type ProductWithRelations = Product & {
   branch?: Branch;
+  productCollection?: { id: string; name: string } | null;
   units: Array<InventoryUnit & { branch?: Branch; sale?: Sale | null }>;
   images: ProductImage[];
 };
@@ -63,6 +64,8 @@ export const toInventoryItem = (
     imageColor: product.imageColor,
     branchId: product.branchId,
     branchName: product.branch?.name,
+    productCollectionId: product.productCollectionId ?? undefined,
+    productCollectionName: product.productCollection?.name,
     createdAt: product.createdAt.toISOString(),
     images: product.images
       .sort((a, b) => a.sortOrder - b.sortOrder)

@@ -118,6 +118,8 @@ export type InventoryItem = {
   units: InventoryUnit[];
   branchId?: string;
   branchName?: string;
+  productCollectionId?: string;
+  productCollectionName?: string;
   createdAt: string;
 };
 
@@ -313,6 +315,7 @@ export type UpdateProductInput = {
   stoneCarat?: number | null;
   price?: number;
   images?: ProductImage[];
+  productCollectionId?: string | null;
 };
 
 export type Customer = {
