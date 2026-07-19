@@ -3,10 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRightLeft, FileText, Loader2 } from "lucide-react";
+import { ArrowRightLeft, FileText, Loader2, Pencil } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
-import RowActionsDropdown from "@/app/(components)/RowActionsDropdown";
 import TransferTabs from "@/app/(components)/stock-transfer/TransferTabs";
 import TransferStatusBadge from "@/app/(components)/stock-transfer/TransferStatusBadge";
 import {
@@ -232,14 +231,13 @@ export default function ProformaListPage() {
                 <th>Status</th>
                 <th>Invoice Generated</th>
                 <th>Invoice No.</th>
-                <th aria-label="PDF" />
-                <th>Actions</th>
+                <th aria-label="Actions" />
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="text-center td-muted py-10">
+                  <td colSpan={10} className="text-center td-muted py-10">
                     {transfers.length === 0
                       ? "No transfers yet. Use Scan & Send to transfer stock to a customer branch."
                       : hasActiveFilters
@@ -290,36 +288,39 @@ export default function ProformaListPage() {
                       </td>
                       <td className="td-mono">{transfer.invoiceNo ?? "—"}</td>
                       <td className="text-right">
-                        {generated ? (
-                          <button
-                            type="button"
-                            onClick={(event) => handleOpenPdf(transfer, event)}
-                            disabled={openingId === transfer.id}
-                            className="row-action-btn"
-                            aria-label={`Open PDF for ${transfer.transferNo}`}
-                            title="Open PDF"
-                          >
-                            {openingId === transfer.id ? (
-                              <Loader2 size={16} className="animate-spin" />
-                            ) : (
-                              <FileText size={16} />
-                            )}
-                          </button>
-                        ) : null}
-                      </td>
-                      <td className="text-right">
-                        {canAct && (
-                          <RowActionsDropdown
-                            actions={[
-                              {
-                                label: generated
-                                  ? "Edit & Re-generate"
-                                  : "Edit & Generate Invoice",
-                                onClick: () => handleEdit(transfer.id),
-                              },
-                            ]}
-                          />
-                        )}
+                        <div className="inline-flex items-center justify-end gap-1">
+                          {generated ? (
+                            <button
+                              type="button"
+                              onClick={(event) => handleOpenPdf(transfer, event)}
+                              disabled={openingId === transfer.id}
+                              className="row-action-btn"
+                              aria-label={`Open PDF for ${transfer.transferNo}`}
+                              title="Open PDF"
+                            >
+                              {openingId === transfer.id ? (
+                                <Loader2 size={16} className="animate-spin" />
+                              ) : (
+                                <FileText size={16} />
+                              )}
+                            </button>
+                          ) : null}
+                          {canAct ? (
+                            <button
+                              type="button"
+                              onClick={(event) => handleEdit(transfer.id, event)}
+                              className="row-action-btn"
+                              aria-label={
+                                generated
+                                  ? `Edit ${transfer.transferNo}`
+                                  : `Generate invoice for ${transfer.transferNo}`
+                              }
+                              title={generated ? "Edit & re-generate" : "Edit & generate"}
+                            >
+                              <Pencil size={16} />
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );

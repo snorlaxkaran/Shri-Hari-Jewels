@@ -11,6 +11,13 @@ export const formatRupeeDecimal = (amount: number): string =>
     maximumFractionDigits: 2,
   }).format(amount);
 
+/** PDF-safe amounts — Western grouping, no currency symbol (Helvetica lacks ₹). */
+export const formatPdfAmount = (amount: number): string =>
+  new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+
 export const formatDateIn = (value?: string | null): string => {
   if (!value) return "";
   const parsed = new Date(value);

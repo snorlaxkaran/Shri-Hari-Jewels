@@ -10,6 +10,7 @@ import {
   fetchStockTransferById,
   generateTransferInvoice,
   openTransferInvoicePdf,
+  openTransferShareToken,
 } from "@/lib/api/inventory";
 import { fetchSettings } from "@/lib/api/settings";
 import { getApiErrorMessage } from "@/lib/api/client";
@@ -183,7 +184,11 @@ export default function SentTransferDetailPage() {
       };
       const result = await generateTransferInvoice(transfer.id, formData);
       setTransfer(result.transfer);
-      await openTransferInvoicePdf(transfer.id, tab);
+      if (result.shareToken) {
+        openTransferShareToken(result.shareToken, tab);
+      } else {
+        await openTransferInvoicePdf(transfer.id, tab);
+      }
       setRedirectMessage(
         "Invoice generated. Redirecting to Proforma List...",
       );
@@ -238,10 +243,11 @@ export default function SentTransferDetailPage() {
             <button
               type="button"
               onClick={() => void handleViewPdf()}
-              className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm"
+              className="row-action-btn"
+              aria-label={`Open ${docLabel} PDF`}
+              title={`Open ${docLabel}`}
             >
               <FileText size={16} />
-              View {docLabel}
             </button>
           ) : undefined
         }
@@ -472,10 +478,11 @@ export default function SentTransferDetailPage() {
               <button
                 type="button"
                 onClick={() => void handleViewPdf()}
-                className="btn-secondary flex items-center justify-center gap-2 px-4 py-2 text-sm"
+                className="row-action-btn"
+                aria-label={`Open ${docLabel} PDF`}
+                title={`Open ${docLabel}`}
               >
                 <FileText size={16} />
-                View {docLabel}
               </button>
             )}
             <button

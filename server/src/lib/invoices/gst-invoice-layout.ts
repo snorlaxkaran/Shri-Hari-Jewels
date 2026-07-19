@@ -3,7 +3,7 @@ import type { ShopSettings } from "../../types.js";
 import { INVOICE_THEME as T } from "../pdf/invoice-theme.js";
 import {
   formatInvoiceDate,
-  formatRupeeDecimal,
+  formatPdfAmount,
 } from "../pdf/format.js";
 import { formatShopAddress } from "../pdf/document-header.js";
 import { getContentWidth } from "../pdf/table.js";
@@ -426,7 +426,7 @@ const drawTribeItemTable = (
       line.label,
       line.hsn,
       String(line.qty),
-      formatRupeeDecimal(line.amount),
+      formatPdfAmount(line.amount),
     ];
     let rowHeight = measureTableRowHeight(doc, cells, colWidths);
     if (y + rowHeight > maxY) {
@@ -498,7 +498,7 @@ const drawPayableBar = (
 
   doc.font("Helvetica-Bold").fontSize(10.5).fillColor(T.payableBarText);
   doc.text("PAYABLE AMOUNT", x + 10, y + 8, { width: width * 0.55 });
-  doc.text(`Rs. ${formatRupeeDecimal(amount)}`, x, y + 8, {
+  doc.text(`Rs. ${formatPdfAmount(amount)}`, x, y + 8, {
     width: width - 10,
     align: "right",
   });
@@ -538,21 +538,21 @@ const drawGstBottomSection = (
     values;
 
   const gstSummary = isIntraState
-    ? `GST Breakup: CGST (${(cgstRate * 100).toFixed(2)}% on ${formatRupeeDecimal(taxableAmount)}) + SGST (${(sgstRate * 100).toFixed(2)}% on ${formatRupeeDecimal(taxableAmount)})`
-    : `GST Breakup: IGST (${(igstRate * 100).toFixed(2)}% on ${formatRupeeDecimal(taxableAmount)})`;
+    ? `GST Breakup: CGST (${(cgstRate * 100).toFixed(2)}% on ${formatPdfAmount(taxableAmount)}) + SGST (${(sgstRate * 100).toFixed(2)}% on ${formatPdfAmount(taxableAmount)})`
+    : `GST Breakup: IGST (${(igstRate * 100).toFixed(2)}% on ${formatPdfAmount(taxableAmount)})`;
 
   doc.font("Helvetica").fontSize(7.8).fillColor(T.muted);
   doc.text(gstSummary, left, gstTitleY + 14, { width: leftWidth });
 
   let rowY = topY;
-  rowY = drawTotalsRow(doc, rightX, rowY, rightWidth, "Total", formatRupeeDecimal(taxableAmount));
+  rowY = drawTotalsRow(doc, rightX, rowY, rightWidth, "Total", formatPdfAmount(taxableAmount));
   rowY = drawTotalsRow(
     doc,
     rightX,
     rowY,
     rightWidth,
     "Total Sales value before GST",
-    formatRupeeDecimal(taxableAmount),
+    formatPdfAmount(taxableAmount),
   );
   rowY = drawTotalsRow(
     doc,
@@ -560,7 +560,7 @@ const drawGstBottomSection = (
     rowY,
     rightWidth,
     "Central GST Collected",
-    formatRupeeDecimal(cgst),
+    formatPdfAmount(cgst),
   );
   rowY = drawTotalsRow(
     doc,
@@ -568,7 +568,7 @@ const drawGstBottomSection = (
     rowY,
     rightWidth,
     "State GST Collected",
-    formatRupeeDecimal(sgst),
+    formatPdfAmount(sgst),
   );
   rowY = drawTotalsRow(
     doc,
@@ -576,7 +576,7 @@ const drawGstBottomSection = (
     rowY,
     rightWidth,
     "Integrated GST Collected",
-    formatRupeeDecimal(igst),
+    formatPdfAmount(igst),
   );
   rowY = drawTotalsRow(
     doc,
@@ -584,7 +584,7 @@ const drawGstBottomSection = (
     rowY,
     rightWidth,
     "Round Off",
-    formatRupeeDecimal(roundOff),
+    formatPdfAmount(roundOff),
   );
 
   const sectionBottom = Math.max(
@@ -612,7 +612,7 @@ const drawChallanBottomSection = (
     rowY = topY + 28;
   }
 
-  rowY = drawTotalsRow(doc, rightX, rowY, rightWidth, "Total Value", formatRupeeDecimal(totalAmount));
+  rowY = drawTotalsRow(doc, rightX, rowY, rightWidth, "Total Value", formatPdfAmount(totalAmount));
   drawPayableBar(doc, rightX, rowY + 4, rightWidth, totalAmount);
 };
 

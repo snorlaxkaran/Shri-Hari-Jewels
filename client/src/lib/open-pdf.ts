@@ -126,6 +126,17 @@ export async function sharePdfBlob(
   return "downloaded";
 }
 
+/** Navigate a pre-opened tab (or new tab) to a shareable document URL. */
+export function openShareUrlInTab(shareUrl: string, tab?: Window | null): void {
+  const viewer = tab ?? window.open("about:blank", "_blank");
+  if (viewer && !viewer.closed) {
+    if (!tab) viewer.opener = null;
+    viewer.location.href = shareUrl;
+    return;
+  }
+  window.open(shareUrl, "_blank");
+}
+
 /** Open WhatsApp chat with a pre-filled message (attach the PDF manually). */
 export function openWhatsAppChat(phone: string, message: string): void {
   const digits = phone.replace(/\D/g, "");

@@ -14,6 +14,7 @@ import { moneyToNumber } from "../money.js";
 import { syncProductStockInTx } from "./stock-sync.js";
 import { recordInventoryAuditInTx, recordUnitTransferAcceptedInTx, recordUnitTransferReturnedInTx } from "./audit.js";
 import { InventoryError } from "./service.js";
+import { createDocumentShareToken } from "../invoices/share-token.js";
 import { generateTransferInvoiceNo } from "../invoices/transfer-invoice-no.js";
 import { generateTransferInvoicePdf } from "../invoices/transfer-invoice-pdf.js";
 import { getShopSettings } from "../settings/service.js";
@@ -342,16 +343,21 @@ export const listAllTransfersForProforma = async (
 };
 
 export const encodeTransferDownloadHeader = (
-  transfer: Pick<StockTransfer, "documentType" | "invoiceNo" | "transferNo">,
-): string =>
-  Buffer.from(
-    JSON.stringify({
-      documentType: transfer.documentType,
-      invoiceNo: transfer.invoiceNo,
-      transferNo: transfer.transferNo,
-    }),
-    "utf8",
-  ).toString("base64");
+  transfer: Pick<
+    StockTransfer,
+    "id" | "documentType" | "invoiceNo" | "transferNo" | "invoicedAt"
+  >,
+): string => {
+  const payload: Record<string, string | undefined> = {
+    documentType: transfer.documentType,
+    invoiceNo: transfer.invoiceNo,
+    transferNo: transfer.transferNo,
+  };
+  if (transfer.invoicedAt) {
+    payload.shareToken = createDocumentShareToken("transfer", transfer.id).token;
+  }
+  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
+};
 
 export const regenerateTransferInvoicePdf = async (
   transferId: string,

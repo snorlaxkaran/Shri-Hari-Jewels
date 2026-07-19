@@ -2,6 +2,7 @@ import type { Invoice } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 import {
   downloadPdfBlob,
+  openShareUrlInTab,
   openWhatsAppChat,
   sharePdfBlob,
 } from "@/lib/open-pdf";
@@ -58,15 +59,7 @@ export const openInvoicePdf = async (
   tab?: Window | null,
 ): Promise<string> => {
   const { shareUrl } = await getInvoiceShareLink(invoiceId);
-  const viewer = tab ?? window.open("about:blank", "_blank");
-
-  if (viewer && !viewer.closed) {
-    if (!tab) viewer.opener = null;
-    viewer.location.href = shareUrl;
-  } else {
-    window.open(shareUrl, "_blank");
-  }
-
+  openShareUrlInTab(shareUrl, tab);
   return shareUrl;
 };
 

@@ -11,7 +11,7 @@ import type {
   UpdateProductInput,
   UpdateUnitHallmarkInput,
 } from "@/lib/types";
-import { preparePdfViewerTab } from "@/lib/open-pdf";
+import { openShareUrlInTab, preparePdfViewerTab } from "@/lib/open-pdf";
 import { api, API_BASE_URL, getAuthToken } from "./client";
 
 export const fetchInventory = async (options?: {
@@ -289,7 +289,37 @@ export const saveTransferShipping = async (
 type TransferDownloadMeta = Pick<
   StockTransfer,
   "documentType" | "invoiceNo" | "transferNo"
->;
+> & {
+  shareToken?: string;
+};
+
+const openTransferShareUrl = (
+  shareToken: string,
+  tab?: Window | null,
+): string => {
+  const shareUrl = buildTransferSharePageUrl(shareToken);
+  openShareUrlInTab(shareUrl, tab);
+  return shareUrl;
+};
+
+const fetchTransferShareTokenFromDownload = async (
+  transferId: string,
+): Promise<string | null> => {
+  const response = await fetch(
+    `${API_BASE_URL}/api/inventory/transfers/${transferId}/invoice/download`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+    },
+  );
+  if (!response.ok) return null;
+  const meta = parseTransferDownloadHeader(
+    response.headers.get("X-Transfer-Data"),
+  );
+  return meta?.shareToken ?? null;
+};
 
 const parseTransferDownloadHeader = (
   header: string | null,
@@ -309,11 +339,6 @@ const parseTransferDownloadHeader = (
   }
 };
 
-const transferPdfFilename = (transfer: TransferDownloadMeta): string =>
-  transfer.documentType === "Wholesale GST Invoice"
-    ? `invoice-${transfer.invoiceNo ?? transfer.transferNo}.pdf`
-    : `challan-${transfer.transferNo}.pdf`;
-
 export const generateTransferInvoice = async (
   id: string,
   input: {
@@ -322,7 +347,7 @@ export const generateTransferInvoice = async (
     courierCompany: string;
     dispatchDate: string;
   },
-): Promise<{ transfer: StockTransfer; pdfBlob: Blob }> => {
+): Promise<{ transfer: StockTransfer; shareToken: string | null }> => {
   const response = await fetch(
     `${API_BASE_URL}/api/inventory/transfers/${id}/invoice`,
     {
@@ -347,11 +372,14 @@ export const generateTransferInvoice = async (
   }
   const transferHeader = response.headers.get("X-Transfer-Data");
   const headerMeta = parseTransferDownloadHeader(transferHeader);
-  const pdfBlob = await response.blob();
+  await response.blob();
   const transfer = headerMeta
     ? ({ ...headerMeta, id } as StockTransfer)
     : await fetchStockTransferById(id);
-  return { transfer, pdfBlob };
+  return {
+    transfer,
+    shareToken: headerMeta?.shareToken ?? null,
+  };
 };
 
 export type TransferShareLink = {
@@ -391,18 +419,23 @@ export const openTransferInvoicePdf = async (
   id: string,
   tab?: Window | null,
 ): Promise<string> => {
-  const { shareUrl } = await getTransferShareLink(id);
-  const viewer = tab ?? window.open("about:blank", "_blank");
-
-  if (viewer && !viewer.closed) {
-    if (!tab) viewer.opener = null;
-    viewer.location.href = shareUrl;
-  } else {
-    window.open(shareUrl, "_blank");
+  try {
+    const { shareUrl } = await getTransferShareLink(id);
+    openShareUrlInTab(shareUrl, tab);
+    return shareUrl;
+  } catch {
+    const shareToken = await fetchTransferShareTokenFromDownload(id);
+    if (shareToken) {
+      return openTransferShareUrl(shareToken, tab);
+    }
+    throw new Error("Could not open share link for this document.");
   }
-
-  return shareUrl;
 };
+
+export const openTransferShareToken = (
+  shareToken: string,
+  tab?: Window | null,
+): string => openTransferShareUrl(shareToken, tab);
 
 /** @deprecated Use openTransferInvoicePdf */
 export const redownloadTransferInvoice = openTransferInvoicePdf;
