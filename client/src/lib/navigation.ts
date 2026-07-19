@@ -16,6 +16,7 @@ import {
   ShoppingBag,
   ShoppingCart,
   Store,
+  Tags,
   Users,
   Globe,
   UserPlus,
@@ -79,6 +80,7 @@ export const navSections: NavSection[] = [
     title: "Inventory",
     items: [
       { label: "All stock", href: "/inventory", icon: icon(Package) },
+      { label: "Product", href: "/products", icon: icon(Tags) },
       { label: "Hallmark (HUID)", href: "/hallmark", icon: icon(Award) },
       { label: "Entry verification", href: "/entry-verification", icon: icon(ClipboardCheck) },
       { label: "Raw materials", href: "/raw-inventory", icon: icon(Gem) },
@@ -200,6 +202,7 @@ export const getBreadcrumbs = (pathname: string): BreadcrumbItem[] => {
 };
 
 export const getPageTitle = (pathname: string): string => {
+  if (pathname.match(/^\/products\/[^/]+\/edit$/)) return "Edit Product";
   if (pathname === "/inventory/new") return "Add Stock";
   if (pathname === "/inventory/add-units") return "Add Units";
   if (pathname.match(/^\/inventory\/[^/]+\/add-units$/)) return "Add Units";

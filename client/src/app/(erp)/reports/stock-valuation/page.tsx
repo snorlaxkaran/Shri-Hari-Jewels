@@ -13,6 +13,7 @@ type ValuationData = {
     category: string;
     metal: string;
     stock: number;
+    unitPrice: number;
     totalValue: number;
   }>;
 };
@@ -55,8 +56,16 @@ export default function StockValuationReportPage() {
       exportData={{
         title: "Stock Valuation",
         filename: "stock-valuation",
-        headers: ["SKU", "Name", "Category", "Metal", "Stock", "Total Value"],
-        rows: products.map((p) => [p.sku, p.name, p.category, p.metal, p.stock, p.totalValue]),
+        headers: ["SKU", "Name", "Category", "Metal", "Stock", "Unit Price", "Total Value"],
+        rows: products.map((p) => [
+          p.sku,
+          p.name,
+          p.category,
+          p.metal,
+          p.stock,
+          p.unitPrice,
+          p.totalValue,
+        ]),
       }}
     >
       {data && (
@@ -71,6 +80,7 @@ export default function StockValuationReportPage() {
               <th className="text-left p-3">SKU</th>
               <th className="text-left p-3">Product</th>
               <th className="text-right p-3">Stock</th>
+              <th className="text-right p-3">Unit Price</th>
               <th className="text-right p-3">Value</th>
             </tr>
           </thead>
@@ -80,6 +90,7 @@ export default function StockValuationReportPage() {
                 <td className="p-3 font-mono text-xs">{p.sku}</td>
                 <td className="p-3">{p.name}</td>
                 <td className="p-3 text-right">{p.stock}</td>
+                <td className="p-3 text-right">₹{p.unitPrice.toLocaleString()}</td>
                 <td className="p-3 text-right">₹{p.totalValue.toLocaleString()}</td>
               </tr>
             ))}

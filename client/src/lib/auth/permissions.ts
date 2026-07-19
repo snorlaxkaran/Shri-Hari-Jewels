@@ -6,6 +6,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
   ProductionManager: [
     "/dashboard",
     "/inventory",
+    "/products",
     "/hallmark",
     "/entry-verification",
     "/stock-transfer",
@@ -23,6 +24,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
   SalesManager: [
     "/dashboard",
     "/inventory",
+    "/products",
     "/hallmark",
     "/entry-verification",
     "/stock-transfer",
@@ -40,7 +42,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/production-runs",
     "/storefront",
   ],
-  Store: ["/dashboard", "/inventory", "/stock-transfer", "/sales", "/customers", "/repairs"],
+  Store: ["/dashboard", "/inventory", "/products", "/stock-transfer", "/sales", "/customers", "/repairs"],
   Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs", "/repairs"],
   Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/reports", "/raw-inventory", "/vendors", "/purchase-bills", "/settings/tally-export"],
 };

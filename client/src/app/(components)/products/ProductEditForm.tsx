@@ -19,6 +19,8 @@ type ProductEditFormProps = {
   onCancelClick?: () => void;
   onSubmit: (input: UpdateProductInput) => Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
+  /** Catalog mode edits SKU-level config only — no weight or price. */
+  mode?: "full" | "catalog";
 };
 
 export default function ProductEditForm({
@@ -27,7 +29,9 @@ export default function ProductEditForm({
   onCancelClick,
   onSubmit,
   onDirtyChange,
+  mode = "full",
 }: ProductEditFormProps) {
+  const isCatalog = mode === "catalog";
   const [category, setCategory] = useState<ProductCategory>("Earrings");
   const [name, setName] = useState("");
   const [metal, setMetal] = useState<MetalType>("Gold");
@@ -73,36 +77,41 @@ export default function ProductEditForm({
       setError("Product name is required.");
       return;
     }
-    if (!weight || weight <= 0) {
-      setError("Enter a valid weight in grams.");
-      return;
+    if (!isCatalog) {
+      if (!weight || weight <= 0) {
+        setError("Enter a valid weight in grams.");
+        return;
+      }
+      if (!unitPrice || unitPrice <= 0) {
+        setError("Enter a valid price.");
+        return;
+      }
     }
     if (isNaN(charges) || charges < 0) {
       setError("Enter valid making charges.");
       return;
     }
-    if (!unitPrice || unitPrice <= 0) {
-      setError("Enter a valid price.");
-      return;
-    }
 
     setSubmitting(true);
     try {
-      await onSubmit({
+      const input: UpdateProductInput = {
         name: name.trim(),
         category,
         metal,
         purity,
-        weightGrams: weight,
         makingCharges: charges,
         stoneCarat: stoneCarat ? parseFloat(stoneCarat) : null,
-        price: unitPrice,
         images: images.map(({ id, url, name: imgName }) => ({
           id,
           url,
           name: imgName,
         })),
-      });
+      };
+      if (!isCatalog) {
+        input.weightGrams = weight;
+        input.price = unitPrice;
+      }
+      await onSubmit(input);
       setDirty(false);
     } catch (err) {
       setError(getApiErrorMessage(err));
@@ -115,6 +124,12 @@ export default function ProductEditForm({
     <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
       <div className="surface-card p-5 space-y-4">
         <p className="text-xs font-mono text-zinc-400">{product.sku}</p>
+        {isCatalog && (
+          <p className="text-xs text-zinc-500 border border-zinc-200 rounded-lg px-3 py-2 bg-zinc-50">
+            Weight and price are set per piece when adding stock — each item can have a
+            different weight, and price is calculated from that weight.
+          </p>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <label className={labelClass}>Product Name *</label>
@@ -180,19 +195,23 @@ export default function ProductEditForm({
               ))}
             </select>
           </div>
-          <div>
-            <label className={labelClass}>Weight (grams) *</label>
-            <input
-              type="number"
-              step="0.01"
-              value={weightGrams}
-              onChange={(e) => {
-                setWeightGrams(e.target.value);
-                markDirty();
-              }}
-              className={fieldClass}
-            />
-          </div>
+          {!isCatalog && (
+            <>
+              <div>
+                <label className={labelClass}>Weight (grams) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={weightGrams}
+                  onChange={(e) => {
+                    setWeightGrams(e.target.value);
+                    markDirty();
+                  }}
+                  className={fieldClass}
+                />
+              </div>
+            </>
+          )}
           <div>
             <label className={labelClass}>Making Charges (₹) *</label>
             <input
@@ -218,18 +237,20 @@ export default function ProductEditForm({
               className={fieldClass}
             />
           </div>
-          <div>
-            <label className={labelClass}>Price per Unit (₹) *</label>
-            <input
-              type="number"
-              value={price}
-              onChange={(e) => {
-                setPrice(e.target.value);
-                markDirty();
-              }}
-              className={fieldClass}
-            />
-          </div>
+          {!isCatalog && (
+            <div>
+              <label className={labelClass}>Price per Unit (₹) *</label>
+              <input
+                type="number"
+                value={price}
+                onChange={(e) => {
+                  setPrice(e.target.value);
+                  markDirty();
+                }}
+                className={fieldClass}
+              />
+            </div>
+          )}
         </div>
 
         <ImageUpload
