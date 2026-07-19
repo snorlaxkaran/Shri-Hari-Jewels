@@ -34,6 +34,10 @@ import {
   findProductForUnitRow,
   flattenInventoryToUnitRows,
 } from "@/lib/inventory/unit-rows";
+import {
+  matchesHallmarkFilter,
+  type HallmarkFilter,
+} from "@/lib/inventory/hallmark-filter";
 import type { Branch } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 import { Diamond, Download, Gem, PackagePlus, Plus, Printer, Search } from "lucide-react";
@@ -65,6 +69,7 @@ export default function InventoryPage() {
   const [sortBy, setSortBy] = useState<InventorySortField>("createdAt");
   const [sortOrder, setSortOrder] = useState<InventorySortOrder>("desc");
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
+  const [hallmarkFilter, setHallmarkFilter] = useState<HallmarkFilter>("");
   const { printLabels, sheet: labelPrintSheet } = useBarcodeLabelPrint();
 
   useEffect(() => {
@@ -120,9 +125,10 @@ export default function InventoryPage() {
         row.sku.toLowerCase().includes(needle) ||
         row.itemCode.toLowerCase().includes(needle);
       const matchesMetal = matchesProductMetalTab(row.metal, metalTab);
-      return matchesSearch && matchesMetal;
+      const matchesHallmark = matchesHallmarkFilter(row, hallmarkFilter);
+      return matchesSearch && matchesMetal && matchesHallmark;
     });
-  }, [allUnitRows, search, metalTab]);
+  }, [allUnitRows, search, metalTab, hallmarkFilter]);
 
   const filteredRows = useMemo(() => {
     const filtered = applyColumnFilters(preColumnFilterRows, columnFilters);
@@ -227,6 +233,17 @@ export default function InventoryPage() {
             placeholder="Search by name, SKU, or item code…"
           />
         </div>
+        <select
+          value={hallmarkFilter}
+          onChange={(e) => setHallmarkFilter(e.target.value as HallmarkFilter)}
+          className="input-field px-3 py-2 text-sm"
+          aria-label="Hallmark status filter"
+        >
+          <option value="">All items</option>
+          <option value="pending">Needs hallmark</option>
+          <option value="done">Hallmarked</option>
+          <option value="exempt">Exempt (Silver/no hallmark required)</option>
+        </select>
         <span className="filter-count">
           Showing {filteredRows.length} of {allUnitRows.length}
         </span>

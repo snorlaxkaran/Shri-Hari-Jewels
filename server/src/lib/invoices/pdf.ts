@@ -3,6 +3,7 @@ import type { Customer, Invoice, ShopSettings } from "../../types.js";
 import {
   resolveGroupedLinesForPdf,
   resolveGstBreakupForInvoice,
+  resolveInvoiceItemsForPdf,
 } from "./invoice-pdf-data.js";
 import {
   gstStateCodeFromNumber,
@@ -66,12 +67,14 @@ export const generateInvoicePdf = async (
   invoice: Invoice,
   settings: ShopSettings,
   customerBilling: InvoiceCustomerBilling | null | undefined,
+  organizationId: string,
 ): Promise<Buffer> => {
+  const items = await resolveInvoiceItemsForPdf(invoice, organizationId);
   const { lines, totalQty, totalAmount } = resolveGroupedLinesForPdf(
-    invoice.items,
+    items,
     settings,
     invoice.taxableValue,
-    invoice.items.length,
+    items.length,
   );
 
   const placeOfSupply =

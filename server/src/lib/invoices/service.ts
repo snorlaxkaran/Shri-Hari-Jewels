@@ -7,6 +7,7 @@ import {
   backfillMissingInvoiceItemsBatch,
   ensureInvoiceRecordsComplete,
 } from "./backfill-invoice-items.js";
+import { enrichItemsWithSaleHuids } from "./invoice-pdf-data.js";
 import {
   computePayableWithRoundOff,
   computeRetailGstBreakup,
@@ -37,7 +38,11 @@ export const getInvoice = async (
   });
   if (!invoice) return null;
   const completed = await ensureInvoiceRecordsComplete(invoice, organizationId);
-  return toInvoice(completed);
+  const mapped = toInvoice(completed);
+  return {
+    ...mapped,
+    items: await enrichItemsWithSaleHuids(mapped.items),
+  };
 };
 
 export const getInvoiceForSale = async (

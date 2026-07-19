@@ -8,6 +8,7 @@ import {
   rowToBarcodeLabel,
   useBarcodeLabelPrint,
 } from "@/app/(components)/inventory/BarcodeLabelPrint";
+import HuidLink from "@/app/(components)/hallmark/HuidLink";
 import StatusBadge from "@/app/(components)/StatusBadge";
 import { fetchItemCodeHistory } from "@/lib/api/inventory";
 import { getApiErrorMessage } from "@/lib/api/client";
@@ -255,7 +256,7 @@ export default function ItemCodeHistoryPage() {
                 <div>
                   <dt className="text-xs text-zinc-500">Hallmark</dt>
                   <dd className="font-medium text-zinc-800">
-                    {history.spec.hallmarkNumber}
+                    <HuidLink huid={history.spec.hallmarkNumber} />
                     {history.spec.hallmarkCenter
                       ? ` · ${history.spec.hallmarkCenter}`
                       : ""}

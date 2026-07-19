@@ -5,6 +5,8 @@ import {
   computeGstBreakupForPdf,
   groupLinesByJewelryCategory,
   isIntraStateSupply,
+  resolveHsnCode,
+  resolveJewelryGroup,
   type GroupedJewelryLine,
   type GstBreakupValues,
 } from "./gst-invoice-layout.js";
@@ -21,8 +23,10 @@ const saleToInvoiceItem = (sale: {
   discount: unknown;
   dealPrice: unknown;
   metal?: string;
+  huid?: string | null;
 }): InvoiceItem => {
   const metal = sale.metal ?? sale.category;
+  const huid = sale.huid?.trim() || undefined;
   return {
     id: sale.id,
     saleId: sale.id,
@@ -34,7 +38,36 @@ const saleToInvoiceItem = (sale: {
     listPrice: moneyToNumber(String(sale.listPrice)),
     discount: moneyToNumber(String(sale.discount)),
     amount: moneyToNumber(String(sale.dealPrice)),
+    huid,
   };
+};
+
+export const enrichItemsWithSaleHuids = async (items: InvoiceItem[]): Promise<InvoiceItem[]> => {
+  const saleIds = items
+    .map((item) => item.saleId)
+    .filter((id): id is string => Boolean(id));
+  if (saleIds.length === 0) {
+    return items;
+  }
+
+  const sales = await prisma.sale.findMany({
+    where: { id: { in: saleIds } },
+    select: {
+      id: true,
+      unit: { select: { huid: true, hallmarkNumber: true } },
+    },
+  });
+  const huidBySaleId = new Map(
+    sales.map((sale) => [
+      sale.id,
+      sale.unit.huid?.trim() || sale.unit.hallmarkNumber?.trim() || undefined,
+    ]),
+  );
+
+  return items.map((item) => ({
+    ...item,
+    huid: item.huid ?? (item.saleId ? huidBySaleId.get(item.saleId) : undefined),
+  }));
 };
 
 const summaryLineItem = (invoice: Invoice): InvoiceItem => ({
@@ -54,7 +87,7 @@ export const resolveInvoiceItemsForPdf = async (
   organizationId: string,
 ): Promise<InvoiceItem[]> => {
   if (invoice.items.length > 0) {
-    return invoice.items;
+    return enrichItemsWithSaleHuids(invoice.items);
   }
 
   const saleWhere = invoice.cartGroupId
@@ -73,6 +106,9 @@ export const resolveInvoiceItemsForPdf = async (
 
   const sales = await prisma.sale.findMany({
     where: saleWhere,
+    include: {
+      unit: { select: { huid: true, hallmarkNumber: true } },
+    },
     orderBy: { soldAt: "asc" },
   });
 
@@ -88,6 +124,7 @@ export const resolveInvoiceItemsForPdf = async (
       saleToInvoiceItem({
         ...sale,
         metal: metalByProductId.get(sale.productId),
+        huid: sale.unit.huid ?? sale.unit.hallmarkNumber,
       }),
     );
   }
@@ -143,12 +180,38 @@ export const resolveGstBreakupForInvoice = (
   };
 };
 
+const isDetailedInvoiceItem = (item: InvoiceItem): boolean =>
+  Boolean(item.productName?.trim()) &&
+  item.itemCode !== "—" &&
+  item.itemCode !== "SUMMARY" &&
+  item.itemCode !== "REPAIR";
+
 export const resolveGroupedLinesForPdf = (
   items: InvoiceItem[],
   settings: ShopSettings,
   fallbackAmount: number,
   fallbackQty?: number,
 ): { lines: GroupedJewelryLine[]; totalQty: number; totalAmount: number } => {
+  const detailedItems = items.filter(isDetailedInvoiceItem);
+  if (detailedItems.length > 0) {
+    const lines = detailedItems.map((item) => {
+      const huidSuffix = item.huid ? `  HUID: ${item.huid}` : "";
+      const descriptionLine = `${item.productName}${huidSuffix}`;
+      const group = resolveJewelryGroup(item.metal || "Base Metal");
+      return {
+        label: descriptionLine,
+        hsn: item.hsnCode ?? resolveHsnCode(group, settings),
+        qty: 1,
+        amount: item.amount,
+      };
+    });
+    return {
+      lines,
+      totalQty: lines.length,
+      totalAmount: lines.reduce((sum, line) => sum + line.amount, 0),
+    };
+  }
+
   const grouped = groupLinesByJewelryCategory(
     items.map((item) => ({
       metal: item.metal || "Base Metal",

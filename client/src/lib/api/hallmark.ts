@@ -3,6 +3,7 @@ import type {
   HallmarkBatchDetail,
   HallmarkBatchSummary,
   ReceiveHallmarkBatchInput,
+  UpdateHallmarkBatchInput,
 } from "@/lib/types";
 import { api } from "./client";
 
@@ -52,6 +53,17 @@ export const receiveHallmarkBatch = async (
 ): Promise<HallmarkBatchDetail> => {
   const { data } = await api.post<HallmarkBatchDetail>(
     `/api/hallmark-batches/${id}/receive`,
+    input,
+  );
+  return data;
+};
+
+export const updateHallmarkBatch = async (
+  id: string,
+  input: UpdateHallmarkBatchInput,
+): Promise<HallmarkBatchDetail> => {
+  const { data } = await api.patch<HallmarkBatchDetail>(
+    `/api/hallmark-batches/${id}`,
     input,
   );
   return data;

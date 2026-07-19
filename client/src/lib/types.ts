@@ -710,6 +710,7 @@ export type HallmarkBatchSummary = {
   sentAt?: string;
   itemCount: number;
   receivedCount: number;
+  hallmarkingFeeTotal?: number;
   createdByName: string;
   createdAt: string;
 };
@@ -739,6 +740,10 @@ export type CreateHallmarkBatchInput = {
 
 export type ReceiveHallmarkBatchInput = {
   items: Array<{ inventoryUnitId: string; huid: string }>;
+};
+
+export type UpdateHallmarkBatchInput = {
+  hallmarkingFeeTotal?: number | null;
 };
 
 export type Vendor = {

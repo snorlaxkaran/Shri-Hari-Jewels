@@ -1,5 +1,6 @@
 import type { HallmarkBatch, HallmarkBatchItem, InventoryUnit, Product } from "@prisma/client";
 import type { HallmarkBatchDetail, HallmarkBatchSummary } from "../../types.js";
+import { moneyToNumber } from "../money.js";
 
 type BatchWithItems = HallmarkBatch & {
   items: Array<
@@ -20,6 +21,9 @@ export const toHallmarkBatchSummary = (
   sentAt: batch.sentAt?.toISOString(),
   itemCount: batch.items.length,
   receivedCount: batch.items.filter((item) => item.huid).length,
+  hallmarkingFeeTotal: batch.hallmarkingFeeTotal
+    ? moneyToNumber(batch.hallmarkingFeeTotal)
+    : undefined,
   createdByName: batch.createdByName,
   createdAt: batch.createdAt.toISOString(),
 });

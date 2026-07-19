@@ -10,6 +10,7 @@ import type {
   HallmarkBatchDetail,
   HallmarkBatchSummary,
   ReceiveHallmarkBatchInput,
+  UpdateHallmarkBatchInput,
 } from "../../types.js";
 import { generateHallmarkBatchNo } from "./batch-no.js";
 import { HallmarkError } from "./errors.js";
@@ -19,6 +20,7 @@ import {
   requiresHallmark,
   validateHuid,
 } from "./requires-hallmark.js";
+import { toMoney } from "../money.js";
 
 const batchInclude = {
   items: {
@@ -285,4 +287,35 @@ export const receiveHallmarkBatch = async (
   });
 
   return getHallmarkBatch(id, organizationId);
+};
+
+export const updateHallmarkBatch = async (
+  id: string,
+  organizationId: string,
+  input: UpdateHallmarkBatchInput,
+): Promise<HallmarkBatchDetail> => {
+  const batch = await getBatchOrThrow(id, organizationId);
+  if (batch.status === HallmarkBatchStatus.Draft) {
+    throw new HallmarkError("Record the hallmarking fee after the batch is sent.");
+  }
+
+  if (input.hallmarkingFeeTotal != null) {
+    const fee = input.hallmarkingFeeTotal;
+    if (!Number.isFinite(fee) || fee < 0) {
+      throw new HallmarkError("Hallmarking fee must be zero or greater.");
+    }
+  }
+
+  const updated = await prisma.hallmarkBatch.update({
+    where: { id },
+    data: {
+      hallmarkingFeeTotal:
+        input.hallmarkingFeeTotal == null
+          ? null
+          : toMoney(input.hallmarkingFeeTotal),
+    },
+    include: batchInclude,
+  });
+
+  return toHallmarkBatchDetail(updated);
 };

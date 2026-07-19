@@ -518,9 +518,10 @@ model HallmarkBatch {
   batchNo        String
   hallmarkCenter String
   sentAt         DateTime?
-  status         HallmarkBatchStatus @default(Draft)
-  createdByName  String
-  createdAt      DateTime            @default(now())
+  status                HallmarkBatchStatus @default(Draft)
+  hallmarkingFeeTotal   Decimal?            @db.Decimal(10, 2)
+  createdByName         String
+  createdAt             DateTime            @default(now())
 
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   branch       Branch              @relation(fields: [branchId], references: [id], onDelete: Cascade)

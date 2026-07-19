@@ -10,6 +10,7 @@ import {
   listHallmarkBatches,
   receiveHallmarkBatch,
   sendHallmarkBatch,
+  updateHallmarkBatch,
 } from "../lib/hallmark/service.js";
 import { HallmarkError } from "../lib/hallmark/errors.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
@@ -19,6 +20,7 @@ import { routeParam } from "../lib/route-param.js";
 import type {
   CreateHallmarkBatchInput,
   ReceiveHallmarkBatchInput,
+  UpdateHallmarkBatchInput,
 } from "../types.js";
 
 export const hallmarkBatchesRouter = Router();
@@ -147,6 +149,28 @@ hallmarkBatchesRouter.post(
       }
       console.error("POST /api/hallmark-batches/:id/receive", error);
       res.status(500).json({ error: "Failed to receive hallmark batch." });
+    }
+  },
+);
+
+hallmarkBatchesRouter.patch(
+  "/:id",
+  requireRole(canManageHallmark),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const batch = await updateHallmarkBatch(
+        routeParam(req.params.id),
+        req.organizationId!,
+        req.body as UpdateHallmarkBatchInput,
+      );
+      res.json(batch);
+    } catch (error) {
+      if (error instanceof HallmarkError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("PATCH /api/hallmark-batches/:id", error);
+      res.status(500).json({ error: "Failed to update hallmark batch." });
     }
   },
 );
