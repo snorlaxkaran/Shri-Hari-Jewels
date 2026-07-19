@@ -1,4 +1,9 @@
-import { getProductCoverFromItem } from "@/lib/inventory/product-images";
+import {
+  getProductCoverFromItem,
+} from "@/lib/inventory/product-images";
+import {
+  isHallmarkPending,
+} from "@/lib/inventory/hallmark-filter";
 import type {
   InventoryItem,
   InventoryUnitPriceSource,
@@ -66,7 +71,14 @@ export const flattenInventoryToUnitRows = (
       imageColor: product.imageColor,
       huid: unit.huid,
       hallmarkNumber: unit.hallmarkNumber,
-      hallmarkPending: unit.hallmarkPending,
+      hallmarkPending: isHallmarkPending({
+        status: unit.status,
+        metal: product.metal,
+        weightGrams: product.weightGrams,
+        huid: unit.huid,
+        hallmarkNumber: unit.hallmarkNumber,
+        hallmarkPending: unit.hallmarkPending,
+      }),
       heldForCustomerName: unit.heldForCustomerName,
       heldForCustomerId: unit.heldForCustomerId,
       heldAt: unit.heldAt,

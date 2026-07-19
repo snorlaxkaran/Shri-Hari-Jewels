@@ -8,12 +8,14 @@ const LABEL_OVERRIDES: Record<string, string> = {
   Reserved: "Reserved",
   "Set aside": "Set aside",
   Transferred: "Transferred",
+  "Needs Hallmark": "Needs hallmark",
   PendingVerification: "Inactive",
 };
 
 const styles: Record<string, { color: string }> = {
   "In Stock": { color: "#1d8102" },
   Available: { color: "#1d8102" },
+  "Needs Hallmark": { color: "#b45309" },
   "Low Stock": { color: "#d45b07" },
   "Out of Stock": { color: "#545b64" },
   Pending: { color: "#d45b07" },

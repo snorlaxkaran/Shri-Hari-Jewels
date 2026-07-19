@@ -24,7 +24,9 @@ import {
 } from "@/lib/inventory/filters";
 import {
   isHallmarkedUnit,
+  isHallmarkPending,
   requiresHallmark,
+  getUnitSaleStatus,
 } from "@/lib/inventory/hallmark-filter";
 import type {
   InventorySortField,
@@ -342,7 +344,7 @@ export default function InventoryTable({
                   </span>
                 </>
               ) : (
-                <StatusBadge status={row.status} />
+                <StatusBadge status={getUnitSaleStatus(row)} />
               )}
             </div>
           </td>
@@ -370,8 +372,7 @@ export default function InventoryTable({
               <RowActionsDropdown
                 actions={[
                   ...(row.status === "Available" &&
-                  requiresHallmark(row) &&
-                  !isHallmarkedUnit(row) &&
+                  isHallmarkPending(row) &&
                   canManageHallmark
                     ? [
                         {

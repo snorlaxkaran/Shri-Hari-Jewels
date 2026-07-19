@@ -10,15 +10,37 @@ export const requiresHallmark = (
 ): boolean =>
   HALLMARK_METALS.has(row.metal) && row.weightGrams >= MIN_HALLMARK_WEIGHT_GRAMS;
 
-export const isHallmarkedUnit = (row: InventoryUnitRow): boolean =>
-  Boolean(row.huid?.trim() || row.hallmarkNumber?.trim());
+export const isHallmarkedUnit = (
+  row: Pick<InventoryUnitRow, "huid" | "hallmarkNumber">,
+): boolean => Boolean(row.huid?.trim() || row.hallmarkNumber?.trim());
+
+export const isHallmarkPending = (
+  row: Pick<
+    InventoryUnitRow,
+    "status" | "metal" | "weightGrams" | "huid" | "hallmarkNumber" | "hallmarkPending"
+  >,
+): boolean =>
+  Boolean(
+    row.hallmarkPending ??
+      (row.status === "Available" &&
+        requiresHallmark(row) &&
+        !isHallmarkedUnit(row)),
+  );
+
+/** Status shown in inventory — unhallmarked gold is not sellable. */
+export const getUnitSaleStatus = (
+  row: Pick<
+    InventoryUnitRow,
+    "status" | "metal" | "weightGrams" | "huid" | "hallmarkNumber" | "hallmarkPending"
+  >,
+): string => (isHallmarkPending(row) ? "Needs Hallmark" : row.status);
 
 export const matchesHallmarkFilter = (
   row: InventoryUnitRow,
   filter: HallmarkFilter,
 ): boolean => {
   if (!filter) return true;
-  if (filter === "pending") return requiresHallmark(row) && !isHallmarkedUnit(row);
+  if (filter === "pending") return isHallmarkPending(row);
   if (filter === "done") return isHallmarkedUnit(row);
   return !requiresHallmark(row);
 };

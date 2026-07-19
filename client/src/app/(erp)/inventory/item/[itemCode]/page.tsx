@@ -16,10 +16,11 @@ import { getApiErrorMessage } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canManageHallmark } from "@/lib/auth/permissions";
 import {
+  getUnitSaleStatus,
   requiresHallmark,
 } from "@/lib/inventory/hallmark-filter";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
-import type { ItemCodeHistory, ItemCodeHistoryEvent } from "@/lib/types";
+import type { ItemCodeHistory, ItemCodeHistoryEvent, MetalType } from "@/lib/types";
 
 const EVENT_DOT: Record<ItemCodeHistoryEvent["type"], string> = {
   entry: "bg-emerald-500",
@@ -202,7 +203,14 @@ export default function ItemCodeHistoryPage() {
                     {history.spec.sku}
                   </p>
                   <div className="mt-2">
-                    <StatusBadge status={history.spec.status} />
+                    <StatusBadge
+                      status={getUnitSaleStatus({
+                        status: history.spec.status as "Available",
+                        metal: history.spec.metal as MetalType,
+                        weightGrams: history.spec.weightGrams,
+                        hallmarkNumber: history.spec.hallmarkNumber,
+                      })}
+                    />
                   </div>
                 </div>
               </div>
