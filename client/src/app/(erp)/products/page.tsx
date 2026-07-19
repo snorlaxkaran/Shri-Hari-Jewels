@@ -1,75 +1,113 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Plus, Search } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canWriteInventory } from "@/lib/auth/permissions";
+import { useInventory } from "@/lib/inventory/inventory-context";
+import {
+  matchesProductMetalTab,
+  type ProductMetalTab,
+} from "@/lib/inventory/metal-stats";
 import {
   createProductCollection,
   fetchProductCollections,
 } from "@/lib/api/product-collections";
 import { getApiErrorMessage } from "@/lib/api/client";
-import type { ProductCollection } from "@/lib/types";
-import { formatDate } from "@/lib/format";
+import type { InventoryItem } from "@/lib/types";
+
+const ProductTable = dynamic(
+  () => import("@/app/(components)/products/ProductTable"),
+  {
+    loading: () => (
+      <div className="h-96 rounded-xl border border-zinc-200 bg-white animate-pulse" />
+    ),
+    ssr: false,
+  },
+);
 
 const fieldClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
 
+function sortProducts(items: InventoryItem[]): InventoryItem[] {
+  return [...items].sort((a, b) => a.sku.localeCompare(b.sku));
+}
+
 export default function ProductsPage() {
   const { user } = useAuth();
-  const canManage = user ? canWriteInventory(user.role) : false;
-  const [collections, setCollections] = useState<ProductCollection[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const { items, hydrated, loading, error } = useInventory();
+  const canWrite = user ? canWriteInventory(user.role) : false;
+  const [search, setSearch] = useState("");
+  const [metalTab, setMetalTab] = useState<ProductMetalTab>("all");
+  const [showCollectionForm, setShowCollectionForm] = useState(false);
+  const [collectionName, setCollectionName] = useState("");
+  const [collectionError, setCollectionError] = useState("");
+  const [collectionSubmitting, setCollectionSubmitting] = useState(false);
+  const [recentCollections, setRecentCollections] = useState<
+    Array<{ name: string; createdAt: string }>
+  >([]);
 
-  const load = useCallback(async () => {
-    setError("");
+  const loadRecentCollections = useCallback(async () => {
     try {
-      setCollections(await fetchProductCollections(false));
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Could not load collections."));
-    } finally {
-      setLoading(false);
+      const rows = await fetchProductCollections(false);
+      setRecentCollections(rows.slice(0, 5).map((row) => ({ name: row.name, createdAt: row.createdAt })));
+    } catch {
+      setRecentCollections([]);
     }
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadRecentCollections();
+  }, [loadRecentCollections]);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return sortProducts(
+      items.filter((product) => {
+        const matchesSearch =
+          !needle ||
+          product.name.toLowerCase().includes(needle) ||
+          product.sku.toLowerCase().includes(needle) ||
+          product.category.toLowerCase().includes(needle);
+        const matchesMetal = matchesProductMetalTab(product.metal, metalTab);
+        return matchesSearch && matchesMetal;
+      }),
+    );
+  }, [items, search, metalTab]);
+
+  const handleCreateCollection = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
-    setError("");
+    setCollectionSubmitting(true);
+    setCollectionError("");
     try {
-      await createProductCollection({ name: name.trim() });
-      setName("");
-      setShowForm(false);
-      await load();
+      await createProductCollection({ name: collectionName.trim() });
+      setCollectionName("");
+      setShowCollectionForm(false);
+      await loadRecentCollections();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to create collection."));
+      setCollectionError(getApiErrorMessage(err, "Failed to create collection."));
     } finally {
-      setSubmitting(false);
+      setCollectionSubmitting(false);
     }
   };
 
-  if (loading) return <PageSkeleton />;
+  if (!hydrated || loading) {
+    return <PageSkeleton />;
+  }
 
   return (
     <div className="page-content">
       <PageHeader
         title="Product"
-        subtitle="Manage product collections used when adding stock"
+        subtitle={`${filtered.length} SKUs — shared catalog config for all units`}
         action={
-          canManage ? (
+          canWrite ? (
             <button
               type="button"
-              onClick={() => setShowForm((v) => !v)}
+              onClick={() => setShowCollectionForm((v) => !v)}
               className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
             >
               <Plus size={16} />
@@ -79,20 +117,20 @@ export default function ProductsPage() {
         }
       />
 
-      {error && (
+      {(error || collectionError) && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">
-          {error}
+          {error || collectionError}
         </div>
       )}
 
-      {showForm && canManage && (
-        <form onSubmit={handleCreate} className="form-section mb-6 max-w-md">
+      {showCollectionForm && canWrite && (
+        <form onSubmit={handleCreateCollection} className="form-section mb-6 max-w-md">
           <div>
             <label className={labelClass}>Collection name</label>
             <input
               className={fieldClass}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={collectionName}
+              onChange={(e) => setCollectionName(e.target.value)}
               placeholder="e.g. Bridal, Classic"
               required
               autoFocus
@@ -102,42 +140,66 @@ export default function ProductsPage() {
             <button
               type="button"
               className="btn-secondary px-4 py-2 text-sm"
-              onClick={() => setShowForm(false)}
+              onClick={() => setShowCollectionForm(false)}
             >
               Cancel
             </button>
-            <button type="submit" disabled={submitting} className="btn-primary px-4 py-2 text-sm">
-              {submitting ? "Saving…" : "Save collection"}
+            <button
+              type="submit"
+              disabled={collectionSubmitting}
+              className="btn-primary px-4 py-2 text-sm"
+            >
+              {collectionSubmitting ? "Saving…" : "Save collection"}
             </button>
           </div>
         </form>
       )}
 
-      <div className="data-table-wrap">
-        {collections.length === 0 ? (
-          <p className="py-8 text-sm text-zinc-400 text-center">
-            No collections yet. Add collections to tag products when entering stock.
-          </p>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Added</th>
-              </tr>
-            </thead>
-            <tbody>
-              {collections.map((collection) => (
-                <tr key={collection.id}>
-                  <td className="font-medium">{collection.name}</td>
-                  <td className="td-muted">{collection.isActive ? "Active" : "Inactive"}</td>
-                  <td className="td-muted">{formatDate(collection.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      {recentCollections.length > 0 && (
+        <p className="mb-4 text-xs text-zinc-500">
+          Collections:{" "}
+          {recentCollections.map((collection, index) => (
+            <span key={collection.name}>
+              {index > 0 ? " · " : ""}
+              {collection.name}
+            </span>
+          ))}
+        </p>
+      )}
+
+      <div className="filter-bar">
+        {(
+          [
+            ["all", "All"],
+            ["gold", "Gold"],
+            ["silver", "Silver"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setMetalTab(key)}
+            className={`tab-btn ${metalTab === key ? "tab-btn-active" : "tab-btn-inactive"}`}
+          >
+            {label}
+          </button>
+        ))}
+        <div className="filter-search">
+          <Search size={14} className="text-zinc-400 shrink-0" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, SKU, or category…"
+          />
+        </div>
+        <span className="filter-count">
+          Showing {filtered.length} of {items.length}
+        </span>
+      </div>
+
+      <div className="data-table-wrap w-full">
+        <ProductTable products={filtered} canWrite={canWrite} />
       </div>
     </div>
   );
