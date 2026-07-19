@@ -782,6 +782,19 @@ export type NewVendorInput = {
 
 export type UpdateVendorInput = Partial<NewVendorInput>;
 
+export type ProductCollection = {
+  id: string;
+  organizationId: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewProductCollectionInput = {
+  name: string;
+};
+
 export type PurchaseBill = {
   id: string;
   organizationId: string;

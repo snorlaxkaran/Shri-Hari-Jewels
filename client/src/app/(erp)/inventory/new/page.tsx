@@ -12,7 +12,6 @@ import { canWriteInventory } from "@/lib/auth/permissions";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import {
   HSN_OPTIONS,
-  STOCK_COLLECTIONS,
   STOCK_FORM_METALS,
   STOCK_FORM_PURITIES,
   STOCK_SUB_CATEGORIES,
@@ -23,8 +22,12 @@ import { generateSku, generateUnitCodes } from "@/lib/inventory/sku";
 import type { PendingImage } from "@/lib/inventory/images";
 import { fetchCurrentMarketRates } from "@/lib/api/market-rates";
 import { importLegacyStock } from "@/lib/api/inventory";
+import {
+  createProductCollection,
+  fetchProductCollections,
+} from "@/lib/api/product-collections";
 import { getApiErrorMessage } from "@/lib/api/client";
-import type { MarketRatesCurrent, MetalType, Purity } from "@/lib/types";
+import type { MarketRatesCurrent, MetalType, ProductCollection, Purity } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 
 const fieldClass = "input-field w-full px-3 py-2 text-sm";
@@ -70,6 +73,10 @@ export default function NewStockPage() {
   const [subCategory, setSubCategory] = useState("");
   const [categorySize, setCategorySize] = useState("");
   const [collection, setCollection] = useState("");
+  const [collections, setCollections] = useState<ProductCollection[]>([]);
+  const [showCollectionForm, setShowCollectionForm] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState("");
+  const [collectionSubmitting, setCollectionSubmitting] = useState(false);
   const [weightGrams, setWeightGrams] = useState("");
   const [hsn, setHsn] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -91,6 +98,36 @@ export default function NewStockPage() {
       .then(setRates)
       .catch(() => setRates(null));
   }, []);
+
+  useEffect(() => {
+    fetchProductCollections()
+      .then(setCollections)
+      .catch(() => setCollections([]));
+  }, []);
+
+  const handleAddCollection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newCollectionName.trim();
+    if (!trimmed) return;
+
+    setCollectionSubmitting(true);
+    setError("");
+    try {
+      const created = await createProductCollection({ name: trimmed });
+      setCollections((prev) =>
+        [...prev.filter((item) => item.id !== created.id), created].sort((a, b) =>
+          a.name.localeCompare(b.name),
+        ),
+      );
+      setCollection(created.name);
+      setNewCollectionName("");
+      setShowCollectionForm(false);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to add collection."));
+    } finally {
+      setCollectionSubmitting(false);
+    }
+  };
 
   const existingSkus = useMemo(() => items.map((i) => i.sku), [items]);
   const existingUnitCodes = useMemo(
@@ -388,16 +425,46 @@ export default function NewStockPage() {
             </div>
 
             <div>
-              <label className={labelClass}>Collection</label>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className={labelClass}>Collection</label>
+                {canAdd && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCollectionForm((prev) => !prev)}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    {showCollectionForm ? "Cancel" : "+ Add collection"}
+                  </button>
+                )}
+              </div>
+              {showCollectionForm && canAdd && (
+                <form onSubmit={handleAddCollection} className="mb-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={newCollectionName}
+                    onChange={(e) => setNewCollectionName(e.target.value)}
+                    placeholder="New collection name"
+                    className={fieldClass}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={collectionSubmitting || !newCollectionName.trim()}
+                    className="btn-primary px-3 py-2 text-sm whitespace-nowrap disabled:opacity-50"
+                  >
+                    {collectionSubmitting ? "Saving…" : "Save"}
+                  </button>
+                </form>
+              )}
               <select
                 value={collection}
                 onChange={(e) => setCollection(e.target.value)}
                 className={fieldClass}
               >
                 <option value="">Choose …</option>
-                {STOCK_COLLECTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+                {collections.map((item) => (
+                  <option key={item.id} value={item.name}>
+                    {item.name}
                   </option>
                 ))}
               </select>

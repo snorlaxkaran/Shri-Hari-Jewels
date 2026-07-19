@@ -198,6 +198,7 @@ model Organization {
   entryVouchers       EntryVoucher[]
   repairOrders        RepairOrder[]
   vendors             Vendor[]
+  productCollections  ProductCollection[]
   purchaseBills       PurchaseBill[]
   tallyExportLogs     TallyExportLog[]
   hallmarkBatches     HallmarkBatch[]
@@ -1745,6 +1746,21 @@ model RepairPhoto {
   repairOrder RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
 
   @@index([repairOrderId])
+}
+
+model ProductCollection {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([isActive])
 }
 
 model Vendor {
