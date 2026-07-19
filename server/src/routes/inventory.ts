@@ -29,6 +29,7 @@ import { HallmarkError } from "../lib/hallmark/errors.js";
 import { canManageHallmark } from "../lib/auth/permissions.js";
 import { getItemCodeHistory } from "../lib/inventory/item-history-service.js";
 import { importLegacyStock } from "../lib/inventory/stock-import.js";
+import { createDocumentShareToken } from "../lib/invoices/share-token.js";
 import {
   acceptStockTransfer,
   cancelStockTransfer,
@@ -510,6 +511,36 @@ inventoryRouter.patch(
       }
       console.error("PATCH /api/inventory/transfers/:id/shipping", error);
       res.status(500).json({ error: "Failed to save shipping details" });
+    }
+  },
+);
+
+inventoryRouter.get(
+  "/transfers/:id/share-token",
+  requireRole(canViewStockTransfers),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const transfer = await getStockTransferById(routeParam(req.params.id));
+      if (!transfer) {
+        res.status(404).json({ error: "Transfer not found." });
+        return;
+      }
+      if (!transfer.invoicedAt) {
+        res.status(400).json({ error: "Generate the invoice or challan first." });
+        return;
+      }
+
+      const { token, expiresAt } = createDocumentShareToken("transfer", transfer.id);
+      res.json({
+        token,
+        expiresAt: expiresAt.toISOString(),
+        documentType: transfer.documentType,
+        transferNo: transfer.transferNo,
+        invoiceNo: transfer.invoiceNo ?? null,
+      });
+    } catch (error) {
+      console.error("GET /api/inventory/transfers/:id/share-token", error);
+      res.status(500).json({ error: "Failed to create share link." });
     }
   },
 );

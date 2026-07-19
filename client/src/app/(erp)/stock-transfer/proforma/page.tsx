@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRightLeft } from "lucide-react";
+import { ArrowRightLeft, FileText, Loader2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import RowActionsDropdown from "@/app/(components)/RowActionsDropdown";
@@ -14,6 +14,7 @@ import {
   openTransferInvoicePdf,
 } from "@/lib/api/inventory";
 import { getApiErrorMessage } from "@/lib/api/client";
+import { preparePdfViewerTab } from "@/lib/open-pdf";
 import { canManageStockTransfers } from "@/lib/auth/permissions";
 import { useAuth } from "@/lib/auth/auth-context";
 import type { StockTransfer, StockTransferDocumentType } from "@/lib/types";
@@ -59,7 +60,7 @@ export default function ProformaListPage() {
   const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>("All");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProformaTransfers()
@@ -122,21 +123,18 @@ export default function ProformaListPage() {
     router.push(`/stock-transfer/sent/${transferId}`);
   };
 
-  const handleOpenPdf = async (
-    transfer: StockTransfer,
-    event?: React.MouseEvent,
-  ) => {
+  const handleOpenPdf = (transfer: StockTransfer, event?: React.MouseEvent) => {
     event?.stopPropagation();
-    if (downloadingId === transfer.id) return;
-    setDownloadingId(transfer.id);
+    if (openingId === transfer.id) return;
+    const tab = preparePdfViewerTab();
+    setOpeningId(transfer.id);
     setError("");
-    try {
-      await openTransferInvoicePdf(transfer.id);
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to open invoice."));
-    } finally {
-      setDownloadingId(null);
-    }
+    void openTransferInvoicePdf(transfer.id, tab)
+      .catch((err) => {
+        tab?.close();
+        setError(getApiErrorMessage(err, "Failed to open document."));
+      })
+      .finally(() => setOpeningId(null));
   };
 
   const handleEdit = (transferId: string, event?: React.MouseEvent) => {
@@ -234,13 +232,14 @@ export default function ProformaListPage() {
                 <th>Status</th>
                 <th>Invoice Generated</th>
                 <th>Invoice No.</th>
+                <th aria-label="PDF" />
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center td-muted py-10">
+                  <td colSpan={11} className="text-center td-muted py-10">
                     {transfers.length === 0
                       ? "No transfers yet. Use Scan & Send to transfer stock to a customer branch."
                       : hasActiveFilters
@@ -291,16 +290,27 @@ export default function ProformaListPage() {
                       </td>
                       <td className="td-mono">{transfer.invoiceNo ?? "—"}</td>
                       <td className="text-right">
+                        {generated ? (
+                          <button
+                            type="button"
+                            onClick={(event) => handleOpenPdf(transfer, event)}
+                            disabled={openingId === transfer.id}
+                            className="row-action-btn"
+                            aria-label={`Open PDF for ${transfer.transferNo}`}
+                            title="Open PDF"
+                          >
+                            {openingId === transfer.id ? (
+                              <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                              <FileText size={16} />
+                            )}
+                          </button>
+                        ) : null}
+                      </td>
+                      <td className="text-right">
                         {canAct && (
                           <RowActionsDropdown
                             actions={[
-                              {
-                                label: downloadingId === transfer.id
-                                  ? "Opening…"
-                                  : "View PDF",
-                                onClick: () => handleOpenPdf(transfer),
-                                hidden: !generated,
-                              },
                               {
                                 label: generated
                                   ? "Edit & Re-generate"

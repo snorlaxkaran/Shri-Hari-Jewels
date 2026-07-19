@@ -15,7 +15,7 @@ import { fetchSettings } from "@/lib/api/settings";
 import { getApiErrorMessage } from "@/lib/api/client";
 import type { ShopSettings, StockTransfer, StockTransferItem } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { openPdfBlob } from "@/lib/open-pdf";
+import { preparePdfViewerTab } from "@/lib/open-pdf";
 import ItemCodeLink from "@/app/(components)/inventory/ItemCodeLink";
 
 const labelClass =
@@ -73,7 +73,6 @@ export default function SentTransferDetailPage() {
   const [redirectMessage, setRedirectMessage] = useState("");
   const [formError, setFormError] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
 
   const [contactPersonName, setContactPersonName] = useState("");
   const [contactPersonPhone, setContactPersonPhone] = useState("");
@@ -148,11 +147,6 @@ export default function SentTransferDetailPage() {
 
   const isInvoice = transfer?.documentType === "Wholesale GST Invoice";
   const docLabel = isInvoice ? "Invoice" : "Challan";
-  const pdfFilename = transfer
-    ? isInvoice
-      ? `invoice-${transfer.invoiceNo ?? transfer.transferNo}.pdf`
-      : `challan-${transfer.transferNo}.pdf`
-    : "document.pdf";
 
   const handleGenerate = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -179,6 +173,7 @@ export default function SentTransferDetailPage() {
     }
 
     setGenerating(true);
+    const tab = preparePdfViewerTab();
     try {
       const formData = {
         contactPersonName: contactPersonName.trim(),
@@ -188,8 +183,7 @@ export default function SentTransferDetailPage() {
       };
       const result = await generateTransferInvoice(transfer.id, formData);
       setTransfer(result.transfer);
-      setPdfBlob(result.pdfBlob);
-      openPdfBlob(result.pdfBlob, pdfFilename);
+      await openTransferInvoicePdf(transfer.id, tab);
       setRedirectMessage(
         "Invoice generated. Redirecting to Proforma List...",
       );
@@ -202,13 +196,10 @@ export default function SentTransferDetailPage() {
   };
 
   const handleViewPdf = async () => {
-    if (pdfBlob) {
-      openPdfBlob(pdfBlob, pdfFilename);
-      return;
-    }
     if (!transfer) return;
+    const tab = preparePdfViewerTab();
     try {
-      await openTransferInvoicePdf(transfer.id);
+      await openTransferInvoicePdf(transfer.id, tab);
     } catch (err) {
       setFormError(getApiErrorMessage(err, `Failed to open ${docLabel.toLowerCase()}.`));
     }
@@ -409,10 +400,10 @@ export default function SentTransferDetailPage() {
           Courier &amp; Dispatch Details
         </h2>
 
-        {transfer.invoicedAt && !pdfBlob && (
+        {transfer.invoicedAt && (
           <p className="mb-4 text-sm text-zinc-600">
             This transfer was invoiced on {formatDate(transfer.invoicedAt)}.
-            Fill in courier details and generate again to download the PDF.
+            Use View {docLabel} to open the shareable PDF link.
           </p>
         )}
 

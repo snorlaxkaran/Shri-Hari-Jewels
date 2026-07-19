@@ -401,7 +401,7 @@ const drawTribeItemTable = (
   const colQty = contentWidth * 0.10;
   const colAmount = contentWidth - colItem - colHsn - colQty;
   const colWidths = [colItem, colHsn, colQty, colAmount];
-  const headers = ["ITEM", "HSN", "QTY", "AMOUNT (\u20B9)"];
+  const headers = ["ITEM", "HSN", "QTY", "AMOUNT (Rs.)"];
   let y = startY;
 
   doc.save();
@@ -498,7 +498,7 @@ const drawPayableBar = (
 
   doc.font("Helvetica-Bold").fontSize(10.5).fillColor(T.payableBarText);
   doc.text("PAYABLE AMOUNT", x + 10, y + 8, { width: width * 0.55 });
-  doc.text(`\u20B9 ${formatRupeeDecimal(amount)}`, x, y + 8, {
+  doc.text(`Rs. ${formatRupeeDecimal(amount)}`, x, y + 8, {
     width: width - 10,
     align: "right",
   });

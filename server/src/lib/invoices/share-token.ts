@@ -7,22 +7,39 @@ const SHARE_SECRET =
 
 const DEFAULT_TTL_SECONDS = 90 * 24 * 60 * 60;
 
+export type ShareDocumentKind = "invoice" | "transfer";
+
+export type VerifiedShareToken = {
+  kind: ShareDocumentKind;
+  documentId: string;
+};
+
 const signPayload = (payload: string): string =>
   crypto.createHmac("sha256", SHARE_SECRET).update(payload).digest("base64url");
 
-export const createInvoiceShareToken = (
-  invoiceId: string,
+const encodeToken = (payload: string): string =>
+  `${Buffer.from(payload, "utf8").toString("base64url")}.${signPayload(payload)}`;
+
+export const createDocumentShareToken = (
+  kind: ShareDocumentKind,
+  documentId: string,
   ttlSeconds = DEFAULT_TTL_SECONDS,
 ): { token: string; expiresAt: Date } => {
   const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
-  const payload = `${invoiceId}.${exp}`;
-  const token = `${Buffer.from(payload, "utf8").toString("base64url")}.${signPayload(payload)}`;
-  return { token, expiresAt: new Date(exp * 1000) };
+  const payload = `${kind}.${documentId}.${exp}`;
+  return { token: encodeToken(payload), expiresAt: new Date(exp * 1000) };
 };
 
-export const verifyInvoiceShareToken = (
+/** @deprecated Prefer createDocumentShareToken("invoice", id). */
+export const createInvoiceShareToken = (
+  invoiceId: string,
+  ttlSeconds = DEFAULT_TTL_SECONDS,
+): { token: string; expiresAt: Date } =>
+  createDocumentShareToken("invoice", invoiceId, ttlSeconds);
+
+export const verifyDocumentShareToken = (
   token: string,
-): { invoiceId: string } | null => {
+): VerifiedShareToken | null => {
   const dot = token.lastIndexOf(".");
   if (dot <= 0) return null;
 
@@ -47,11 +64,32 @@ export const verifyInvoiceShareToken = (
     return null;
   }
 
-  const [invoiceId, expStr] = payload.split(".");
-  const exp = Number(expStr);
-  if (!invoiceId || !Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000)) {
-    return null;
+  const parts = payload.split(".");
+  const now = Math.floor(Date.now() / 1000);
+
+  if (parts.length === 2) {
+    const [documentId, expStr] = parts;
+    const exp = Number(expStr);
+    if (!documentId || !Number.isFinite(exp) || exp < now) return null;
+    return { kind: "invoice", documentId };
   }
 
-  return { invoiceId };
+  if (parts.length === 3) {
+    const [kind, documentId, expStr] = parts;
+    if (kind !== "invoice" && kind !== "transfer") return null;
+    const exp = Number(expStr);
+    if (!documentId || !Number.isFinite(exp) || exp < now) return null;
+    return { kind, documentId };
+  }
+
+  return null;
+};
+
+/** @deprecated Prefer verifyDocumentShareToken. */
+export const verifyInvoiceShareToken = (
+  token: string,
+): { invoiceId: string } | null => {
+  const verified = verifyDocumentShareToken(token);
+  if (!verified || verified.kind !== "invoice") return null;
+  return { invoiceId: verified.documentId };
 };
