@@ -4,9 +4,8 @@ import { defaultHsnForMetal } from "./gst.js";
 import {
   computeGstBreakupForPdf,
   groupLinesByJewelryCategory,
+  groupLinesWithFallback,
   isIntraStateSupply,
-  resolveHsnCode,
-  resolveJewelryGroup,
   type GroupedJewelryLine,
   type GstBreakupValues,
 } from "./gst-invoice-layout.js";
@@ -180,38 +179,12 @@ export const resolveGstBreakupForInvoice = (
   };
 };
 
-const isDetailedInvoiceItem = (item: InvoiceItem): boolean =>
-  Boolean(item.productName?.trim()) &&
-  item.itemCode !== "—" &&
-  item.itemCode !== "SUMMARY" &&
-  item.itemCode !== "REPAIR";
-
 export const resolveGroupedLinesForPdf = (
   items: InvoiceItem[],
   settings: ShopSettings,
   fallbackAmount: number,
   fallbackQty?: number,
 ): { lines: GroupedJewelryLine[]; totalQty: number; totalAmount: number } => {
-  const detailedItems = items.filter(isDetailedInvoiceItem);
-  if (detailedItems.length > 0) {
-    const lines = detailedItems.map((item) => {
-      const huidSuffix = item.huid ? `  HUID: ${item.huid}` : "";
-      const descriptionLine = `${item.productName}${huidSuffix}`;
-      const group = resolveJewelryGroup(item.metal || "Base Metal");
-      return {
-        label: descriptionLine,
-        hsn: item.hsnCode ?? resolveHsnCode(group, settings),
-        qty: 1,
-        amount: item.amount,
-      };
-    });
-    return {
-      lines,
-      totalQty: lines.length,
-      totalAmount: lines.reduce((sum, line) => sum + line.amount, 0),
-    };
-  }
-
   const grouped = groupLinesByJewelryCategory(
     items.map((item) => ({
       metal: item.metal || "Base Metal",
@@ -231,16 +204,13 @@ export const resolveGroupedLinesForPdf = (
     return grouped;
   }
 
-  return {
-    lines: [
-      {
-        label: "Jewellery",
-        hsn: settings.imitationHsnCode ?? "71179010",
-        qty,
-        amount,
-      },
-    ],
-    totalQty: qty,
-    totalAmount: amount,
-  };
+  return groupLinesWithFallback(
+    items.map((item) => ({
+      metal: item.metal || "Base Metal",
+      amount: item.amount,
+    })),
+    settings,
+    amount,
+    qty,
+  );
 };

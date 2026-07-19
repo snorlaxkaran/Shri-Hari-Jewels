@@ -6,7 +6,16 @@ import {
   formatRupeeDecimal,
 } from "../pdf/format.js";
 import { formatShopAddress } from "../pdf/document-header.js";
-import { ensureSpace, getContentWidth } from "../pdf/table.js";
+import { getContentWidth } from "../pdf/table.js";
+
+/** Single-page invoice zones (A4, points). */
+const PAGE_FOOTER_HEIGHT = 12;
+const SIGNATURE_BOTTOM_GAP = 6;
+const SIGNATURE_BLOCK_HEIGHT = 28;
+const LEGAL_LINE_HEIGHT = 11;
+const SECTION_GAP = 8;
+const GST_BLOCK_HEIGHT = 178;
+const CHALLAN_BLOCK_HEIGHT = 52;
 
 export type JewelryGroupKey =
   | "Gold Jewelry"
@@ -130,6 +139,46 @@ export const buildFromLines = (settings: ShopSettings): string[] => {
   if (settings.phone?.trim()) lines.push(settings.phone.trim());
   if (settings.email?.trim()) lines.push(settings.email.trim());
   return lines;
+};
+
+const pageContentBottom = (doc: PDFKit.PDFDocument): number =>
+  doc.page.height - doc.page.margins.bottom;
+
+type BottomAnchors = {
+  itemsMaxY: number;
+  gstTop: number;
+  legalTop: number;
+  signatureLineY: number;
+  pageFooterY: number;
+};
+
+const measureBottomAnchors = (
+  doc: PDFKit.PDFDocument,
+  settings: ShopSettings,
+  layout: StandardDocumentLayout,
+): BottomAnchors => {
+  const pageBottom = pageContentBottom(doc);
+  const pageFooterY = pageBottom - PAGE_FOOTER_HEIGHT;
+  const signatureLineY =
+    pageFooterY - SIGNATURE_BOTTOM_GAP - SIGNATURE_BLOCK_HEIGHT;
+
+  let legalLines = 0;
+  if (settings.registeredOfficeAddress?.trim()) legalLines += 1;
+  if (layout.ackNo?.trim() || layout.gstIrn?.trim()) legalLines += 1;
+  const legalHeight =
+    legalLines > 0 ? legalLines * LEGAL_LINE_HEIGHT + 4 : 0;
+  const legalTop = signatureLineY - legalHeight - (legalHeight > 0 ? 4 : 0);
+
+  const blockHeight = layout.gstBreakup ? GST_BLOCK_HEIGHT : CHALLAN_BLOCK_HEIGHT;
+  const gstTop = legalTop - blockHeight - SECTION_GAP;
+
+  return {
+    itemsMaxY: gstTop - SECTION_GAP,
+    gstTop,
+    legalTop,
+    signatureLineY,
+    pageFooterY,
+  };
 };
 
 const drawGoldRule = (
@@ -318,57 +367,93 @@ const drawDispatchLine = (
   doc.y += 16;
 };
 
+const TABLE_FONT_SIZE = 9;
+const TABLE_HEADER_FONT_SIZE = 8;
+const TABLE_CELL_PAD = 6;
+const TABLE_MIN_ROW = 24;
+const TABLE_HEADER_HEIGHT = 26;
+
+const measureTableRowHeight = (
+  doc: PDFKit.PDFDocument,
+  cells: string[],
+  colWidths: number[],
+): number => {
+  doc.font("Helvetica").fontSize(TABLE_FONT_SIZE);
+  let maxH = TABLE_MIN_ROW;
+  for (let i = 0; i < cells.length; i += 1) {
+    const textWidth = colWidths[i]! - TABLE_CELL_PAD * 2;
+    const h = doc.heightOfString(cells[i] ?? "", { width: textWidth });
+    maxH = Math.max(maxH, h + TABLE_CELL_PAD * 2);
+  }
+  return maxH;
+};
+
 const drawTribeItemTable = (
   doc: PDFKit.PDFDocument,
   left: number,
   contentWidth: number,
+  startY: number,
+  maxY: number,
   lines: GroupedJewelryLine[],
 ): void => {
-  ensureSpace(doc, 80);
-  const colItem = contentWidth * 0.42;
-  const colHsn = contentWidth * 0.16;
-  const colQty = contentWidth * 0.12;
+  const colItem = contentWidth * 0.44;
+  const colHsn = contentWidth * 0.14;
+  const colQty = contentWidth * 0.10;
   const colAmount = contentWidth - colItem - colHsn - colQty;
   const colWidths = [colItem, colHsn, colQty, colAmount];
   const headers = ["ITEM", "HSN", "QTY", "AMOUNT (\u20B9)"];
-  const rowHeight = 27;
-  const headerHeight = 27;
-  let y = doc.y;
+  let y = startY;
 
   doc.save();
-  doc.rect(left, y, contentWidth, headerHeight).fill(T.tableHeaderFill);
+  doc.rect(left, y, contentWidth, TABLE_HEADER_HEIGHT).fill(T.tableHeaderFill);
   doc.restore();
 
   let x = left;
-  doc.font("Helvetica-Bold").fontSize(8.5).fillColor(T.tableHeaderText);
+  doc.font("Helvetica-Bold").fontSize(TABLE_HEADER_FONT_SIZE).fillColor(T.tableHeaderText);
   for (let i = 0; i < headers.length; i += 1) {
-    doc.text(headers[i]!, x + 6, y + 8, {
-      width: colWidths[i]! - 12,
+    doc.text(headers[i]!, x + TABLE_CELL_PAD, y + 7, {
+      width: colWidths[i]! - TABLE_CELL_PAD * 2,
       align: i >= 2 ? "right" : "left",
+      lineBreak: false,
     });
     x += colWidths[i]!;
   }
-  y += headerHeight;
+  y += TABLE_HEADER_HEIGHT;
 
-  lines.forEach((line, rowIndex) => {
-    if (rowIndex % 2 === 1) {
-      doc.save();
-      doc.rect(left, y, contentWidth, rowHeight).fill(T.panelFill);
-      doc.restore();
-    }
-
+  for (let rowIndex = 0; rowIndex < lines.length; rowIndex += 1) {
+    const line = lines[rowIndex]!;
     const cells = [
       line.label,
       line.hsn,
       String(line.qty),
       formatRupeeDecimal(line.amount),
     ];
+    let rowHeight = measureTableRowHeight(doc, cells, colWidths);
+    if (y + rowHeight > maxY) {
+      if (rowIndex === 0) {
+        rowHeight = Math.max(TABLE_MIN_ROW, maxY - y);
+      } else {
+        break;
+      }
+    }
+
+    if (rowIndex % 2 === 1) {
+      doc.save();
+      doc.rect(left, y, contentWidth, rowHeight).fill(T.panelFill);
+      doc.restore();
+    }
+
     x = left;
-    doc.font("Helvetica").fontSize(9.5).fillColor(T.text);
+    doc.font("Helvetica").fontSize(TABLE_FONT_SIZE).fillColor(T.text);
     for (let i = 0; i < cells.length; i += 1) {
-      doc.text(cells[i]!, x + 6, y + 7, {
-        width: colWidths[i]! - 12,
+      const textWidth = colWidths[i]! - TABLE_CELL_PAD * 2;
+      const textHeight = doc.heightOfString(cells[i]!, { width: textWidth });
+      const cellY = y + Math.max(TABLE_CELL_PAD, (rowHeight - textHeight) / 2);
+      doc.text(cells[i]!, x + TABLE_CELL_PAD, cellY, {
+        width: textWidth,
         align: i >= 2 ? "right" : "left",
+        height: rowHeight - TABLE_CELL_PAD * 2,
+        ellipsis: true,
       });
       x += colWidths[i]!;
     }
@@ -379,9 +464,7 @@ const drawTribeItemTable = (
     doc.restore();
 
     y += rowHeight;
-  });
-
-  doc.y = y + 8;
+  }
 };
 
 const drawTotalsRow = (
@@ -391,14 +474,13 @@ const drawTotalsRow = (
   width: number,
   label: string,
   value: string,
-  labelBold = false,
 ): number => {
-  doc.font(labelBold ? "Helvetica-Bold" : "Helvetica")
-    .fontSize(9)
-    .fillColor(T.muted);
-  doc.text(label, x, y, { width: width * 0.62, align: "left" });
+  const labelWidth = width * 0.62;
+  const valueWidth = width - labelWidth;
+  doc.font("Helvetica").fontSize(9).fillColor(T.muted);
+  doc.text(label, x, y, { width: labelWidth, align: "left" });
   doc.font("Helvetica").fontSize(9).fillColor(T.text);
-  doc.text(value, x, y, { width, align: "right" });
+  doc.text(value, x + labelWidth, y, { width: valueWidth, align: "right" });
   return y + 18;
 };
 
@@ -430,23 +512,22 @@ const drawGstBottomSection = (
   contentWidth: number,
   settings: ShopSettings,
   values: GstBreakupValues,
+  topY: number,
 ): void => {
-  ensureSpace(doc, 220);
   const leftWidth = contentWidth * 0.4;
   const rightWidth = contentWidth * 0.58;
   const rightX = left + contentWidth - rightWidth;
-  const top = doc.y;
 
   const termsText =
     settings.invoiceTerms?.trim() ||
     "Goods once sold will not be taken back. Subject to Jaipur jurisdiction only.";
 
   doc.font("Helvetica-Bold").fontSize(8.5).fillColor(T.gold);
-  doc.text("TERMS", left, top, { width: leftWidth });
+  doc.text("TERMS", left, topY, { width: leftWidth });
   doc.font("Helvetica").fontSize(7.8).fillColor(T.muted);
-  doc.text(termsText, left, top + 14, { width: leftWidth });
+  doc.text(termsText, left, topY + 14, { width: leftWidth });
 
-  const gstTitleY = top + 14 + doc.heightOfString(termsText, { width: leftWidth }) + 10;
+  const gstTitleY = topY + 14 + doc.heightOfString(termsText, { width: leftWidth }) + 10;
   doc.font("Helvetica-Bold").fontSize(8.5).fillColor(T.gold);
   doc.text("GST BREAKUP", left, gstTitleY, { width: leftWidth });
 
@@ -463,7 +544,7 @@ const drawGstBottomSection = (
   doc.font("Helvetica").fontSize(7.8).fillColor(T.muted);
   doc.text(gstSummary, left, gstTitleY + 14, { width: leftWidth });
 
-  let rowY = top;
+  let rowY = topY;
   rowY = drawTotalsRow(doc, rightX, rowY, rightWidth, "Total", formatRupeeDecimal(taxableAmount));
   rowY = drawTotalsRow(
     doc,
@@ -511,7 +592,6 @@ const drawGstBottomSection = (
     rowY,
   );
   drawPayableBar(doc, rightX, sectionBottom + 4, rightWidth, payableAmount);
-  doc.y = sectionBottom + 40;
 };
 
 const drawChallanBottomSection = (
@@ -519,21 +599,21 @@ const drawChallanBottomSection = (
   left: number,
   contentWidth: number,
   totalAmount: number,
+  topY: number,
   notice?: string,
 ): void => {
-  ensureSpace(doc, 80);
   const rightWidth = contentWidth * 0.58;
   const rightX = left + contentWidth - rightWidth;
-  let rowY = doc.y;
-  rowY = drawTotalsRow(doc, rightX, rowY, rightWidth, "Total Value", formatRupeeDecimal(totalAmount));
-  rowY = drawPayableBar(doc, rightX, rowY + 4, rightWidth, totalAmount);
-  doc.y = rowY + 12;
+  let rowY = topY;
 
   if (notice) {
-    doc.font("Helvetica").fontSize(9).fillColor(T.muted);
-    doc.text(notice, left, doc.y, { width: contentWidth * 0.4 });
-    doc.y += 20;
+    doc.font("Helvetica").fontSize(8).fillColor(T.muted);
+    doc.text(notice, left, topY, { width: contentWidth * 0.38 });
+    rowY = topY + 28;
   }
+
+  rowY = drawTotalsRow(doc, rightX, rowY, rightWidth, "Total Value", formatRupeeDecimal(totalAmount));
+  drawPayableBar(doc, rightX, rowY + 4, rightWidth, totalAmount);
 };
 
 const drawSignatureRow = (
@@ -541,9 +621,8 @@ const drawSignatureRow = (
   left: number,
   contentWidth: number,
   businessName: string,
+  lineY: number,
 ): void => {
-  ensureSpace(doc, 60);
-  const lineY = doc.y + 28;
   doc.save();
   doc.lineWidth(0.75).strokeColor(T.border);
   doc.moveTo(left, lineY).lineTo(left + contentWidth, lineY).stroke();
@@ -557,7 +636,6 @@ const drawSignatureRow = (
     width: contentWidth,
     align: "right",
   });
-  doc.y = lineY + 28;
 };
 
 const drawLegalFooter = (
@@ -565,18 +643,21 @@ const drawLegalFooter = (
   left: number,
   contentWidth: number,
   settings: ShopSettings,
+  topY: number,
   ackNo?: string | null,
   gstIrn?: string | null,
 ): void => {
+  let y = topY;
+
   if (settings.registeredOfficeAddress?.trim()) {
     doc.font("Helvetica").fontSize(7.8).fillColor(T.muted);
     doc.text(
       `Regd. Office: ${settings.registeredOfficeAddress.trim()}`,
       left,
-      doc.y,
-      { width: contentWidth, align: "center" },
+      y,
+      { width: contentWidth, align: "center", lineBreak: false },
     );
-    doc.y += 12;
+    y += LEGAL_LINE_HEIGHT;
   }
 
   const ackParts = [
@@ -586,20 +667,20 @@ const drawLegalFooter = (
 
   if (ackParts.length > 0) {
     doc.font("Helvetica").fontSize(7.8).fillColor(T.muted);
-    doc.text(ackParts.join(" | "), left, doc.y, {
+    doc.text(ackParts.join(" | "), left, y, {
       width: contentWidth,
       align: "center",
+      lineBreak: false,
     });
-    doc.y += 12;
   }
 };
 
-const drawPageFooter = (doc: PDFKit.PDFDocument): void => {
-  const left = doc.page.margins.left;
-  const right = doc.page.width - doc.page.margins.right;
-  const contentWidth = right - left;
-  const y = doc.page.height - doc.page.margins.bottom - 6;
-
+const drawPageFooter = (
+  doc: PDFKit.PDFDocument,
+  left: number,
+  contentWidth: number,
+  y: number,
+): void => {
   doc.font("Helvetica").fontSize(7.5).fillColor(T.muted);
   doc.text("This is a computer-generated invoice.", left, y, {
     width: contentWidth * 0.7,
@@ -653,6 +734,8 @@ export const renderStandardDocument = (
   const left = doc.page.margins.left;
   const contentWidth = getContentWidth(doc);
   const { settings } = layout;
+  const anchors = measureBottomAnchors(doc, settings, layout);
+  const businessName = settings.gstRegisteredName ?? settings.businessName;
 
   drawTribeHeader(doc, settings, {
     documentTitle: layout.documentTitle,
@@ -679,35 +762,56 @@ export const renderStandardDocument = (
   );
 
   drawDispatchLine(doc, left, contentWidth, layout.dispatchLine);
-  drawTribeItemTable(doc, left, contentWidth, layout.groupedLines);
+
+  const itemsStartY = doc.y;
+  drawTribeItemTable(
+    doc,
+    left,
+    contentWidth,
+    itemsStartY,
+    anchors.itemsMaxY,
+    layout.groupedLines,
+  );
 
   if (layout.gstBreakup) {
-    drawGstBottomSection(doc, left, contentWidth, settings, layout.gstBreakup);
+    drawGstBottomSection(
+      doc,
+      left,
+      contentWidth,
+      settings,
+      layout.gstBreakup,
+      anchors.gstTop,
+    );
   } else {
     drawChallanBottomSection(
       doc,
       left,
       contentWidth,
       layout.totalAmount,
+      anchors.gstTop,
       layout.challanNotice,
     );
   }
 
-  drawSignatureRow(
-    doc,
-    left,
-    contentWidth,
-    settings.gstRegisteredName ?? settings.businessName,
-  );
   drawLegalFooter(
     doc,
     left,
     contentWidth,
     settings,
+    anchors.legalTop,
     layout.ackNo,
     layout.gstIrn,
   );
-  drawPageFooter(doc);
+
+  drawSignatureRow(
+    doc,
+    left,
+    contentWidth,
+    businessName,
+    anchors.signatureLineY,
+  );
+
+  drawPageFooter(doc, left, contentWidth, anchors.pageFooterY);
 };
 
 export const isIntraStateSupply = (shopState: string, placeOfSupply: string): boolean => {
