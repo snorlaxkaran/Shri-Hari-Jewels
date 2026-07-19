@@ -1,5 +1,13 @@
+import { InventoryUnitStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import { getBranchScope, organizationBranchFilter } from "../branches/access.js";
+import {
+  fetchAvailableUnitsForValuation,
+  resolveAvailableUnitValue,
+  sumAvailableUnitValues,
+} from "../inventory/stock-valuation.js";
+import { getCurrentMarketRates } from "../market-rates/service.js";
+import { resolveUnitDisplayPrice } from "../inventory/unit-pricing.js";
 import { moneyToNumber, sumMoney } from "../money.js";
 import type { UserRole } from "../../types.js";
 import { toApiDesignBuilderStage } from "../designs/builder-stages.js";
@@ -87,39 +95,63 @@ export const getStockValuationReport = async (
   branchId?: string,
   filters: ReportQueryFilters = {},
 ) => {
-  const products = await prisma.product.findMany({
-    where: {
-      organizationId,
-      ...(branchId ?? filters.branchId ? { branchId: branchId ?? filters.branchId } : {}),
-      stock: { gt: 0 },
-      ...(filters.category ? { category: filters.category } : {}),
-      ...(filters.department ? { metal: filters.department } : {}),
+  const scopedBranch = branchId ?? filters.branchId;
+  const { units, marketRates } = await fetchAvailableUnitsForValuation(
+    organizationId,
+    scopedBranch,
+    {
+      category: filters.category,
+      department: filters.department,
     },
-    select: {
-      id: true,
-      sku: true,
-      name: true,
-      category: true,
-      metal: true,
-      purity: true,
-      stock: true,
-      price: true,
-      branchId: true,
-    },
-  });
+  );
+
+  const byProduct = new Map<
+    string,
+    {
+      sku: string;
+      name: string;
+      category: string;
+      metal: string;
+      purity: string;
+      stock: number;
+      unitPrice: number;
+      totalValue: number;
+    }
+  >();
+
+  for (const unit of units) {
+    const unitValue = resolveAvailableUnitValue(unit, marketRates);
+    const row = byProduct.get(unit.product.sku) ?? {
+      sku: unit.product.sku,
+      name: unit.product.name,
+      category: unit.product.category,
+      metal: unit.product.metal,
+      purity: unit.product.purity,
+      stock: 0,
+      unitPrice: unitValue,
+      totalValue: 0,
+    };
+    row.stock += 1;
+    row.totalValue += unitValue;
+    row.unitPrice = unitValue;
+    byProduct.set(unit.product.sku, row);
+  }
+
+  const products = [...byProduct.values()].sort((a, b) =>
+    a.sku.localeCompare(b.sku),
+  );
 
   const byCategory = new Map<string, { units: number; value: number }>();
   let totalUnits = 0;
   let totalValue = 0;
 
-  for (const p of products) {
-    const value = moneyToNumber(p.price) * p.stock;
-    totalUnits += p.stock;
-    totalValue += value;
-    const cat = byCategory.get(p.category) ?? { units: 0, value: 0 };
-    cat.units += p.stock;
-    cat.value += value;
-    byCategory.set(p.category, cat);
+  for (const product of products) {
+    totalUnits += product.stock;
+    totalValue += product.totalValue;
+    const cat = byCategory.get(product.category) ?? { units: 0, value: 0 };
+    cat.units += product.stock;
+    cat.value += product.totalValue;
+    byCategory.set(product.category, cat);
   }
 
   return {
@@ -129,16 +161,7 @@ export const getStockValuationReport = async (
       category,
       ...data,
     })),
-    products: products.map((p) => ({
-      sku: p.sku,
-      name: p.name,
-      category: p.category,
-      metal: p.metal,
-      purity: p.purity,
-      stock: p.stock,
-      unitPrice: moneyToNumber(p.price),
-      totalValue: moneyToNumber(p.price) * p.stock,
-    })),
+    products,
   };
 };
 
@@ -196,6 +219,8 @@ export const getAgeingStockReport = async (
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - minDays);
 
+  const marketRates = await getCurrentMarketRates(organizationId);
+
   const units = await prisma.inventoryUnit.findMany({
     where: {
       ...organizationBranchFilter(organizationId, branchId ?? filters.branchId),
@@ -216,6 +241,9 @@ export const getAgeingStockReport = async (
           sku: true,
           name: true,
           category: true,
+          metal: true,
+          purity: true,
+          weightGrams: true,
           price: true,
         },
       },
@@ -229,7 +257,7 @@ export const getAgeingStockReport = async (
     sku: u.product.sku,
     productName: u.product.name,
     category: u.product.category,
-    price: moneyToNumber(u.product.price),
+    price: resolveUnitDisplayPrice(u, u.product, marketRates).price,
     daysInStock: Math.floor((now - u.createdAt.getTime()) / 86_400_000),
     createdAt: u.createdAt.toISOString(),
   }));
@@ -261,15 +289,10 @@ export const getCategoryReport = async (
     select: { category: true, dealPrice: true, sku: true },
   });
 
-  const products = await prisma.product.findMany({
-    where: {
-      organizationId,
-      ...(scopedBranch ? { branchId: scopedBranch } : {}),
-      stock: { gt: 0 },
-      ...(filters.department ? { metal: filters.department } : {}),
-    },
-    select: { category: true, stock: true, price: true, sku: true },
-  });
+  const { units: valuationUnits, marketRates } =
+    await fetchAvailableUnitsForValuation(organizationId, scopedBranch, {
+      department: filters.department,
+    });
 
   type Row = { category: string; salesCount: number; revenue: number; stockUnits: number; stockValue: number };
   const rows = new Map<string, Row>();
@@ -288,11 +311,11 @@ export const getCategoryReport = async (
     row.revenue += moneyToNumber(s.dealPrice);
   }
 
-  for (const p of products) {
-    if (filters.category && p.category !== filters.category) continue;
-    const row = ensure(p.category);
-    row.stockUnits += p.stock;
-    row.stockValue += moneyToNumber(p.price) * p.stock;
+  for (const unit of valuationUnits) {
+    if (filters.category && unit.product.category !== filters.category) continue;
+    const row = ensure(unit.product.category);
+    row.stockUnits += 1;
+    row.stockValue += resolveAvailableUnitValue(unit, marketRates);
   }
 
   return {
@@ -337,16 +360,11 @@ export const getDepartmentReport = async (
     ).map((p) => [p.id, p.metal]),
   );
 
-  const stockProducts = await prisma.product.findMany({
-    where: {
-      organizationId,
-      ...(scopedBranch ? { branchId: scopedBranch } : {}),
-      stock: { gt: 0 },
-      ...(filters.category ? { category: filters.category } : {}),
-      ...(filters.department ? { metal: filters.department } : {}),
-    },
-    select: { metal: true, stock: true, price: true, sku: true },
-  });
+  const { units: valuationUnits, marketRates } =
+    await fetchAvailableUnitsForValuation(organizationId, scopedBranch, {
+      category: filters.category,
+      department: filters.department,
+    });
 
   type Row = { department: string; salesCount: number; revenue: number; stockUnits: number; stockValue: number };
   const rows = new Map<string, Row>();
@@ -365,10 +383,10 @@ export const getDepartmentReport = async (
     row.revenue += moneyToNumber(s.dealPrice);
   }
 
-  for (const p of stockProducts) {
-    const row = ensure(p.metal);
-    row.stockUnits += p.stock;
-    row.stockValue += moneyToNumber(p.price) * p.stock;
+  for (const unit of valuationUnits) {
+    const row = ensure(unit.product.metal);
+    row.stockUnits += 1;
+    row.stockValue += resolveAvailableUnitValue(unit, marketRates);
   }
 
   return {
@@ -462,6 +480,8 @@ export const getLocationWiseReport = async (
     select: { branchId: true, dealPrice: true },
   });
 
+  const marketRates = await getCurrentMarketRates(organizationId);
+
   const units = await prisma.inventoryUnit.findMany({
     where: {
       branch: { organizationId },
@@ -475,7 +495,20 @@ export const getLocationWiseReport = async (
           }
         : {}),
     },
-    include: { product: { select: { price: true } } },
+    select: {
+      branchId: true,
+      listPrice: true,
+      status: true,
+      product: {
+        select: {
+          metal: true,
+          purity: true,
+          weightGrams: true,
+          price: true,
+        },
+      },
+      branch: { select: { name: true } },
+    },
   });
 
   return {
@@ -490,10 +523,7 @@ export const getLocationWiseReport = async (
         salesCount: branchSales.length,
         revenue: branchSales.reduce((sum, s) => sum + moneyToNumber(s.dealPrice), 0),
         stockUnits: branchUnits.length,
-        stockValue: branchUnits.reduce(
-          (sum, u) => sum + moneyToNumber(u.product.price),
-          0,
-        ),
+        stockValue: sumAvailableUnitValues(branchUnits, marketRates),
       };
     }),
   };
@@ -560,45 +590,67 @@ export const getStockSnapshotReport = async (
   filters: ReportQueryFilters = {},
 ) => {
   const scopedBranch = branchId ?? filters.branchId;
+  const { units, marketRates } = await fetchAvailableUnitsForValuation(
+    organizationId,
+    scopedBranch,
+    {
+      category: filters.category,
+      department: filters.department,
+    },
+  );
 
   if (filters.groupBySku) {
-    const products = await prisma.product.findMany({
-      where: {
-        organizationId,
-        ...(scopedBranch ? { branchId: scopedBranch } : {}),
-        stock: { gt: 0 },
-        ...(filters.category ? { category: filters.category } : {}),
-        ...(filters.department ? { metal: filters.department } : {}),
-      },
-      include: { branch: { select: { name: true } } },
-      orderBy: [{ category: "asc" }, { sku: "asc" }],
-    });
+    const bySku = new Map<
+      string,
+      {
+        sku: string;
+        name: string;
+        category: string;
+        metal: string;
+        branchName: string;
+        stock: number;
+        unitPrice: number;
+        totalValue: number;
+        status: string;
+      }
+    >();
+
+    for (const unit of units) {
+      const unitValue = resolveAvailableUnitValue(unit, marketRates);
+      const key = `${unit.branchId}:${unit.product.sku}`;
+      const row = bySku.get(key) ?? {
+        sku: unit.product.sku,
+        name: unit.product.name,
+        category: unit.product.category,
+        metal: unit.product.metal,
+        branchName: unit.branch.name,
+        stock: 0,
+        unitPrice: unitValue,
+        totalValue: 0,
+        status: "In Stock",
+      };
+      row.stock += 1;
+      row.totalValue += unitValue;
+      row.unitPrice = unitValue;
+      bySku.set(key, row);
+    }
+
+    const items = [...bySku.values()].sort((a, b) =>
+      a.sku.localeCompare(b.sku),
+    );
 
     return {
       groupBySku: true,
-      items: products.map((p) => ({
-        sku: p.sku,
-        name: p.name,
-        category: p.category,
-        metal: p.metal,
-        branchName: p.branch.name,
-        stock: p.stock,
-        unitPrice: moneyToNumber(p.price),
-        totalValue: moneyToNumber(p.price) * p.stock,
-        status: p.status,
-      })),
-      totalUnits: products.reduce((sum, p) => sum + p.stock, 0),
-      totalValue: products.reduce(
-        (sum, p) => sum + moneyToNumber(p.price) * p.stock,
-        0,
-      ),
+      items,
+      totalUnits: items.reduce((sum, item) => sum + item.stock, 0),
+      totalValue: items.reduce((sum, item) => sum + item.totalValue, 0),
     };
   }
 
-  const units = await prisma.inventoryUnit.findMany({
+  const detailedUnits = await prisma.inventoryUnit.findMany({
     where: {
       ...organizationBranchFilter(organizationId, scopedBranch),
-      status: "Available",
+      status: InventoryUnitStatus.Available,
       ...(filters.category || filters.department
         ? {
             product: {
@@ -615,6 +667,8 @@ export const getStockSnapshotReport = async (
           name: true,
           category: true,
           metal: true,
+          purity: true,
+          weightGrams: true,
           price: true,
           status: true,
         },
@@ -626,17 +680,17 @@ export const getStockSnapshotReport = async (
 
   return {
     groupBySku: false,
-    items: units.map((u) => ({
+    items: detailedUnits.map((u) => ({
       itemCode: u.itemCode,
       sku: u.product.sku,
       name: u.product.name,
       category: u.product.category,
       metal: u.product.metal,
       branchName: u.branch.name,
-      unitPrice: moneyToNumber(u.product.price),
+      unitPrice: resolveUnitDisplayPrice(u, u.product, marketRates).price,
       status: u.status,
     })),
-    totalUnits: units.length,
-    totalValue: units.reduce((sum, u) => sum + moneyToNumber(u.product.price), 0),
+    totalUnits: detailedUnits.length,
+    totalValue: sumAvailableUnitValues(detailedUnits, marketRates),
   };
 };

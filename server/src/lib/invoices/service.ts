@@ -18,6 +18,17 @@ import { moneyToNumber, sumMoney, toMoney } from "../money.js";
 
 const invoiceInclude = { items: true } as const;
 
+const nextInvoiceNoInTx = async (tx: Prisma.TransactionClient): Promise<string> => {
+  const year = new Date().getFullYear();
+  const prefix = `INV-${year}-`;
+  const latest = await tx.invoice.findFirst({
+    where: { invoiceNo: { startsWith: prefix } },
+    orderBy: { invoiceNo: "desc" },
+    select: { invoiceNo: true },
+  });
+  return generateInvoiceNo(latest ? [latest.invoiceNo] : []);
+};
+
 export const listInvoices = async (organizationId: string): Promise<Invoice[]> => {
   const invoices = await prisma.invoice.findMany({
     where: { branch: { organizationId } },
@@ -107,8 +118,7 @@ export const createInvoiceForCart = async (
   const preRound = taxableNum + gst.cgst + gst.sgst + gst.igst;
   const { payable, roundOff } = computePayableWithRoundOff(preRound);
 
-  const existingNos = await tx.invoice.findMany({ select: { invoiceNo: true } });
-  const invoiceNo = generateInvoiceNo(existingNos.map((i) => i.invoiceNo));
+  const invoiceNo = await nextInvoiceNoInTx(tx);
 
   const invoice = await tx.invoice.create({
     data: {
@@ -200,8 +210,7 @@ export const createInvoiceForRepair = async (
   const preRound = taxableValue + gst.cgst + gst.sgst + gst.igst;
   const { payable, roundOff } = computePayableWithRoundOff(preRound);
 
-  const existingNos = await tx.invoice.findMany({ select: { invoiceNo: true } });
-  const invoiceNo = generateInvoiceNo(existingNos.map((i) => i.invoiceNo));
+  const invoiceNo = await nextInvoiceNoInTx(tx);
 
   const lineDescription = `${repair.itemDescription} — ${repair.requestedWork}`;
 

@@ -29,7 +29,10 @@ const logMismatch = async (mismatch: IntegrityMismatch) => {
   });
 };
 
-export const runIntegrityReport = async (): Promise<IntegrityMismatch[]> => {
+export const runIntegrityReport = async (options?: {
+  log?: boolean;
+}): Promise<IntegrityMismatch[]> => {
+  const shouldLog = options?.log ?? true;
   const mismatches: IntegrityMismatch[] = [];
 
   const products = await prisma.product.findMany({
@@ -53,7 +56,7 @@ export const runIntegrityReport = async (): Promise<IntegrityMismatch[]> => {
         actual: String(product.stock),
       };
       mismatches.push(mismatch);
-      await logMismatch(mismatch);
+      if (shouldLog) await logMismatch(mismatch);
     }
   }
 
@@ -108,12 +111,15 @@ export const runIntegrityReport = async (): Promise<IntegrityMismatch[]> => {
         actual: String(actualTotal),
       };
       mismatches.push(mismatch);
-      await logMismatch(mismatch);
+      if (shouldLog) await logMismatch(mismatch);
     }
   }
 
   const sales = await prisma.sale.findMany({
-    where: { paymentStatus: "Completed" },
+    where: {
+      paymentStatus: "Completed",
+      saleSource: { not: "WholesaleTransfer" },
+    },
     include: { invoiceItem: { include: { invoice: true } } },
   });
 
@@ -126,7 +132,7 @@ export const runIntegrityReport = async (): Promise<IntegrityMismatch[]> => {
         message: `Completed sale ${sale.itemCode} has no invoice`,
       };
       mismatches.push(mismatch);
-      await logMismatch(mismatch);
+      if (shouldLog) await logMismatch(mismatch);
       continue;
     }
 
@@ -147,7 +153,7 @@ export const runIntegrityReport = async (): Promise<IntegrityMismatch[]> => {
         actual: toMoney(invoiceTotal).toFixed(2),
       };
       mismatches.push(mismatch);
-      await logMismatch(mismatch);
+      if (shouldLog) await logMismatch(mismatch);
     }
 
     const expectedTotal = moneyToNumber(
@@ -163,12 +169,12 @@ export const runIntegrityReport = async (): Promise<IntegrityMismatch[]> => {
         actual: toMoney(dealPrice).toFixed(2),
       };
       mismatches.push(mismatch);
-      await logMismatch(mismatch);
+      if (shouldLog) await logMismatch(mismatch);
     }
   }
 
   console.log(
-    `[integrity-report] Completed with ${mismatches.length} mismatch(es) logged`,
+    `[integrity-report] Completed with ${mismatches.length} mismatch(es)${shouldLog ? " logged" : ""}`,
   );
 
   return mismatches;

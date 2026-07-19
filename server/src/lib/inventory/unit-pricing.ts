@@ -1,4 +1,4 @@
-import type { InventoryUnit, Sale } from "@prisma/client";
+import type { InventoryUnitStatus, Sale } from "@prisma/client";
 import type { MarketRatesCurrent } from "../../types.js";
 import { moneyToNumber } from "../money.js";
 import {
@@ -21,7 +21,13 @@ type ProductForPricing = {
   price: number | { toString(): string };
 };
 
-type UnitWithSale = InventoryUnit & { sale?: Sale | null };
+export type { ProductForPricing };
+
+type UnitForPricing = {
+  status: InventoryUnitStatus;
+  listPrice: { toString(): string } | number | null;
+  sale?: Sale | null;
+};
 
 export const computeLiveListPriceForProduct = (
   product: ProductForPricing,
@@ -56,7 +62,7 @@ export const computeLiveListPriceForProduct = (
 };
 
 export const resolveUnitDisplayPrice = (
-  unit: UnitWithSale,
+  unit: UnitForPricing,
   product: ProductForPricing,
   marketRates?: MarketRatesCurrent,
 ): UnitDisplayPrice => {
