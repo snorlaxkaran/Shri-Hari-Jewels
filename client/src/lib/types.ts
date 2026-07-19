@@ -92,6 +92,9 @@ export type InventoryUnit = {
   priceSource: InventoryUnitPriceSource;
   createdAt: string;
   branchTransferredAt?: string;
+  huid?: string;
+  hallmarkNumber?: string;
+  hallmarkPending?: boolean;
 };
 
 export type InventoryItem = {
@@ -690,6 +693,52 @@ export type DeliverRepairInput = {
   finalCost: number;
   deliveredToName: string;
   paymentMode?: PaymentMode;
+};
+
+export type HallmarkBatchStatus =
+  | "Draft"
+  | "SentToCenter"
+  | "Received"
+  | "PartiallyReceived";
+
+export type HallmarkBatchSummary = {
+  id: string;
+  batchNo: string;
+  branchId: string;
+  hallmarkCenter: string;
+  status: HallmarkBatchStatus;
+  sentAt?: string;
+  itemCount: number;
+  receivedCount: number;
+  createdByName: string;
+  createdAt: string;
+};
+
+export type HallmarkBatchItemDetail = {
+  id: string;
+  inventoryUnitId: string;
+  itemCode: string;
+  productName: string;
+  sku: string;
+  metal: string;
+  purity: string;
+  weightGrams: number;
+  huid?: string;
+  receivedAt?: string;
+};
+
+export type HallmarkBatchDetail = HallmarkBatchSummary & {
+  items: HallmarkBatchItemDetail[];
+};
+
+export type CreateHallmarkBatchInput = {
+  branchId: string;
+  hallmarkCenter: string;
+  inventoryUnitIds: string[];
+};
+
+export type ReceiveHallmarkBatchInput = {
+  items: Array<{ inventoryUnitId: string; huid: string }>;
 };
 
 export type Vendor = {
@@ -1598,6 +1647,8 @@ export type SaleUnitLookup = {
   category: string;
   listPrice: number;
   priceBreakdown?: SalePriceBreakdown;
+  hallmarkPending?: boolean;
+  huid?: string;
 };
 
 export type CartLineItem = SaleUnitLookup & {

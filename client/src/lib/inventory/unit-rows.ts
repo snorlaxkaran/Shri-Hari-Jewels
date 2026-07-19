@@ -26,6 +26,8 @@ export type InventoryUnitRow = {
   createdAt: string;
   branchTransferredAt?: string;
   imageUrl?: string;
+  huid?: string;
+  hallmarkNumber?: string;
 };
 
 export const flattenInventoryToUnitRows = (
@@ -52,6 +54,8 @@ export const flattenInventoryToUnitRows = (
       createdAt: unit.createdAt,
       branchTransferredAt: unit.branchTransferredAt,
       imageUrl: product.images?.[0]?.url,
+      huid: unit.huid,
+      hallmarkNumber: unit.hallmarkNumber,
     })),
   );
 

@@ -17,6 +17,10 @@ import { getCurrentMarketRates } from "../market-rates/service.js";
 import {
   computeListPriceBreakdownForProduct,
 } from "../inventory/unit-pricing.js";
+import {
+  isHallmarked,
+  requiresHallmark,
+} from "../hallmark/requires-hallmark.js";
 import { moneyToNumber } from "../money.js";
 import type {
   PaymentMode,
@@ -89,6 +93,9 @@ export const lookupUnitForSale = async (
     marketRates,
   );
 
+  const hallmarkPending =
+    requiresHallmark(product) && !isHallmarked(unit);
+
   return {
     itemCode: unit.itemCode,
     productName: product.name,
@@ -96,6 +103,8 @@ export const lookupUnitForSale = async (
     category: product.category,
     listPrice,
     priceBreakdown,
+    hallmarkPending,
+    huid: unit.huid ?? unit.hallmarkNumber ?? undefined,
   };
 };
 
@@ -137,6 +146,13 @@ const validateSaleInput = async (
   }
   if (unit.sale)
     throw new SaleError("This item already has a sale record.", 400);
+
+  if (requiresHallmark(unit.product) && !isHallmarked(unit)) {
+    throw new SaleError(
+      `${itemCode} requires BIS hallmark (HUID) before it can be sold.`,
+      400,
+    );
+  }
 
   return {
     itemCode,

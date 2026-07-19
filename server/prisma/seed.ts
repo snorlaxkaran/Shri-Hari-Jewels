@@ -201,13 +201,24 @@ async function seedDatabase() {
 
   await prisma.shopSettings.upsert({
     where: { organizationId: organization.id },
-    update: {},
+    update: {
+      state: "Maharashtra",
+      city: "Mumbai",
+      addressLine1: "123 Jewelry Street",
+      country: "India",
+      gstRegisteredName: "Shree Hari Jewels",
+    },
     create: {
       organizationId: organization.id,
       businessName: "Shree Hari Jewels",
       address: headOffice.address,
+      addressLine1: "123 Jewelry Street",
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
       phone: headOffice.phone,
       upiVpa: "shreehari@upi",
+      gstRegisteredName: "Shree Hari Jewels",
     },
   });
 
@@ -239,7 +250,9 @@ async function seedDatabase() {
         mobile: "9876543210",
       },
     },
-    update: {},
+    update: {
+      billingState: "Maharashtra",
+    },
     create: {
       organizationId: organization.id,
       name: "Sample Customer",
@@ -247,6 +260,7 @@ async function seedDatabase() {
       email: "customer@example.com",
       address: "456 Customer Lane",
       city: "Mumbai",
+      billingState: "Maharashtra",
       ringSize: "12",
       preferences: "Gold rings, traditional designs",
     },

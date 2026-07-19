@@ -99,10 +99,17 @@ inventoryRouter.get("/", requireRole(canReadInventory), async (req: Authenticate
       : undefined;
     const sortOrder =
       sortOrderRaw === "asc" || sortOrderRaw === "desc" ? sortOrderRaw : undefined;
+    const hallmarkStatusRaw =
+      typeof req.query.hallmarkStatus === "string"
+        ? req.query.hallmarkStatus
+        : undefined;
+    const hallmarkStatus =
+      hallmarkStatusRaw === "missing" ? ("missing" as const) : undefined;
 
     const items = await listProducts(req.organizationId!, branchId, {
       sortBy,
       sortOrder,
+      hallmarkStatus,
     });
     res.json(items);
   } catch (error) {

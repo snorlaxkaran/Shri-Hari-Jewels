@@ -371,6 +371,16 @@ export default function SalesPage() {
                         <p className="text-xs font-mono text-zinc-500">
                           {item.itemCode} · {item.sku}
                         </p>
+                        {item.hallmarkPending && (
+                          <p className="text-xs text-amber-700 mt-1">
+                            Hallmark pending — this item cannot be sold until HUID is recorded.
+                          </p>
+                        )}
+                        {item.huid && (
+                          <p className="text-xs text-emerald-700 mt-1">
+                            HUID: {item.huid}
+                          </p>
+                        )}
                       </div>
                       <button
                         type="button"

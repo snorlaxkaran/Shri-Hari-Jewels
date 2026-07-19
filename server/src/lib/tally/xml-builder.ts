@@ -236,8 +236,12 @@ export const buildPaymentVoucherXml = (payments: TallyPaymentRow[]): string[] =>
     }),
   );
 
-export const wrapTallyEnvelope = (voucherMessages: string[]): string => {
+export const wrapTallyEnvelope = (
+  voucherMessages: string[],
+  companyName = "Imported from Shri Hari Jewels ERP",
+): string => {
   const body = voucherMessages.join("");
+  const company = escapeXml(companyName.trim() || "Imported from Shri Hari Jewels ERP");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <ENVELOPE>
 <HEADER>
@@ -248,7 +252,7 @@ export const wrapTallyEnvelope = (voucherMessages: string[]): string => {
 <REQUESTDESC>
 <REPORTNAME>Vouchers</REPORTNAME>
 <STATICVARIABLES>
-<SVCURRENTCOMPANY>Imported from Shri Hari Jewels ERP</SVCURRENTCOMPANY>
+<SVCURRENTCOMPANY>${company}</SVCURRENTCOMPANY>
 </STATICVARIABLES>
 </REQUESTDESC>
 <REQUESTDATA>

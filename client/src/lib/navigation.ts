@@ -1,4 +1,5 @@
 import {
+  Award,
   BarChart2,
   Briefcase,
   ClipboardCheck,
@@ -78,6 +79,7 @@ export const navSections: NavSection[] = [
     title: "Inventory",
     items: [
       { label: "All stock", href: "/inventory", icon: icon(Package) },
+      { label: "Hallmark (HUID)", href: "/hallmark", icon: icon(Award) },
       { label: "Entry verification", href: "/entry-verification", icon: icon(ClipboardCheck) },
       { label: "Raw materials", href: "/raw-inventory", icon: icon(Gem) },
     ],
@@ -213,6 +215,11 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname === "/orders/new") return "New Order";
   if (pathname === "/work-orders/new") return "New Work Order";
   if (pathname === "/repairs/new") return "New Repair";
+  if (pathname.startsWith("/hallmark/") && pathname.endsWith("/new")) {
+    return "New Hallmark Batch";
+  }
+  if (pathname.startsWith("/hallmark/")) return "Hallmark Batch";
+  if (pathname === "/hallmark") return "Hallmark (HUID)";
   if (pathname.startsWith("/repairs/")) return "Repair Detail";
   if (pathname === "/settings/tally-export") return "Tally Export";
   if (pathname === "/production-runs/new") return "New Production Run";

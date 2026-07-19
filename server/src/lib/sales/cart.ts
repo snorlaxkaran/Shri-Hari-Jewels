@@ -13,6 +13,10 @@ import {
 import { buildUpiPaymentString } from "../payments/upi.js";
 import { getShopSettingsByBranchId } from "../settings/service.js";
 import { getCurrentMarketRates } from "../market-rates/service.js";
+import {
+  isHallmarked,
+  requiresHallmark,
+} from "../hallmark/requires-hallmark.js";
 import { computeLiveListPriceForProduct } from "../inventory/unit-pricing.js";
 import { moneyToNumber, sumMoney } from "../money.js";
 import type {
@@ -57,6 +61,12 @@ const loadUnit = async (
   }
   if (unit.sale) {
     throw new SaleError(`${itemCode} already has a sale record.`, 400);
+  }
+  if (requiresHallmark(unit.product) && !isHallmarked(unit)) {
+    throw new SaleError(
+      `${itemCode} requires BIS hallmark (HUID) before it can be sold.`,
+      400,
+    );
   }
 
   return unit;

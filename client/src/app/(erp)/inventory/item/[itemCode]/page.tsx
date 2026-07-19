@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Package } from "lucide-react";
+import { ArrowLeft, Package, Printer } from "lucide-react";
+import {
+  rowToBarcodeLabel,
+  useBarcodeLabelPrint,
+} from "@/app/(components)/inventory/BarcodeLabelPrint";
 import StatusBadge from "@/app/(components)/StatusBadge";
 import { fetchItemCodeHistory } from "@/lib/api/inventory";
 import { getApiErrorMessage } from "@/lib/api/client";
@@ -86,6 +90,7 @@ export default function ItemCodeHistoryPage() {
   const [history, setHistory] = useState<ItemCodeHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { printLabels, sheet: labelPrintSheet } = useBarcodeLabelPrint();
 
   const load = useCallback(async () => {
     if (!itemCode) return;
@@ -107,6 +112,7 @@ export default function ItemCodeHistoryPage() {
 
   return (
     <div className="page-content max-w-4xl mx-auto space-y-6 pb-10">
+      {labelPrintSheet}
       <nav className="text-sm text-zinc-500 flex items-center gap-2 flex-wrap">
         <Link href="/inventory" className="hover:text-zinc-800 transition-colors">
           Products
@@ -123,10 +129,29 @@ export default function ItemCodeHistoryPage() {
         >
           <ArrowLeft size={18} />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-semibold text-zinc-900 font-mono">{itemCode}</h1>
           <p className="text-sm text-zinc-500 mt-0.5">Item lifecycle history</p>
         </div>
+        {history && (
+          <button
+            type="button"
+            className="btn-secondary flex items-center gap-2 px-3 py-2 text-sm shrink-0"
+            onClick={() =>
+              printLabels([
+                rowToBarcodeLabel({
+                  itemCode,
+                  name: history.spec.productName,
+                  weightGrams: history.spec.weightGrams,
+                  hallmarkNumber: history.spec.hallmarkNumber,
+                }),
+              ])
+            }
+          >
+            <Printer size={16} />
+            Print Label
+          </button>
+        )}
       </div>
 
       {error && (

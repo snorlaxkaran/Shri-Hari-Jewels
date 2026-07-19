@@ -5,6 +5,7 @@ import {
   computeLiveListPriceForProduct,
   resolveUnitDisplayPrice,
 } from "./unit-pricing.js";
+import { isHallmarked, requiresHallmark } from "../hallmark/requires-hallmark.js";
 
 type ProductWithRelations = Product & {
   branch?: Branch;
@@ -106,6 +107,12 @@ export const toInventoryItem = (
         branchTransferredAt:
           unit.branchTransferredAt?.toISOString() ??
           options.branchTransferDateByItemCode?.get(unit.itemCode),
+        huid: unit.huid ?? undefined,
+        hallmarkNumber: unit.hallmarkNumber ?? undefined,
+        hallmarkPending:
+          unit.status === "Available" &&
+          requiresHallmark(product) &&
+          !isHallmarked(unit),
       };
     }),
   };

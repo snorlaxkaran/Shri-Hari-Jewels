@@ -1,12 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatCard from "@/app/(components)/StatCard";
 import LiveSalesSummary from "@/app/(components)/dashboard/LiveSalesSummary";
 import { useSales } from "@/lib/sales/sales-context";
 import { formatCompact, formatCurrency, formatDate } from "@/lib/format";
+import { fetchHallmarkPendingCount } from "@/lib/api/hallmark";
 
 const DashboardCharts = dynamic(
   () => import("@/app/(components)/dashboard/DashboardCharts"),
@@ -20,6 +23,13 @@ const DashboardCharts = dynamic(
 
 export default function DashboardPage() {
   const { analytics, hydrated, loading, error } = useSales();
+  const [hallmarkPending, setHallmarkPending] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetchHallmarkPendingCount()
+      .then(setHallmarkPending)
+      .catch(() => setHallmarkPending(null));
+  }, []);
 
   if (!hydrated || loading) {
     return <PageSkeleton />;
@@ -39,6 +49,15 @@ export default function DashboardPage() {
       {error && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">
           {error}
+        </div>
+      )}
+
+      {hallmarkPending != null && hallmarkPending > 0 && (
+        <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-amber-200 bg-amber-50 text-amber-900">
+          {hallmarkPending} piece{hallmarkPending === 1 ? "" : "s"} need BIS hallmark (HUID) before sale.{" "}
+          <Link href="/hallmark" className="underline font-medium">
+            Open hallmark batches
+          </Link>
         </div>
       )}
 
@@ -102,6 +121,15 @@ export default function DashboardPage() {
         <StatCard
           label="Pending Orders"
           value={String(stats?.pendingOrders ?? 0)}
+        />
+        <StatCard
+          label="Hallmark Pending"
+          value={String(hallmarkPending ?? 0)}
+          alert={
+            hallmarkPending && hallmarkPending > 0
+              ? "Needs HUID"
+              : undefined
+          }
         />
         <StatCard
           label="Customers"

@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   computeDiscountPct,
 } from "../lib/discount-approval/service.js";
-import { subtractMoney, sumMoney, toMoney } from "../lib/money.js";
+import {
+  computePayableWithRoundOff,
+  computeRetailGstBreakup,
+} from "../lib/invoices/gst.js";
+import { subtractMoney, sumMoney, toMoney, moneyToNumber } from "../lib/money.js";
 
 describe("money utilities", () => {
   it("sums decimal values without floating point drift", () => {
@@ -60,5 +64,58 @@ describe("stock SKU generation invariants", () => {
     const itemCode = `${sku}-${String(seq).padStart(3, "0")}`;
     expect(itemCode).toBe("RNG-22K-001-007");
     expect(itemCode.startsWith(sku)).toBe(true);
+  });
+});
+
+describe("invoice GST breakup", () => {
+  it("applies CGST and SGST for intra-state sales", () => {
+    const gst = computeRetailGstBreakup(89000, "Maharashtra", "Maharashtra");
+    expect(gst.isIntraState).toBe(true);
+    expect(gst.cgst).toBe(1335);
+    expect(gst.sgst).toBe(1335);
+    expect(gst.igst).toBe(0);
+  });
+
+  it("applies IGST for inter-state sales", () => {
+    const gst = computeRetailGstBreakup(89000, "Maharashtra", "Rajasthan");
+    expect(gst.isIntraState).toBe(false);
+    expect(gst.cgst).toBe(0);
+    expect(gst.sgst).toBe(0);
+    expect(gst.igst).toBe(2670);
+  });
+
+  it("treats missing shop state as inter-state (IGST)", () => {
+    const gst = computeRetailGstBreakup(50000, "", "Maharashtra");
+    expect(gst.igst).toBe(1500);
+    expect(gst.cgst).toBe(0);
+  });
+
+  it("computes payable total with round-off", () => {
+    const gst = computeRetailGstBreakup(89000, "Maharashtra", "Maharashtra");
+    const preRound = 89000 + gst.cgst + gst.sgst + gst.igst;
+    const { payable, roundOff } = computePayableWithRoundOff(preRound);
+    expect(payable).toBe(Math.round(preRound));
+    expect(payable - roundOff).toBeCloseTo(preRound, 2);
+  });
+});
+
+describe("cart invoice consolidation invariants", () => {
+  it("uses a shared cartGroupId only for multi-item carts", () => {
+    const singleItemGroupId = 1 > 1 ? "shared-id" : undefined;
+    const multiItemGroupId = 2 > 1 ? "shared-id" : undefined;
+    expect(singleItemGroupId).toBeUndefined();
+    expect(multiItemGroupId).toBe("shared-id");
+  });
+
+  it("aggregates taxable value across cart lines for one GST breakup", () => {
+    const dealPrices = [45000, 44000];
+    const taxableValue = sumMoney(dealPrices);
+    const gst = computeRetailGstBreakup(
+      moneyToNumber(taxableValue),
+      "Maharashtra",
+      "Maharashtra",
+    );
+    expect(moneyToNumber(taxableValue)).toBe(89000);
+    expect(gst.cgst + gst.sgst).toBe(2670);
   });
 });

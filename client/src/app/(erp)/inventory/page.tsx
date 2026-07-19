@@ -36,7 +36,11 @@ import {
 } from "@/lib/inventory/unit-rows";
 import type { Branch } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
-import { Diamond, Download, Gem, PackagePlus, Plus, Search } from "lucide-react";
+import { Diamond, Download, Gem, PackagePlus, Plus, Printer, Search } from "lucide-react";
+import {
+  rowToBarcodeLabel,
+  useBarcodeLabelPrint,
+} from "@/app/(components)/inventory/BarcodeLabelPrint";
 
 const InventoryTable = dynamic(
   () => import("@/app/(components)/inventory/InventoryTable"),
@@ -61,6 +65,7 @@ export default function InventoryPage() {
   const [sortBy, setSortBy] = useState<InventorySortField>("createdAt");
   const [sortOrder, setSortOrder] = useState<InventorySortOrder>("desc");
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
+  const { printLabels, sheet: labelPrintSheet } = useBarcodeLabelPrint();
 
   useEffect(() => {
     fetchBranches()
@@ -143,6 +148,7 @@ export default function InventoryPage() {
 
   return (
     <div className="page-content">
+      {labelPrintSheet}
       <PageHeader
         title={
           isBranchView && userBranchName
@@ -258,6 +264,9 @@ export default function InventoryPage() {
           showBranchColumn={showBranchColumn}
           canWrite={canAdd}
           onEditProduct={handleEditUnitRow}
+          onPrintLabels={(rows) =>
+            printLabels(rows.map((row) => rowToBarcodeLabel(row)))
+          }
         />
       </div>
     </div>

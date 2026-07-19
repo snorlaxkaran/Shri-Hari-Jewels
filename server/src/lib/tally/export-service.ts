@@ -1,6 +1,7 @@
 import { prisma } from "../db.js";
 import type { TallyExportLog, TallyExportType } from "../../types.js";
 import { moneyToNumber } from "../money.js";
+import { getShopSettings } from "../settings/service.js";
 import {
   buildPaymentVoucherXml,
   buildPurchaseVoucherXml,
@@ -200,7 +201,14 @@ export const generateTallyExport = async (
     throw new TallyExportError("No vouchers found for the selected period and types.");
   }
 
-  const xml = wrapTallyEnvelope(messages);
+  const settings = await getShopSettings(query.organizationId);
+  const tallyCompanyName =
+    process.env.TALLY_COMPANY_NAME?.trim() ||
+    settings.gstRegisteredName?.trim() ||
+    settings.businessName?.trim() ||
+    "Imported from Shri Hari Jewels ERP";
+
+  const xml = wrapTallyEnvelope(messages, tallyCompanyName);
   const fromLabel = fromDate.toISOString().slice(0, 10);
   const toLabel = toDate.toISOString().slice(0, 10);
   const fileName = `tally-export_${fromLabel}_${toLabel}.xml`;

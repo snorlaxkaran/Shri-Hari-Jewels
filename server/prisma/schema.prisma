@@ -102,6 +102,13 @@ enum StoneIssueStatus {
   Settled
 }
 
+enum HallmarkBatchStatus {
+  Draft
+  SentToCenter    @map("Sent to Center")
+  Received
+  PartiallyReceived @map("Partially Received")
+}
+
 enum StageLogAction {
   Started
   Completed
@@ -193,6 +200,7 @@ model Organization {
   vendors             Vendor[]
   purchaseBills       PurchaseBill[]
   tallyExportLogs     TallyExportLog[]
+  hallmarkBatches     HallmarkBatch[]
 }
 
 model StorefrontSettings {
@@ -343,6 +351,7 @@ model Branch {
   leadAppointments   Appointment[]
   repairOrders       RepairOrder[]
   purchaseBills      PurchaseBill[]
+  hallmarkBatches    HallmarkBatch[]
 
   @@index([organizationId])
 }
@@ -482,6 +491,7 @@ model InventoryUnit {
   listPrice      Decimal? @db.Decimal(12, 2)
   hallmarkNumber String?
   hallmarkCenter String?
+  huid           String?
   voucherId             String?
   branchTransferredAt   DateTime?
   createdAt             DateTime @default(now())
@@ -491,12 +501,49 @@ model InventoryUnit {
   product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
   entryVoucher EntryVoucher? @relation(fields: [voucherId], references: [id], onDelete: SetNull)
   sale         Sale?
+  hallmarkBatchItems HallmarkBatchItem[]
 
   @@unique([organizationId, itemCode])
   @@index([productId])
   @@index([branchId])
   @@index([organizationId])
   @@index([voucherId])
+  @@index([huid])
+}
+
+model HallmarkBatch {
+  id             String              @id @default(uuid())
+  organizationId String
+  branchId       String
+  batchNo        String
+  hallmarkCenter String
+  sentAt         DateTime?
+  status         HallmarkBatchStatus @default(Draft)
+  createdByName  String
+  createdAt      DateTime            @default(now())
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch              @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  items        HallmarkBatchItem[]
+
+  @@unique([organizationId, batchNo])
+  @@index([organizationId])
+  @@index([branchId])
+  @@index([status])
+}
+
+model HallmarkBatchItem {
+  id              String    @id @default(uuid())
+  batchId         String
+  inventoryUnitId String
+  huid            String?
+  receivedAt      DateTime?
+
+  batch         HallmarkBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  inventoryUnit InventoryUnit @relation(fields: [inventoryUnitId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([inventoryUnitId])
 }
 
 model EntryVoucher {

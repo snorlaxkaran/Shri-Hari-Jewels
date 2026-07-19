@@ -1,4 +1,4 @@
-import { DesignApprovalStatus } from "@prisma/client";
+import { StoneRateBasis } from "@prisma/client";
 import { prisma } from "../db.js";
 import { moneyToNumber, toMoney } from "../money.js";
 import { getLatestRate } from "../market-rates/service.js";
@@ -105,6 +105,42 @@ const resolveGoldRate = async (
   return rate ? moneyToNumber(rate.ratePerGram) : 0;
 };
 
+type KarigarAggregate = {
+  issued: number;
+  returned: number;
+  loss: number;
+  stoneLossCost: number;
+};
+
+const emptyKarigarAggregate = (): KarigarAggregate => ({
+  issued: 0,
+  returned: 0,
+  loss: 0,
+  stoneLossCost: 0,
+});
+
+const calcStoneIssueLossCost = (
+  issue: {
+    qtyBroken: number;
+    qtyLost: number;
+    weightBrokenCt: { toString(): string };
+    weightLostCt: { toString(): string };
+  },
+  stoneStock: {
+    ratePerUnit: { toString(): string };
+    rateBasis: StoneRateBasis;
+  },
+): number => {
+  const rate = moneyToNumber(String(stoneStock.ratePerUnit));
+  if (stoneStock.rateBasis === StoneRateBasis.Pcs) {
+    return (issue.qtyBroken + issue.qtyLost) * rate;
+  }
+  const lostCt =
+    moneyToNumber(String(issue.weightBrokenCt)) +
+    moneyToNumber(String(issue.weightLostCt));
+  return Math.round(lostCt * rate * 100) / 100;
+};
+
 export const generateSettlementFromProductionRun = async (
   productionRunId: string,
   organizationId: string,
@@ -115,36 +151,47 @@ export const generateSettlementFromProductionRun = async (
   const run = await prisma.productionRun.findUnique({
     where: { id: productionRunId },
     include: {
-      design: { select: { metal: true, purity: true } },
+      design: {
+        select: { metal: true, purity: true, makingChargesPerSet: true },
+      },
       metalIssues: true,
+      stoneIssues: { include: { stoneStock: true } },
     },
   });
   if (!run) throw new ProductionRunError("Production run not found.", 404);
 
   const ratePerGram = await resolveGoldRate(run.design.metal, run.design.purity);
 
-  const byKarigar = new Map<
-    string,
-    { issued: number; returned: number; loss: number }
-  >();
+  const byKarigar = new Map<string, KarigarAggregate>();
 
   for (const issue of run.metalIssues) {
-    const acc = byKarigar.get(issue.karigarName) ?? {
-      issued: 0,
-      returned: 0,
-      loss: 0,
-    };
+    const acc = byKarigar.get(issue.karigarName) ?? emptyKarigarAggregate();
     acc.issued += moneyToNumber(String(issue.weightIssuedGrams));
     acc.returned += moneyToNumber(String(issue.weightReturnedGrams));
     acc.loss += moneyToNumber(String(issue.weightLossGrams));
     byKarigar.set(issue.karigarName, acc);
   }
 
+  for (const issue of run.stoneIssues) {
+    const acc = byKarigar.get(issue.karigarName) ?? emptyKarigarAggregate();
+    acc.stoneLossCost += calcStoneIssueLossCost(issue, issue.stoneStock);
+    byKarigar.set(issue.karigarName, acc);
+  }
+
   if (byKarigar.size === 0) {
     throw new ProductionRunError(
-      "No metal issues found for this production run. Issue metal to karigars first.",
+      "No metal or stone issues found for this production run. Issue materials to karigars first.",
     );
   }
+
+  const makingPerSet = run.design.makingChargesPerSet
+    ? moneyToNumber(String(run.design.makingChargesPerSet))
+    : 0;
+  const totalMaking = makingPerSet * run.setsOrdered;
+  const perKarigarMaking =
+    byKarigar.size > 0
+      ? Math.round((totalMaking / byKarigar.size) * 100) / 100
+      : 0;
 
   const existing = await prisma.karigarSettlement.findMany({
     where: { productionRunId, organizationId, status: "Open" },
@@ -157,7 +204,12 @@ export const generateSettlementFromProductionRun = async (
   for (const [karigarName, totals] of byKarigar) {
     if (existingKarigars.has(karigarName)) continue;
 
-    const wastageCost = totals.loss * ratePerGram;
+    const metalWastageCost = totals.loss * ratePerGram;
+    const wastageCost = Math.round((metalWastageCost + totals.stoneLossCost) * 100) / 100;
+    const stoneNote =
+      totals.stoneLossCost > 0
+        ? `; stone loss cost ₹${totals.stoneLossCost.toFixed(2)}`
+        : "";
     const row = await createKarigarSettlement({
       organizationId,
       productionRunId,
@@ -165,8 +217,8 @@ export const generateSettlementFromProductionRun = async (
       metalIssuedGrams: totals.issued,
       metalReturnedGrams: totals.returned,
       wastageCost,
-      makingChargeWage: 0,
-      notes: `Auto-generated from production run ${run.runNo}`,
+      makingChargeWage: perKarigarMaking,
+      notes: `Auto-generated from production run ${run.runNo}${stoneNote}`,
       createdByName,
     });
     created.push({ id: row.id, karigarName });

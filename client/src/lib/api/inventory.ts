@@ -15,12 +15,14 @@ import { api, API_BASE_URL, getAuthToken } from "./client";
 export const fetchInventory = async (options?: {
   sortBy?: "createdAt" | "weightGrams" | "price" | "category";
   sortOrder?: "asc" | "desc";
+  hallmarkStatus?: "missing";
 }): Promise<InventoryItem[]> => {
   const { data } = await api.get<InventoryItem[]>("/api/inventory", {
     params: {
       _t: Date.now(),
       sortBy: options?.sortBy,
       sortOrder: options?.sortOrder,
+      hallmarkStatus: options?.hallmarkStatus,
     },
     headers: { "Cache-Control": "no-cache" },
   });

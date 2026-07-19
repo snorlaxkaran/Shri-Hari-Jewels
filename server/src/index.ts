@@ -46,6 +46,7 @@ import { einvoiceRouter } from "./routes/einvoice.js";
 import { onboardingRouter } from "./routes/onboarding.js";
 import { storefrontRouter } from "./routes/storefront.js";
 import { storefrontAdminRouter } from "./routes/storefront-admin.js";
+import { hallmarkBatchesRouter } from "./routes/hallmark-batches.js";
 import { startScheduledJobs } from "./jobs/scheduler.js";
 import { startLeadReminderJob } from "./lib/leads/reminder-job.js";
 
@@ -190,6 +191,7 @@ app.use("/api/schemes", schemesRouter);
 app.use("/api/karigar", karigarRouter);
 app.use("/api/einvoice", einvoiceRouter);
 app.use("/api/onboarding", onboardingRouter);
+app.use("/api/hallmark-batches", hallmarkBatchesRouter);
 app.use("/api/storefront", storefrontRouter);
 app.use("/api/storefront-admin", storefrontAdminRouter);
 

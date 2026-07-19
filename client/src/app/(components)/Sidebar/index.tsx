@@ -9,12 +9,14 @@ import {
   canAccessRoute,
   canManageCustomers,
   canViewRepairs,
+  canViewHallmark,
   canViewStockTransfers,
 } from "@/lib/auth/permissions";
 import { filterNavSections } from "@/lib/navigation";
 import { fetchIncomingTransferCount } from "@/lib/api/inventory";
 import { fetchFollowUpsDueCount } from "@/lib/api/leads";
 import { fetchReadyForPickupCount } from "@/lib/api/repairs";
+import { fetchHallmarkPendingCount } from "@/lib/api/hallmark";
 
 type SidebarContentProps = {
   pathname: string;
@@ -33,6 +35,7 @@ const SidebarContent = ({
   const [incomingCount, setIncomingCount] = useState<number | undefined>();
   const [followUpsDueCount, setFollowUpsDueCount] = useState<number | undefined>();
   const [readyForPickupCount, setReadyForPickupCount] = useState<number | undefined>();
+  const [hallmarkPendingCount, setHallmarkPendingCount] = useState<number | undefined>();
 
   const sections = useMemo(() => {
     if (!user) return [];
@@ -49,10 +52,13 @@ const SidebarContent = ({
         if (item.href === "/repairs" && readyForPickupCount != null && readyForPickupCount > 0) {
           return { ...item, badge: readyForPickupCount };
         }
+        if (item.href === "/hallmark" && hallmarkPendingCount != null && hallmarkPendingCount > 0) {
+          return { ...item, badge: hallmarkPendingCount };
+        }
         return item;
       }),
     }));
-  }, [user, incomingCount, followUpsDueCount, readyForPickupCount]);
+  }, [user, incomingCount, followUpsDueCount, readyForPickupCount, hallmarkPendingCount]);
 
   useEffect(() => {
     if (!user || !canViewStockTransfers(user.role)) return;
@@ -73,6 +79,13 @@ const SidebarContent = ({
     fetchReadyForPickupCount()
       .then(setReadyForPickupCount)
       .catch(() => setReadyForPickupCount(undefined));
+  }, [user, pathname]);
+
+  useEffect(() => {
+    if (!user || !canViewHallmark(user.role)) return;
+    fetchHallmarkPendingCount()
+      .then(setHallmarkPendingCount)
+      .catch(() => setHallmarkPendingCount(undefined));
   }, [user, pathname]);
 
   const prefetchRoute = useCallback(

@@ -51,6 +51,7 @@ type InventoryTableProps = {
   ageingThresholds?: AgeingThresholds;
   canWrite?: boolean;
   onEditProduct: (row: InventoryUnitRow) => void;
+  onPrintLabels?: (rows: InventoryUnitRow[]) => void;
 };
 
 type ColumnDef = {
@@ -203,6 +204,7 @@ export default function InventoryTable({
   ageingThresholds = DEFAULT_AGEING_THRESHOLDS,
   canWrite = false,
   onEditProduct,
+  onPrintLabels,
 }: InventoryTableProps) {
   const [openFilterColumn, setOpenFilterColumn] =
     useState<FilterColumnId | null>(null);
@@ -449,6 +451,19 @@ export default function InventoryTable({
             {selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}
           </span>
           <div className="table-pagination-actions">
+            {selectedIds.size > 0 && onPrintLabels && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  onPrintLabels(
+                    rows.filter((row) => selectedIds.has(row.unitId)),
+                  )
+                }
+              >
+                Print Labels ({selectedIds.size})
+              </button>
+            )}
             <button type="button" className="btn-secondary" disabled>
               Previous
             </button>

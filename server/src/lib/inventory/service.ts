@@ -66,6 +66,7 @@ export type InventorySortOrder = "asc" | "desc";
 export type InventoryListOptions = {
   sortBy?: InventorySortField;
   sortOrder?: InventorySortOrder;
+  hallmarkStatus?: "missing";
 };
 
 const resolveProductOrderBy = (
@@ -177,6 +178,16 @@ export const listProducts = async (
     items = items.sort((a, b) =>
       sortOrder === "asc" ? a.price - b.price : b.price - a.price,
     );
+  }
+
+  if (options.hallmarkStatus === "missing") {
+    items = items
+      .map((item) => ({
+        ...item,
+        units: item.units.filter((unit) => unit.hallmarkPending),
+        stock: item.units.filter((unit) => unit.hallmarkPending).length,
+      }))
+      .filter((item) => item.units.length > 0);
   }
 
   return items;
