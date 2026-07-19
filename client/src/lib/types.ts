@@ -828,6 +828,106 @@ export type NewPurchaseBillInput = {
   paidAmount?: number;
 };
 
+export type ExpenseCategory =
+  | "Tools"
+  | "Pantry"
+  | "Stationery"
+  | "Maintenance"
+  | "Transport"
+  | "Miscellaneous";
+
+export type ExpenseStatus =
+  | "Requested"
+  | "Approved"
+  | "Disbursed"
+  | "Receipt Pending"
+  | "Settled"
+  | "Rejected";
+
+export type Expense = {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  voucherNo: string;
+  category: ExpenseCategory;
+  description: string;
+  requestedAmount?: number;
+  actualAmount?: number;
+  status: ExpenseStatus;
+  requestedByName: string;
+  approvedByName?: string;
+  disbursedByName?: string;
+  vendorName?: string;
+  receiptUrl?: string;
+  rejectionReason?: string;
+  requestedAt: string;
+  approvedAt?: string;
+  disbursedAt?: string;
+  settledAt?: string;
+  amountVarianceNote?: string;
+};
+
+export type NewExpenseInput = {
+  category: ExpenseCategory;
+  description: string;
+  requestedAmount?: number;
+  requestedByName?: string;
+};
+
+export type DirectExpenseInput = {
+  category: ExpenseCategory;
+  description: string;
+  requestedAmount?: number;
+  actualAmount?: number;
+  requestedByName?: string;
+  vendorName?: string;
+  receiptUrl?: string;
+};
+
+export type RejectExpenseInput = {
+  rejectionReason: string;
+};
+
+export type AttachExpenseReceiptInput = {
+  actualAmount: number;
+  vendorName?: string;
+  receiptUrl?: string;
+};
+
+export type PettyCashFloatView = {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  floatAmount: number;
+  currentBalance: number;
+  custodianName: string;
+  lowBalanceThresholdPct: number;
+  lastReplenishedAt?: string;
+  updatedAt: string;
+  lowBalanceWarning: boolean;
+};
+
+export type SetupPettyCashFloatInput = {
+  floatAmount: number;
+  custodianName: string;
+  lowBalanceThresholdPct?: number;
+};
+
+export type ExpenseMonthlyReport = {
+  category: string;
+  total: number;
+};
+
+export type ExpenseRequesterReport = {
+  requestedByName: string;
+  total: number;
+};
+
+export type ExpenseReports = {
+  monthlyByCategory: ExpenseMonthlyReport[];
+  byRequester: ExpenseRequesterReport[];
+};
+
 export type TallyExportType = "sales" | "purchases" | "receipts" | "payments";
 
 export type TallyExportLog = {
@@ -930,6 +1030,7 @@ export type ShopSettings = {
   silverMakingChargesPct: number;
   makingChargesOverrideNote: string | null;
   metalWastageAlertPercent: number;
+  eInvoiceMandatory?: boolean;
 };
 
 export type UpdateShopSettingsInput = {
@@ -961,6 +1062,7 @@ export type UpdateShopSettingsInput = {
   silverMakingChargesPct?: number;
   makingChargesOverrideNote?: string;
   metalWastageAlertPercent?: number;
+  eInvoiceMandatory?: boolean;
 };
 
 export type MarketRatesCurrent = {

@@ -13,6 +13,11 @@ export const fetchInvoices = async (): Promise<Invoice[]> => {
   return data;
 };
 
+export const fetchInvoiceById = async (invoiceId: string): Promise<Invoice> => {
+  const { data } = await api.get<Invoice>(`/api/invoices/${invoiceId}`);
+  return data;
+};
+
 export type InvoiceShareLink = {
   token: string;
   expiresAt: string;

@@ -213,6 +213,8 @@ model Organization {
   purchaseBills       PurchaseBill[]
   tallyExportLogs     TallyExportLog[]
   hallmarkBatches     HallmarkBatch[]
+  pettyCashFloats     PettyCashFloat[]
+  expenses            Expense[]
 }
 
 model StorefrontSettings {
@@ -364,6 +366,8 @@ model Branch {
   repairOrders       RepairOrder[]
   purchaseBills      PurchaseBill[]
   hallmarkBatches    HallmarkBatch[]
+  pettyCashFloats    PettyCashFloat[]
+  expenses           Expense[]
 
   @@index([organizationId])
 }
@@ -453,6 +457,7 @@ model ShopSettings {
   makingChargesOverrideNote      String?
   discountApprovalThresholdPct   Decimal  @default(10.00) @db.Decimal(5, 2)
   metalWastageAlertPercent       Decimal  @default(3.00) @db.Decimal(5, 2)
+  eInvoiceMandatory              Boolean  @default(false)
   onboardingCompletedAt          DateTime?
   updatedAt                      DateTime @updatedAt
 
@@ -1878,4 +1883,71 @@ model TallyExportLog {
 
   @@index([organizationId])
   @@index([createdAt])
+}
+
+enum ExpenseCategory {
+  Tools
+  Pantry
+  Stationery
+  Maintenance
+  Transport
+  Miscellaneous
+}
+
+enum ExpenseStatus {
+  Requested
+  Approved
+  Disbursed
+  ReceiptPending  @map("Receipt Pending")
+  Settled
+  Rejected
+}
+
+model PettyCashFloat {
+  id                    String    @id @default(uuid())
+  organizationId        String
+  branchId              String
+  floatAmount           Decimal   @db.Decimal(10, 2)
+  currentBalance        Decimal   @db.Decimal(10, 2)
+  custodianName         String
+  lowBalanceThresholdPct Decimal  @default(20) @db.Decimal(5, 2)
+  lastReplenishedAt     DateTime?
+  updatedAt             DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, branchId])
+}
+
+model Expense {
+  id              String          @id @default(uuid())
+  organizationId  String
+  branchId        String
+  voucherNo       String
+  category        ExpenseCategory
+  description     String
+  requestedAmount Decimal?        @db.Decimal(10, 2)
+  actualAmount    Decimal?        @db.Decimal(10, 2)
+  status          ExpenseStatus   @default(Requested)
+  requestedByName String
+  approvedByName  String?
+  disbursedByName String?
+  vendorName      String?
+  receiptUrl      String?         @db.Text
+  rejectionReason String?
+  requestedAt     DateTime        @default(now())
+  approvedAt      DateTime?
+  disbursedAt     DateTime?
+  settledAt       DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, voucherNo])
+  @@index([organizationId])
+  @@index([branchId])
+  @@index([status])
+  @@index([category])
+  @@index([requestedAt])
 }

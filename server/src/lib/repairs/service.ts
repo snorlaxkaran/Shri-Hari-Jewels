@@ -11,6 +11,7 @@ import type {
   UpdateRepairStatusInput,
 } from "../../types.js";
 import { createInvoiceForRepair } from "../invoices/service.js";
+import { queueAutoEInvoiceGeneration } from "../einvoice/auto-generate.js";
 import { generateRepairNo } from "./repair-no.js";
 import { toApiRepairStatus, toDbRepairStatus, toRepairOrder } from "./mappers.js";
 import { toMoney } from "../money.js";
@@ -431,15 +432,27 @@ export const deliverRepair = async (
       tx,
     );
 
-    await createInvoiceForRepair(updated, organizationId, input.paymentMode ?? "Cash", tx);
+    const invoice = await createInvoiceForRepair(
+      updated,
+      organizationId,
+      input.paymentMode ?? "Cash",
+      tx,
+    );
 
-    return tx.repairOrder.findUniqueOrThrow({
-      where: { id },
-      include: repairInclude,
-    });
+    return { order: updated, invoiceId: invoice.id };
   });
 
-  return toRepairOrder(order);
+  queueAutoEInvoiceGeneration({
+    organizationId,
+    invoiceId: order.invoiceId,
+  });
+
+  const delivered = await prisma.repairOrder.findUniqueOrThrow({
+    where: { id },
+    include: repairInclude,
+  });
+
+  return toRepairOrder(delivered);
 };
 
 export const createRepairRedo = async (

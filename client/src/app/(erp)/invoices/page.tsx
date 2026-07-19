@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { FileText, Loader2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
@@ -99,7 +100,14 @@ export default function InvoicesPage() {
               <tbody>
                 {filtered.map((inv) => (
                   <tr key={inv.id}>
-                    <td className="td-code">{inv.invoiceNo}</td>
+                    <td className="td-code">
+                      <Link
+                        href={`/invoices/${inv.id}`}
+                        className="hover:underline"
+                      >
+                        {inv.invoiceNo}
+                      </Link>
+                    </td>
                     <td className="td-muted">
                       <p>{inv.customerName}</p>
                       <p className="text-xs" style={{ color: "var(--text-muted)" }}>

@@ -2,6 +2,7 @@ import type { Response } from "express";
 import { prisma } from "../db.js";
 import { regenerateTransferInvoicePdf } from "../inventory/transfer-actions.js";
 import { getCustomer } from "../customers/service.js";
+import { getEInvoiceRecordForInvoice } from "../einvoice/service.js";
 import { generateInvoicePdf } from "./pdf.js";
 import { getShopSettings } from "../settings/service.js";
 import { toInvoice } from "./mappers.js";
@@ -28,6 +29,7 @@ export const sendInvoicePdfResponse = async (
   const customerBilling = invoice.customerId
     ? await getCustomer(invoice.customerId, organizationId)
     : null;
+  const eInvoiceRecord = await getEInvoiceRecordForInvoice(organizationId, invoice.id);
 
   const pdf = await generateInvoicePdf(
     invoice,
@@ -35,6 +37,10 @@ export const sendInvoicePdfResponse = async (
     customerBilling,
     organizationId,
     invoiceRow.branch,
+    {
+      irn: eInvoiceRecord?.irn,
+      ackNo: eInvoiceRecord?.ackNo,
+    },
   );
 
   res.setHeader("Content-Type", "application/pdf");

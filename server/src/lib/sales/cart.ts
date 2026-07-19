@@ -4,6 +4,7 @@ import { InventoryUnitStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import { toInvoice } from "../invoices/mappers.js";
 import { createInvoiceForCart } from "../invoices/service.js";
+import { queueAutoEInvoiceGeneration } from "../einvoice/auto-generate.js";
 import { syncProductStockInTx } from "../inventory/stock-sync.js";
 import {
   closeUpiQrCode,
@@ -220,6 +221,12 @@ export const completeCartGroup = async (
     createInvoiceForCart(updatedSales, branch.organizationId, tx),
   );
 
+  queueAutoEInvoiceGeneration({
+    organizationId: branch.organizationId,
+    invoiceId: invoice.id,
+    saleId: updatedSales[0]?.id,
+  });
+
   return {
     sales: updatedSales.map(toSale),
     invoices: [invoice],
@@ -430,6 +437,12 @@ export const recordCartSale = async (
       tx,
     );
     return { sales: createdSales, invoice };
+  });
+
+  queueAutoEInvoiceGeneration({
+    organizationId,
+    invoiceId: results.invoice.id,
+    saleId: results.sales[0]?.id,
   });
 
   return {

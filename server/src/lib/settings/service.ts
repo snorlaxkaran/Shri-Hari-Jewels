@@ -39,6 +39,7 @@ const DEFAULT_SETTINGS: ShopSettings = {
   silverMakingChargesPct: 17,
   makingChargesOverrideNote: null,
   metalWastageAlertPercent: 3,
+  eInvoiceMandatory: false,
 };
 
 const trimOrNull = (value: string | undefined): string | null => {
@@ -76,6 +77,7 @@ const toShopSettings = (settings: {
   silverMakingChargesPct?: { toString(): string } | number | null;
   makingChargesOverrideNote?: string | null;
   metalWastageAlertPercent?: { toString(): string } | number | null;
+  eInvoiceMandatory?: boolean | null;
 }): ShopSettings => ({
   businessName: settings.businessName,
   address: settings.address,
@@ -105,6 +107,7 @@ const toShopSettings = (settings: {
   silverMakingChargesPct: Number(settings.silverMakingChargesPct ?? 17),
   makingChargesOverrideNote: settings.makingChargesOverrideNote ?? null,
   metalWastageAlertPercent: Number(settings.metalWastageAlertPercent ?? 3),
+  eInvoiceMandatory: Boolean(settings.eInvoiceMandatory),
 });
 
 const validateSettingsInput = (input: UpdateShopSettingsInput) => {
@@ -182,6 +185,7 @@ export const updateShopSettings = async (
       bankAccountNumber: trimOrNull(input.bankAccountNumber),
       bankIfsc: validated.bankIfsc,
       bankName: trimOrNull(input.bankName),
+      eInvoiceMandatory: input.eInvoiceMandatory ?? false,
     },
     update: {
       ...(input.businessName !== undefined && {
@@ -243,6 +247,9 @@ export const updateShopSettings = async (
       }),
       ...(input.metalWastageAlertPercent !== undefined && {
         metalWastageAlertPercent: input.metalWastageAlertPercent,
+      }),
+      ...(input.eInvoiceMandatory !== undefined && {
+        eInvoiceMandatory: input.eInvoiceMandatory,
       }),
     },
   });

@@ -3,6 +3,7 @@ import { InventoryUnitStatus, SalePaymentStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import { toInvoice } from "../invoices/mappers.js";
 import { createInvoiceForCart, getInvoiceForSale } from "../invoices/service.js";
+import { queueAutoEInvoiceGeneration } from "../einvoice/auto-generate.js";
 import { syncProductStockInTx } from "../inventory/stock-sync.js";
 import { recordSaleAuditInTx } from "./audit.js";
 import {
@@ -280,6 +281,12 @@ export const completeSale = async (
     await closeUpiQrCode(existing.razorpayQrId);
   }
 
+  queueAutoEInvoiceGeneration({
+    organizationId: orgId,
+    invoiceId: result.invoice.id,
+    saleId: result.sale.id,
+  });
+
   return {
     sale: toSale(result.sale),
     invoice: result.invoice,
@@ -482,6 +489,12 @@ export const recordSale = async (
       performedByName: "System",
     });
     return { sale: created, invoice };
+  });
+
+  queueAutoEInvoiceGeneration({
+    organizationId,
+    invoiceId: result.invoice.id,
+    saleId: result.sale.id,
   });
 
   return {

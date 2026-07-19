@@ -6,6 +6,7 @@ import helmet from "helmet";
 import { pinoHttp } from "pino-http";
 import * as Sentry from "@sentry/node";
 import { assertProductionDatabase } from "./lib/db-config.js";
+import { validateEinvoiceEnvironment } from "./lib/einvoice/config.js";
 import { getHealthPayload } from "./lib/health.js";
 import { logger } from "./lib/logger.js";
 import { authRouter } from "./routes/auth.js";
@@ -49,6 +50,7 @@ import { onboardingRouter } from "./routes/onboarding.js";
 import { storefrontRouter } from "./routes/storefront.js";
 import { storefrontAdminRouter } from "./routes/storefront-admin.js";
 import { hallmarkBatchesRouter } from "./routes/hallmark-batches.js";
+import { expensesRouter, pettyCashFloatRouter } from "./routes/expenses.js";
 import { startScheduledJobs } from "./jobs/scheduler.js";
 import { startLeadReminderJob } from "./lib/leads/reminder-job.js";
 
@@ -85,6 +87,7 @@ const clientUrl = process.env.CLIENT_URL ?? "http://localhost:3000";
 const isProduction = process.env.NODE_ENV === "production";
 
 assertProductionDatabase();
+validateEinvoiceEnvironment();
 
 app.use(helmet({
   contentSecurityPolicy: isProduction ? undefined : false,
@@ -196,6 +199,8 @@ app.use("/api/karigar", karigarRouter);
 app.use("/api/einvoice", einvoiceRouter);
 app.use("/api/onboarding", onboardingRouter);
 app.use("/api/hallmark-batches", hallmarkBatchesRouter);
+app.use("/api/expenses", expensesRouter);
+app.use("/api/petty-cash-float", pettyCashFloatRouter);
 app.use("/api/storefront", storefrontRouter);
 app.use("/api/storefront-admin", storefrontAdminRouter);
 

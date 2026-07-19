@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import {
   canAccessRoute,
   canManageCustomers,
+  canManageExpenses,
   canViewRepairs,
   canViewHallmark,
   canViewStockTransfers,
@@ -17,6 +18,7 @@ import { fetchIncomingTransferCount } from "@/lib/api/inventory";
 import { fetchFollowUpsDueCount } from "@/lib/api/leads";
 import { fetchReadyForPickupCount } from "@/lib/api/repairs";
 import { fetchHallmarkPendingCount } from "@/lib/api/hallmark";
+import { fetchExpensesPendingCount } from "@/lib/api/expenses";
 
 type SidebarContentProps = {
   pathname: string;
@@ -36,6 +38,7 @@ const SidebarContent = ({
   const [followUpsDueCount, setFollowUpsDueCount] = useState<number | undefined>();
   const [readyForPickupCount, setReadyForPickupCount] = useState<number | undefined>();
   const [hallmarkPendingCount, setHallmarkPendingCount] = useState<number | undefined>();
+  const [expensesPendingCount, setExpensesPendingCount] = useState<number | undefined>();
 
   const sections = useMemo(() => {
     if (!user) return [];
@@ -55,10 +58,13 @@ const SidebarContent = ({
         if (item.href === "/hallmark" && hallmarkPendingCount != null && hallmarkPendingCount > 0) {
           return { ...item, badge: hallmarkPendingCount };
         }
+        if (item.href === "/expenses" && expensesPendingCount != null && expensesPendingCount > 0) {
+          return { ...item, badge: expensesPendingCount };
+        }
         return item;
       }),
     }));
-  }, [user, incomingCount, followUpsDueCount, readyForPickupCount, hallmarkPendingCount]);
+  }, [user, incomingCount, followUpsDueCount, readyForPickupCount, hallmarkPendingCount, expensesPendingCount]);
 
   useEffect(() => {
     if (!user || !canViewStockTransfers(user.role)) return;
@@ -86,6 +92,13 @@ const SidebarContent = ({
     fetchHallmarkPendingCount()
       .then(setHallmarkPendingCount)
       .catch(() => setHallmarkPendingCount(undefined));
+  }, [user, pathname]);
+
+  useEffect(() => {
+    if (!user || !canManageExpenses(user.role)) return;
+    fetchExpensesPendingCount()
+      .then(setExpensesPendingCount)
+      .catch(() => setExpensesPendingCount(undefined));
   }, [user, pathname]);
 
   const prefetchRoute = useCallback(

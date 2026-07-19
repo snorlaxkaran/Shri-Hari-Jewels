@@ -1,5 +1,6 @@
 import { prisma } from "./db.js";
 import { getDatabaseHost, getDatabaseKind } from "./db-config.js";
+import { isEinvoiceConfigured } from "./einvoice/config.js";
 
 export const getHealthPayload = async () => {
   const databaseUrl = process.env.DATABASE_URL;
@@ -44,6 +45,7 @@ export const getHealthPayload = async () => {
     upiAutoCapture: Boolean(
       process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET,
     ),
+    einvoiceConfigured: isEinvoiceConfigured(),
     database: {
       kind: databaseKind,
       host: databaseHost,

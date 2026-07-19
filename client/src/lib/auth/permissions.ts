@@ -20,6 +20,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/sales-analytics",
     "/reports",
     "/repairs",
+    "/expenses",
   ],
   SalesManager: [
     "/dashboard",
@@ -41,10 +42,11 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/motifs",
     "/production-runs",
     "/storefront",
+    "/expenses",
   ],
-  Store: ["/dashboard", "/inventory", "/products", "/stock-transfer", "/sales", "/customers", "/repairs"],
-  Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs", "/repairs"],
-  Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/reports", "/raw-inventory", "/vendors", "/purchase-bills", "/settings/tally-export"],
+  Store: ["/dashboard", "/inventory", "/products", "/stock-transfer", "/sales", "/customers", "/repairs", "/expenses"],
+  Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs", "/repairs", "/expenses"],
+  Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/reports", "/raw-inventory", "/vendors", "/purchase-bills", "/settings/tally-export", "/expenses"],
 };
 
 export const canViewReports = (role: UserRole): boolean =>
@@ -165,6 +167,17 @@ export const canManageHallmark = (role: UserRole): boolean =>
   role === "Admin" || role === "ProductionManager" || role === "SalesManager";
 
 export const canManageAccounting = (role: UserRole): boolean =>
+  role === "Admin" || role === "Accountant";
+
+export const canViewExpenses = (role: UserRole): boolean =>
+  role === "Admin" ||
+  role === "ProductionManager" ||
+  role === "SalesManager" ||
+  role === "Store" ||
+  role === "Karigar" ||
+  role === "Accountant";
+
+export const canManageExpenses = (role: UserRole): boolean =>
   role === "Admin" || role === "Accountant";
 
 export const canExportTally = (role: UserRole): boolean =>

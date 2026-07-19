@@ -97,6 +97,7 @@ export const generateInvoicePdf = async (
   customerBilling: InvoiceCustomerBilling | null | undefined,
   organizationId: string,
   sellingBranch?: InvoiceSellingBranch | null,
+  eInvoiceMeta?: { irn?: string | null; ackNo?: string | null },
 ): Promise<Buffer> => {
   const items = await resolveInvoiceItemsForPdf(invoice, organizationId);
   const { lines, totalQty, totalAmount } = resolveGroupedLinesForPdf(
@@ -139,6 +140,8 @@ export const generateInvoicePdf = async (
       totalQty,
       totalAmount: totalAmount > 0 ? totalAmount : invoice.taxableValue,
       gstBreakup,
+      gstIrn: eInvoiceMeta?.irn ?? null,
+      ackNo: eInvoiceMeta?.ackNo ?? null,
     });
 
     doc.end();

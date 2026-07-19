@@ -21,6 +21,7 @@ import {
   Globe,
   UserPlus,
   Wrench,
+  Wallet,
 } from "lucide-react";
 import { createElement } from "react";
 
@@ -149,6 +150,7 @@ export const navSections: NavSection[] = [
       { label: "Branches", href: "/branches", icon: icon(Store) },
       markToday({ label: "Vendors", href: "/vendors", icon: icon(Briefcase) }),
       markToday({ label: "Purchase bills", href: "/purchase-bills", icon: icon(FileText) }),
+      { label: "Expenses", href: "/expenses", icon: icon(Wallet) },
       markToday({ label: "Settings", href: "/settings", icon: icon(Settings) }),
     ],
   },
@@ -224,6 +226,8 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname.startsWith("/hallmark/")) return "Hallmark Batch";
   if (pathname === "/hallmark") return "Hallmark (HUID)";
   if (pathname.startsWith("/repairs/")) return "Repair Detail";
+  if (pathname === "/expenses/new") return "New Expense Request";
+  if (pathname === "/expenses") return "Expenses";
   if (pathname === "/settings/tally-export") return "Tally Export";
   if (pathname === "/production-runs/new") return "New Production Run";
   if (pathname === "/production-runs/dashboard") return "Production Dashboard";

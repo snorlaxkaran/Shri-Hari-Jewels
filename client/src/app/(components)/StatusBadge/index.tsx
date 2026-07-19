@@ -10,6 +10,7 @@ const LABEL_OVERRIDES: Record<string, string> = {
   Transferred: "Transferred",
   "Needs Hallmark": "Needs hallmark",
   PendingVerification: "Inactive",
+  Disbursed: "Awaiting Receipt",
 };
 
 const styles: Record<string, { color: string }> = {
@@ -57,6 +58,10 @@ const styles: Record<string, { color: string }> = {
   "Ready for Pickup": { color: "#1d8102" },
   Rejected: { color: "#d13212" },
   "Partially Paid": { color: "#d45b07" },
+  Disbursed: { color: "#0073bb" },
+  "Receipt Pending": { color: "#d45b07" },
+  Settled: { color: "#1d8102" },
+  Requested: { color: "#d45b07" },
 };
 
 export default function StatusBadge({ status }: { status: string }) {
