@@ -836,6 +836,11 @@ export default function ProductionRunDetailPage() {
     }
   }, [runId]);
 
+  useEffect(() => {
+    if (!showCreateSku || skuDefaults || loadingDefaults) return;
+    void loadSkuDefaults();
+  }, [showCreateSku, skuDefaults, loadingDefaults, loadSkuDefaults]);
+
   const handleStatusChange = async (status: ProductionRunStatus) => {
     if (!run) return;
     setStatusError("");

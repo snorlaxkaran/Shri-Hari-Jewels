@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
   const { pathname } = request.nextUrl;
 

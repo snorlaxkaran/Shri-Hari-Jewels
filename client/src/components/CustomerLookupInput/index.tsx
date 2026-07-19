@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Customer } from "@/lib/types";
 import FoundCard from "./FoundCard";
 import NewCustomerForm from "./NewCustomerForm";
@@ -54,14 +54,15 @@ export default function CustomerLookupInput({
   } = useCustomerLookup();
 
   const [fields, setFields] = useState<CustomerLookupFields>(emptyFields());
-  const originalRef = useRef<CustomerLookupFields>(emptyFields());
+  const [originalFields, setOriginalFields] =
+    useState<CustomerLookupFields>(emptyFields());
   const [newFields, setNewFields] = useState<CustomerLookupFields>(emptyFields());
 
   useEffect(() => {
     if (state === "found" && customer) {
       const next = customerToFields(customer);
       setFields(next);
-      originalRef.current = next;
+      setOriginalFields(next);
     }
   }, [state, customer]);
 
@@ -73,7 +74,7 @@ export default function CustomerLookupInput({
 
   useEffect(() => {
     if (state === "found" && customer) {
-      const dirtyFields = buildDirtyFields(originalRef.current, fields);
+      const dirtyFields = buildDirtyFields(originalFields, fields);
       onSelectionChange({
         customerId: customer.id,
         fields,
@@ -82,7 +83,7 @@ export default function CustomerLookupInput({
       return;
     }
     onSelectionChange(null);
-  }, [state, customer, fields, onSelectionChange]);
+  }, [state, customer, fields, originalFields, onSelectionChange]);
 
   const handleClear = useCallback(() => {
     if (paymentModeSet) {
@@ -95,7 +96,7 @@ export default function CustomerLookupInput({
     reset();
     setFields(emptyFields());
     setNewFields(emptyFields());
-    originalRef.current = emptyFields();
+    setOriginalFields(emptyFields());
     onSelectionChange(null);
   }, [paymentModeSet, onPaymentModeClear, reset, onSelectionChange]);
 
@@ -104,7 +105,7 @@ export default function CustomerLookupInput({
       markSaved(saved);
       const next = customerToFields(saved);
       setFields(next);
-      originalRef.current = next;
+      setOriginalFields(next);
     },
     [markSaved],
   );
@@ -148,7 +149,7 @@ export default function CustomerLookupInput({
         <FoundCard
           customer={customer}
           fields={fields}
-          originalFields={originalRef.current}
+          originalFields={originalFields}
           onChange={setFields}
           onClear={handleClear}
         />

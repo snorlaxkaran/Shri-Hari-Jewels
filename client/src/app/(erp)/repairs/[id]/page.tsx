@@ -22,9 +22,8 @@ import {
 import { openInvoicePdf } from "@/lib/api/invoices";
 import { getApiErrorMessage } from "@/lib/api/client";
 import type { PaymentMode, RepairOrder } from "@/lib/types";
-import { formatCurrency, formatDate, formatDateTime, parseMoneyInput } from "@/lib/format";
+import { formatCurrency, formatDateTime, parseMoneyInput } from "@/lib/format";
 
-const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
 const fieldClass = "input-field w-full px-3 py-2 text-sm";
 const PAYMENT_MODES: PaymentMode[] = ["Cash", "UPI", "Card"];
 

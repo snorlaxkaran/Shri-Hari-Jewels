@@ -253,7 +253,10 @@ function StockTransferScanPageContent() {
     }
   };
 
-  const selectedCustomer = customers.find((c) => c.id === customerId);
+  const selectedCustomer = useMemo(
+    () => customers.find((c) => c.id === customerId),
+    [customers, customerId],
+  );
 
   const resolvedBilling = useMemo(() => {
     if (!selectedCustomer || !selectedBranch) return null;
@@ -275,10 +278,10 @@ function StockTransferScanPageContent() {
     });
   }, [resolvedBilling]);
 
-  const billingInput = useMemo(() => {
-    if (!resolvedBilling) return undefined;
-    return toTransferBillingInput(resolvedBilling, billingForm);
-  }, [resolvedBilling, billingForm]);
+  const billingInput =
+    resolvedBilling === null
+      ? undefined
+      : toTransferBillingInput(resolvedBilling, billingForm);
 
   const billingWarnings = useMemo(() => {
     if (transferTarget !== "external" || !billingInput) return [];

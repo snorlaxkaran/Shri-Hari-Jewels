@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, RefreshCw, Settings2 } from "lucide-react";
 import {
   fetchCurrentMarketRates,
-  overrideMarketRates,
   refreshMarketRates,
 } from "@/lib/api/market-rates";
 import { getApiErrorMessage } from "@/lib/api/client";

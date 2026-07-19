@@ -8,7 +8,6 @@ import {
   NUMBER_FILTER_COLUMNS,
   TEXT_FILTER_COLUMNS,
   shouldUseChecklist,
-  type ChecklistColumnFilter,
   type ColumnFilter,
   type DateColumnFilter,
   type FilterColumnId,

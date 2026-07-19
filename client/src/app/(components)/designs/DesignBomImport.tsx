@@ -2,6 +2,10 @@
 
 import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
+import {
+  assertExcelFileSize,
+  readExcelWorkbook,
+} from "@/lib/excel-import-guard";
 import type {
   ConfirmedDesignImportRow,
   DesignImportPreview,
@@ -35,8 +39,9 @@ export default function DesignBomImport({
     setError("");
     setLoading(true);
     try {
+      assertExcelFileSize(file);
       const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
+      const workbook = await readExcelWorkbook(buffer);
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json<unknown[]>(sheet, {

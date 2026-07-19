@@ -31,7 +31,34 @@ export const STOCK_EXCEL_HEADERS = [
   "Item Remarks",
 ] as const;
 
-const HEADER_ALIASES: Record<string, keyof typeof COLUMN_MAP> = {
+type ParsedRow = {
+  stockType?: string;
+  hsn?: string;
+  catalogNo?: string;
+  itemCode?: string;
+  status?: string;
+  name?: string;
+  category?: string;
+  subCategory?: string;
+  collection?: string;
+  websiteStatus?: string;
+  vendor?: string;
+  metal?: string;
+  purity?: string | number;
+  wtGross?: number;
+  wtNet?: number;
+  wtOther?: number;
+  stoneName?: string;
+  wtStone?: number;
+  colorStone?: string;
+  retailPrice?: number;
+  cost?: number;
+  activeDate?: string;
+  location?: string;
+  remarks?: string;
+};
+
+const HEADER_ALIASES: Record<string, keyof ParsedRow> = {
   "stock type": "stockType",
   hsn: "hsn",
   "sku no": "catalogNo",
@@ -59,60 +86,6 @@ const HEADER_ALIASES: Record<string, keyof typeof COLUMN_MAP> = {
   "active date": "activeDate",
   "current location": "location",
   "item remarks": "remarks",
-};
-
-const COLUMN_MAP = {
-  stockType: "Stock Type",
-  hsn: "HSN",
-  catalogNo: "SKU NO",
-  itemCode: "Item no/ Barcode",
-  status: "Status",
-  name: "Item Description",
-  category: "Category",
-  subCategory: "Sub-Category",
-  collection: "Collection",
-  websiteStatus: "Website Status",
-  vendor: "Vendor Name",
-  metal: "Metal",
-  purity: "Purity",
-  wtGross: "Wt Gross",
-  wtNet: "Wt Net",
-  wtOther: "Wt Other",
-  stoneName: "Stone Name",
-  wtStone: "Wt Stone",
-  colorStone: "Color Stone",
-  retailPrice: "Retail Price",
-  cost: "Cost",
-  activeDate: "Active Date",
-  location: "Current Location",
-  remarks: "Item Remarks",
-} as const;
-
-type ParsedRow = {
-  stockType?: string;
-  hsn?: string;
-  catalogNo?: string;
-  itemCode?: string;
-  status?: string;
-  name?: string;
-  category?: string;
-  subCategory?: string;
-  collection?: string;
-  websiteStatus?: string;
-  vendor?: string;
-  metal?: string;
-  purity?: string | number;
-  wtGross?: number;
-  wtNet?: number;
-  wtOther?: number;
-  stoneName?: string;
-  wtStone?: number;
-  colorStone?: string;
-  retailPrice?: number;
-  cost?: number;
-  activeDate?: string;
-  location?: string;
-  remarks?: string;
 };
 
 const normalizeHeader = (value: string) => value.trim().toLowerCase();

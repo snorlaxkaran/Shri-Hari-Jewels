@@ -30,7 +30,6 @@ import type {
   Motif,
   MotifMetal,
   MotifStoneInput,
-  MotifStoneType,
   MotifSubCategory,
   NewMotifInput,
   Purity,
@@ -40,8 +39,6 @@ import { getApiErrorMessage } from "@/lib/api/client";
 
 const fieldClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
-
-const emptyStone = "";
 
 export default function MotifsPage() {
   const { user } = useAuth();

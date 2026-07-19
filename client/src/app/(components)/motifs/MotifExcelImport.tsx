@@ -4,6 +4,10 @@ import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { FileSpreadsheet, Upload } from "lucide-react";
 import {
+  assertExcelFileSize,
+  readExcelWorkbook,
+} from "@/lib/excel-import-guard";
+import {
   mapExcelRows,
   MOTIF_EXCEL_HEADERS,
   MOTIF_METALS,
@@ -52,8 +56,26 @@ export default function MotifExcelImport({
 
   const handleExcel = async (file: File) => {
     setResult(null);
+    try {
+      assertExcelFileSize(file);
+    } catch (err) {
+      setParseErrors([
+        err instanceof Error ? err.message : "File is too large.",
+      ]);
+      setRows([]);
+      return;
+    }
     const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: "array" });
+    let workbook;
+    try {
+      workbook = await readExcelWorkbook(buffer);
+    } catch (err) {
+      setParseErrors([
+        err instanceof Error ? err.message : "Failed to parse Excel file.",
+      ]);
+      setRows([]);
+      return;
+    }
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
       defval: "",
