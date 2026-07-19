@@ -11,7 +11,7 @@ import TransferTabs from "@/app/(components)/stock-transfer/TransferTabs";
 import TransferStatusBadge from "@/app/(components)/stock-transfer/TransferStatusBadge";
 import {
   fetchProformaTransfers,
-  redownloadTransferInvoice,
+  openTransferInvoicePdf,
 } from "@/lib/api/inventory";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { canManageStockTransfers } from "@/lib/auth/permissions";
@@ -122,7 +122,7 @@ export default function ProformaListPage() {
     router.push(`/stock-transfer/sent/${transferId}`);
   };
 
-  const handleDownload = async (
+  const handleOpenPdf = async (
     transfer: StockTransfer,
     event?: React.MouseEvent,
   ) => {
@@ -131,9 +131,9 @@ export default function ProformaListPage() {
     setDownloadingId(transfer.id);
     setError("");
     try {
-      await redownloadTransferInvoice(transfer.id);
+      await openTransferInvoicePdf(transfer.id);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to download invoice."));
+      setError(getApiErrorMessage(err, "Failed to open invoice."));
     } finally {
       setDownloadingId(null);
     }
@@ -295,8 +295,10 @@ export default function ProformaListPage() {
                           <RowActionsDropdown
                             actions={[
                               {
-                                label: "Download PDF",
-                                onClick: () => handleDownload(transfer),
+                                label: downloadingId === transfer.id
+                                  ? "Opening…"
+                                  : "View PDF",
+                                onClick: () => handleOpenPdf(transfer),
                                 hidden: !generated,
                               },
                               {

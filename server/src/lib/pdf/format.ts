@@ -18,6 +18,19 @@ export const formatDateIn = (value?: string | null): string => {
   return parsed.toLocaleDateString("en-IN");
 };
 
+/** e.g. 18-Jul-2026 — matches Tribe wholesale invoice format */
+export const formatInvoiceDate = (value?: string | null): string => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const day = String(parsed.getDate()).padStart(2, "0");
+  const months = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  ];
+  return `${day}-${months[parsed.getMonth()]}-${parsed.getFullYear()}`;
+};
+
 const ones = [
   "",
   "One",

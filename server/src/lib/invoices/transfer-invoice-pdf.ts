@@ -12,7 +12,7 @@ import {
   gstStateCodeFromNumber,
   renderStandardDocument,
 } from "./gst-invoice-layout.js";
-import { formatDateIn } from "../pdf/format.js";
+import { formatInvoiceDate } from "../pdf/format.js";
 import { moneyToNumber } from "../money.js";
 
 type TransferForPdf = DbStockTransfer & {
@@ -27,15 +27,19 @@ const buildTransferBillToLines = (transfer: TransferForPdf): string[] => {
   if (transfer.customerBranch?.name) lines.push(transfer.customerBranch.name);
   if (transfer.recipientAddress?.trim()) lines.push(transfer.recipientAddress.trim());
   if (transfer.recipientGstNumber?.trim()) {
-    lines.push(`Buyer GSTN ${transfer.recipientGstNumber.trim()}`);
-  }
-  if (transfer.recipientPanNumber?.trim()) {
-    lines.push(`PAN ${transfer.recipientPanNumber.trim()}`);
+    lines.push(`Buyer GSTN  ${transfer.recipientGstNumber.trim()}`);
   }
   const stateCode =
     transfer.placeOfSupplyStateCode?.trim() ??
     gstStateCodeFromNumber(transfer.recipientGstNumber);
-  if (stateCode) lines.push(`State Code ${stateCode}`);
+  const pan = transfer.recipientPanNumber?.trim();
+  if (pan && stateCode) {
+    lines.push(`PAN  ${pan}    State Code  ${stateCode}`);
+  } else if (pan) {
+    lines.push(`PAN  ${pan}`);
+  } else if (stateCode) {
+    lines.push(`State Code  ${stateCode}`);
+  }
   return lines;
 };
 
@@ -77,8 +81,7 @@ export const generateTransferInvoicePdf = (
     );
     const displayDate = transfer.dispatchDate ?? transfer.transferDate;
     const courier = transfer.courierCompany?.trim() || "—";
-    const dispatchDate = formatDateIn(displayDate.toISOString());
-    const dispatchLine = `Dispatch Details    ${courier} / Net Wt:- ${totalWeight.toFixed(3)} gms / On ${dispatchDate}`;
+    const dispatchLine = `Dispatch Details  ${courier} / Net Wt:- ${totalWeight.toFixed(2)} gms / On ${formatInvoiceDate(displayDate.toISOString())}`;
 
     const placeOfSupply = transfer.placeOfSupplyState?.trim() || "—";
     const placeOfDelivery = transfer.placeOfDeliveryState?.trim() || placeOfSupply;

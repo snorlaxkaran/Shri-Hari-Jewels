@@ -2,18 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Download, FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import TransferStatusBadge from "@/app/(components)/stock-transfer/TransferStatusBadge";
 import {
   fetchStockTransferById,
   generateTransferInvoice,
+  openTransferInvoicePdf,
 } from "@/lib/api/inventory";
 import { fetchSettings } from "@/lib/api/settings";
 import { getApiErrorMessage } from "@/lib/api/client";
 import type { ShopSettings, StockTransfer, StockTransferItem } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { openPdfBlob } from "@/lib/open-pdf";
 import ItemCodeLink from "@/app/(components)/inventory/ItemCodeLink";
 
 const labelClass =
@@ -48,15 +50,6 @@ const groupItems = (items: StockTransferItem[]) => {
     entry.amount += item.price;
   }
   return grouped;
-};
-
-const downloadBlob = (blob: Blob, filename: string) => {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
 };
 
 function ReadOnlyField({ label, value }: { label: string; value?: string }) {
@@ -196,7 +189,7 @@ export default function SentTransferDetailPage() {
       const result = await generateTransferInvoice(transfer.id, formData);
       setTransfer(result.transfer);
       setPdfBlob(result.pdfBlob);
-      downloadBlob(result.pdfBlob, pdfFilename);
+      openPdfBlob(result.pdfBlob, pdfFilename);
       setRedirectMessage(
         "Invoice generated. Redirecting to Proforma List...",
       );
@@ -208,9 +201,16 @@ export default function SentTransferDetailPage() {
     }
   };
 
-  const handleDownloadAgain = () => {
+  const handleViewPdf = async () => {
     if (pdfBlob) {
-      downloadBlob(pdfBlob, pdfFilename);
+      openPdfBlob(pdfBlob, pdfFilename);
+      return;
+    }
+    if (!transfer) return;
+    try {
+      await openTransferInvoicePdf(transfer.id);
+    } catch (err) {
+      setFormError(getApiErrorMessage(err, `Failed to open ${docLabel.toLowerCase()}.`));
     }
   };
 
@@ -246,12 +246,11 @@ export default function SentTransferDetailPage() {
           transfer.invoiceNo || transfer.invoicedAt ? (
             <button
               type="button"
-              onClick={handleDownloadAgain}
-              disabled={!pdfBlob}
-              className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
+              onClick={() => void handleViewPdf()}
+              className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm"
             >
-              <Download size={16} />
-              Download {docLabel}
+              <FileText size={16} />
+              View {docLabel}
             </button>
           ) : undefined
         }
@@ -478,14 +477,14 @@ export default function SentTransferDetailPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
-            {transfer.invoicedAt && pdfBlob && (
+            {transfer.invoicedAt && (
               <button
                 type="button"
-                onClick={handleDownloadAgain}
+                onClick={() => void handleViewPdf()}
                 className="btn-secondary flex items-center justify-center gap-2 px-4 py-2 text-sm"
               >
-                <Download size={16} />
-                Re-download {docLabel}
+                <FileText size={16} />
+                View {docLabel}
               </button>
             )}
             <button

@@ -52,7 +52,7 @@ invoicesRouter.get(
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${invoice.invoiceNo}.pdf"`,
+        `inline; filename="${invoice.invoiceNo}.pdf"`,
       );
       res.send(pdf);
     } catch (error) {

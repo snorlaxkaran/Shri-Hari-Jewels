@@ -790,17 +790,37 @@ select.filter-select:focus {
   padding: 0.6mm 1mm;
   display: flex;
   align-items: center;
-  gap: 1.5mm;
+  gap: 2mm;
   overflow: hidden;
   background: #fff;
   color: #000;
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.barcode-label__primary {
+  flex: 0 0 42mm;
+  max-width: 42mm;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2mm;
+}
+
+.barcode-label__code {
+  margin: 0;
+  font-size: 6.5pt;
+  font-weight: 700;
+  font-family: "Courier New", monospace;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .barcode-label__barcode {
-  flex: 0 0 38mm;
-  max-width: 38mm;
-  height: 9mm;
+  height: 5.5mm;
   display: flex;
   align-items: center;
 }
@@ -810,35 +830,22 @@ select.filter-select:focus {
   height: 100%;
 }
 
-.barcode-label__text {
+.barcode-label__meta {
   flex: 1;
   min-width: 0;
-  line-height: 1.1;
-}
-
-.barcode-label__code {
-  margin: 0;
-  font-size: 7pt;
-  font-weight: 700;
-  font-family: "Courier New", monospace;
-  letter-spacing: 0.02em;
-}
-
-.barcode-label__meta {
-  margin: 0.4mm 0 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0 2mm;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.3mm;
+  line-height: 1.1;
   font-size: 5.5pt;
   color: #222;
 }
 
 .barcode-label__name {
-  flex: 1 1 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 48mm;
 }
 
 .barcode-label__weight,

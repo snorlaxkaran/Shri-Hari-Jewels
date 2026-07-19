@@ -1,39 +1,44 @@
 import type PDFDocument from "pdfkit";
 import type { ShopSettings } from "../../types.js";
-import { drawDocumentHeader, formatShopAddress } from "../pdf/document-header.js";
+import { INVOICE_THEME as T } from "../pdf/invoice-theme.js";
 import {
-  amountInIndianWords,
-  formatDateIn,
+  formatInvoiceDate,
   formatRupeeDecimal,
 } from "../pdf/format.js";
-import {
-  drawBorderedTable,
-  drawLabelValueBox,
-  ensureSpace,
-  getContentWidth,
-} from "../pdf/table.js";
+import { formatShopAddress } from "../pdf/document-header.js";
+import { ensureSpace, getContentWidth } from "../pdf/table.js";
 
-export type JewelryGroupKey = "Gold Jewelry" | "Silver Jewelry" | "Imitation Jewelry";
+export type JewelryGroupKey =
+  | "Gold Jewelry"
+  | "Silver Jewelry"
+  | "Zinc Jewelry"
+  | "Imitation Jewelry";
 
 export const GROUP_ORDER: JewelryGroupKey[] = [
   "Gold Jewelry",
   "Silver Jewelry",
+  "Zinc Jewelry",
   "Imitation Jewelry",
 ];
 
 const INVOICE_GROUP_LABEL: Record<JewelryGroupKey, string> = {
   "Gold Jewelry": "Gold Jewellery",
   "Silver Jewelry": "Silver Jewellery",
+  "Zinc Jewelry": "Zinc Jewellery",
   "Imitation Jewelry": "Imitation Jewellery",
 };
 
 export const resolveJewelryGroup = (metal: string): JewelryGroupKey => {
   if (metal === "Gold" || metal === "Rose Gold") return "Gold Jewelry";
   if (metal === "Silver" || metal === "Platinum") return "Silver Jewelry";
+  if (metal === "Zinc") return "Zinc Jewelry";
   return "Imitation Jewelry";
 };
 
-export const resolveHsnCode = (group: JewelryGroupKey, settings: ShopSettings): string => {
+export const resolveHsnCode = (
+  group: JewelryGroupKey,
+  settings: ShopSettings,
+): string => {
   if (group === "Gold Jewelry") return settings.goldHsnCode ?? "7113";
   if (group === "Silver Jewelry") return settings.silverHsnCode ?? "7113";
   return settings.imitationHsnCode ?? "71179010";
@@ -107,7 +112,7 @@ export const groupLinesWithFallback = (
   return {
     lines: [
       {
-        label: "Jewellery",
+        label: "Imitation Jewellery",
         hsn: resolveHsnCode("Imitation Jewelry", settings),
         qty,
         amount: fallbackAmount,
@@ -119,7 +124,7 @@ export const groupLinesWithFallback = (
 };
 
 export const buildFromLines = (settings: ShopSettings): string[] => {
-  const lines: string[] = [settings.businessName];
+  const lines: string[] = [settings.gstRegisteredName ?? settings.businessName];
   const shopAddress = formatShopAddress(settings);
   if (shopAddress) lines.push(shopAddress);
   if (settings.phone?.trim()) lines.push(settings.phone.trim());
@@ -127,151 +132,485 @@ export const buildFromLines = (settings: ShopSettings): string[] => {
   return lines;
 };
 
-export const drawInvoiceMetaRow = (
+const drawGoldRule = (
   doc: PDFKit.PDFDocument,
   left: number,
-  contentWidth: number,
-  docNoLabel: string,
-  docNo: string,
-  dateLabel: string,
+  right: number,
+  y: number,
 ): void => {
-  const rowY = doc.y;
-  doc.font("Helvetica").fontSize(9).fillColor("#111827");
-  doc.text(`${docNoLabel}: ${docNo}`, left, rowY, { width: contentWidth * 0.5 });
-  doc.text(dateLabel, left + contentWidth * 0.5, rowY, {
-    width: contentWidth * 0.5,
+  doc.save();
+  doc.lineWidth(0.75).strokeColor(T.gold);
+  doc.moveTo(left, y).lineTo(right, y).stroke();
+  doc.restore();
+};
+
+const drawTribeHeader = (
+  doc: PDFKit.PDFDocument,
+  settings: ShopSettings,
+  layout: {
+    documentTitle: string;
+    subtitle?: string;
+    docNoLabel: string;
+    docNo: string;
+    dateIso: string;
+  },
+): void => {
+  const left = doc.page.margins.left;
+  const right = doc.page.width - doc.page.margins.right;
+  const contentWidth = right - left;
+  const leftColWidth = contentWidth * 0.55;
+  const topY = doc.y;
+
+  doc.font("Helvetica-Bold").fontSize(20).fillColor(T.gold);
+  doc.text(settings.businessName, left, topY, { width: leftColWidth });
+
+  let leftY = doc.y + 2;
+  if (layout.subtitle) {
+    doc.font("Helvetica").fontSize(8.5).fillColor(T.muted);
+    doc.text(layout.subtitle, left, leftY, { width: leftColWidth });
+    leftY = doc.y + 4;
+  }
+
+  doc.font("Helvetica").fontSize(9).fillColor(T.muted);
+  doc.text(`${layout.docNoLabel}.  ${layout.docNo}`, left, leftY, {
+    width: leftColWidth,
+  });
+  leftY = doc.y + 2;
+  doc.text(`Invoice Date  ${formatInvoiceDate(layout.dateIso)}`, left, leftY, {
+    width: leftColWidth,
+  });
+
+  doc.font("Helvetica-Bold").fontSize(13).fillColor(T.text);
+  doc.text(layout.documentTitle, left + leftColWidth, topY, {
+    width: contentWidth - leftColWidth,
     align: "right",
   });
-  doc.y = rowY + 14;
+
+  const headerBottom = Math.max(doc.y, leftY + 14);
+  drawGoldRule(doc, left, right, headerBottom + 4);
+
+  const taxParts = [
+    settings.panNumber ? `PAN  ${settings.panNumber}` : null,
+    settings.gstNumber ? `GSTN  ${settings.gstNumber}` : null,
+    settings.cinNumber ? `CIN  ${settings.cinNumber}` : null,
+  ].filter(Boolean);
+
+  let y = headerBottom + 10;
+  if (taxParts.length > 0) {
+    doc.font("Helvetica-Bold").fontSize(7.8).fillColor(T.muted);
+    doc.text(taxParts.join("     "), left, y, { width: contentWidth, align: "center" });
+    y = doc.y + 8;
+  }
+
+  doc.y = y;
 };
 
-export const drawSideBySideBoxes = (
+const drawAddressPanel = (
   doc: PDFKit.PDFDocument,
   left: number,
   contentWidth: number,
-  leftTitle: string,
-  leftLines: string[],
-  rightTitle: string,
-  rightLines: string[],
+  fromLines: string[],
+  billToLines: string[],
 ): void => {
-  const columnGap = 12;
-  const halfColWidth = (contentWidth - columnGap) / 2;
+  const padding = 10;
+  const columnGap = 16;
+  const colWidth = (contentWidth - columnGap) / 2;
   const top = doc.y;
 
-  const leftBottom = drawLabelValueBox(
-    doc,
-    left,
-    top,
-    halfColWidth,
-    leftTitle,
-    leftLines.length > 0 ? leftLines : ["—"],
-  );
-  const rightBottom = drawLabelValueBox(
-    doc,
-    left + halfColWidth + columnGap,
-    top,
-    halfColWidth,
-    rightTitle,
-    rightLines.length > 0 ? rightLines : ["—"],
-  );
-  doc.y = Math.max(leftBottom, rightBottom) + 10;
+  doc.font("Helvetica-Bold").fontSize(8.5);
+  const fromTitleH = doc.heightOfString("FROM", { width: colWidth });
+  doc.font("Helvetica").fontSize(9.5);
+  let fromContentH = 0;
+  for (const line of fromLines.length > 0 ? fromLines : ["—"]) {
+    fromContentH += doc.heightOfString(line, { width: colWidth - padding }) + 2;
+  }
+
+  doc.font("Helvetica-Bold").fontSize(8.5);
+  const billTitleH = doc.heightOfString("BILL TO", { width: colWidth });
+  doc.font("Helvetica").fontSize(9.5);
+  let billContentH = 0;
+  for (const line of billToLines.length > 0 ? billToLines : ["—"]) {
+    billContentH += doc.heightOfString(line, { width: colWidth - padding }) + 2;
+  }
+
+  const panelHeight =
+    padding * 2 +
+    Math.max(
+      fromTitleH + 4 + fromContentH,
+      billTitleH + 4 + billContentH,
+    );
+
+  doc.save();
+  doc.rect(left, top, contentWidth, panelHeight).fill(T.panelFill);
+  doc.lineWidth(0.75).strokeColor(T.border);
+  doc.rect(left, top, contentWidth, panelHeight).stroke();
+  doc
+    .moveTo(left + colWidth + columnGap / 2, top)
+    .lineTo(left + colWidth + columnGap / 2, top + panelHeight)
+    .stroke();
+  doc.restore();
+
+  const fromX = left + padding;
+  const billX = left + colWidth + columnGap + padding;
+
+  doc.font("Helvetica-Bold").fontSize(8.5).fillColor(T.gold);
+  doc.text("FROM", fromX, top + padding, { width: colWidth - padding });
+  let textY = top + padding + fromTitleH + 4;
+  fromLines.forEach((line, index) => {
+    doc
+      .font(index === 0 ? "Helvetica-Bold" : "Helvetica")
+      .fontSize(9.5)
+      .fillColor(T.text);
+    doc.text(line, fromX, textY, { width: colWidth - padding });
+    textY += doc.heightOfString(line, { width: colWidth - padding }) + 2;
+  });
+
+  doc.font("Helvetica-Bold").fontSize(8.5).fillColor(T.gold);
+  doc.text("BILL TO", billX, top + padding, { width: colWidth - padding });
+  textY = top + padding + billTitleH + 4;
+  billToLines.forEach((line, index) => {
+    doc
+      .font(index === 0 ? "Helvetica-Bold" : "Helvetica")
+      .fontSize(9.5)
+      .fillColor(T.text);
+    doc.text(line, billX, textY, { width: colWidth - padding });
+    textY += doc.heightOfString(line, { width: colWidth - padding }) + 2;
+  });
+
+  doc.y = top + panelHeight + 10;
 };
 
-export const drawPlaceOfSupplyAndDelivery = (
+const drawPlaceColumns = (
   doc: PDFKit.PDFDocument,
   left: number,
   contentWidth: number,
   placeOfSupply: string,
-  placeOfSupplyCode: string | null,
   placeOfDelivery: string,
-  placeOfDeliveryCode: string | null,
 ): void => {
-  const supplyLines = placeOfSupplyCode
-    ? [`${placeOfSupply} (${placeOfSupplyCode})`]
-    : [placeOfSupply];
-  const deliveryLines = placeOfDeliveryCode
-    ? [`${placeOfDelivery} (${placeOfDeliveryCode})`]
-    : [placeOfDelivery];
+  const columnGap = 16;
+  const colWidth = (contentWidth - columnGap) / 2;
+  const top = doc.y;
 
-  drawSideBySideBoxes(
-    doc,
-    left,
-    contentWidth,
-    "PLACE OF SUPPLY",
-    supplyLines,
-    "PLACE OF DELIVERY",
-    deliveryLines,
-  );
+  doc.font("Helvetica-Bold").fontSize(8.5).fillColor(T.gold);
+  doc.text("PLACE OF SUPPLY", left, top, { width: colWidth });
+  doc.text("PLACE OF DELIVERY", left + colWidth + columnGap, top, {
+    width: colWidth,
+  });
+
+  const labelH = doc.heightOfString("PLACE OF SUPPLY", { width: colWidth });
+  doc.font("Helvetica").fontSize(9.5).fillColor(T.text);
+  doc.text(placeOfSupply, left, top + labelH + 3, { width: colWidth });
+  doc.text(placeOfDelivery, left + colWidth + columnGap, top + labelH + 3, {
+    width: colWidth,
+  });
+
+  doc.y = top + labelH + doc.heightOfString(placeOfSupply, { width: colWidth }) + 12;
 };
 
-export const drawCompactDispatchLine = (
+const drawDispatchLine = (
   doc: PDFKit.PDFDocument,
   left: number,
   contentWidth: number,
   line: string,
 ): void => {
-  doc.font("Helvetica").fontSize(9).fillColor("#111827");
+  doc.font("Helvetica-Bold").fontSize(9.5).fillColor(T.text);
   doc.text(line, left, doc.y, { width: contentWidth });
   doc.y += 16;
 };
 
-export const drawGroupedItemTable = (
+const drawTribeItemTable = (
   doc: PDFKit.PDFDocument,
   left: number,
   contentWidth: number,
   lines: GroupedJewelryLine[],
-  totalQty: number,
-  totalAmount: number,
 ): void => {
-  ensureSpace(doc, 120);
-  const itemTableTop = doc.y;
+  ensureSpace(doc, 80);
   const colItem = contentWidth * 0.42;
   const colHsn = contentWidth * 0.16;
   const colQty = contentWidth * 0.12;
   const colAmount = contentWidth - colItem - colHsn - colQty;
+  const colWidths = [colItem, colHsn, colQty, colAmount];
+  const headers = ["ITEM", "HSN", "QTY", "AMOUNT (\u20B9)"];
+  const rowHeight = 27;
+  const headerHeight = 27;
+  let y = doc.y;
 
-  const itemRows: Parameters<typeof drawBorderedTable>[4] = [
-    {
-      cells: ["ITEM", "HSN", "QTY", "AMOUNT (₹)"],
-      bold: true,
-      alignments: ["left", "center", "center", "right"] as const,
-      minHeight: 24,
-    },
-    ...lines.map((line) => ({
-      cells: [line.label, line.hsn, String(line.qty), formatRupeeDecimal(line.amount)],
-      alignments: ["left", "center", "center", "right"] as const,
-      minHeight: 24,
-    })),
-    {
-      cells: ["Total", "", String(totalQty), formatRupeeDecimal(totalAmount)],
-      bold: true,
-      alignments: ["left", "center", "center", "right"] as const,
-      minHeight: 26,
-    },
-  ];
+  doc.save();
+  doc.rect(left, y, contentWidth, headerHeight).fill(T.tableHeaderFill);
+  doc.restore();
 
-  const itemTableBottom = drawBorderedTable(
-    doc,
-    left,
-    itemTableTop,
-    [colItem, colHsn, colQty, colAmount],
-    itemRows,
-    { headerRowCount: 1, defaultFontSize: 9, headerFontSize: 9 },
-  );
-  doc.y = itemTableBottom + 10;
+  let x = left;
+  doc.font("Helvetica-Bold").fontSize(8.5).fillColor(T.tableHeaderText);
+  for (let i = 0; i < headers.length; i += 1) {
+    doc.text(headers[i]!, x + 6, y + 8, {
+      width: colWidths[i]! - 12,
+      align: i >= 2 ? "right" : "left",
+    });
+    x += colWidths[i]!;
+  }
+  y += headerHeight;
+
+  lines.forEach((line, rowIndex) => {
+    if (rowIndex % 2 === 1) {
+      doc.save();
+      doc.rect(left, y, contentWidth, rowHeight).fill(T.panelFill);
+      doc.restore();
+    }
+
+    const cells = [
+      line.label,
+      line.hsn,
+      String(line.qty),
+      formatRupeeDecimal(line.amount),
+    ];
+    x = left;
+    doc.font("Helvetica").fontSize(9.5).fillColor(T.text);
+    for (let i = 0; i < cells.length; i += 1) {
+      doc.text(cells[i]!, x + 6, y + 7, {
+        width: colWidths[i]! - 12,
+        align: i >= 2 ? "right" : "left",
+      });
+      x += colWidths[i]!;
+    }
+
+    doc.save();
+    doc.lineWidth(0.75).strokeColor(T.border);
+    doc.moveTo(left, y + rowHeight).lineTo(left + contentWidth, y + rowHeight).stroke();
+    doc.restore();
+
+    y += rowHeight;
+  });
+
+  doc.y = y + 8;
 };
 
-export const drawTermsSection = (
+const drawTotalsRow = (
+  doc: PDFKit.PDFDocument,
+  x: number,
+  y: number,
+  width: number,
+  label: string,
+  value: string,
+  labelBold = false,
+): number => {
+  doc.font(labelBold ? "Helvetica-Bold" : "Helvetica")
+    .fontSize(9)
+    .fillColor(T.muted);
+  doc.text(label, x, y, { width: width * 0.62, align: "left" });
+  doc.font("Helvetica").fontSize(9).fillColor(T.text);
+  doc.text(value, x, y, { width, align: "right" });
+  return y + 18;
+};
+
+const drawPayableBar = (
+  doc: PDFKit.PDFDocument,
+  x: number,
+  y: number,
+  width: number,
+  amount: number,
+): number => {
+  const barHeight = 28;
+  doc.save();
+  doc.rect(x, y, width, barHeight).fill(T.payableBarFill);
+  doc.restore();
+
+  doc.font("Helvetica-Bold").fontSize(10.5).fillColor(T.payableBarText);
+  doc.text("PAYABLE AMOUNT", x + 10, y + 8, { width: width * 0.55 });
+  doc.text(`\u20B9 ${formatRupeeDecimal(amount)}`, x, y + 8, {
+    width: width - 10,
+    align: "right",
+  });
+
+  return y + barHeight;
+};
+
+const drawGstBottomSection = (
   doc: PDFKit.PDFDocument,
   left: number,
   contentWidth: number,
   settings: ShopSettings,
+  values: GstBreakupValues,
 ): void => {
+  ensureSpace(doc, 220);
+  const leftWidth = contentWidth * 0.4;
+  const rightWidth = contentWidth * 0.58;
+  const rightX = left + contentWidth - rightWidth;
+  const top = doc.y;
+
   const termsText =
     settings.invoiceTerms?.trim() ||
     "Goods once sold will not be taken back. Subject to Jaipur jurisdiction only.";
-  doc.y =
-    drawLabelValueBox(doc, left, doc.y, contentWidth, "TERMS", [termsText]) + 12;
+
+  doc.font("Helvetica-Bold").fontSize(8.5).fillColor(T.gold);
+  doc.text("TERMS", left, top, { width: leftWidth });
+  doc.font("Helvetica").fontSize(7.8).fillColor(T.muted);
+  doc.text(termsText, left, top + 14, { width: leftWidth });
+
+  const gstTitleY = top + 14 + doc.heightOfString(termsText, { width: leftWidth }) + 10;
+  doc.font("Helvetica-Bold").fontSize(8.5).fillColor(T.gold);
+  doc.text("GST BREAKUP", left, gstTitleY, { width: leftWidth });
+
+  const cgstRate = 0.015;
+  const sgstRate = 0.015;
+  const igstRate = 0.03;
+  const { taxableAmount, cgst, sgst, igst, roundOff, payableAmount, isIntraState } =
+    values;
+
+  const gstSummary = isIntraState
+    ? `GST Breakup: CGST (${(cgstRate * 100).toFixed(2)}% on ${formatRupeeDecimal(taxableAmount)}) + SGST (${(sgstRate * 100).toFixed(2)}% on ${formatRupeeDecimal(taxableAmount)})`
+    : `GST Breakup: IGST (${(igstRate * 100).toFixed(2)}% on ${formatRupeeDecimal(taxableAmount)})`;
+
+  doc.font("Helvetica").fontSize(7.8).fillColor(T.muted);
+  doc.text(gstSummary, left, gstTitleY + 14, { width: leftWidth });
+
+  let rowY = top;
+  rowY = drawTotalsRow(doc, rightX, rowY, rightWidth, "Total", formatRupeeDecimal(taxableAmount));
+  rowY = drawTotalsRow(
+    doc,
+    rightX,
+    rowY,
+    rightWidth,
+    "Total Sales value before GST",
+    formatRupeeDecimal(taxableAmount),
+  );
+  rowY = drawTotalsRow(
+    doc,
+    rightX,
+    rowY,
+    rightWidth,
+    "Central GST Collected",
+    formatRupeeDecimal(cgst),
+  );
+  rowY = drawTotalsRow(
+    doc,
+    rightX,
+    rowY,
+    rightWidth,
+    "State GST Collected",
+    formatRupeeDecimal(sgst),
+  );
+  rowY = drawTotalsRow(
+    doc,
+    rightX,
+    rowY,
+    rightWidth,
+    "Integrated GST Collected",
+    formatRupeeDecimal(igst),
+  );
+  rowY = drawTotalsRow(
+    doc,
+    rightX,
+    rowY,
+    rightWidth,
+    "Round Off",
+    formatRupeeDecimal(roundOff),
+  );
+
+  const sectionBottom = Math.max(
+    gstTitleY + 14 + doc.heightOfString(gstSummary, { width: leftWidth }),
+    rowY,
+  );
+  drawPayableBar(doc, rightX, sectionBottom + 4, rightWidth, payableAmount);
+  doc.y = sectionBottom + 40;
+};
+
+const drawChallanBottomSection = (
+  doc: PDFKit.PDFDocument,
+  left: number,
+  contentWidth: number,
+  totalAmount: number,
+  notice?: string,
+): void => {
+  ensureSpace(doc, 80);
+  const rightWidth = contentWidth * 0.58;
+  const rightX = left + contentWidth - rightWidth;
+  let rowY = doc.y;
+  rowY = drawTotalsRow(doc, rightX, rowY, rightWidth, "Total Value", formatRupeeDecimal(totalAmount));
+  rowY = drawPayableBar(doc, rightX, rowY + 4, rightWidth, totalAmount);
+  doc.y = rowY + 12;
+
+  if (notice) {
+    doc.font("Helvetica").fontSize(9).fillColor(T.muted);
+    doc.text(notice, left, doc.y, { width: contentWidth * 0.4 });
+    doc.y += 20;
+  }
+};
+
+const drawSignatureRow = (
+  doc: PDFKit.PDFDocument,
+  left: number,
+  contentWidth: number,
+  businessName: string,
+): void => {
+  ensureSpace(doc, 60);
+  const lineY = doc.y + 28;
+  doc.save();
+  doc.lineWidth(0.75).strokeColor(T.border);
+  doc.moveTo(left, lineY).lineTo(left + contentWidth, lineY).stroke();
+  doc.restore();
+
+  doc.font("Helvetica").fontSize(8.5).fillColor(T.muted);
+  doc.text("Customer's Signature", left, lineY + 8, {
+    width: contentWidth * 0.45,
+  });
+  doc.text(`For ${businessName}`, left, lineY + 8, {
+    width: contentWidth,
+    align: "right",
+  });
+  doc.y = lineY + 28;
+};
+
+const drawLegalFooter = (
+  doc: PDFKit.PDFDocument,
+  left: number,
+  contentWidth: number,
+  settings: ShopSettings,
+  ackNo?: string | null,
+  gstIrn?: string | null,
+): void => {
+  if (settings.registeredOfficeAddress?.trim()) {
+    doc.font("Helvetica").fontSize(7.8).fillColor(T.muted);
+    doc.text(
+      `Regd. Office: ${settings.registeredOfficeAddress.trim()}`,
+      left,
+      doc.y,
+      { width: contentWidth, align: "center" },
+    );
+    doc.y += 12;
+  }
+
+  const ackParts = [
+    ackNo?.trim() ? `ACK No: ${ackNo.trim()}` : null,
+    gstIrn?.trim() ? `GST IRN: ${gstIrn.trim()}` : null,
+  ].filter(Boolean);
+
+  if (ackParts.length > 0) {
+    doc.font("Helvetica").fontSize(7.8).fillColor(T.muted);
+    doc.text(ackParts.join(" | "), left, doc.y, {
+      width: contentWidth,
+      align: "center",
+    });
+    doc.y += 12;
+  }
+};
+
+const drawPageFooter = (doc: PDFKit.PDFDocument): void => {
+  const left = doc.page.margins.left;
+  const right = doc.page.width - doc.page.margins.right;
+  const contentWidth = right - left;
+  const y = doc.page.height - doc.page.margins.bottom - 6;
+
+  doc.font("Helvetica").fontSize(7.5).fillColor(T.muted);
+  doc.text("This is a computer-generated invoice.", left, y, {
+    width: contentWidth * 0.7,
+    align: "left",
+    lineBreak: false,
+  });
+  doc.text("Page 1", left, y, {
+    width: contentWidth,
+    align: "right",
+    lineBreak: false,
+  });
 };
 
 export type GstBreakupValues = {
@@ -282,152 +621,6 @@ export type GstBreakupValues = {
   roundOff: number;
   payableAmount: number;
   isIntraState: boolean;
-};
-
-export const drawGstBreakupSection = (
-  doc: PDFKit.PDFDocument,
-  left: number,
-  contentWidth: number,
-  values: GstBreakupValues,
-): void => {
-  ensureSpace(doc, 180);
-
-  const cgstRate = 0.015;
-  const sgstRate = 0.015;
-  const igstRate = 0.03;
-  const { taxableAmount, cgst, sgst, igst, roundOff, payableAmount, isIntraState } =
-    values;
-
-  const gstSummary = isIntraState
-    ? `CGST (${(cgstRate * 100).toFixed(2)}% on ${formatRupeeDecimal(taxableAmount)}) + SGST (${(sgstRate * 100).toFixed(2)}% on ${formatRupeeDecimal(taxableAmount)})`
-    : `IGST (${(igstRate * 100).toFixed(2)}% on ${formatRupeeDecimal(taxableAmount)})`;
-
-  const totalsRows: Parameters<typeof drawBorderedTable>[4] = [
-    {
-      cells: [`GST Breakup: ${gstSummary}`, ""],
-      alignments: ["left", "right"] as const,
-      minHeight: 24,
-    },
-    {
-      cells: ["Total", formatRupeeDecimal(taxableAmount)],
-      alignments: ["left", "right"] as const,
-    },
-    {
-      cells: ["Total Sales value before GST", formatRupeeDecimal(taxableAmount)],
-      alignments: ["left", "right"] as const,
-    },
-    {
-      cells: ["Central GST Collected", formatRupeeDecimal(cgst)],
-      alignments: ["left", "right"] as const,
-    },
-    {
-      cells: ["State GST Collected", formatRupeeDecimal(sgst)],
-      alignments: ["left", "right"] as const,
-    },
-    {
-      cells: ["Integrated GST Collected", formatRupeeDecimal(igst)],
-      alignments: ["left", "right"] as const,
-    },
-    {
-      cells: ["Round Off", formatRupeeDecimal(roundOff)],
-      alignments: ["left", "right"] as const,
-    },
-    {
-      cells: ["PAYABLE AMOUNT ₹", formatRupeeDecimal(payableAmount)],
-      bold: true,
-      alignments: ["left", "right"] as const,
-      minHeight: 26,
-    },
-  ];
-
-  const breakupBottom = drawBorderedTable(
-    doc,
-    left,
-    doc.y,
-    [contentWidth * 0.62, contentWidth * 0.38],
-    totalsRows,
-    { defaultFontSize: 9, defaultRowHeight: 22 },
-  );
-  doc.y = breakupBottom + 8;
-};
-
-export const drawChallanValueSummary = (
-  doc: PDFKit.PDFDocument,
-  left: number,
-  contentWidth: number,
-  totalAmount: number,
-): void => {
-  ensureSpace(doc, 60);
-  const totalsRows: Parameters<typeof drawBorderedTable>[4] = [
-    {
-      cells: ["Total Value", formatRupeeDecimal(totalAmount)],
-      alignments: ["left", "right"] as const,
-    },
-  ];
-  const bottom = drawBorderedTable(
-    doc,
-    left,
-    doc.y,
-    [contentWidth * 0.62, contentWidth * 0.38],
-    totalsRows,
-    { defaultFontSize: 9, defaultRowHeight: 22 },
-  );
-  doc.y = bottom + 8;
-};
-
-export const drawAmountInWords = (
-  doc: PDFKit.PDFDocument,
-  left: number,
-  contentWidth: number,
-  amount: number,
-): void => {
-  doc.font("Helvetica").fontSize(9).fillColor("#374151");
-  doc.text(`Amount in words: ${amountInIndianWords(amount)}`, left, doc.y, {
-    width: contentWidth,
-  });
-  doc.y += 24;
-};
-
-export const drawSignatureBlocks = (
-  doc: PDFKit.PDFDocument,
-  left: number,
-  contentWidth: number,
-  businessName: string,
-): void => {
-  ensureSpace(doc, 70);
-  const blockTop = doc.y + 40;
-  const halfWidth = contentWidth * 0.45;
-
-  doc.font("Helvetica").fontSize(9).fillColor("#111827");
-  doc.text("Customer's Signature", left, blockTop, { width: halfWidth });
-  doc.text(`For ${businessName}`, left + contentWidth - halfWidth, blockTop, {
-    width: halfWidth,
-    align: "right",
-  });
-  doc.y = blockTop + 16;
-};
-
-export const drawInvoiceFooter = (
-  doc: PDFKit.PDFDocument,
-  left: number,
-  contentWidth: number,
-  settings: ShopSettings,
-  disclaimer = "This is a computer-generated document. E. & O.E.",
-): void => {
-  ensureSpace(doc, 40);
-  if (settings.registeredOfficeAddress?.trim()) {
-    doc.font("Helvetica").fontSize(8).fillColor("#6b7280");
-    doc.text(
-      `Regd. Office: ${settings.registeredOfficeAddress.trim()}`,
-      left,
-      doc.y,
-      { width: contentWidth, align: "center" },
-    );
-    doc.y += 14;
-  }
-
-  doc.font("Helvetica").fontSize(8).fillColor("#6b7280");
-  doc.text(disclaimer, left, doc.y, { width: contentWidth, align: "center" });
 };
 
 export type StandardDocumentLayout = {
@@ -449,7 +642,8 @@ export type StandardDocumentLayout = {
   showTerms?: boolean;
   gstBreakup?: GstBreakupValues;
   challanNotice?: string;
-  footerDisclaimer?: string;
+  ackNo?: string | null;
+  gstIrn?: string | null;
 };
 
 export const renderStandardDocument = (
@@ -460,77 +654,60 @@ export const renderStandardDocument = (
   const contentWidth = getContentWidth(doc);
   const { settings } = layout;
 
-  drawDocumentHeader(doc, settings, layout.documentTitle, {
+  drawTribeHeader(doc, settings, {
+    documentTitle: layout.documentTitle,
     subtitle: layout.subtitle,
-    includeAddressAndPhone: false,
+    docNoLabel: layout.docNoLabel,
+    docNo: layout.docNo,
+    dateIso: layout.dateIso,
   });
 
-  drawInvoiceMetaRow(
+  drawAddressPanel(
     doc,
     left,
     contentWidth,
-    layout.docNoLabel,
-    layout.docNo,
-    `Date: ${formatDateIn(layout.dateIso)}`,
-  );
-
-  drawSideBySideBoxes(
-    doc,
-    left,
-    contentWidth,
-    "FROM",
     buildFromLines(settings),
-    "BILL TO",
     layout.billToLines,
   );
 
-  drawPlaceOfSupplyAndDelivery(
+  drawPlaceColumns(
     doc,
     left,
     contentWidth,
     layout.placeOfSupply,
-    layout.placeOfSupplyCode ?? null,
     layout.placeOfDelivery,
-    layout.placeOfDeliveryCode ?? null,
   );
 
-  drawCompactDispatchLine(doc, left, contentWidth, layout.dispatchLine);
+  drawDispatchLine(doc, left, contentWidth, layout.dispatchLine);
+  drawTribeItemTable(doc, left, contentWidth, layout.groupedLines);
 
-  drawGroupedItemTable(
+  if (layout.gstBreakup) {
+    drawGstBottomSection(doc, left, contentWidth, settings, layout.gstBreakup);
+  } else {
+    drawChallanBottomSection(
+      doc,
+      left,
+      contentWidth,
+      layout.totalAmount,
+      layout.challanNotice,
+    );
+  }
+
+  drawSignatureRow(
     doc,
     left,
     contentWidth,
-    layout.groupedLines,
-    layout.totalQty,
-    layout.totalAmount,
+    settings.gstRegisteredName ?? settings.businessName,
   );
-
-  if (layout.showTerms !== false && layout.gstBreakup) {
-    drawTermsSection(doc, left, contentWidth, settings);
-  }
-
-  if (layout.gstBreakup) {
-    drawGstBreakupSection(doc, left, contentWidth, layout.gstBreakup);
-    drawAmountInWords(doc, left, contentWidth, layout.gstBreakup.payableAmount);
-  } else {
-    drawChallanValueSummary(doc, left, contentWidth, layout.totalAmount);
-    drawAmountInWords(doc, left, contentWidth, layout.totalAmount);
-    if (layout.challanNotice) {
-      ensureSpace(doc, 30);
-      doc.font("Helvetica").fontSize(9).fillColor("#374151");
-      doc.text(layout.challanNotice, left, doc.y, { width: contentWidth });
-      doc.y += 16;
-    }
-  }
-
-  drawSignatureBlocks(doc, left, contentWidth, settings.businessName);
-  drawInvoiceFooter(
+  drawLegalFooter(
     doc,
     left,
     contentWidth,
     settings,
-    layout.footerDisclaimer,
+    layout.ackNo,
+    layout.gstIrn,
   );
+  drawPageFooter(doc);
 };
 
 export const isIntraStateSupply = (shopState: string, placeOfSupply: string): boolean => {

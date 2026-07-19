@@ -1,4 +1,5 @@
 import type { Invoice } from "@/lib/types";
+import { openPdfBlob } from "@/lib/open-pdf";
 import { API_BASE_URL, api } from "./client";
 
 export const fetchInvoices = async (): Promise<Invoice[]> => {
@@ -17,16 +18,5 @@ export const openInvoicePdf = async (
   const { data } = await api.get<Blob>(`/api/invoices/${invoiceId}/pdf`, {
     responseType: "blob",
   });
-
-  const url = URL.createObjectURL(data);
-  const opened = window.open(url, "_blank");
-
-  if (!opened) {
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename ?? `invoice-${invoiceId}.pdf`;
-    link.click();
-  }
-
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  openPdfBlob(data, filename ?? `Invoice ${invoiceId}`);
 };

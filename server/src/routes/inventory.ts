@@ -538,7 +538,7 @@ inventoryRouter.get(
 
       res.set({
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `inline; filename="${filename}"`,
         "X-Transfer-Data": encodeTransferDownloadHeader(transfer),
       });
       res.send(pdfBuffer);
@@ -591,7 +591,7 @@ inventoryRouter.post(
 
       res.set({
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `inline; filename="${filename}"`,
         "X-Transfer-Data": encodeTransferDownloadHeader(transfer),
       });
       res.send(pdfBuffer);

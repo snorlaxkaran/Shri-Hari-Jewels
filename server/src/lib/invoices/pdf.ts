@@ -9,7 +9,7 @@ import {
   gstStateCodeFromNumber,
   renderStandardDocument,
 } from "./gst-invoice-layout.js";
-import { formatDateIn } from "../pdf/format.js";
+import { formatInvoiceDate } from "../pdf/format.js";
 import { formatStructuredAddress } from "../validation/india.js";
 
 export type InvoiceCustomerBilling = Pick<
@@ -53,13 +53,17 @@ const buildSaleBillToLines = (
   const billingAddress = formatCustomerBillingAddress(customerBilling);
   if (billingAddress) lines.push(billingAddress);
   if (customerBilling?.gstNumber?.trim()) {
-    lines.push(`Buyer GSTN ${customerBilling.gstNumber.trim()}`);
-  }
-  if (customerBilling?.panNumber?.trim()) {
-    lines.push(`PAN ${customerBilling.panNumber.trim()}`);
+    lines.push(`Buyer GSTN  ${customerBilling.gstNumber.trim()}`);
   }
   const stateCode = gstStateCodeFromNumber(customerBilling?.gstNumber);
-  if (stateCode) lines.push(`State Code ${stateCode}`);
+  const pan = customerBilling?.panNumber?.trim();
+  if (pan && stateCode) {
+    lines.push(`PAN  ${pan}    State Code  ${stateCode}`);
+  } else if (pan) {
+    lines.push(`PAN  ${pan}`);
+  } else if (stateCode) {
+    lines.push(`State Code  ${stateCode}`);
+  }
   return lines;
 };
 
@@ -82,7 +86,7 @@ export const generateInvoicePdf = async (
   const placeOfDelivery =
     customerBilling?.billingState?.trim() || placeOfSupply;
   const supplyCode = gstStateCodeFromNumber(customerBilling?.gstNumber);
-  const dispatchLine = `Dispatch Details    ${invoice.paymentMode} / On ${formatDateIn(invoice.createdAt)}`;
+  const dispatchLine = `Dispatch Details  ${invoice.paymentMode} / On ${formatInvoiceDate(invoice.createdAt)}`;
   const gstBreakup = resolveGstBreakupForInvoice(invoice, settings.state ?? "");
 
   return new Promise((resolve, reject) => {
@@ -109,8 +113,6 @@ export const generateInvoicePdf = async (
       totalQty,
       totalAmount: totalAmount > 0 ? totalAmount : invoice.taxableValue,
       gstBreakup,
-      footerDisclaimer:
-        "This is a computer-generated tax invoice. E. & O.E. Thank you for your purchase.",
     });
 
     doc.end();

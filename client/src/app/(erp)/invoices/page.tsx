@@ -18,12 +18,12 @@ export default function InvoicesPage() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const statuses = ["All", "Paid", "Pending"];
 
-  const handleDownload = async (inv: Invoice) => {
+  const handleOpen = async (inv: Invoice) => {
     setDownloadingId(inv.id);
     try {
       await openInvoicePdf(inv.id, `${inv.invoiceNo}.pdf`);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not download invoice PDF."));
+      setError(getApiErrorMessage(err, "Could not open invoice PDF."));
     } finally {
       setDownloadingId(null);
     }
@@ -123,9 +123,9 @@ export default function InvoicesPage() {
                           {
                             label:
                               downloadingId === inv.id
-                                ? "Downloading…"
-                                : "Download PDF",
-                            onClick: () => void handleDownload(inv),
+                                ? "Opening…"
+                                : "View PDF",
+                            onClick: () => void handleOpen(inv),
                           },
                         ]}
                       />

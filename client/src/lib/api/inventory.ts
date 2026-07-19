@@ -11,6 +11,7 @@ import type {
   UpdateProductInput,
   UpdateUnitHallmarkInput,
 } from "@/lib/types";
+import { openPdfBlob } from "@/lib/open-pdf";
 import { api, API_BASE_URL, getAuthToken } from "./client";
 
 export const fetchInventory = async (options?: {
@@ -353,7 +354,7 @@ export const generateTransferInvoice = async (
   return { transfer, pdfBlob };
 };
 
-export const redownloadTransferInvoice = async (id: string): Promise<void> => {
+export const openTransferInvoicePdf = async (id: string): Promise<void> => {
   const response = await fetch(
     `${API_BASE_URL}/api/inventory/transfers/${id}/invoice/download`,
     {
@@ -367,9 +368,9 @@ export const redownloadTransferInvoice = async (id: string): Promise<void> => {
     const contentType = response.headers.get("content-type") ?? "";
     if (contentType.includes("application/json")) {
       const err = (await response.json()) as { error?: string };
-      throw new Error(err.error ?? "Failed to download invoice.");
+      throw new Error(err.error ?? "Failed to open invoice.");
     }
-    throw new Error("Failed to download invoice.");
+    throw new Error("Failed to open invoice.");
   }
 
   const headerMeta = parseTransferDownloadHeader(
@@ -378,11 +379,8 @@ export const redownloadTransferInvoice = async (id: string): Promise<void> => {
   const transfer =
     headerMeta ?? (await fetchStockTransferById(id));
   const blob = await response.blob();
-  const filename = transferPdfFilename(transfer);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  openPdfBlob(blob, transferPdfFilename(transfer));
 };
+
+/** @deprecated Use openTransferInvoicePdf */
+export const redownloadTransferInvoice = openTransferInvoicePdf;
