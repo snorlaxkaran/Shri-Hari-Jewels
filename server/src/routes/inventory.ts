@@ -811,6 +811,10 @@ inventoryRouter.patch(
       }
       res.json(product);
     } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
       console.error("PATCH /api/inventory/:id", error);
       res.status(500).json({ error: "Failed to update product" });
     }

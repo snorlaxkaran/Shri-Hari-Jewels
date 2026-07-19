@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { InventoryItem, MetalType, Purity, UpdateProductInput } from "@/lib/types";
+import type { InventoryItem, MetalType, ProductCollection, Purity, UpdateProductInput } from "@/lib/types";
 import { PRODUCT_CATEGORIES, type ProductCategory } from "@/lib/inventory/categories";
 import type { PendingImage } from "@/lib/inventory/images";
 import ImageUpload from "@/app/(components)/ImageUpload";
+import { fetchProductCollections } from "@/lib/api/product-collections";
 import { getApiErrorMessage } from "@/lib/api/client";
 
 const METALS: MetalType[] = ["Gold", "Silver", "Platinum", "Rose Gold"];
@@ -40,6 +41,8 @@ export default function ProductEditForm({
   const [makingCharges, setMakingCharges] = useState("");
   const [stoneCarat, setStoneCarat] = useState("");
   const [price, setPrice] = useState("");
+  const [productCollectionId, setProductCollectionId] = useState("");
+  const [collections, setCollections] = useState<ProductCollection[]>([]);
   const [images, setImages] = useState<PendingImage[]>([]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -54,10 +57,17 @@ export default function ProductEditForm({
     setMakingCharges(String(product.makingCharges));
     setStoneCarat(product.stoneCarat ? String(product.stoneCarat) : "");
     setPrice(String(product.price));
+    setProductCollectionId(product.productCollectionId ?? "");
     setImages(product.images.map((img) => ({ ...img })));
     setError("");
     setDirty(false);
   }, [product]);
+
+  useEffect(() => {
+    fetchProductCollections()
+      .then(setCollections)
+      .catch(() => setCollections([]));
+  }, []);
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -106,6 +116,7 @@ export default function ProductEditForm({
           url,
           name: imgName,
         })),
+        productCollectionId: productCollectionId || null,
       };
       if (!isCatalog) {
         input.weightGrams = weight;
@@ -157,6 +168,24 @@ export default function ProductEditForm({
               {PRODUCT_CATEGORIES.map((c) => (
                 <option key={c} value={c}>
                   {c}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Collection</label>
+            <select
+              value={productCollectionId}
+              onChange={(e) => {
+                setProductCollectionId(e.target.value);
+                markDirty();
+              }}
+              className={fieldClass}
+            >
+              <option value="">No collection</option>
+              {collections.map((collection) => (
+                <option key={collection.id} value={collection.id}>
+                  {collection.name}
                 </option>
               ))}
             </select>

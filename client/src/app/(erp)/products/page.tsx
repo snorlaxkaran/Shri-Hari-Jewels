@@ -17,7 +17,7 @@ import {
   fetchProductCollections,
 } from "@/lib/api/product-collections";
 import { getApiErrorMessage } from "@/lib/api/client";
-import type { InventoryItem, ProductCollection } from "@/lib/types";
+import type { InventoryItem } from "@/lib/types";
 
 const ProductTable = dynamic(
   () => import("@/app/(components)/products/ProductTable"),
@@ -38,7 +38,7 @@ function sortProducts(items: InventoryItem[]): InventoryItem[] {
 
 export default function ProductsPage() {
   const { user } = useAuth();
-  const { items, hydrated, loading, error, updateProduct } = useInventory();
+  const { items, hydrated, loading, error } = useInventory();
   const canWrite = user ? canWriteInventory(user.role) : false;
   const [search, setSearch] = useState("");
   const [metalTab, setMetalTab] = useState<ProductMetalTab>("all");
@@ -46,14 +46,12 @@ export default function ProductsPage() {
   const [collectionName, setCollectionName] = useState("");
   const [collectionError, setCollectionError] = useState("");
   const [collectionSubmitting, setCollectionSubmitting] = useState(false);
-  const [collections, setCollections] = useState<ProductCollection[]>([]);
-  const [assigningProductId, setAssigningProductId] = useState<string | null>(null);
 
   const loadCollections = useCallback(async () => {
     try {
-      setCollections(await fetchProductCollections());
+      await fetchProductCollections();
     } catch {
-      setCollections([]);
+      // Collections list is managed on this page; edit form loads its own copy.
     }
   }, []);
 
@@ -85,23 +83,10 @@ export default function ProductsPage() {
       await createProductCollection({ name: collectionName.trim() });
       setCollectionName("");
       setShowCollectionForm(false);
-      await loadCollections();
     } catch (err) {
       setCollectionError(getApiErrorMessage(err, "Failed to create collection."));
     } finally {
       setCollectionSubmitting(false);
-    }
-  };
-
-  const handleCollectionChange = async (productId: string, collectionId: string | null) => {
-    setAssigningProductId(productId);
-    setCollectionError("");
-    try {
-      await updateProduct(productId, { productCollectionId: collectionId });
-    } catch (err) {
-      setCollectionError(getApiErrorMessage(err, "Failed to assign collection."));
-    } finally {
-      setAssigningProductId(null);
     }
   };
 
@@ -198,13 +183,7 @@ export default function ProductsPage() {
       </div>
 
       <div className="data-table-wrap w-full">
-        <ProductTable
-          products={filtered}
-          collections={collections}
-          canWrite={canWrite}
-          assigningProductId={assigningProductId}
-          onCollectionChange={canWrite ? handleCollectionChange : undefined}
-        />
+        <ProductTable products={filtered} canWrite={canWrite} />
       </div>
     </div>
   );
