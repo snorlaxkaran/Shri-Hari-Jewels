@@ -20,6 +20,10 @@ import {
   transferInventoryUnits,
   updateProduct,
 } from "../lib/inventory/service.js";
+import {
+  holdUnitForCustomer,
+  releaseStaffHold,
+} from "../lib/inventory/hold-service.js";
 import { getItemCodeHistory } from "../lib/inventory/item-history-service.js";
 import { importLegacyStock } from "../lib/inventory/stock-import.js";
 import {
@@ -690,6 +694,72 @@ inventoryRouter.delete(
       }
       console.error("DELETE /api/inventory/units/:unitId", error);
       res.status(500).json({ error: "Failed to remove unit" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/units/:unitId/hold",
+  requireRole(canWriteInventory),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const branchId = await getBranchScope(
+        req.user!.id,
+        req.user!.role,
+        req.organizationId!,
+      );
+      const body = req.body as {
+        customerName?: string;
+        customerId?: string;
+        notes?: string;
+      };
+      const product = await holdUnitForCustomer(
+        routeParam(req.params.unitId),
+        {
+          customerName: body.customerName ?? "",
+          customerId: body.customerId,
+          notes: body.notes,
+        },
+        { id: req.user!.id, name: req.user!.name },
+        req.organizationId!,
+        branchId,
+      );
+      res.json(product);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/inventory/units/:unitId/hold", error);
+      res.status(500).json({ error: "Failed to set item aside" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/units/:unitId/release-hold",
+  requireRole(canWriteInventory),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const branchId = await getBranchScope(
+        req.user!.id,
+        req.user!.role,
+        req.organizationId!,
+      );
+      const product = await releaseStaffHold(
+        routeParam(req.params.unitId),
+        { id: req.user!.id, name: req.user!.name },
+        req.organizationId!,
+        branchId,
+      );
+      res.json(product);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/inventory/units/:unitId/release-hold", error);
+      res.status(500).json({ error: "Failed to release hold" });
     }
   },
 );

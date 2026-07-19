@@ -90,6 +90,14 @@ export type InventoryUnit = {
   huid?: string;
   hallmarkNumber?: string;
   hallmarkPending?: boolean;
+  /** Staff set-aside — customer name shown in inventory */
+  heldForCustomerName?: string;
+  heldForCustomerId?: string;
+  heldAt?: string;
+  heldByName?: string;
+  holdNotes?: string;
+  /** Pending UPI sale customer (when Reserved for payment) */
+  reservedForCustomerName?: string;
 };
 
 export type InventoryItem = {

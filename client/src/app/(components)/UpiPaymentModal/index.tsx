@@ -139,6 +139,11 @@ export default function UpiPaymentModal({
 
           <p className="text-xs text-zinc-400 font-mono break-all">{summary}</p>
 
+          <p className="text-xs text-zinc-500">
+            If payment is not completed within 15 minutes, the item is released
+            back to stock automatically.
+          </p>
+
           {autoCapture && waiting && (
             <div className="flex items-center justify-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
               <Loader2 size={16} className="animate-spin" />

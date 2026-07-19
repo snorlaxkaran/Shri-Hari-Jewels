@@ -7,8 +7,8 @@ export type ReservationExpiryResult = {
 };
 
 export const getPendingSaleTimeoutMs = (): number => {
-  const minutes = Number(process.env.PENDING_SALE_TIMEOUT_MINUTES ?? "30");
-  if (!Number.isFinite(minutes) || minutes <= 0) return 30 * 60 * 1000;
+  const minutes = Number(process.env.PENDING_SALE_TIMEOUT_MINUTES ?? "15");
+  if (!Number.isFinite(minutes) || minutes <= 0) return 15 * 60 * 1000;
   return minutes * 60 * 1000;
 };
 

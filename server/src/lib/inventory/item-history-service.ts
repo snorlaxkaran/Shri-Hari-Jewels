@@ -61,8 +61,18 @@ const formatAuditTitle = (
       const from = previousValue?.status;
       const to = newValue?.status;
       if (to === "Sold") return "Sold";
-      if (to === "Reserved") return "Reserved for sale";
-      if (to === "Available" && from === "Reserved") return "Sale cancelled — back in stock";
+      if (to === "Reserved") {
+        const customer = newValue?.heldForCustomerName;
+        return customer
+          ? `Set aside for ${String(customer)}`
+          : "Reserved for sale";
+      }
+      if (to === "Available" && from === "Reserved") {
+        if (previousValue?.heldForCustomerName) {
+          return "Hold released — back in stock";
+        }
+        return "Sale cancelled — back in stock";
+      }
       if (to === "Available") return "Marked available";
       if (to === "InTransit") return "In transit";
       if (to === "Transferred") return "Transferred (challan)";

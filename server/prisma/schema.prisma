@@ -494,6 +494,11 @@ model InventoryUnit {
   huid           String?
   voucherId             String?
   branchTransferredAt   DateTime?
+  heldForCustomerName   String?
+  heldForCustomerId     String?
+  heldAt                DateTime?
+  heldByName            String?
+  holdNotes             String?
   createdAt             DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

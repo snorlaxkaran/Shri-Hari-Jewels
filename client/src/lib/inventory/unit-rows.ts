@@ -28,6 +28,12 @@ export type InventoryUnitRow = {
   imageUrl?: string;
   huid?: string;
   hallmarkNumber?: string;
+  heldForCustomerName?: string;
+  heldForCustomerId?: string;
+  heldAt?: string;
+  heldByName?: string;
+  holdNotes?: string;
+  reservedForCustomerName?: string;
 };
 
 export const flattenInventoryToUnitRows = (
@@ -56,6 +62,12 @@ export const flattenInventoryToUnitRows = (
       imageUrl: product.images?.[0]?.url,
       huid: unit.huid,
       hallmarkNumber: unit.hallmarkNumber,
+      heldForCustomerName: unit.heldForCustomerName,
+      heldForCustomerId: unit.heldForCustomerId,
+      heldAt: unit.heldAt,
+      heldByName: unit.heldByName,
+      holdNotes: unit.holdNotes,
+      reservedForCustomerName: unit.reservedForCustomerName,
     })),
   );
 

@@ -33,7 +33,12 @@ import {
 import {
   findProductForUnitRow,
   flattenInventoryToUnitRows,
+  type InventoryUnitRow,
 } from "@/lib/inventory/unit-rows";
+import {
+  holdInventoryUnit,
+  releaseInventoryUnitHold,
+} from "@/lib/api/inventory";
 import {
   matchesHallmarkFilter,
   type HallmarkFilter,
@@ -45,6 +50,11 @@ import {
   rowToBarcodeLabel,
   useBarcodeLabelPrint,
 } from "@/app/(components)/inventory/BarcodeLabelPrint";
+
+const SetAsideModal = dynamic(
+  () => import("@/app/(components)/inventory/SetAsideModal"),
+  { ssr: false },
+);
 
 const InventoryTable = dynamic(
   () => import("@/app/(components)/inventory/InventoryTable"),
@@ -59,7 +69,7 @@ const InventoryTable = dynamic(
 export default function InventoryPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { items, hydrated, loading, error } = useInventory();
+  const { items, hydrated, loading, error, refresh } = useInventory();
   const canAdd = user ? canWriteInventory(user.role) : false;
   const isBranchView = user?.role === "Store";
   const [search, setSearch] = useState("");
@@ -70,6 +80,7 @@ export default function InventoryPage() {
   const [sortOrder, setSortOrder] = useState<InventorySortOrder>("desc");
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
   const [hallmarkFilter, setHallmarkFilter] = useState<HallmarkFilter>("");
+  const [setAsideRow, setSetAsideRow] = useState<InventoryUnitRow | null>(null);
   const { printLabels, sheet: labelPrintSheet } = useBarcodeLabelPrint();
 
   useEffect(() => {
@@ -146,6 +157,31 @@ export default function InventoryPage() {
       if (product) router.push(`/inventory/${product.id}/edit`);
     },
     [items, router],
+  );
+
+  const handleSetAside = useCallback((row: InventoryUnitRow) => {
+    setSetAsideRow(row);
+  }, []);
+
+  const handleReleaseHold = useCallback(
+    async (row: InventoryUnitRow) => {
+      await releaseInventoryUnitHold(row.unitId);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const handleSetAsideSubmit = useCallback(
+    async (input: {
+      customerName: string;
+      customerId?: string;
+      notes?: string;
+    }) => {
+      if (!setAsideRow) return;
+      await holdInventoryUnit(setAsideRow.unitId, input);
+      await refresh();
+    },
+    [setAsideRow, refresh],
   );
 
   if (!hydrated || loading) {
@@ -281,11 +317,20 @@ export default function InventoryPage() {
           showBranchColumn={showBranchColumn}
           canWrite={canAdd}
           onEditProduct={handleEditUnitRow}
+          onSetAside={handleSetAside}
+          onReleaseHold={handleReleaseHold}
           onPrintLabels={(rows) =>
             printLabels(rows.map((row) => rowToBarcodeLabel(row)))
           }
         />
       </div>
+
+      <SetAsideModal
+        open={setAsideRow !== null}
+        row={setAsideRow}
+        onClose={() => setSetAsideRow(null)}
+        onSubmit={handleSetAsideSubmit}
+      />
     </div>
   );
 }

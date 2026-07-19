@@ -51,6 +51,8 @@ type InventoryTableProps = {
   ageingThresholds?: AgeingThresholds;
   canWrite?: boolean;
   onEditProduct: (row: InventoryUnitRow) => void;
+  onSetAside?: (row: InventoryUnitRow) => void;
+  onReleaseHold?: (row: InventoryUnitRow) => void;
   onPrintLabels?: (rows: InventoryUnitRow[]) => void;
 };
 
@@ -204,6 +206,8 @@ export default function InventoryTable({
   ageingThresholds = DEFAULT_AGEING_THRESHOLDS,
   canWrite = false,
   onEditProduct,
+  onSetAside,
+  onReleaseHold,
   onPrintLabels,
 }: InventoryTableProps) {
   const [openFilterColumn, setOpenFilterColumn] =
@@ -327,7 +331,28 @@ export default function InventoryTable({
       case "status":
         return (
           <td>
-            <StatusBadge status={row.status} />
+            <div className="flex flex-col gap-1 min-w-[120px]">
+              {row.heldForCustomerName ? (
+                <>
+                  <StatusBadge status="Set aside" />
+                  <span className="inline-flex w-fit max-w-[180px] truncate rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                    {row.heldForCustomerName}
+                  </span>
+                </>
+              ) : row.reservedForCustomerName ? (
+                <>
+                  <StatusBadge status="Reserved" />
+                  <span className="text-xs font-medium text-blue-700">
+                    Payment pending
+                  </span>
+                  <span className="inline-flex w-fit max-w-[180px] truncate rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-900">
+                    {row.reservedForCustomerName}
+                  </span>
+                </>
+              ) : (
+                <StatusBadge status={row.status} />
+              )}
+            </div>
           </td>
         );
       case "actions":
@@ -336,6 +361,22 @@ export default function InventoryTable({
             {canWrite && (
               <RowActionsDropdown
                 actions={[
+                  ...(row.status === "Available"
+                    ? [
+                        {
+                          label: "Set aside for customer",
+                          onClick: () => onSetAside?.(row),
+                        },
+                      ]
+                    : []),
+                  ...(row.heldForCustomerName
+                    ? [
+                        {
+                          label: "Release hold",
+                          onClick: () => onReleaseHold?.(row),
+                        },
+                      ]
+                    : []),
                   {
                     label: "Edit",
                     onClick: () => onEditProduct(row),

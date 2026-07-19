@@ -537,6 +537,29 @@ const ensureStockTransferStatus = async () => {
   );
 };
 
+const ensureInventoryUnitStaffHold = async () => {
+  await run(
+    "Ensure InventoryUnit staff hold columns…",
+    `ALTER TABLE "InventoryUnit" ADD COLUMN IF NOT EXISTS "heldForCustomerName" TEXT`,
+  );
+  await run(
+    "Ensure InventoryUnit.heldForCustomerId column…",
+    `ALTER TABLE "InventoryUnit" ADD COLUMN IF NOT EXISTS "heldForCustomerId" TEXT`,
+  );
+  await run(
+    "Ensure InventoryUnit.heldAt column…",
+    `ALTER TABLE "InventoryUnit" ADD COLUMN IF NOT EXISTS "heldAt" TIMESTAMP(3)`,
+  );
+  await run(
+    "Ensure InventoryUnit.heldByName column…",
+    `ALTER TABLE "InventoryUnit" ADD COLUMN IF NOT EXISTS "heldByName" TEXT`,
+  );
+  await run(
+    "Ensure InventoryUnit.holdNotes column…",
+    `ALTER TABLE "InventoryUnit" ADD COLUMN IF NOT EXISTS "holdNotes" TEXT`,
+  );
+};
+
 const ensureInventoryUnitListPrice = async () => {
   await run(
     "Ensure InventoryUnit.listPrice column…",
@@ -791,6 +814,7 @@ const main = async () => {
   await ensureTransferInvoiceSchema();
   await ensureInvoiceGstHeaderSchema();
   await ensureInventoryUnitListPrice();
+  await ensureInventoryUnitStaffHold();
   await ensureMultiTenantOrganizations();
   await ensureOrgScopedInventoryIdentifiers();
   await ensureTenantStorefront();

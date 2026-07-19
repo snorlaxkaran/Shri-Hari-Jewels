@@ -6,6 +6,7 @@ const LABEL_OVERRIDES: Record<string, string> = {
   Available: "Available",
   Sold: "Sold",
   Reserved: "Reserved",
+  "Set aside": "Set aside",
   Transferred: "Transferred",
   PendingVerification: "Inactive",
 };
@@ -34,6 +35,7 @@ const styles: Record<string, { color: string }> = {
   Platinum: { color: "#545b64" },
   Sold: { color: "#545b64" },
   Reserved: { color: "#0073bb" },
+  "Set aside": { color: "#b45309" },
   Transferred: { color: "#545b64" },
   InTransit: { color: "#0073bb" },
   PendingVerification: { color: "#545b64" },

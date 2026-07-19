@@ -95,6 +95,12 @@ export type InventoryUnit = {
   huid?: string;
   hallmarkNumber?: string;
   hallmarkPending?: boolean;
+  heldForCustomerName?: string;
+  heldForCustomerId?: string;
+  heldAt?: string;
+  heldByName?: string;
+  holdNotes?: string;
+  reservedForCustomerName?: string;
 };
 
 export type InventoryItem = {

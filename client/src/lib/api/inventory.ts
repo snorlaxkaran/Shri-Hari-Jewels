@@ -90,6 +90,26 @@ export const deleteInventoryUnit = async (
   return data;
 };
 
+export const holdInventoryUnit = async (
+  unitId: string,
+  input: { customerName: string; customerId?: string; notes?: string },
+): Promise<InventoryItem> => {
+  const { data } = await api.post<InventoryItem>(
+    `/api/inventory/units/${unitId}/hold`,
+    input,
+  );
+  return data;
+};
+
+export const releaseInventoryUnitHold = async (
+  unitId: string,
+): Promise<InventoryItem> => {
+  const { data } = await api.post<InventoryItem>(
+    `/api/inventory/units/${unitId}/release-hold`,
+  );
+  return data;
+};
+
 export const transferInventoryUnits = async (
   productId: string,
   input: { unitIds: string[]; toBranchId: string },

@@ -113,6 +113,17 @@ export const toInventoryItem = (
           unit.status === "Available" &&
           requiresHallmark(product) &&
           !isHallmarked(unit),
+        heldForCustomerName: unit.heldForCustomerName ?? undefined,
+        heldForCustomerId: unit.heldForCustomerId ?? undefined,
+        heldAt: unit.heldAt?.toISOString(),
+        heldByName: unit.heldByName ?? undefined,
+        holdNotes: unit.holdNotes ?? undefined,
+        reservedForCustomerName:
+          unit.status === "Reserved" &&
+          !unit.heldForCustomerName &&
+          unit.sale?.paymentStatus === "Pending"
+            ? unit.sale.customerName ?? undefined
+            : undefined,
       };
     }),
   };
