@@ -17,6 +17,7 @@ import { toInventoryItem } from "./mappers.js";
 import { generateSku, generateUnitCodes } from "./sku.js";
 import { reconcileInventoryWithSales } from "./reconcile.js";
 import { backfillMissingWholesaleSales } from "../sales/backfill-wholesale.js";
+import { releaseStuckReservations } from "../sales/release-orphaned-reservations.js";
 import { getStockStatus } from "./status.js";
 import { syncProductStockInTx } from "./stock-sync.js";
 import {
@@ -961,10 +962,16 @@ export const repairInventory = async (actor?: {
   name: string;
 }) => {
   const reconcileReport = await reconcileInventoryWithSales();
+  const reservationReport = await releaseStuckReservations();
   const wholesaleReport = await backfillMissingWholesaleSales();
   const transferredBranchReport = await backfillTransferredUnitBranches();
   const report = {
     ...reconcileReport,
+    reservationsReleased:
+      reservationReport.releasedCount +
+      reservationReport.expiredSalesCount +
+      reservationReport.expiredWebOrdersCount,
+    reservationReleaseErrors: reservationReport.errors,
     wholesaleSalesCreated: wholesaleReport.salesCreated,
     wholesaleSalesSkipped: wholesaleReport.skipped,
     transferredUnitsBranchUpdated: transferredBranchReport.updated,
