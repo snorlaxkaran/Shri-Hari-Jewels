@@ -2,7 +2,6 @@ import type { Invoice } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 import {
   downloadPdfBlob,
-  openPdfBlob,
   openWhatsAppChat,
   sharePdfBlob,
 } from "@/lib/open-pdf";
@@ -13,7 +12,36 @@ export const fetchInvoices = async (): Promise<Invoice[]> => {
   return data;
 };
 
-/** @deprecated Use openInvoicePdf — direct URLs cannot send the auth token. */
+export type InvoiceShareLink = {
+  token: string;
+  expiresAt: string;
+  invoiceNo: string;
+  shareUrl: string;
+};
+
+export const buildInvoiceSharePageUrl = (token: string): string => {
+  const encoded = encodeURIComponent(token);
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/i/${encoded}`;
+  }
+  return `/i/${encoded}`;
+};
+
+export const getInvoiceShareLink = async (
+  invoiceId: string,
+): Promise<InvoiceShareLink> => {
+  const { data } = await api.get<{
+    token: string;
+    expiresAt: string;
+    invoiceNo: string;
+  }>(`/api/invoices/${invoiceId}/share-token`);
+  return {
+    ...data,
+    shareUrl: buildInvoiceSharePageUrl(data.token),
+  };
+};
+
+/** @deprecated Use getInvoiceShareLink — direct URLs cannot send the auth token. */
 export const getInvoicePdfUrl = (invoiceId: string) =>
   `${API_BASE_URL}/api/invoices/${invoiceId}/pdf`;
 
@@ -26,11 +54,20 @@ export const fetchInvoicePdfBlob = async (invoiceId: string): Promise<Blob> => {
 
 export const openInvoicePdf = async (
   invoiceId: string,
-  filename?: string,
+  _filename?: string,
   tab?: Window | null,
-): Promise<void> => {
-  const data = await fetchInvoicePdfBlob(invoiceId);
-  openPdfBlob(data, filename ?? `Invoice ${invoiceId}`, tab);
+): Promise<string> => {
+  const { shareUrl } = await getInvoiceShareLink(invoiceId);
+  const viewer = tab ?? window.open("about:blank", "_blank");
+
+  if (viewer && !viewer.closed) {
+    if (!tab) viewer.opener = null;
+    viewer.location.href = shareUrl;
+  } else {
+    window.open(shareUrl, "_blank");
+  }
+
+  return shareUrl;
 };
 
 export const downloadInvoicePdf = async (
@@ -46,38 +83,45 @@ export type InvoiceShareInput = Pick<
   "id" | "invoiceNo" | "customerName" | "customerMobile" | "total"
 >;
 
-export const buildInvoiceShareMessage = (invoice: InvoiceShareInput): string => {
-  return `Invoice ${invoice.invoiceNo} — ${invoice.customerName}\nAmount: ${formatCurrency(invoice.total)}\n\nPlease find the invoice PDF attached.`;
+export const buildInvoiceShareMessage = (
+  invoice: InvoiceShareInput,
+  shareUrl?: string,
+): string => {
+  const lines = [
+    `Invoice ${invoice.invoiceNo} — ${invoice.customerName}`,
+    `Amount: ${formatCurrency(invoice.total)}`,
+  ];
+  if (shareUrl) {
+    lines.push("", shareUrl);
+  } else {
+    lines.push("", "Please find the invoice PDF attached.");
+  }
+  return lines.join("\n");
 };
 
-/** Share or download invoice PDF for WhatsApp (blob URLs are not shareable). */
+/** Share invoice link on WhatsApp, or PDF file when the share sheet is available. */
 export const shareInvoicePdf = async (
   invoice: InvoiceShareInput,
-): Promise<"shared" | "downloaded"> => {
+): Promise<"shared" | "link" | "downloaded"> => {
+  const { shareUrl } = await getInvoiceShareLink(invoice.id);
+  const message = buildInvoiceShareMessage(invoice, shareUrl);
   const filename = `${invoice.invoiceNo}.pdf`;
-  const message = buildInvoiceShareMessage(invoice);
   const blob = await fetchInvoicePdfBlob(invoice.id);
 
   try {
     const result = await sharePdfBlob(blob, filename, message);
-    if (result === "downloaded" && invoice.customerMobile.trim()) {
-      openWhatsAppChat(
-        invoice.customerMobile,
-        `${message}\n\nAttach the downloaded PDF from your device.`,
-      );
-    }
-    return result;
+    if (result === "shared") return "shared";
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
       throw err;
     }
-    downloadPdfBlob(blob, filename);
-    if (invoice.customerMobile.trim()) {
-      openWhatsAppChat(
-        invoice.customerMobile,
-        `${message}\n\nAttach the downloaded PDF from your device.`,
-      );
-    }
-    return "downloaded";
   }
+
+  if (invoice.customerMobile.trim()) {
+    openWhatsAppChat(invoice.customerMobile, message);
+    return "link";
+  }
+
+  downloadPdfBlob(blob, filename);
+  return "downloaded";
 };

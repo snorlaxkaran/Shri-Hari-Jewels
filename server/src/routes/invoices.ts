@@ -1,10 +1,8 @@
 import { Router } from "express";
 import { canViewInvoices } from "../lib/auth/permissions.js";
-import { getCustomer } from "../lib/customers/service.js";
 import { getInvoice, listInvoices } from "../lib/invoices/service.js";
-import { generateInvoicePdf } from "../lib/invoices/pdf.js";
-import { getShopSettings } from "../lib/settings/service.js";
-import { prisma } from "../lib/db.js";
+import { sendInvoicePdfResponse } from "../lib/invoices/pdf-response.js";
+import { createInvoiceShareToken } from "../lib/invoices/share-token.js";
 import { routeParam } from "../lib/route-param.js";
 import {
   authenticate,
@@ -29,6 +27,30 @@ invoicesRouter.get("/", requireRole(canViewInvoices), async (req: AuthenticatedR
 });
 
 invoicesRouter.get(
+  "/:id/share-token",
+  requireRole(canViewInvoices),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const invoice = await getInvoice(routeParam(req.params.id), req.organizationId!);
+      if (!invoice) {
+        res.status(404).json({ error: "Invoice not found" });
+        return;
+      }
+
+      const { token, expiresAt } = createInvoiceShareToken(invoice.id);
+      res.json({
+        token,
+        expiresAt: expiresAt.toISOString(),
+        invoiceNo: invoice.invoiceNo,
+      });
+    } catch (error) {
+      console.error("GET /api/invoices/:id/share-token", error);
+      res.status(500).json({ error: "Failed to create invoice share link" });
+    }
+  },
+);
+
+invoicesRouter.get(
   "/:id/pdf",
   requireRole(canViewInvoices),
   async (req: AuthenticatedRequest, res) => {
@@ -39,28 +61,10 @@ invoicesRouter.get(
         return;
       }
 
-      const settings = await getShopSettings(req.organizationId!);
-      const customerBilling = invoice.customerId
-        ? await getCustomer(invoice.customerId, req.organizationId!)
-        : null;
-      const sellingBranch = await prisma.branch.findUnique({
-        where: { id: invoice.branchId },
-        select: { id: true, name: true, address: true },
-      });
-      const pdf = await generateInvoicePdf(
-        invoice,
-        settings,
-        customerBilling,
-        req.organizationId!,
-        sellingBranch,
-      );
-
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `inline; filename="${invoice.invoiceNo}.pdf"`,
-      );
-      res.send(pdf);
+      const sent = await sendInvoicePdfResponse(invoice.id, res);
+      if (!sent) {
+        res.status(404).json({ error: "Invoice not found" });
+      }
     } catch (error) {
       console.error("GET /api/invoices/:id/pdf", error);
       res.status(500).json({ error: "Failed to generate invoice PDF" });

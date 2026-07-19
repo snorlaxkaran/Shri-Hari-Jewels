@@ -138,9 +138,13 @@ export default function SalesPage() {
         setSuccessMessage(
           "Sale complete — choose WhatsApp in the share sheet to send the invoice.",
         );
+      } else if (result === "link") {
+        setSuccessMessage(
+          "Sale complete — WhatsApp opened with a shareable invoice link.",
+        );
       } else {
         setSuccessMessage(
-          "Sale complete — invoice downloaded. WhatsApp opened; attach the PDF from Downloads.",
+          "Sale complete — invoice downloaded.",
         );
       }
     } catch (err) {
