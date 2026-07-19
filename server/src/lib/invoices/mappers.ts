@@ -22,6 +22,7 @@ export const toInvoice = (
   invoice: PrismaInvoice & { items: PrismaInvoiceItem[] },
 ): Invoice => ({
   id: invoice.id,
+  branchId: invoice.branchId,
   invoiceNo: invoice.invoiceNo,
   cartGroupId: invoice.cartGroupId ?? undefined,
   customerId: invoice.customerId ?? undefined,

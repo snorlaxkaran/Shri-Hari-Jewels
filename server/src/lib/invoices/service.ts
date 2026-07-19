@@ -14,6 +14,7 @@ import {
   defaultHsnForMetal,
 } from "./gst.js";
 import { getShopSettings } from "../settings/service.js";
+import { resolveBranchState } from "../branches/resolve-state.js";
 import { moneyToNumber, sumMoney, toMoney } from "../money.js";
 
 const invoiceInclude = { items: true } as const;
@@ -95,9 +96,17 @@ export const createInvoiceForCart = async (
   const customer = sales[0].customerId
     ? await tx.customer.findUnique({ where: { id: sales[0].customerId } })
     : null;
+  const branch = await tx.branch.findUnique({
+    where: { id: sales[0].branchId },
+    select: { id: true, name: true, address: true },
+  });
 
+  const branchState = branch ? resolveBranchState(branch) : null;
   const placeOfSupply =
-    customer?.billingState?.trim() || settings.state?.trim() || "Jammu & Kashmir";
+    branchState ||
+    customer?.billingState?.trim() ||
+    settings.state?.trim() ||
+    null;
 
   const products = await tx.product.findMany({
     where: { id: { in: [...new Set(sales.map((s) => s.productId))] } },
@@ -113,7 +122,7 @@ export const createInvoiceForCart = async (
   const gst = computeRetailGstBreakup(
     taxableNum,
     settings.state ?? "",
-    placeOfSupply,
+    placeOfSupply ?? "",
   );
   const preRound = taxableNum + gst.cgst + gst.sgst + gst.igst;
   const { payable, roundOff } = computePayableWithRoundOff(preRound);
@@ -194,9 +203,17 @@ export const createInvoiceForRepair = async (
   const customer = repair.customerId
     ? await tx.customer.findUnique({ where: { id: repair.customerId } })
     : null;
+  const branch = await tx.branch.findUnique({
+    where: { id: repair.branchId },
+    select: { id: true, name: true, address: true },
+  });
 
+  const branchState = branch ? resolveBranchState(branch) : null;
   const placeOfSupply =
-    customer?.billingState?.trim() || settings.state?.trim() || "Jammu & Kashmir";
+    branchState ||
+    customer?.billingState?.trim() ||
+    settings.state?.trim() ||
+    null;
 
   const finalCostNum = moneyToNumber(repair.finalCost.toString());
   const depositNum = moneyToNumber(repair.depositAmount.toString());
@@ -205,7 +222,7 @@ export const createInvoiceForRepair = async (
   const gst = computeRetailGstBreakup(
     taxableValue,
     settings.state ?? "",
-    placeOfSupply,
+    placeOfSupply ?? "",
   );
   const preRound = taxableValue + gst.cgst + gst.sgst + gst.igst;
   const { payable, roundOff } = computePayableWithRoundOff(preRound);

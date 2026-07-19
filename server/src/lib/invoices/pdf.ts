@@ -1,5 +1,6 @@
 import PDFDocument from "pdfkit";
 import type { Customer, Invoice, ShopSettings } from "../../types.js";
+import { resolveBranchState } from "../branches/resolve-state.js";
 import {
   resolveGroupedLinesForPdf,
   resolveGstBreakupForInvoice,
@@ -67,11 +68,35 @@ const buildSaleBillToLines = (
   return lines;
 };
 
+export type InvoiceSellingBranch = {
+  id: string;
+  name: string;
+  address?: string | null;
+};
+
+export const resolveRetailPlaceFields = (
+  invoice: Invoice,
+  settings: ShopSettings,
+  sellingBranch?: InvoiceSellingBranch | null,
+): { placeOfSupply: string; placeOfDelivery: string } => {
+  const branchState = sellingBranch ? resolveBranchState(sellingBranch) : null;
+  const placeOfSupply =
+    branchState ||
+    invoice.placeOfSupply?.trim() ||
+    settings.state?.trim() ||
+    "—";
+  return {
+    placeOfSupply,
+    placeOfDelivery: branchState || placeOfSupply,
+  };
+};
+
 export const generateInvoicePdf = async (
   invoice: Invoice,
   settings: ShopSettings,
   customerBilling: InvoiceCustomerBilling | null | undefined,
   organizationId: string,
+  sellingBranch?: InvoiceSellingBranch | null,
 ): Promise<Buffer> => {
   const items = await resolveInvoiceItemsForPdf(invoice, organizationId);
   const { lines, totalQty, totalAmount } = resolveGroupedLinesForPdf(
@@ -81,10 +106,11 @@ export const generateInvoicePdf = async (
     items.length,
   );
 
-  const placeOfSupply =
-    invoice.placeOfSupply?.trim() || settings.state?.trim() || "—";
-  const placeOfDelivery =
-    customerBilling?.billingState?.trim() || placeOfSupply;
+  const { placeOfSupply, placeOfDelivery } = resolveRetailPlaceFields(
+    invoice,
+    settings,
+    sellingBranch,
+  );
   const supplyCode = gstStateCodeFromNumber(customerBilling?.gstNumber);
   const dispatchLine = `Dispatch Details  ${invoice.paymentMode} / On ${formatInvoiceDate(invoice.createdAt)}`;
   const gstBreakup = resolveGstBreakupForInvoice(invoice, settings.state ?? "");

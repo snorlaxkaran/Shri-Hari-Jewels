@@ -10,7 +10,7 @@ import CustomerLookupInput, {
 } from "@/components/CustomerLookupInput";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { updateCustomer } from "@/lib/api/customers";
-import { openInvoicePdf } from "@/lib/api/invoices";
+import { shareInvoicePdf } from "@/lib/api/invoices";
 import { lookupSaleUnit, recordCartSale } from "@/lib/api/sales";
 import { useCustomers } from "@/lib/customers/customers-context";
 import { useInventory } from "@/lib/inventory/inventory-context";
@@ -125,8 +125,35 @@ export default function SalesPage() {
     setFormError("");
   };
 
-  const openInvoice = async (invoice: { id: string; invoiceNo: string }) => {
-    await openInvoicePdf(invoice.id, `${invoice.invoiceNo}.pdf`);
+  const shareInvoiceAfterSale = async (invoice: {
+    id: string;
+    invoiceNo: string;
+    customerName: string;
+    customerMobile: string;
+    total: number;
+  }) => {
+    try {
+      const result = await shareInvoicePdf(invoice);
+      if (result === "shared") {
+        setSuccessMessage(
+          "Sale complete — choose WhatsApp in the share sheet to send the invoice.",
+        );
+      } else {
+        setSuccessMessage(
+          "Sale complete — invoice downloaded. WhatsApp opened; attach the PDF from Downloads.",
+        );
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setSuccessMessage(
+          "Sale complete — invoice ready. Share it from Invoices when needed.",
+        );
+        return;
+      }
+      setSuccessMessage(
+        "Sale complete — invoice generated. Open Invoices to download or share.",
+      );
+    }
   };
 
   const finishCartSale = async (
@@ -148,8 +175,7 @@ export default function SalesPage() {
 
     const invoice = result.invoices?.[0];
     if (invoice) {
-      setSuccessMessage("Sale complete — invoice generated.");
-      await openInvoice(invoice);
+      await shareInvoiceAfterSale(invoice);
     } else {
       setSuccessMessage(`Sold ${result.sales.length} item(s) successfully.`);
     }

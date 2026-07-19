@@ -4,6 +4,7 @@ import { getCustomer } from "../lib/customers/service.js";
 import { getInvoice, listInvoices } from "../lib/invoices/service.js";
 import { generateInvoicePdf } from "../lib/invoices/pdf.js";
 import { getShopSettings } from "../lib/settings/service.js";
+import { prisma } from "../lib/db.js";
 import { routeParam } from "../lib/route-param.js";
 import {
   authenticate,
@@ -42,11 +43,16 @@ invoicesRouter.get(
       const customerBilling = invoice.customerId
         ? await getCustomer(invoice.customerId, req.organizationId!)
         : null;
+      const sellingBranch = await prisma.branch.findUnique({
+        where: { id: invoice.branchId },
+        select: { id: true, name: true, address: true },
+      });
       const pdf = await generateInvoicePdf(
         invoice,
         settings,
         customerBilling,
         req.organizationId!,
+        sellingBranch,
       );
 
       res.setHeader("Content-Type", "application/pdf");

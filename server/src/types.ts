@@ -964,6 +964,7 @@ export type InvoiceItem = {
 
 export type Invoice = {
   id: string;
+  branchId: string;
   invoiceNo: string;
   cartGroupId?: string;
   customerId?: string;

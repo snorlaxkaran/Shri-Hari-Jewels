@@ -20,6 +20,7 @@ import {
   updateRepairStatus,
 } from "@/lib/api/repairs";
 import { openInvoicePdf } from "@/lib/api/invoices";
+import { preparePdfViewerTab } from "@/lib/open-pdf";
 import { getApiErrorMessage } from "@/lib/api/client";
 import type { PaymentMode, RepairOrder } from "@/lib/types";
 import { formatCurrency, formatDateTime, parseMoneyInput } from "@/lib/format";
@@ -221,10 +222,15 @@ export default function RepairDetailPage() {
               <button
                 type="button"
                 className="text-blue-600 text-sm hover:underline mt-2"
-                onClick={() =>
-                  repair.invoiceId &&
-                  openInvoicePdf(repair.invoiceId, `${repair.invoiceNo}.pdf`)
-                }
+                onClick={() => {
+                  if (!repair.invoiceId) return;
+                  const tab = preparePdfViewerTab();
+                  void openInvoicePdf(
+                    repair.invoiceId,
+                    `${repair.invoiceNo}.pdf`,
+                    tab,
+                  ).catch(() => tab?.close());
+                }}
               >
                 Invoice {repair.invoiceNo}
               </button>

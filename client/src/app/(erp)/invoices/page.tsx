@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { FileText, Loader2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatusBadge from "@/app/(components)/StatusBadge";
-import RowActionsDropdown from "@/app/(components)/RowActionsDropdown";
 import { fetchInvoices, openInvoicePdf } from "@/lib/api/invoices";
 import { getApiErrorMessage } from "@/lib/api/client";
+import { preparePdfViewerTab } from "@/lib/open-pdf";
 import type { Invoice } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/format";
 
@@ -15,18 +16,20 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
   const statuses = ["All", "Paid", "Pending"];
 
-  const handleOpen = async (inv: Invoice) => {
-    setDownloadingId(inv.id);
-    try {
-      await openInvoicePdf(inv.id, `${inv.invoiceNo}.pdf`);
-    } catch (err) {
+  const handleOpen = (inv: Invoice) => {
+    const tab = preparePdfViewerTab();
+    setOpeningId(inv.id);
+    setError("");
+
+    void openInvoicePdf(inv.id, `${inv.invoiceNo}.pdf`, tab).catch((err) => {
+      tab?.close();
       setError(getApiErrorMessage(err, "Could not open invoice PDF."));
-    } finally {
-      setDownloadingId(null);
-    }
+    }).finally(() => {
+      setOpeningId(null);
+    });
   };
 
   useEffect(() => {
@@ -90,7 +93,7 @@ export default function InvoicesPage() {
                   <th>Payment</th>
                   <th>Status</th>
                   <th>Date</th>
-                  <th></th>
+                  <th aria-label="PDF" />
                 </tr>
               </thead>
               <tbody>
@@ -118,17 +121,20 @@ export default function InvoicesPage() {
                     </td>
                     <td className="td-muted">{formatDate(inv.createdAt)}</td>
                     <td className="text-right">
-                      <RowActionsDropdown
-                        actions={[
-                          {
-                            label:
-                              downloadingId === inv.id
-                                ? "Opening…"
-                                : "View PDF",
-                            onClick: () => void handleOpen(inv),
-                          },
-                        ]}
-                      />
+                      <button
+                        type="button"
+                        onClick={() => handleOpen(inv)}
+                        disabled={openingId === inv.id}
+                        className="row-action-btn"
+                        aria-label={`Open PDF for ${inv.invoiceNo}`}
+                        title="Open PDF"
+                      >
+                        {openingId === inv.id ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <FileText size={16} />
+                        )}
+                      </button>
                     </td>
                   </tr>
                 ))}
