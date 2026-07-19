@@ -1,5 +1,6 @@
 import type { InventoryItem } from "@/lib/types";
 import { getAgeInDays, getUnitAgeingDate } from "./ageing";
+import { STOCK_EXPORT_HEADERS } from "./stock-excel-columns";
 import type { InventoryUnitRow } from "./unit-rows";
 
 const csvCell = (value: string | number | null | undefined) => {
@@ -33,24 +34,7 @@ const downloadCsv = (filename: string, headers: string[], rows: string[]) => {
 };
 
 export const downloadUnitStockExcel = (rows: InventoryUnitRow[]) => {
-  const headers = [
-    "Item Code",
-    "Product",
-    "SKU",
-    "Category",
-    "Metal",
-    "Purity",
-    "Weight (g)",
-    "Stone (ct)",
-    "Making Charges",
-    "Price",
-    "Price Source",
-    "Status",
-    "Location",
-    "Ageing (days)",
-    "Transferred Date",
-    "Created Date",
-  ];
+  const headers = [...STOCK_EXPORT_HEADERS];
 
   const csvRows = rows.map((row) => {
     const ageingDate = getUnitAgeingDate(row);

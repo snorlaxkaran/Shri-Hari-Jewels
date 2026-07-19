@@ -97,16 +97,18 @@ export default function StockExcelImport({
     <div className="surface-card rounded-xl p-5 space-y-4">
       <div>
         <h2 className="text-base font-semibold text-zinc-900">
-          Import legacy stock from Excel
+          Import stock from Excel
         </h2>
         <p className="text-xs text-zinc-500 mt-1">
-          Upload your existing stock sheet (e.g. Book1.xlsx). Rows are grouped by
-          SKU NO; each barcode becomes one inventory unit.
+          Upload the same sheet you download from Central Stock, or any file with
+          the same columns. Rows are grouped by SKU; each Item Code becomes one
+          inventory unit.
         </p>
       </div>
 
       <p className="text-[11px] text-zinc-500">
-        Expected columns: {STOCK_EXCEL_HEADERS.slice(0, 8).join(", ")}, …
+        Expected columns: {STOCK_EXCEL_HEADERS.slice(0, 6).join(", ")}, …
+        (same as Central Stock download)
       </p>
 
       <div

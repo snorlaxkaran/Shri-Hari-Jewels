@@ -3,33 +3,16 @@ import {
   PRODUCT_CATEGORIES,
   type ProductCategory,
 } from "@/lib/inventory/categories";
+import {
+  LEGACY_STOCK_EXCEL_HEADERS,
+  STOCK_EXPORT_HEADERS,
+} from "@/lib/inventory/stock-excel-columns";
 
-export const STOCK_EXCEL_HEADERS = [
-  "Stock Type",
-  "HSN",
-  "SKU NO",
-  "Item no/ Barcode",
-  "Status",
-  "Item Description",
-  "Category",
-  "Sub-Category",
-  "Collection",
-  "Website Status",
-  "Vendor Name",
-  "Metal",
-  "Purity",
-  "Wt Gross",
-  "Wt Net",
-  "Wt Other",
-  "Stone Name",
-  "Wt Stone",
-  "Color Stone",
-  "Retail Price",
-  "Cost",
-  "Active Date",
-  "Current Location",
-  "Item Remarks",
-] as const;
+/** Primary format — same columns as Central Stock download. */
+export const STOCK_EXCEL_HEADERS = STOCK_EXPORT_HEADERS;
+
+/** @deprecated Use STOCK_EXCEL_HEADERS — kept for legacy sheet reference. */
+export const LEGACY_STOCK_HEADERS = LEGACY_STOCK_EXCEL_HEADERS;
 
 type ParsedRow = {
   stockType?: string;
@@ -56,9 +39,27 @@ type ParsedRow = {
   activeDate?: string;
   location?: string;
   remarks?: string;
+  makingCharges?: number;
+  priceSource?: string;
+  ageingDays?: number;
+  transferredDate?: string;
 };
 
 const HEADER_ALIASES: Record<string, keyof ParsedRow> = {
+  // Central Stock export format
+  "item code": "itemCode",
+  product: "name",
+  sku: "catalogNo",
+  "weight (g)": "wtNet",
+  "stone (ct)": "wtStone",
+  "making charges": "makingCharges",
+  price: "retailPrice",
+  "price source": "priceSource",
+  location: "location",
+  "ageing (days)": "ageingDays",
+  "transferred date": "transferredDate",
+  "created date": "activeDate",
+  // Legacy import format
   "stock type": "stockType",
   hsn: "hsn",
   "sku no": "catalogNo",
@@ -92,7 +93,8 @@ const normalizeHeader = (value: string) => value.trim().toLowerCase();
 
 const cellText = (value: unknown): string => {
   if (value == null) return "";
-  return String(value).trim();
+  const text = String(value).trim();
+  return text === "-" ? "" : text;
 };
 
 const cellNumber = (value: unknown): number | undefined => {
@@ -102,7 +104,15 @@ const cellNumber = (value: unknown): number | undefined => {
 };
 
 const mapLegacyCategory = (value: string): ProductCategory => {
-  const key = value.trim().toUpperCase();
+  const trimmed = value.trim();
+  if (!trimmed) return "Others";
+
+  const direct = PRODUCT_CATEGORIES.find(
+    (category) => category.toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (direct) return direct;
+
+  const key = trimmed.toUpperCase();
   const mapping: Record<string, ProductCategory> = {
     ANKLET: "Anklets",
     ANKLETS: "Anklets",
@@ -165,7 +175,7 @@ export const mapStockExcelRows = (
     for (const [header, value] of Object.entries(raw)) {
       const key = HEADER_ALIASES[normalizeHeader(header)];
       if (!key) continue;
-      if (key === "wtGross" || key === "wtNet" || key === "wtOther" || key === "wtStone" || key === "retailPrice" || key === "cost") {
+      if (key === "wtGross" || key === "wtNet" || key === "wtOther" || key === "wtStone" || key === "retailPrice" || key === "cost" || key === "makingCharges" || key === "ageingDays") {
         parsed[key] = cellNumber(value);
       } else if (key === "purity") {
         parsed.purity = value as string | number;
@@ -182,23 +192,23 @@ export const mapStockExcelRows = (
     const retailPrice = parsed.retailPrice;
 
     if (!catalogNo) {
-      errors.push(`Row ${rowNum}: SKU NO is required.`);
+      errors.push(`Row ${rowNum}: SKU is required.`);
       return;
     }
     if (!itemCode) {
-      errors.push(`Row ${rowNum}: Item barcode is required.`);
+      errors.push(`Row ${rowNum}: Item Code is required.`);
       return;
     }
     if (!name) {
-      errors.push(`Row ${rowNum}: Item description is required.`);
+      errors.push(`Row ${rowNum}: Product name is required.`);
       return;
     }
     if (!weight || weight <= 0) {
-      errors.push(`Row ${rowNum}: Weight must be greater than zero.`);
+      errors.push(`Row ${rowNum}: Weight (g) must be greater than zero.`);
       return;
     }
     if (!retailPrice || retailPrice <= 0) {
-      errors.push(`Row ${rowNum}: Retail price is required.`);
+      errors.push(`Row ${rowNum}: Price is required.`);
       return;
     }
 

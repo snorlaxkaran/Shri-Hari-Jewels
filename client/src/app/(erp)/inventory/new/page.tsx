@@ -199,7 +199,7 @@ export default function NewStockPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <PageHeader
           title="Bulk Silver/BM Stock Add to Main Stock"
-          subtitle="Add finished goods manually or import your legacy Excel stock sheet"
+          subtitle="Add finished goods manually or import from the same Excel sheet used in Central Stock"
         />
         <Link
           href="/inventory"
