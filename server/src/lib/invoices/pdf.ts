@@ -3,7 +3,6 @@ import type { Customer, Invoice, ShopSettings } from "../../types.js";
 import {
   resolveGroupedLinesForPdf,
   resolveGstBreakupForInvoice,
-  resolveInvoiceItemsForPdf,
 } from "./invoice-pdf-data.js";
 import {
   gstStateCodeFromNumber,
@@ -67,28 +66,21 @@ export const generateInvoicePdf = async (
   invoice: Invoice,
   settings: ShopSettings,
   customerBilling: InvoiceCustomerBilling | null | undefined,
-  organizationId: string,
 ): Promise<Buffer> => {
-  const items = await resolveInvoiceItemsForPdf(invoice, organizationId);
-  const enrichedInvoice: Invoice = { ...invoice, items, itemCount: items.length };
-
   const { lines, totalQty, totalAmount } = resolveGroupedLinesForPdf(
-    items,
+    invoice.items,
     settings,
-    enrichedInvoice.taxableValue,
-    items.length,
+    invoice.taxableValue,
+    invoice.items.length,
   );
 
   const placeOfSupply =
-    enrichedInvoice.placeOfSupply?.trim() || settings.state?.trim() || "—";
+    invoice.placeOfSupply?.trim() || settings.state?.trim() || "—";
   const placeOfDelivery =
     customerBilling?.billingState?.trim() || placeOfSupply;
   const supplyCode = gstStateCodeFromNumber(customerBilling?.gstNumber);
-  const dispatchLine = `Dispatch Details    ${enrichedInvoice.paymentMode} / On ${formatDateIn(enrichedInvoice.createdAt)}`;
-  const gstBreakup = resolveGstBreakupForInvoice(
-    enrichedInvoice,
-    settings.state ?? "",
-  );
+  const dispatchLine = `Dispatch Details    ${invoice.paymentMode} / On ${formatDateIn(invoice.createdAt)}`;
+  const gstBreakup = resolveGstBreakupForInvoice(invoice, settings.state ?? "");
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 40, size: "A4" });
@@ -102,9 +94,9 @@ export const generateInvoicePdf = async (
       settings,
       documentTitle: "TAX INVOICE",
       docNoLabel: "Invoice No",
-      docNo: enrichedInvoice.invoiceNo,
-      dateIso: enrichedInvoice.createdAt,
-      billToLines: buildSaleBillToLines(enrichedInvoice, customerBilling),
+      docNo: invoice.invoiceNo,
+      dateIso: invoice.createdAt,
+      billToLines: buildSaleBillToLines(invoice, customerBilling),
       placeOfSupply,
       placeOfSupplyCode: supplyCode,
       placeOfDelivery,
@@ -112,7 +104,7 @@ export const generateInvoicePdf = async (
       dispatchLine,
       groupedLines: lines,
       totalQty,
-      totalAmount: totalAmount > 0 ? totalAmount : enrichedInvoice.taxableValue,
+      totalAmount: totalAmount > 0 ? totalAmount : invoice.taxableValue,
       gstBreakup,
       footerDisclaimer:
         "This is a computer-generated tax invoice. E. & O.E. Thank you for your purchase.",

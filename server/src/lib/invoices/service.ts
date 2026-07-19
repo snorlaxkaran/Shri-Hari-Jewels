@@ -4,6 +4,10 @@ import type { Invoice } from "../../types.js";
 import { generateInvoiceNo } from "./invoice-no.js";
 import { toInvoice } from "./mappers.js";
 import {
+  backfillMissingInvoiceItemsBatch,
+  ensureInvoiceRecordsComplete,
+} from "./backfill-invoice-items.js";
+import {
   computePayableWithRoundOff,
   computeRetailGstBreakup,
   defaultHsnForMetal,
@@ -19,7 +23,8 @@ export const listInvoices = async (organizationId: string): Promise<Invoice[]> =
     include: invoiceInclude,
     orderBy: { createdAt: "desc" },
   });
-  return invoices.map(toInvoice);
+  const completed = await backfillMissingInvoiceItemsBatch(invoices, organizationId);
+  return completed.map(toInvoice);
 };
 
 export const getInvoice = async (
@@ -30,7 +35,9 @@ export const getInvoice = async (
     where: { id, branch: { organizationId } },
     include: invoiceInclude,
   });
-  return invoice ? toInvoice(invoice) : null;
+  if (!invoice) return null;
+  const completed = await ensureInvoiceRecordsComplete(invoice, organizationId);
+  return toInvoice(completed);
 };
 
 export const getInvoiceForSale = async (

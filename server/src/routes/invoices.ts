@@ -42,12 +42,7 @@ invoicesRouter.get(
       const customerBilling = invoice.customerId
         ? await getCustomer(invoice.customerId, req.organizationId!)
         : null;
-      const pdf = await generateInvoicePdf(
-        invoice,
-        settings,
-        customerBilling,
-        req.organizationId!,
-      );
+      const pdf = await generateInvoicePdf(invoice, settings, customerBilling);
 
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
