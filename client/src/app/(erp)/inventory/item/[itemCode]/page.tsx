@@ -280,7 +280,7 @@ export default function ItemCodeHistoryPage() {
                   </dd>
                 </div>
               ) : requiresHallmark({
-                metal: history.spec.metal,
+                metal: history.spec.metal as MetalType,
                 weightGrams: history.spec.weightGrams,
               }) ? (
                 <div className="col-span-2 md:col-span-4">

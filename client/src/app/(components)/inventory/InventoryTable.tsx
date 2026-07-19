@@ -64,7 +64,7 @@ type InventoryTableProps = {
 };
 
 type ColumnDef = {
-  id: FilterColumnId | "photo" | "ageing" | "actions";
+  id: FilterColumnId | "photo" | "ageing" | "hallmark" | "actions";
   label: string;
   sortField?: InventorySortField;
   filterColumn?: FilterColumnId;
