@@ -1,10 +1,13 @@
 import PDFDocument from "pdfkit";
 import type { Customer, Invoice, ShopSettings } from "../../types.js";
 import {
-  groupLinesByJewelryCategory,
+  resolveGroupedLinesForPdf,
+  resolveGstBreakupForInvoice,
+  resolveInvoiceItemsForPdf,
+} from "./invoice-pdf-data.js";
+import {
   gstStateCodeFromNumber,
   renderStandardDocument,
-  type GstBreakupValues,
 } from "./gst-invoice-layout.js";
 import { formatDateIn } from "../pdf/format.js";
 import { formatStructuredAddress } from "../validation/india.js";
@@ -60,28 +63,34 @@ const buildSaleBillToLines = (
   return lines;
 };
 
-const gstBreakupFromInvoice = (invoice: Invoice, shopState: string): GstBreakupValues => {
-  const placeOfSupply = invoice.placeOfSupply?.trim() ?? "";
-  const seller = shopState.trim().toLowerCase();
-  const supply = placeOfSupply.toLowerCase();
-
-  return {
-    taxableAmount: invoice.taxableValue,
-    cgst: invoice.cgst,
-    sgst: invoice.sgst,
-    igst: invoice.igst,
-    roundOff: invoice.roundOff,
-    payableAmount: invoice.total,
-    isIntraState: supply.length > 0 && supply === seller,
-  };
-};
-
-export const generateInvoicePdf = (
+export const generateInvoicePdf = async (
   invoice: Invoice,
   settings: ShopSettings,
-  customerBilling?: InvoiceCustomerBilling | null,
-): Promise<Buffer> =>
-  new Promise((resolve, reject) => {
+  customerBilling: InvoiceCustomerBilling | null | undefined,
+  organizationId: string,
+): Promise<Buffer> => {
+  const items = await resolveInvoiceItemsForPdf(invoice, organizationId);
+  const enrichedInvoice: Invoice = { ...invoice, items, itemCount: items.length };
+
+  const { lines, totalQty, totalAmount } = resolveGroupedLinesForPdf(
+    items,
+    settings,
+    enrichedInvoice.taxableValue,
+    items.length,
+  );
+
+  const placeOfSupply =
+    enrichedInvoice.placeOfSupply?.trim() || settings.state?.trim() || "—";
+  const placeOfDelivery =
+    customerBilling?.billingState?.trim() || placeOfSupply;
+  const supplyCode = gstStateCodeFromNumber(customerBilling?.gstNumber);
+  const dispatchLine = `Dispatch Details    ${enrichedInvoice.paymentMode} / On ${formatDateIn(enrichedInvoice.createdAt)}`;
+  const gstBreakup = resolveGstBreakupForInvoice(
+    enrichedInvoice,
+    settings.state ?? "",
+  );
+
+  return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 40, size: "A4" });
     const chunks: Buffer[] = [];
 
@@ -89,27 +98,13 @@ export const generateInvoicePdf = (
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    const { lines, totalQty, totalAmount } = groupLinesByJewelryCategory(
-      invoice.items.map((item) => ({
-        metal: item.metal,
-        amount: item.amount,
-      })),
-      settings,
-    );
-
-    const placeOfSupply = invoice.placeOfSupply?.trim() || settings.state?.trim() || "—";
-    const placeOfDelivery =
-      customerBilling?.billingState?.trim() || placeOfSupply;
-    const supplyCode = gstStateCodeFromNumber(customerBilling?.gstNumber);
-    const dispatchLine = `Dispatch Details    ${invoice.paymentMode} / On ${formatDateIn(invoice.createdAt)}`;
-
     renderStandardDocument(doc, {
       settings,
       documentTitle: "TAX INVOICE",
       docNoLabel: "Invoice No",
-      docNo: invoice.invoiceNo,
-      dateIso: invoice.createdAt,
-      billToLines: buildSaleBillToLines(invoice, customerBilling),
+      docNo: enrichedInvoice.invoiceNo,
+      dateIso: enrichedInvoice.createdAt,
+      billToLines: buildSaleBillToLines(enrichedInvoice, customerBilling),
       placeOfSupply,
       placeOfSupplyCode: supplyCode,
       placeOfDelivery,
@@ -117,11 +112,12 @@ export const generateInvoicePdf = (
       dispatchLine,
       groupedLines: lines,
       totalQty,
-      totalAmount,
-      gstBreakup: gstBreakupFromInvoice(invoice, settings.state ?? ""),
+      totalAmount: totalAmount > 0 ? totalAmount : enrichedInvoice.taxableValue,
+      gstBreakup,
       footerDisclaimer:
         "This is a computer-generated tax invoice. E. & O.E. Thank you for your purchase.",
     });
 
     doc.end();
   });
+};

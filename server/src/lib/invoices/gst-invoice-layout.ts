@@ -88,6 +88,36 @@ export const groupLinesByJewelryCategory = (
   return { lines, totalQty, totalAmount };
 };
 
+export const groupLinesWithFallback = (
+  items: Array<{ metal: string; amount: number }>,
+  settings: ShopSettings,
+  fallbackAmount: number,
+  fallbackQty: number,
+): { lines: GroupedJewelryLine[]; totalQty: number; totalAmount: number } => {
+  const grouped = groupLinesByJewelryCategory(items, settings);
+  if (grouped.lines.length > 0 && grouped.totalAmount > 0) {
+    return grouped;
+  }
+
+  if (fallbackAmount <= 0) {
+    return grouped;
+  }
+
+  const qty = Math.max(fallbackQty, 1);
+  return {
+    lines: [
+      {
+        label: "Jewellery",
+        hsn: resolveHsnCode("Imitation Jewelry", settings),
+        qty,
+        amount: fallbackAmount,
+      },
+    ],
+    totalQty: qty,
+    totalAmount: fallbackAmount,
+  };
+};
+
 export const buildFromLines = (settings: ShopSettings): string[] => {
   const lines: string[] = [settings.businessName];
   const shopAddress = formatShopAddress(settings);

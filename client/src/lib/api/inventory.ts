@@ -248,6 +248,34 @@ export const saveTransferShipping = async (
   return data;
 };
 
+type TransferDownloadMeta = Pick<
+  StockTransfer,
+  "documentType" | "invoiceNo" | "transferNo"
+>;
+
+const parseTransferDownloadHeader = (
+  header: string | null,
+): TransferDownloadMeta | null => {
+  if (!header) return null;
+  try {
+    const json = new TextDecoder().decode(
+      Uint8Array.from(atob(header), (c) => c.charCodeAt(0)),
+    );
+    return JSON.parse(json) as TransferDownloadMeta;
+  } catch {
+    try {
+      return JSON.parse(header) as TransferDownloadMeta;
+    } catch {
+      return null;
+    }
+  }
+};
+
+const transferPdfFilename = (transfer: TransferDownloadMeta): string =>
+  transfer.documentType === "Wholesale GST Invoice"
+    ? `invoice-${transfer.invoiceNo ?? transfer.transferNo}.pdf`
+    : `challan-${transfer.transferNo}.pdf`;
+
 export const generateTransferInvoice = async (
   id: string,
   input: {
@@ -280,21 +308,11 @@ export const generateTransferInvoice = async (
     );
   }
   const transferHeader = response.headers.get("X-Transfer-Data");
-  let transfer: StockTransfer | null = null;
-  if (transferHeader) {
-    try {
-      const json = new TextDecoder().decode(
-        Uint8Array.from(atob(transferHeader), (c) => c.charCodeAt(0)),
-      );
-      transfer = JSON.parse(json) as StockTransfer;
-    } catch {
-      transfer = null;
-    }
-  }
+  const headerMeta = parseTransferDownloadHeader(transferHeader);
   const pdfBlob = await response.blob();
-  if (!transfer) {
-    transfer = await fetchStockTransferById(id);
-  }
+  const transfer = headerMeta
+    ? ({ ...headerMeta, id } as StockTransfer)
+    : await fetchStockTransferById(id);
   return { transfer, pdfBlob };
 };
 
@@ -309,16 +327,21 @@ export const redownloadTransferInvoice = async (id: string): Promise<void> => {
     },
   );
   if (!response.ok) {
+    const contentType = response.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const err = (await response.json()) as { error?: string };
+      throw new Error(err.error ?? "Failed to download invoice.");
+    }
     throw new Error("Failed to download invoice.");
   }
-  const transfer = JSON.parse(
-    response.headers.get("X-Transfer-Data") ?? "{}",
-  ) as StockTransfer;
+
+  const headerMeta = parseTransferDownloadHeader(
+    response.headers.get("X-Transfer-Data"),
+  );
+  const transfer =
+    headerMeta ?? (await fetchStockTransferById(id));
   const blob = await response.blob();
-  const filename =
-    transfer.documentType === "Wholesale GST Invoice"
-      ? `invoice-${transfer.invoiceNo ?? transfer.transferNo}.pdf`
-      : `challan-${transfer.transferNo}.pdf`;
+  const filename = transferPdfFilename(transfer);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

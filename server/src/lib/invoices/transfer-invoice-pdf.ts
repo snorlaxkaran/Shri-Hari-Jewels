@@ -8,7 +8,7 @@ import type {
 import type { ShopSettings } from "../../types.js";
 import {
   computeGstBreakupForPdf,
-  groupLinesByJewelryCategory,
+  groupLinesWithFallback,
   gstStateCodeFromNumber,
   renderStandardDocument,
 } from "./gst-invoice-layout.js";
@@ -43,12 +43,14 @@ const buildTransferGroupedItems = (
   transfer: TransferForPdf,
   settings: ShopSettings,
 ) =>
-  groupLinesByJewelryCategory(
+  groupLinesWithFallback(
     transfer.items.map((item) => ({
       metal: item.metal,
       amount: moneyToNumber(item.price),
     })),
     settings,
+    moneyToNumber(transfer.totalValue),
+    transfer.items.length,
   );
 
 export const generateTransferInvoicePdf = (
@@ -83,7 +85,7 @@ export const generateTransferInvoicePdf = (
 
     if (isInvoice) {
       const gstBreakup = computeGstBreakupForPdf(
-        totalAmount,
+        totalAmount > 0 ? totalAmount : moneyToNumber(transfer.totalValue),
         shopState,
         transfer.placeOfSupplyState?.trim() ?? "",
       );
@@ -103,7 +105,7 @@ export const generateTransferInvoicePdf = (
         dispatchLine,
         groupedLines: lines,
         totalQty,
-        totalAmount,
+        totalAmount: totalAmount > 0 ? totalAmount : moneyToNumber(transfer.totalValue),
         gstBreakup,
       });
     } else {

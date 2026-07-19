@@ -34,6 +34,7 @@ import {
   partialAcceptStockTransfer,
   scanReceiveStockTransfer,
   regenerateTransferInvoicePdf,
+  encodeTransferDownloadHeader,
   rejectStockTransfer,
   saveTransferShipping,
   saveTransferShippingAndGenerateInvoice,
@@ -523,7 +524,7 @@ inventoryRouter.get(
       res.set({
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
-        "X-Transfer-Data": JSON.stringify(transfer),
+        "X-Transfer-Data": encodeTransferDownloadHeader(transfer),
       });
       res.send(pdfBuffer);
     } catch (error) {
@@ -576,9 +577,7 @@ inventoryRouter.post(
       res.set({
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
-        "X-Transfer-Data": Buffer.from(JSON.stringify(transfer), "utf8").toString(
-          "base64",
-        ),
+        "X-Transfer-Data": encodeTransferDownloadHeader(transfer),
       });
       res.send(pdfBuffer);
     } catch (error) {

@@ -341,6 +341,18 @@ export const listAllTransfersForProforma = async (
   return transfers.map(toStockTransferDto);
 };
 
+export const encodeTransferDownloadHeader = (
+  transfer: Pick<StockTransfer, "documentType" | "invoiceNo" | "transferNo">,
+): string =>
+  Buffer.from(
+    JSON.stringify({
+      documentType: transfer.documentType,
+      invoiceNo: transfer.invoiceNo,
+      transferNo: transfer.transferNo,
+    }),
+    "utf8",
+  ).toString("base64");
+
 export const regenerateTransferInvoicePdf = async (
   transferId: string,
   organizationId: string,

@@ -342,6 +342,105 @@ const ensureInvoiceGstHeaderSchema = async () => {
       await run(`Apply: ${sql.slice(0, 60)}…`, sql);
     }
   }
+
+  if (await tableExists("InvoiceItem") && (await tableExists("Sale"))) {
+    await run(
+      "Backfill InvoiceItem rows from cart-group sales…",
+      `
+      INSERT INTO "InvoiceItem" (
+        "id",
+        "invoiceId",
+        "saleId",
+        "itemCode",
+        "productName",
+        "sku",
+        "hsnCode",
+        "metal",
+        "listPrice",
+        "discount",
+        "amount"
+      )
+      SELECT
+        gen_random_uuid()::text,
+        i."id",
+        s."id",
+        s."itemCode",
+        s."productName",
+        s."sku",
+        NULL,
+        COALESCE(p."metal", s."category", 'Base Metal'),
+        s."listPrice",
+        COALESCE(s."discount", 0),
+        s."dealPrice"
+      FROM "Invoice" i
+      INNER JOIN "Sale" s ON s."cartGroupId" = i."cartGroupId"
+      LEFT JOIN "Product" p ON p."id" = s."productId"
+      WHERE i."cartGroupId" IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM "InvoiceItem" ii WHERE ii."invoiceId" = i."id"
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM "InvoiceItem" ii WHERE ii."saleId" = s."id"
+        )
+      `,
+    );
+
+    await run(
+      "Recompute legacy Invoice GST header values when missing…",
+      `
+      UPDATE "Invoice" i
+      SET
+        "cgst" = CASE
+          WHEN COALESCE(i."placeOfSupply", ss."state", '') ILIKE COALESCE(ss."state", '')
+            AND COALESCE(i."placeOfSupply", ss."state", '') <> ''
+          THEN ROUND(i."taxableValue" * 0.015, 2)
+          ELSE 0
+        END,
+        "sgst" = CASE
+          WHEN COALESCE(i."placeOfSupply", ss."state", '') ILIKE COALESCE(ss."state", '')
+            AND COALESCE(i."placeOfSupply", ss."state", '') <> ''
+          THEN ROUND(i."taxableValue" * 0.015, 2)
+          ELSE 0
+        END,
+        "igst" = CASE
+          WHEN COALESCE(i."placeOfSupply", ss."state", '') ILIKE COALESCE(ss."state", '')
+            AND COALESCE(i."placeOfSupply", ss."state", '') <> ''
+          THEN 0
+          ELSE ROUND(i."taxableValue" * 0.03, 2)
+        END
+      FROM "ShopSettings" ss
+      INNER JOIN "Branch" b ON b."organizationId" = ss."organizationId"
+      WHERE i."branchId" = b."id"
+        AND i."taxableValue" > 0
+        AND COALESCE(i."cgst", 0) = 0
+        AND COALESCE(i."sgst", 0) = 0
+        AND COALESCE(i."igst", 0) = 0
+      `,
+    );
+
+    await run(
+      "Recompute legacy Invoice payable totals from GST…",
+      `
+      UPDATE "Invoice"
+      SET
+        "total" = ROUND(
+          "taxableValue" + COALESCE("cgst", 0) + COALESCE("sgst", 0) + COALESCE("igst", 0)
+        ),
+        "roundOff" = ROUND(
+          "taxableValue" + COALESCE("cgst", 0) + COALESCE("sgst", 0) + COALESCE("igst", 0)
+        ) - (
+          "taxableValue" + COALESCE("cgst", 0) + COALESCE("sgst", 0) + COALESCE("igst", 0)
+        )
+      WHERE "taxableValue" > 0
+        AND ABS(
+          "total" - (
+            "taxableValue" + COALESCE("cgst", 0) + COALESCE("sgst", 0) + COALESCE("igst", 0)
+          )
+        ) < 0.01
+        AND (COALESCE("cgst", 0) + COALESCE("sgst", 0) + COALESCE("igst", 0)) > 0
+      `,
+    );
+  }
 };
 
 const ensureTransferInvoiceSchema = async () => {
