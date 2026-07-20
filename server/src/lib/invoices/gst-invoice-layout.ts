@@ -15,7 +15,7 @@ const SIGNATURE_BLOCK_HEIGHT = 28;
 const LEGAL_LINE_HEIGHT = 11;
 const SECTION_GAP = 8;
 const GST_BLOCK_HEIGHT = 178;
-const CHALLAN_BLOCK_HEIGHT = 52;
+const CHALLAN_BLOCK_HEIGHT = 90;
 
 export type JewelryGroupKey =
   | "Gold Jewelry"

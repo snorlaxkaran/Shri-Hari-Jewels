@@ -124,7 +124,11 @@ export default function SentTransferDetailPage() {
   );
 
   const gstPreview = useMemo(() => {
-    if (!transfer || transfer.documentType !== "Wholesale GST Invoice") {
+    if (
+      !transfer ||
+      (transfer.documentType !== "Wholesale GST Invoice" &&
+        transfer.documentType !== "Delivery Challan")
+    ) {
       return null;
     }
     const supplyState = transfer.placeOfSupplyState?.trim().toLowerCase() ?? "";

@@ -85,54 +85,34 @@ export const generateTransferInvoicePdf = (
 
     const placeOfSupply = transfer.placeOfSupplyState?.trim() || "—";
     const placeOfDelivery = transfer.placeOfDeliveryState?.trim() || placeOfSupply;
+    const taxableAmount =
+      totalAmount > 0 ? totalAmount : moneyToNumber(transfer.totalValue);
+    const gstBreakup = computeGstBreakupForPdf(
+      taxableAmount,
+      shopState,
+      transfer.placeOfSupplyState?.trim() ?? "",
+    );
 
-    if (isInvoice) {
-      const gstBreakup = computeGstBreakupForPdf(
-        totalAmount > 0 ? totalAmount : moneyToNumber(transfer.totalValue),
-        shopState,
-        transfer.placeOfSupplyState?.trim() ?? "",
-      );
-
-      renderStandardDocument(doc, {
-        settings,
-        subtitle: "Wholesale GST Invoice",
-        documentTitle: "TAX INVOICE",
-        docNoLabel: "Invoice No",
-        docNo: transfer.invoiceNo ?? transfer.transferNo,
-        dateIso: displayDate.toISOString(),
-        billToLines: buildTransferBillToLines(transfer),
-        placeOfSupply,
-        placeOfSupplyCode: transfer.placeOfSupplyStateCode,
-        placeOfDelivery,
-        placeOfDeliveryCode: transfer.placeOfDeliveryStateCode,
-        dispatchLine,
-        groupedLines: lines,
-        totalQty,
-        totalAmount: totalAmount > 0 ? totalAmount : moneyToNumber(transfer.totalValue),
-        gstBreakup,
-      });
-    } else {
-      renderStandardDocument(doc, {
-        settings,
-        subtitle: "Delivery Challan",
-        documentTitle: "DELIVERY CHALLAN",
-        docNoLabel: "Challan No",
-        docNo: transfer.transferNo,
-        dateIso: displayDate.toISOString(),
-        billToLines: buildTransferBillToLines(transfer),
-        placeOfSupply,
-        placeOfSupplyCode: transfer.placeOfSupplyStateCode,
-        placeOfDelivery,
-        placeOfDeliveryCode: transfer.placeOfDeliveryStateCode,
-        dispatchLine,
-        groupedLines: lines,
-        totalQty,
-        totalAmount,
-        showTerms: false,
-        challanNotice:
-          "This is a Delivery Challan only. No tax is applicable on this document.",
-      });
-    }
+    renderStandardDocument(doc, {
+      settings,
+      subtitle: isInvoice ? "Wholesale GST Invoice" : "Delivery Challan",
+      documentTitle: "TAX INVOICE",
+      docNoLabel: isInvoice ? "Invoice No" : "Challan No",
+      docNo: isInvoice
+        ? (transfer.invoiceNo ?? transfer.transferNo)
+        : transfer.transferNo,
+      dateIso: displayDate.toISOString(),
+      billToLines: buildTransferBillToLines(transfer),
+      placeOfSupply,
+      placeOfSupplyCode: transfer.placeOfSupplyStateCode,
+      placeOfDelivery,
+      placeOfDeliveryCode: transfer.placeOfDeliveryStateCode,
+      dispatchLine,
+      groupedLines: lines,
+      totalQty,
+      totalAmount: taxableAmount,
+      gstBreakup,
+    });
 
     doc.end();
   });
