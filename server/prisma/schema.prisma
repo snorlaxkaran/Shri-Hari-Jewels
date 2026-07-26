@@ -228,6 +228,30 @@ model Organization {
   subscription        Subscription?
 }
 
+enum DemoRequestStatus {
+  New
+  Contacted
+  DemoScheduled @map("Demo Scheduled")
+  Won
+  Lost
+}
+
+model DemoRequest {
+  id             String            @id @default(uuid())
+  businessName   String
+  contactName    String
+  phone          String
+  email          String?
+  city           String?
+  businessType   String?
+  message        String?
+  status         DemoRequestStatus @default(New)
+  createdAt      DateTime          @default(now())
+
+  @@index([status])
+  @@index([createdAt])
+}
+
 model Subscription {
   id               String             @id @default(uuid())
   organizationId   String             @unique
