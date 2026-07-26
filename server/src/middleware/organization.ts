@@ -3,6 +3,10 @@ import {
   isSuperAdminRole,
   requireOrganizationId,
 } from "../lib/organizations/access.js";
+import {
+  checkSubscriptionAccess,
+  isBillingRoute,
+} from "../lib/subscriptions/service.js";
 import type { AuthenticatedRequest } from "./auth.js";
 
 export const attachOrganization = async (
@@ -22,6 +26,23 @@ export const attachOrganization = async (
 
   try {
     req.organizationId = await requireOrganizationId(req.user.id, req.user.role);
+
+    if (!isBillingRoute(req.originalUrl)) {
+      const access = await checkSubscriptionAccess(req.organizationId);
+
+      if (!access.allowed && access.subscription) {
+        res.status(402).json({
+          error: "subscription_expired",
+          message:
+            "Your subscription period has ended. Please complete payment to continue.",
+          status: access.subscription.status,
+          trialEndsAt: access.subscription.trialEndsAt,
+          currentPeriodEnd: access.subscription.currentPeriodEnd,
+        });
+        return;
+      }
+    }
+
     next();
   } catch (error) {
     const message =

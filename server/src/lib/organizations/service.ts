@@ -1,5 +1,6 @@
 import { prisma } from "../db.js";
 import { hashPassword } from "../auth/password.js";
+import { createTrialSubscription } from "../subscriptions/service.js";
 import type { UserRole } from "../../types.js";
 
 export class OrganizationError extends Error {
@@ -164,6 +165,8 @@ export const createOrganization = async (
         enabled: false,
       },
     });
+
+    await createTrialSubscription(created.id, tx);
 
     const admin = await tx.user.create({
       data: {

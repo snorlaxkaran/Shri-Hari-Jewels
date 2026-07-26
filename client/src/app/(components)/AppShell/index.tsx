@@ -7,6 +7,7 @@ import Breadcrumbs from "@/app/(components)/Breadcrumbs";
 import NavigationProgress from "@/app/(components)/NavigationProgress";
 import Sidebar from "@/app/(components)/Sidebar";
 import MarketRateBanner from "@/app/(components)/MarketRateBanner";
+import SubscriptionWarningBanner from "@/app/(components)/SubscriptionWarningBanner";
 import { isTodayHighlightRoute } from "@/lib/navigation";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -40,6 +41,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           }}
         >
           <Breadcrumbs />
+          <SubscriptionWarningBanner />
           <MarketRateBanner />
           <main
             style={{

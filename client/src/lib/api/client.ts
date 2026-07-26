@@ -1,4 +1,8 @@
 import axios, { isAxiosError } from "axios";
+import {
+  setSubscriptionLockout,
+  type SubscriptionExpiredPayload,
+} from "../subscription-lockout";
 
 const PRODUCTION_API_BASE_URL = "https://shri-hari-jewels-api.onrender.com";
 const DEFAULT_API_BASE_URL =
@@ -41,11 +45,21 @@ export const getAuthToken = (): string => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && typeof window !== "undefined") {
+    if (typeof window !== "undefined") {
       const path = window.location.pathname;
       const onLoginPage = path === "/login";
       const onPublicStore = path.startsWith("/shop/");
-      if (!onLoginPage && !onPublicStore) {
+      const onBillingPage = path === "/billing";
+      const requestUrl = error.config?.url ?? "";
+
+      if (error.response?.status === 402) {
+        const data = error.response.data as SubscriptionExpiredPayload | undefined;
+        if (data?.error === "subscription_expired" && !onBillingPage && !requestUrl.includes("/api/billing")) {
+          setSubscriptionLockout(data);
+        }
+      }
+
+      if (error.response?.status === 401 && !onLoginPage && !onPublicStore) {
         window.sessionStorage.removeItem("shj_auth_token");
         window.localStorage.removeItem("shj_auth_token");
         clearAuthToken();
