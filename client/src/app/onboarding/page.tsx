@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { API_BASE_URL } from "@/lib/api/client";
+import { openShareUrlInTab } from "@/lib/open-pdf";
 
 const DEMO_STORE = "/shop/shree-hari-jewels";
 
@@ -72,12 +73,16 @@ export default function OnboardingPortfolioPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [whatsappPending, setWhatsappPending] = useState(false);
+  const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setSubmitting(true);
     setError("");
     setSuccess(false);
+    setWhatsappPending(false);
+    setWhatsappUrl(null);
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/demo-requests`, {
@@ -85,11 +90,19 @@ export default function OnboardingPortfolioPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      const data = (await res.json()) as { error?: string; message?: string };
+      const data = (await res.json()) as {
+        error?: string;
+        message?: string;
+        whatsappUrl?: string | null;
+      };
       if (!res.ok) {
         throw new Error(data.error ?? "Could not submit request.");
       }
       setSuccess(true);
+      if (data.whatsappUrl) {
+        setWhatsappUrl(data.whatsappUrl);
+        setWhatsappPending(true);
+      }
       setForm({
         businessName: "",
         contactName: "",
@@ -247,9 +260,23 @@ export default function OnboardingPortfolioPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {success && (
-                <p className="rounded-md bg-[#14532d]/40 border border-[#166534] px-4 py-3 text-sm text-[#bbf7d0]">
-                  Thank you — we&apos;ll be in touch shortly.
-                </p>
+                <div className="rounded-md bg-[#14532d]/40 border border-[#166534] px-4 py-3 text-sm text-[#bbf7d0] space-y-2">
+                  <p>Thank you — we&apos;ll be in touch shortly.</p>
+                  {whatsappPending && whatsappUrl && (
+                    <div className="space-y-2 pt-1">
+                      <p className="text-[#dcfce7]">
+                        One last step: send us a WhatsApp so we can reach you quickly.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => openShareUrlInTab(whatsappUrl)}
+                        className="inline-flex items-center rounded-md bg-[#22c55e] px-4 py-2 text-sm font-medium text-white hover:bg-[#16a34a]"
+                      >
+                        Send WhatsApp message
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
               {error && (
                 <p className="rounded-md bg-[#7f1d1d]/40 border border-[#991b1b] px-4 py-3 text-sm text-[#fecaca]">

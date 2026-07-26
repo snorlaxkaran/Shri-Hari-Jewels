@@ -1,17 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import PlatformHeader from "@/app/platform/(components)/PlatformHeader";
 import {
   Building2,
   CalendarClock,
   ChevronDown,
   ChevronUp,
-  Gem,
-  LogOut,
   Plus,
   Trash2,
 } from "lucide-react";
-import { useAuth } from "@/lib/auth/auth-context";
 import {
   createOrganization,
   deleteOrganization,
@@ -277,7 +275,6 @@ function CompanySubscriptionPanel({
 }
 
 export default function PlatformCompaniesPage() {
-  const { user, logout } = useAuth();
   const [companies, setCompanies] = useState<OrganizationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -341,35 +338,7 @@ export default function PlatformCompaniesPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg-page)" }}>
-      <header
-        className="border-b px-6 py-4 flex items-center justify-between"
-        style={{ borderColor: "var(--border)", background: "var(--bg-surface)" }}
-      >
-        <div className="flex items-center gap-3">
-          <div className="brand-mark w-10 h-10 rounded-lg">
-            <Gem size={18} strokeWidth={1.5} />
-          </div>
-          <div>
-            <p className="font-display text-lg font-semibold">Jewellery ERP</p>
-            <p className="text-xs text-[var(--text-muted)]">Platform administration</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-[var(--text-muted)] hidden sm:inline">
-            {user?.email}
-          </span>
-          <button
-            type="button"
-            onClick={logout}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm border"
-            style={{ borderColor: "var(--border)" }}
-          >
-            <LogOut size={16} />
-            Sign out
-          </button>
-        </div>
-      </header>
+      <PlatformHeader />
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-6">
         <div className="flex items-center justify-between gap-4 flex-wrap">
