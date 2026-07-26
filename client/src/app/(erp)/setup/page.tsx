@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchOnboardingStatus } from "@/lib/api/onboarding";
 
-export default function OnboardingPage() {
+/** Logged-in tenant setup checklist — not the public product tour. */
+export default function SetupWizardPage() {
   const [status, setStatus] = useState<Awaited<ReturnType<typeof fetchOnboardingStatus>> | null>(null);
 
   useEffect(() => {

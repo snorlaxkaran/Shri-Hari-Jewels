@@ -13,7 +13,10 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
     pathname === "/login" ||
-    pathname.startsWith("/platform")
+    pathname === "/onboarding" ||
+    pathname.startsWith("/platform") ||
+    pathname.startsWith("/i/") ||
+    pathname.startsWith("/t/")
   ) {
     return NextResponse.next();
   }

@@ -49,6 +49,7 @@ api.interceptors.response.use(
       const path = window.location.pathname;
       const onLoginPage = path === "/login";
       const onPublicStore = path.startsWith("/shop/");
+      const onPortfolio = path === "/onboarding";
       const onBillingPage = path === "/billing";
       const requestUrl = error.config?.url ?? "";
 
@@ -59,7 +60,7 @@ api.interceptors.response.use(
         }
       }
 
-      if (error.response?.status === 401 && !onLoginPage && !onPublicStore) {
+      if (error.response?.status === 401 && !onLoginPage && !onPublicStore && !onPortfolio) {
         window.sessionStorage.removeItem("shj_auth_token");
         window.localStorage.removeItem("shj_auth_token");
         clearAuthToken();

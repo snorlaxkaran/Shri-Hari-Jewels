@@ -901,6 +901,10 @@ export default function LoginPage() {
                   whiteSpace: "nowrap",
                 }}
               >
+                <a href="/onboarding" style={{ color: "var(--accent)" }}>
+                  Product tour
+                </a>
+                {" · "}
                 Jewellery ERP
               </p>
               <div className="divider-line" />
