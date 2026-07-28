@@ -8,6 +8,10 @@ import { attachOrganization } from "../middleware/organization.js";
 
 export const billingRouter = Router();
 
+billingRouter.get("/contact", async (_req, res) => {
+  res.json(getPlatformContactInfo());
+});
+
 billingRouter.use(authenticate);
 billingRouter.use(attachOrganization);
 
@@ -23,8 +27,4 @@ billingRouter.get("/", async (req: AuthenticatedRequest, res) => {
     console.error("GET /api/billing", error);
     res.status(500).json({ error: "Failed to fetch billing information." });
   }
-});
-
-billingRouter.get("/contact", async (_req, res) => {
-  res.json(getPlatformContactInfo());
 });

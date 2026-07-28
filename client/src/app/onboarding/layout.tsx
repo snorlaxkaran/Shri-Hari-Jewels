@@ -30,8 +30,8 @@ export default function OnboardingLayout({
       className={`${fraunces.variable} ${ibmPlexMono.variable} min-h-screen`}
       style={{
         fontFamily: "var(--font-portfolio-display), Georgia, serif",
-        backgroundColor: "#f6f1e8",
-        color: "#1c1917",
+        backgroundColor: "#faf6ec",
+        color: "#211a12",
       }}
     >
       {children}
