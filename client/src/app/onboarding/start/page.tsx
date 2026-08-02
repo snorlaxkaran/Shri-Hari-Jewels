@@ -16,7 +16,6 @@ export default function TrialStartPage() {
   const [phone, setPhone] = useState("");
   const [verifiedPhone, setVerifiedPhone] = useState("");
   const [otp, setOtp] = useState("");
-  const [devOtp, setDevOtp] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [resendIn, setResendIn] = useState(0);
@@ -48,7 +47,6 @@ export default function TrialStartPage() {
     try {
       const result = await sendTrialOtp(phone);
       setVerifiedPhone(result.phone);
-      setDevOtp(result.devOtp ?? null);
       setStep("otp");
       setResendIn(15);
       setOtp("");
@@ -83,7 +81,6 @@ export default function TrialStartPage() {
     setError("");
     try {
       const result = await sendTrialOtp(verifiedPhone);
-      setDevOtp(result.devOtp ?? null);
       setResendIn(15);
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not resend code."));
@@ -165,17 +162,6 @@ export default function TrialStartPage() {
             </form>
           ) : (
             <form onSubmit={handleVerify} className="mt-6 space-y-4">
-              {devOtp && (
-                <div className="rounded-md bg-[#f0f7ff] border border-[#0089ff]/30 px-4 py-3 text-center">
-                  <p className="text-xs text-[#525252]">Your verification code</p>
-                  <p className="mt-1 text-2xl font-mono font-semibold tracking-[0.35em] text-[#171717]">
-                    {devOtp}
-                  </p>
-                  <p className="mt-2 text-xs text-[#737373]">
-                    Enter this code below. SMS to your phone is being activated.
-                  </p>
-                </div>
-              )}
               <label className="block text-sm">
                 <span className="font-medium text-[#404040]">6-digit code</span>
                 <input

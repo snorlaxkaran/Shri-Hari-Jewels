@@ -10,7 +10,7 @@ export type TrialSession = {
 
 export const sendTrialOtp = async (
   phone: string,
-): Promise<{ phone: string; devOtp?: string }> => {
+): Promise<{ phone: string }> => {
   const { data } = await api.post("/api/trial/send-otp", { phone });
   return data;
 };

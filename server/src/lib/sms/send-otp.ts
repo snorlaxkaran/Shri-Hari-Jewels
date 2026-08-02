@@ -1,13 +1,23 @@
 import { logger } from "../logger.js";
+import { SmsDeliveryError } from "./errors.js";
+import { isTwilioVerifyConfigured, sendTwilioVerifyOtp } from "./twilio-verify.js";
 
-export class SmsDeliveryError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "SmsDeliveryError";
-  }
-}
+export { SmsDeliveryError } from "./errors.js";
 
 const e164India = (phone10: string): string => `91${phone10}`;
+
+const formatTwilioError = (message: string, code?: number): string => {
+  if (message === "Authenticate" || code === 20003) {
+    return "Twilio login failed — check TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN on the server.";
+  }
+  if (code === 572006) {
+    return "Twilio trial requires template sms_2fa — set TWILIO_SMS_TEMPLATE=sms_2fa on the server.";
+  }
+  if (code === 21608 || message.toLowerCase().includes("unverified")) {
+    return "Twilio trial: add this phone number under Verified Caller IDs in Twilio console.";
+  }
+  return message || "Could not send SMS via Twilio.";
+};
 
 /** Fast2SMS — DLT OTP template API (recommended for production in India). */
 const sendViaFast2SmsTemplate = async (
@@ -138,8 +148,102 @@ const sendViaMsg91 = async (phone: string, code: string): Promise<void> => {
   logger.info({ phone }, "Trial OTP sent via MSG91");
 };
 
-/** Twilio — works globally including India (+91). */
-const sendViaTwilio = async (phone: string, code: string): Promise<void> => {
+const TWILIO_TRIAL_TEMPLATES = new Set([
+  "sms_2fa",
+  "sms_appointment_reminders",
+  "sms_order_confirmation",
+  "sms_delivery_updates",
+  "sms_customer_support",
+  "sms_marketing_promotions",
+  "sms_event_notifications",
+  "sms_account_alerts",
+  "sms_feedback_surveys",
+  "sms_internal_alerts",
+]);
+
+const normalizeTwilioFrom = (raw: string): string => {
+  const from = raw.trim();
+  if (from.startsWith("+")) return from;
+  const digits = from.replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return `+${digits}`;
+};
+
+const resolveTwilioTrialTemplate = (): string => {
+  const configured = (process.env.TWILIO_SMS_TEMPLATE ?? "sms_2fa").trim().toLowerCase();
+  if (TWILIO_TRIAL_TEMPLATES.has(configured)) return configured;
+  logger.warn({ configured }, "Invalid TWILIO_SMS_TEMPLATE — falling back to sms_2fa");
+  return "sms_2fa";
+};
+
+export const isTwilioConfigured = (): boolean =>
+  Boolean(process.env.TWILIO_ACCOUNT_SID?.trim() && process.env.TWILIO_AUTH_TOKEN?.trim());
+
+/** Twilio trial: predefined template (sms_2fa) — Twilio generates OTP, returned in API response. */
+export const sendTwilioTrialTemplateOtp = async (phone: string): Promise<string> => {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
+  const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
+  const fromRaw = process.env.TWILIO_SMS_FROM?.trim();
+  const template = resolveTwilioTrialTemplate();
+
+  if (!accountSid || !authToken) {
+    throw new SmsDeliveryError("TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN are required.");
+  }
+  if (!fromRaw) {
+    throw new SmsDeliveryError(
+      "TWILIO_SMS_FROM is required (e.g. +17372212163). Trial accounts must use template sms_2fa.",
+    );
+  }
+
+  const from = normalizeTwilioFrom(fromRaw);
+  const params = new URLSearchParams({
+    To: `+${e164India(phone)}`,
+    From: from,
+    Body: template,
+  });
+
+  const response = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params,
+    },
+  );
+
+  const payload = (await response.json().catch(() => null)) as
+    | { sid?: string; body?: string; message?: string; code?: number }
+    | null;
+
+  if (!response.ok) {
+    const twilioMessage = payload?.message ?? response.statusText;
+    logger.error(
+      { phone, detail: twilioMessage, code: payload?.code, status: response.status },
+      "Twilio trial template SMS failed",
+    );
+    throw new SmsDeliveryError(formatTwilioError(twilioMessage, payload?.code));
+  }
+
+  const sentBody = payload?.body ?? "";
+  const otpMatch = sentBody.match(/\b(\d{6})\b/);
+  if (!otpMatch) {
+    logger.error({ phone, sentBody }, "Twilio trial template did not return OTP in response");
+    throw new SmsDeliveryError("SMS sent but OTP code was not received. Try again.");
+  }
+
+  logger.info({ phone, sid: payload?.sid, template }, "Trial OTP sent via Twilio trial template");
+  return otpMatch[1];
+};
+
+export const isTwilioTrialTemplateConfigured = (): boolean =>
+  isTwilioConfigured() && Boolean(process.env.TWILIO_SMS_FROM?.trim());
+
+/** @deprecated Trial accounts must use sendTwilioTrialTemplateOtp — custom bodies are blocked. */
+const sendViaTwilioCustom = async (phone: string, code: string): Promise<void> => {
   const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
   const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
   const from = process.env.TWILIO_SMS_FROM?.trim();
@@ -180,11 +284,12 @@ const sendViaTwilio = async (phone: string, code: string): Promise<void> => {
     | null;
 
   if (!response.ok) {
+    const twilioMessage = payload?.message ?? response.statusText;
     logger.error(
-      { phone, detail: payload?.message, status: response.status },
+      { phone, detail: twilioMessage, code: payload?.code, status: response.status },
       "Twilio SMS failed",
     );
-    throw new SmsDeliveryError(payload?.message ?? "Could not send SMS via Twilio.");
+    throw new SmsDeliveryError(formatTwilioError(twilioMessage, payload?.code));
   }
 
   logger.info({ phone, sid: payload?.sid }, "Trial OTP sent via Twilio");
@@ -205,14 +310,20 @@ export const sendOtpSms = async (phone: string, code: string): Promise<void> => 
       await sendViaMsg91(phone, code);
       return;
     case "twilio":
-      await sendViaTwilio(phone, code);
-      return;
+      if (process.env.TWILIO_USE_VERIFY === "true" && isTwilioVerifyConfigured()) {
+        await sendTwilioVerifyOtp(phone);
+        return;
+      }
+      if (process.env.TWILIO_SMS_MODE === "custom") {
+        await sendViaTwilioCustom(phone, code);
+        return;
+      }
+      throw new SmsDeliveryError(
+        "Twilio OTP must use sendTwilioTrialTemplateOtp() with TWILIO_SMS_TEMPLATE=sms_2fa.",
+      );
     case "none":
     case "log":
-      logger.warn(
-        { phone, code: process.env.TRIAL_OTP_ECHO === "true" ? code : "[redacted]" },
-        "SMS_PROVIDER=log — OTP not sent to phone",
-      );
+      logger.warn({ phone }, "SMS_PROVIDER=log — OTP not sent to phone");
       return;
     default:
       throw new SmsDeliveryError(`Unknown SMS_PROVIDER: ${provider}`);
@@ -229,11 +340,7 @@ export const isSmsConfigured = (): boolean => {
         process.env.MSG91_AUTH_KEY?.trim() && process.env.MSG91_OTP_TEMPLATE_ID?.trim(),
       );
     case "twilio":
-      return Boolean(
-        process.env.TWILIO_ACCOUNT_SID?.trim() &&
-          process.env.TWILIO_AUTH_TOKEN?.trim() &&
-          (process.env.TWILIO_SMS_FROM?.trim() || process.env.TWILIO_MESSAGING_SERVICE_SID?.trim()),
-      );
+      return isTwilioTrialTemplateConfigured() || isTwilioConfigured();
     case "none":
     case "log":
       return false;

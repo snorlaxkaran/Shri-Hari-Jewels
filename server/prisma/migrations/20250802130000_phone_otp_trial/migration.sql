@@ -1,4 +1,4 @@
--- CreateTable
+-- Trial signup phone OTP challenges
 CREATE TABLE "PhoneOtpChallenge" (
     "id" TEXT NOT NULL,
     "phone" TEXT NOT NULL,
@@ -11,8 +11,5 @@ CREATE TABLE "PhoneOtpChallenge" (
     CONSTRAINT "PhoneOtpChallenge_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
 CREATE INDEX "PhoneOtpChallenge_phone_purpose_idx" ON "PhoneOtpChallenge"("phone", "purpose");
-
--- CreateIndex
 CREATE INDEX "PhoneOtpChallenge_expiresAt_idx" ON "PhoneOtpChallenge"("expiresAt");
