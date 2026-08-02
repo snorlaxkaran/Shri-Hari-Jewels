@@ -13,7 +13,7 @@ export function MarketingFooter() {
             </span>
             Shri Hari Jewels
           </Link>
-          <p className="mt-3 text-sm text-[#737373] leading-relaxed max-w-xs">
+          <p className="mt-3 text-sm mkt-text-muted leading-relaxed max-w-xs">
             Jewellery ERP with piece-level inventory, production floor, and synced online store.
           </p>
         </div>
@@ -23,7 +23,7 @@ export function MarketingFooter() {
           <ul className="space-y-2">
             {FOOTER_LINKS.modules.slice(0, 6).map((link) => (
               <li key={link.href}>
-                <Link href={link.href} className="text-sm text-[#737373] hover:text-[#171717]">
+                <Link href={link.href} className="mkt-footer-link">
                   {link.label}
                 </Link>
               </li>
@@ -36,7 +36,7 @@ export function MarketingFooter() {
           <ul className="space-y-2">
             {FOOTER_LINKS.product.map((link) => (
               <li key={link.href}>
-                <a href={link.href} className="text-sm text-[#737373] hover:text-[#171717]">
+                <a href={link.href} className="mkt-footer-link">
                   {link.label}
                 </a>
               </li>
@@ -49,7 +49,7 @@ export function MarketingFooter() {
           <ul className="space-y-2">
             {FOOTER_LINKS.account.map((link) => (
               <li key={link.href}>
-                <Link href={link.href} className="text-sm text-[#737373] hover:text-[#171717]">
+                <Link href={link.href} className="mkt-footer-link">
                   {link.label}
                 </Link>
               </li>
@@ -58,9 +58,9 @@ export function MarketingFooter() {
         </div>
       </div>
 
-      <div className="mkt-shell-wide mt-10 pt-6 border-t border-[#e5e5e5] flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-[#737373]">
+      <div className="mkt-shell-wide mkt-footer-bottom">
         <p>© {new Date().getFullYear()} Shri Hari Jewels</p>
-        <Link href="/shop/shree-hari-jewels" className="hover:text-[#171717]">
+        <Link href="/shop/shree-hari-jewels" className="mkt-footer-link">
           Demo store →
         </Link>
       </div>

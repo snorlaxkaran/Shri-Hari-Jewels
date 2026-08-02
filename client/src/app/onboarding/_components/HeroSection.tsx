@@ -9,7 +9,7 @@ export function HeroSection() {
         <Link href="/onboarding/start" className="mkt-banner-pill">
           <span>✦</span>
           2-month free trial
-          <span className="text-[#d4d4d4]">/</span>
+          <span className="mkt-banner-sep">/</span>
           No credit card required
         </Link>
 

@@ -16,23 +16,21 @@ export function AnnouncementBanner() {
   }, []);
 
   return (
-    <div className="bg-[#171717] text-white text-xs sm:text-sm">
-      <div className="erp-marketing-shell h-9 flex items-center justify-center gap-2">
-        <Link href={item.href} className="flex items-center gap-2 hover:opacity-90 transition-opacity">
+    <div className="mkt-announcement">
+      <div className="mkt-shell mkt-announcement-inner">
+        <Link href={item.href} className="mkt-announcement-link">
           <span className="font-semibold">{item.label}</span>
-          <span className="text-[#a3a3a3] hidden sm:inline">/</span>
-          <span className="text-[#a3a3a3] hidden sm:inline">{item.detail}</span>
+          <span className="mkt-announcement-sep">/</span>
+          <span className="mkt-announcement-detail">{item.detail}</span>
         </Link>
-        <div className="hidden sm:flex items-center gap-1 ml-4">
+        <div className="mkt-announcement-dots">
           {ANNOUNCEMENTS.map((a, i) => (
             <button
               key={a.id}
               type="button"
               aria-label={`Show announcement: ${a.label}`}
               onClick={() => setIndex(i)}
-              className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                i === index ? "bg-[#e74c3c]" : "bg-[#525252]"
-              }`}
+              className={`mkt-dot ${i === index ? "mkt-dot-active" : ""}`}
             />
           ))}
         </div>

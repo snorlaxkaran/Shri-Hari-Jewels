@@ -51,7 +51,7 @@ export function DemoRequestForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="grid sm:grid-cols-2 gap-3">
-        <div className="erp-form-group mb-0">
+        <div className="mkt-form-group mb-0">
           <label htmlFor="demo-business">Business name *</label>
           <input
             id="demo-business"
@@ -60,7 +60,7 @@ export function DemoRequestForm() {
             onChange={(e) => setBusinessName(e.target.value)}
           />
         </div>
-        <div className="erp-form-group mb-0">
+        <div className="mkt-form-group mb-0">
           <label htmlFor="demo-contact">Your name *</label>
           <input
             id="demo-contact"
@@ -71,7 +71,7 @@ export function DemoRequestForm() {
         </div>
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
-        <div className="erp-form-group mb-0">
+        <div className="mkt-form-group mb-0">
           <label htmlFor="demo-phone">Mobile *</label>
           <input
             id="demo-phone"
@@ -81,7 +81,7 @@ export function DemoRequestForm() {
             onChange={(e) => setPhone(e.target.value)}
           />
         </div>
-        <div className="erp-form-group mb-0">
+        <div className="mkt-form-group mb-0">
           <label htmlFor="demo-email">Email</label>
           <input
             id="demo-email"
@@ -92,11 +92,11 @@ export function DemoRequestForm() {
         </div>
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
-        <div className="erp-form-group mb-0">
+        <div className="mkt-form-group mb-0">
           <label htmlFor="demo-city">City</label>
           <input id="demo-city" value={city} onChange={(e) => setCity(e.target.value)} />
         </div>
-        <div className="erp-form-group mb-0">
+        <div className="mkt-form-group mb-0">
           <label htmlFor="demo-type">Business type</label>
           <select
             id="demo-type"
@@ -112,24 +112,20 @@ export function DemoRequestForm() {
           </select>
         </div>
       </div>
-      <div className="erp-form-group mb-0">
+      <div className="mkt-form-group mb-0">
         <label htmlFor="demo-message">Tell us about your setup</label>
         <textarea
           id="demo-message"
           rows={3}
-          className="erp-textarea"
+          className="mkt-textarea"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Branches, production floor, current software…"
         />
       </div>
-      {error && <div className="erp-alert-error">{error}</div>}
-      {success && (
-        <div className="rounded-md bg-green-50 border border-green-200 text-green-800 text-sm px-3 py-2">
-          {success}
-        </div>
-      )}
-      <button type="submit" className="erp-btn-primary w-auto px-6" disabled={loading}>
+      {error && <div className="mkt-alert-error">{error}</div>}
+      {success && <div className="mkt-alert-success">{success}</div>}
+      <button type="submit" className="mkt-btn mkt-btn-dark mt-2" disabled={loading}>
         {loading ? "Sending…" : "Request demo"}
       </button>
     </form>
@@ -152,7 +148,7 @@ export function ImplementationSection() {
             <div key={path.id} className="mkt-card">
               <p className="mkt-eyebrow">{path.subtitle}</p>
               <h3 className="mt-2 text-xl font-semibold">{path.title}</h3>
-              <p className="mt-3 text-sm text-[#737373] leading-relaxed">{path.description}</p>
+              <p className="mt-3 text-sm mkt-text-muted leading-relaxed">{path.description}</p>
               {path.id === "self-serve" ? (
                 <Link href={path.href} className="mkt-btn mkt-btn-dark mt-6">
                   {path.cta}

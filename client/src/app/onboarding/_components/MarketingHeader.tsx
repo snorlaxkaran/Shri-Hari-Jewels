@@ -4,6 +4,8 @@ import { Gem } from "lucide-react";
 const NAV = [
   { href: "#modules", label: "Modules" },
   { href: "#features", label: "Features" },
+  { href: "#use-cases", label: "Use cases" },
+  { href: "#compare", label: "Compare" },
   { href: "#faq", label: "FAQ" },
 ];
 
@@ -18,7 +20,7 @@ export function MarketingHeader() {
           Shri Hari Jewels
         </Link>
 
-        <nav className="hidden md:flex items-center gap-0.5">
+        <nav className="hidden lg:flex items-center gap-0.5">
           {NAV.map((item) => (
             <a key={item.href} href={item.href} className="mkt-nav-link">
               {item.label}

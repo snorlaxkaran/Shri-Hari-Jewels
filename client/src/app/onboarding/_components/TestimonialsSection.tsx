@@ -9,20 +9,16 @@ export function TestimonialsSection() {
   const t = TESTIMONIALS[index];
 
   return (
-    <section className="py-16 lg:py-20 bg-[#171717] text-white">
-      <div className="erp-marketing-shell">
+    <section className="mkt-dark-section">
+      <div className="mkt-shell">
         <div className="text-center mb-10">
-          <p className="text-xs font-medium uppercase tracking-wide text-[#a3a3a3] mb-3">
-            Stories from the counter
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-semibold">Jewellers who switched</h2>
+          <p className="mkt-eyebrow mkt-on-dark-muted mb-3">Stories from the counter</p>
+          <h2 className="mkt-display text-2xl sm:text-3xl mkt-on-dark">Jewellers who switched</h2>
         </div>
 
         <div className="max-w-3xl mx-auto">
-          <blockquote className="text-lg sm:text-xl leading-relaxed text-[#e5e7eb] italic text-center">
-            &ldquo;{t.quote}&rdquo;
-          </blockquote>
-          <p className="mt-6 text-center text-sm text-[#a3a3a3]">
+          <blockquote className="mkt-quote">&ldquo;{t.quote}&rdquo;</blockquote>
+          <p className="mt-6 text-center text-sm mkt-on-dark-muted">
             {t.name} · {t.role}
           </p>
 
@@ -32,7 +28,7 @@ export function TestimonialsSection() {
               onClick={() =>
                 setIndex((i) => (i === 0 ? TESTIMONIALS.length - 1 : i - 1))
               }
-              className="erp-icon-btn erp-icon-btn-dark"
+              className="mkt-icon-btn mkt-icon-btn-dark"
               aria-label="Previous testimonial"
             >
               <ChevronLeft size={20} />
@@ -44,9 +40,7 @@ export function TestimonialsSection() {
                   type="button"
                   aria-label={`Testimonial ${i + 1}`}
                   onClick={() => setIndex(i)}
-                  className={`w-2 h-2 rounded-full ${
-                    i === index ? "bg-[#e74c3c]" : "bg-[#525252]"
-                  }`}
+                  className={`mkt-dot ${i === index ? "mkt-dot-active-on-dark" : "mkt-dot-inactive-on-dark"}`}
                 />
               ))}
             </div>
@@ -55,7 +49,7 @@ export function TestimonialsSection() {
               onClick={() =>
                 setIndex((i) => (i === TESTIMONIALS.length - 1 ? 0 : i + 1))
               }
-              className="erp-icon-btn erp-icon-btn-dark"
+              className="mkt-icon-btn mkt-icon-btn-dark"
               aria-label="Next testimonial"
             >
               <ChevronRight size={20} />

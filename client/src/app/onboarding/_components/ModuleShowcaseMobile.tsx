@@ -14,25 +14,23 @@ export function ModuleShowcaseMobile() {
   const next = () => setIndex((i) => (i === SHOWCASE_MODULES.length - 1 ? 0 : i + 1));
 
   return (
-    <section id="modules-mobile" className="lg:hidden border-y border-[#e5e7eb] bg-white py-12">
-      <div className="erp-marketing-shell">
+    <section id="modules-mobile" className="lg:hidden mkt-section">
+      <div className="mkt-shell">
         <div className="mb-8">
-          <p className="text-xs font-medium uppercase tracking-wide text-[#6b7280] mb-2">
-            One app for all your needs
-          </p>
-          <h2 className="text-2xl font-semibold">Every module, one platform</h2>
-          <p className="mt-2 text-sm text-[#525252]">
+          <p className="mkt-eyebrow mb-2">One app for all your needs</p>
+          <h2 className="mkt-display text-2xl">Every module, one platform</h2>
+          <p className="mt-2 text-sm mkt-text-secondary">
             Swipe through inventory, production, sales, CRM, store, branches, reports, and more.
           </p>
         </div>
 
-        <div className="erp-marketing-card p-0 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#e5e7eb] bg-[#f9fafb]">
-            <button type="button" onClick={prev} className="erp-icon-btn" aria-label="Previous module">
+        <div className="mkt-browser">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--mkt-border)] bg-[var(--mkt-surface)]">
+            <button type="button" onClick={prev} className="mkt-icon-btn" aria-label="Previous module">
               <ChevronLeft size={20} />
             </button>
             <span className="text-sm font-medium">{mod.label}</span>
-            <button type="button" onClick={next} className="erp-icon-btn" aria-label="Next module">
+            <button type="button" onClick={next} className="mkt-icon-btn" aria-label="Next module">
               <ChevronRight size={20} />
             </button>
           </div>
@@ -44,19 +42,16 @@ export function ModuleShowcaseMobile() {
             className="w-full h-auto"
           />
           <div className="p-5">
-            <p className="text-xs font-medium uppercase text-[#e74c3c]">{mod.processLabel}</p>
+            <p className="mkt-eyebrow mkt-accent-text">{mod.processLabel}</p>
             <ul className="mt-3 space-y-2">
               {mod.features.map((feat) => (
-                <li key={feat} className="flex items-start gap-2 text-sm text-[#404040]">
-                  <Check size={14} className="text-[#e74c3c] shrink-0 mt-0.5" />
+                <li key={feat} className="flex items-start gap-2 text-sm mkt-text-secondary">
+                  <Check size={14} className="mkt-check shrink-0 mt-0.5" />
                   {feat}
                 </li>
               ))}
             </ul>
-            <Link
-              href={mod.knowMoreHref}
-              className="inline-flex items-center gap-1 mt-5 text-sm font-semibold text-[#e74c3c]"
-            >
+            <Link href={mod.knowMoreHref} className="mkt-link mt-5">
               Know more
               <ArrowRight size={14} />
             </Link>
@@ -70,9 +65,7 @@ export function ModuleShowcaseMobile() {
               type="button"
               aria-label={m.label}
               onClick={() => setIndex(i)}
-              className={`w-2 h-2 rounded-full transition-colors ${
-                i === index ? "bg-[#e74c3c]" : "bg-[#d1d5db]"
-              }`}
+              className={`mkt-dot ${i === index ? "mkt-dot-active" : ""}`}
             />
           ))}
         </div>

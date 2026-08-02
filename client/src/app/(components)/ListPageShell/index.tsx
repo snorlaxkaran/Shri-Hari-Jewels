@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import ListToolbar from "@/app/(components)/ListToolbar";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 
@@ -27,6 +28,9 @@ export type ListPageShellProps = {
   selectedCount?: number;
   emptyMessage?: string;
   isEmpty?: boolean;
+  onRefresh?: () => void;
+  refreshing?: boolean;
+  toolbarMenu?: ReactNode;
   children: ReactNode;
 };
 
@@ -47,9 +51,15 @@ export default function ListPageShell({
   selectedCount = 0,
   emptyMessage,
   isEmpty,
+  onRefresh,
+  refreshing,
+  toolbarMenu,
   children,
 }: ListPageShellProps) {
   if (loading) return <PageSkeleton />;
+
+  const showToolbar =
+    onSearchChange || filterOptions || countLabel || bulkActions || onRefresh || toolbarMenu;
 
   return (
     <div className="page-content">
@@ -57,8 +67,8 @@ export default function ListPageShell({
 
       {error ? <div className="alert-error mb-4">{error}</div> : null}
 
-      {(onSearchChange || filterOptions || countLabel || bulkActions) && (
-        <div className="filter-bar">
+      {showToolbar && (
+        <ListToolbar onRefresh={onRefresh} refreshing={refreshing} menu={toolbarMenu}>
           {onSearchChange ? (
             <div className="filter-search">
               <input
@@ -86,7 +96,7 @@ export default function ListPageShell({
             <div className="list-bulk-actions">{bulkActions}</div>
           ) : null}
           {countLabel ? <span className="filter-count">{countLabel}</span> : null}
-        </div>
+        </ListToolbar>
       )}
 
       {isEmpty ? (

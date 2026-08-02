@@ -9,6 +9,12 @@ type Props = {
   params: Promise<{ moduleId: string }>;
 };
 
+export function generateStaticParams() {
+  return (
+    ["inventory", "production", "sales", "storefront", "multibranch"] as const
+  ).map((moduleId) => ({ moduleId }));
+}
+
 export default async function WorkspaceModulePage({ params }: Props) {
   const { moduleId } = await params;
   if (!isWorkspaceModule(moduleId)) {

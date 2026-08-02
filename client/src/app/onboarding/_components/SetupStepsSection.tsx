@@ -20,24 +20,24 @@ const STEPS = [
 
 export function SetupStepsSection() {
   return (
-    <section className="erp-marketing-shell py-16">
-      <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-10">Get started in minutes</h2>
-      <div className="grid md:grid-cols-3 gap-6">
-        {STEPS.map((step) => (
-          <div key={step.n} className="erp-marketing-card">
-            <span className="inline-flex w-8 h-8 items-center justify-center rounded-full bg-[#e74c3c] text-white text-sm font-semibold">
-              {step.n}
-            </span>
-            <h3 className="mt-4 font-semibold">{step.title}</h3>
-            <p className="mt-2 text-sm text-[#525252] leading-relaxed">{step.desc}</p>
-          </div>
-        ))}
+    <section className="mkt-section mkt-section-alt">
+      <div className="mkt-shell-wide">
+        <h2 className="mkt-display text-2xl sm:text-3xl text-center mb-10">Get started in minutes</h2>
+        <div className="grid md:grid-cols-3 gap-6">
+          {STEPS.map((step) => (
+            <div key={step.n} className="mkt-card">
+              <span className="mkt-step-badge">{step.n}</span>
+              <h3 className="mt-4 font-semibold">{step.title}</h3>
+              <p className="mt-2 text-sm mkt-text-secondary leading-relaxed">{step.desc}</p>
+            </div>
+          ))}
+        </div>
+        <p className="text-center mt-8">
+          <Link href="/onboarding/start" className="mkt-link">
+            Start free trial →
+          </Link>
+        </p>
       </div>
-      <p className="text-center mt-8">
-        <Link href="/onboarding/start" className="text-sm font-semibold text-[#e74c3c] hover:underline">
-          Start free trial →
-        </Link>
-      </p>
     </section>
   );
 }

@@ -166,11 +166,7 @@ const SidebarContent = ({
           fontWeight: isActive ? 500 : 400,
           padding: "7px 16px",
           gap: 8,
-          borderRadius: 0,
           color: isActive ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
-          backgroundColor: isActive ? "var(--sidebar-active)" : undefined,
-          borderLeft: isActive ? "3px solid var(--sidebar-active-border)" : "3px solid transparent",
-          paddingLeft: 13,
         }}
       >
         <span className="sidebar-nav-icon flex-shrink-0 w-[16px] flex justify-center">
@@ -197,8 +193,9 @@ const SidebarContent = ({
 
   return (
     <div
-      className="sidebar-shell flex flex-col h-full w-[240px]"
+      className="sidebar-shell flex flex-col h-full"
       style={{
+        width: "var(--sidebar-width)",
         backgroundColor: "var(--sidebar-bg)",
         borderRight: "1px solid var(--sidebar-border)",
       }}
@@ -274,14 +271,14 @@ const SidebarContent = ({
                 onClick={onClose}
                 className="flex items-center gap-2 px-4 pt-3 pb-1 group"
               >
-                <Home size={12} style={{ color: "var(--accent)" }} />
+                <Home size={12} style={{ color: "var(--sidebar-text)" }} />
                 <p
                   style={{
                     fontSize: 11,
                     fontWeight: 600,
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
-                    color: pathname === section.workspaceHref ? "var(--accent)" : "var(--sidebar-text)",
+                    color: pathname === section.workspaceHref ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
                   }}
                 >
                   {section.title}
@@ -294,7 +291,7 @@ const SidebarContent = ({
                   fontWeight: 600,
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
-                  color: "#6b7280",
+                  color: "#525252",
                   padding: "12px 16px 4px",
                 }}
               >

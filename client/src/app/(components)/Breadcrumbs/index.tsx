@@ -20,11 +20,11 @@ export default function Breadcrumbs() {
         const isLast = index === crumbs.length - 1;
         return (
           <span key={`${crumb.label}-${index}`} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            {index > 0 && <span className="breadcrumbs-sep">›</span>}
+            {index > 0 && <span className="breadcrumbs-sep">/</span>}
             {crumb.href && !isLast ? (
               <Link href={crumb.href}>{crumb.label}</Link>
             ) : (
-              <span style={{ color: isLast ? "var(--text-primary)" : undefined }}>
+              <span className={isLast ? "breadcrumbs-current" : undefined}>
                 {crumb.label}
               </span>
             )}

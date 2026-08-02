@@ -6,6 +6,7 @@ import TopBar from "@/app/(components)/TopBar";
 import Breadcrumbs from "@/app/(components)/Breadcrumbs";
 import NavigationProgress from "@/app/(components)/NavigationProgress";
 import Sidebar from "@/app/(components)/Sidebar";
+import WorkspaceDock from "@/app/(components)/WorkspaceDock";
 import MarketRateBanner from "@/app/(components)/MarketRateBanner";
 import SubscriptionWarningBanner from "@/app/(components)/SubscriptionWarningBanner";
 
@@ -19,41 +20,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div
-      style={{
-        paddingTop: "var(--topbar-height)",
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        backgroundColor: "var(--bg-page)",
-      }}
-    >
+    <div className="app-shell">
       <NavigationProgress />
       <TopBar onMenuClick={() => setMobileOpen((prev) => !prev)} />
-      <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
-        <Sidebar
-          mobileOpen={mobileOpen}
-          onMobileClose={() => setMobileOpen(false)}
-        />
-        <div
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
+      <div className="app-body">
+        <WorkspaceDock />
+        <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+        <div className="app-main-column">
           <Breadcrumbs />
           <SubscriptionWarningBanner />
           <MarketRateBanner />
-          <main
-            style={{
-              flex: 1,
-              padding: "20px 24px",
-            }}
-          >
-            {children}
-          </main>
+          <main className="app-main">{children}</main>
         </div>
       </div>
     </div>

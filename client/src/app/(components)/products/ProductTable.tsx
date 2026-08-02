@@ -17,16 +17,12 @@ function ProductThumb({ product }: { product: InventoryItem }) {
   if (coverUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={coverUrl}
-        alt=""
-        className="h-10 w-10 rounded-md object-cover border border-zinc-200"
-      />
+      <img src={coverUrl} alt="" className="product-thumb-img" />
     );
   }
   return (
     <div
-      className="h-10 w-10 rounded-md border border-zinc-200"
+      className="product-thumb-placeholder"
       style={{ backgroundColor: product.imageColor }}
       aria-hidden
     />
@@ -35,54 +31,52 @@ function ProductThumb({ product }: { product: InventoryItem }) {
 
 export default function ProductTable({ products, canWrite }: ProductTableProps) {
   if (products.length === 0) {
-    return (
-      <p className="p-8 text-center text-sm text-zinc-500">No products found.</p>
-    );
+    return <p className="list-empty-state">No products found.</p>;
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+    <div className="data-table-wrap">
+      <table className="data-table">
         <thead>
-          <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs text-zinc-500">
-            <th className="p-3 w-14" />
-            <th className="p-3">SKU</th>
-            <th className="p-3">Name</th>
-            <th className="p-3">Category</th>
-            <th className="p-3">Collection</th>
-            <th className="p-3">Metal</th>
-            <th className="p-3">Purity</th>
-            <th className="p-3">Units</th>
-            <th className="p-3">Status</th>
-            {canWrite && <th className="p-3 w-16" />}
+          <tr>
+            <th className="col-photo" aria-label="Photo" />
+            <th>SKU</th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Collection</th>
+            <th>Metal</th>
+            <th>Purity</th>
+            <th>Units</th>
+            <th>Status</th>
+            {canWrite && <th aria-label="Actions" />}
           </tr>
         </thead>
         <tbody>
           {products.map((product) => {
             const unitCount = getActiveUnitCount(product);
             return (
-              <tr key={product.id} className="border-b border-zinc-100 hover:bg-zinc-50">
-                <td className="p-3">
+              <tr key={product.id}>
+                <td className="col-photo">
                   <ProductThumb product={product} />
                 </td>
-                <td className="p-3 font-mono text-xs text-zinc-500">{product.sku}</td>
-                <td className="p-3 font-medium text-zinc-900">{product.name}</td>
-                <td className="p-3 text-zinc-600">{product.category}</td>
-                <td className="p-3 text-zinc-600">{product.productCollectionName ?? "—"}</td>
-                <td className="p-3 text-zinc-600">{product.metal}</td>
-                <td className="p-3 text-zinc-600">{product.purity}</td>
-                <td className="p-3 text-zinc-600">{unitCount}</td>
-                <td className="p-3">
+                <td className="tabular-nums text-muted">{product.sku}</td>
+                <td className="font-medium">{product.name}</td>
+                <td>{product.category}</td>
+                <td>{product.productCollectionName ?? "—"}</td>
+                <td>{product.metal}</td>
+                <td>{product.purity}</td>
+                <td className="tabular-nums">{unitCount}</td>
+                <td>
                   <StatusBadge status={product.status} />
                 </td>
                 {canWrite && (
-                  <td className="p-3">
+                  <td>
                     <Link
                       href={`/products/${product.id}/edit`}
-                      className="inline-flex items-center justify-center rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                      className="table-action-link"
                       aria-label={`Edit ${product.name}`}
                     >
-                      <Pencil size={15} />
+                      <Pencil size={14} />
                     </Link>
                   </td>
                 )}

@@ -40,58 +40,52 @@ export default async function ModuleDetailPage({ params }: Props) {
       : null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f4f5f7]">
+    <div className="mkt-page min-h-screen flex flex-col">
       <AnnouncementBanner />
       <MarketingHeader />
 
-      <article className="erp-marketing-shell py-12 lg:py-16 flex-1">
-        <Link href="/onboarding#modules" className="erp-back-link">
+      <article className="mkt-shell-wide mkt-section flex-1">
+        <Link href="/onboarding#modules" className="mkt-back-link">
           <ArrowLeft size={14} />
           Back to all modules
         </Link>
 
         <div className="flex items-start gap-4 mb-6 mt-4">
-          <span className="inline-flex w-12 h-12 items-center justify-center rounded-xl bg-[#fff5f4] text-[#e74c3c] shrink-0">
+          <span className="mkt-module-icon">
             <Icon size={24} strokeWidth={1.75} />
           </span>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-[#e74c3c]">
-              {mod.processLabel}
-            </p>
-            <h1 className="text-3xl sm:text-4xl font-semibold text-[#171717] mt-1">{mod.label}</h1>
-            <p className="mt-2 text-lg text-[#525252] max-w-2xl">{mod.detail.headline}</p>
+            <p className="mkt-eyebrow mkt-accent-text">{mod.processLabel}</p>
+            <h1 className="mkt-display text-3xl sm:text-4xl mt-1">{mod.label}</h1>
+            <p className="mt-2 text-lg mkt-text-secondary max-w-2xl">{mod.detail.headline}</p>
           </div>
         </div>
 
-        <p className="text-[#404040] leading-relaxed max-w-3xl mb-10">{mod.detail.intro}</p>
+        <p className="mkt-text-secondary leading-relaxed max-w-3xl mb-10">{mod.detail.intro}</p>
 
         <div className="grid lg:grid-cols-2 gap-8 mb-12">
-          <div className="erp-marketing-card">
+          <div className="mkt-card">
             <h2 className="font-semibold text-lg mb-4">Key capabilities</h2>
             <ul className="space-y-3">
               {mod.detail.bullets.map((bullet) => (
-                <li key={bullet} className="flex items-start gap-2.5 text-sm text-[#404040]">
-                  <Check size={16} className="text-[#e74c3c] shrink-0 mt-0.5" strokeWidth={2.5} />
+                <li key={bullet} className="flex items-start gap-2.5 text-sm mkt-text-secondary">
+                  <Check size={16} className="mkt-check shrink-0 mt-0.5" strokeWidth={2.5} />
                   {bullet}
                 </li>
               ))}
             </ul>
           </div>
 
-          <div className="erp-marketing-card">
+          <div className="mkt-card">
             <h2 className="font-semibold text-lg mb-4">{mod.detail.example.title}</h2>
             <dl className="space-y-0 text-sm">
               {mod.detail.example.rows.map((row, i) => (
                 <div
                   key={row.label}
-                  className={`flex justify-between py-2.5 ${
-                    i < mod.detail.example.rows.length - 1
-                      ? "border-b border-dashed border-[#e5e7eb]"
-                      : ""
-                  }`}
+                  className={`mkt-dl-row ${i < mod.detail.example.rows.length - 1 ? "mkt-dl-row-border" : ""}`}
                 >
-                  <dt className="text-[#6b7280]">{row.label}</dt>
-                  <dd className="font-medium text-[#171717] text-right tabular-nums">{row.value}</dd>
+                  <dt className="mkt-text-muted">{row.label}</dt>
+                  <dd className="font-medium text-right tabular-nums">{row.value}</dd>
                 </div>
               ))}
             </dl>
@@ -99,10 +93,10 @@ export default async function ModuleDetailPage({ params }: Props) {
         </div>
 
         <h2 className="font-semibold text-xl mb-2">Screenshots</h2>
-        <p className="text-sm text-[#6b7280] mb-6">Real screens from the app with sample data.</p>
+        <p className="text-sm mkt-text-muted mb-6">Real screens from the app with sample data.</p>
         <div className="grid sm:grid-cols-2 gap-6 mb-12">
           {mod.detail.screenshots.map((shot) => (
-            <figure key={shot.src} className="erp-marketing-card p-0 overflow-hidden">
+            <figure key={shot.src} className="mkt-browser">
               <Image
                 src={shot.src}
                 alt={shot.caption}
@@ -110,30 +104,25 @@ export default async function ModuleDetailPage({ params }: Props) {
                 height={600}
                 className="w-full h-auto"
               />
-              <figcaption className="px-4 py-3 text-sm text-[#6b7280] border-t border-[#e5e7eb]">
-                {shot.caption}
-              </figcaption>
+              <figcaption className="mkt-figcaption">{shot.caption}</figcaption>
             </figure>
           ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-8 border-t border-[#e5e7eb]">
+        <div className="mkt-module-nav">
           {prev ? (
-            <Link href={prev.knowMoreHref} className="erp-btn-secondary inline-flex items-center gap-2">
+            <Link href={prev.knowMoreHref} className="mkt-btn mkt-btn-outline">
               <ArrowLeft size={16} />
               {prev.label}
             </Link>
           ) : (
             <span />
           )}
-          <Link href="/onboarding/start" className="erp-btn-primary w-auto px-8 py-2.5">
+          <Link href="/onboarding/start" className="mkt-btn mkt-btn-dark">
             Start free trial
           </Link>
           {next ? (
-            <Link
-              href={next.knowMoreHref}
-              className="erp-btn-secondary inline-flex items-center gap-2 sm:ml-auto"
-            >
+            <Link href={next.knowMoreHref} className="mkt-btn mkt-btn-outline">
               {next.label}
               <ArrowRight size={16} />
             </Link>

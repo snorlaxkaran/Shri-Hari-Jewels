@@ -54,7 +54,7 @@ export function ModuleShowcase() {
           reports — with guided onboarding in every workspace.
         </p>
 
-        <div className="relative border-b border-[#e5e5e5] mt-12 mb-10 overflow-x-auto scrollbar-hide">
+        <div className="relative border-b border-[var(--mkt-border)] mt-12 mb-10 overflow-x-auto scrollbar-hide">
           <div ref={tabBarRef} className="flex min-w-max gap-0 relative">
             {SHOWCASE_MODULES.map((mod, i) => {
               const Icon = mod.icon;
@@ -100,14 +100,14 @@ export function ModuleShowcase() {
           </div>
 
           <div className="order-1 lg:order-2">
-            <p className="mkt-eyebrow text-[#b8860b]">{activeModule.processLabel}</p>
+            <p className="mkt-eyebrow mkt-accent-text">{activeModule.processLabel}</p>
             <h3 className="mkt-display text-3xl mt-2">{activeModule.label}</h3>
             <p className="mt-3 mkt-lead">{activeModule.tagline}</p>
 
             <ul className="mt-8 grid sm:grid-cols-2 gap-x-6 gap-y-3">
               {activeModule.features.map((feat) => (
-                <li key={feat} className="flex items-start gap-2 text-sm text-[#525252]">
-                  <Check size={15} className="text-[#b8860b] shrink-0 mt-0.5" strokeWidth={2.5} />
+                <li key={feat} className="flex items-start gap-2 text-sm mkt-text-secondary">
+                  <Check size={15} className="mkt-check shrink-0 mt-0.5" strokeWidth={2.5} />
                   {feat}
                 </li>
               ))}

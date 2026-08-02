@@ -16,7 +16,6 @@ import {
   type JewelleryModuleId,
 } from "@/lib/onboarding/config";
 import type { WorkspaceConfig } from "@/lib/onboarding/workspace-config";
-import "@/styles/workspace.css";
 
 type ModuleWorkspaceProps = {
   moduleId: JewelleryModuleId;

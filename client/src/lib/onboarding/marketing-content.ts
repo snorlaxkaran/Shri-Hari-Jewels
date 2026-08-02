@@ -172,6 +172,49 @@ export const IMPLEMENTATION_PATHS = [
   },
 ] as const;
 
+export const FEATURE_CARDS = [
+  {
+    icon: "Package",
+    title: "Piece-level inventory",
+    description: "Every physical piece with photos, weight, HUID, and branch location — not just SKU totals.",
+  },
+  {
+    icon: "Factory",
+    title: "Production floor",
+    description: "Designs, wax-to-QC runs, work orders, and karigar settlements on one live board.",
+  },
+  {
+    icon: "ShoppingCart",
+    title: "Counter & GST billing",
+    description: "Live gold rates, making charges, old gold exchange, and GST invoices on WhatsApp.",
+  },
+  {
+    icon: "Globe",
+    title: "Synced online store",
+    description: "Publish counter stock to a branded shop — web orders land in the same ERP.",
+  },
+  {
+    icon: "Scan",
+    title: "Multi-branch transfers",
+    description: "Scan-and-send with proforma challans and incoming verification at each branch.",
+  },
+  {
+    icon: "Users",
+    title: "Roles & permissions",
+    description: "Counter staff, managers, and admins see only what their role allows.",
+  },
+  {
+    icon: "BarChart2",
+    title: "Reports & analytics",
+    description: "Stock valuation, GST summaries, sales analytics, and Tally export for your CA.",
+  },
+  {
+    icon: "Award",
+    title: "Hallmark / HUID ready",
+    description: "BIS batches linked to pieces, entry verification, and audit-ready filters.",
+  },
+] as const;
+
 export const GUIDED_SETUP = [
   {
     title: "Inventory workspace",
