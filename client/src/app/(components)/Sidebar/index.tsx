@@ -8,6 +8,7 @@ import SidebarNavSearch, {
   filterNavSectionsByQuery,
   flattenNavMatches,
   rankNavMatches,
+  SidebarNavSearchResults,
 } from "@/app/(components)/Sidebar/SidebarNavSearch";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
@@ -76,7 +77,7 @@ const SidebarContent = ({
   const setupNavItem = useMemo(
     () =>
       user && isMasterAdmin(user.role)
-        ? [{ label: "Setup wizard", href: "/setup" }]
+        ? [{ label: "Setup wizard", href: "/setup", icon: <span>⚙</span> }]
         : [],
     [user],
   );
@@ -196,14 +197,14 @@ const SidebarContent = ({
 
   return (
     <div
-      className="flex flex-col h-full w-[240px] overflow-y-auto"
+      className="sidebar-shell flex flex-col h-full w-[240px]"
       style={{
         backgroundColor: "var(--sidebar-bg)",
         borderRight: "1px solid var(--sidebar-border)",
       }}
     >
       {showClose && (
-        <div className="flex justify-end px-3 pt-2">
+        <div className="flex justify-end px-3 pt-2 shrink-0">
           <button
             className="p-1 transition-colors"
             style={{ color: "var(--sidebar-text)" }}
@@ -215,16 +216,23 @@ const SidebarContent = ({
         </div>
       )}
 
-      <div className="sidebar-search">
+      <div className="sidebar-search shrink-0">
         <SidebarNavSearch
           value={navQuery}
           onChange={setNavQuery}
-          matches={navMatches}
-          onNavigate={onClose}
         />
       </div>
 
-      <nav className="flex-1" style={{ paddingTop: 8 }}>
+      <nav className="sidebar-nav-scroll flex-1 min-h-0" style={{ paddingTop: 8 }}>
+        {isFiltering ? (
+          <SidebarNavSearchResults
+            matches={navMatches}
+            pathname={pathname}
+            onNavigate={onClose}
+            onClear={() => setNavQuery("")}
+          />
+        ) : (
+          <>
         <div className="px-4 pb-2">
           {filteredNav.primaryItems.map((item) => renderNavLink(item))}
           {filteredNav.extras.map((item) => (
@@ -260,20 +268,7 @@ const SidebarContent = ({
                 }}
               />
             )}
-            {isFiltering ? (
-              <p
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "var(--sidebar-text)",
-                  padding: "12px 16px 4px",
-                }}
-              >
-                {section.title}
-              </p>
-            ) : section.workspaceHref && user && canAccessRoute(user.role, section.workspaceHref) ? (
+            {section.workspaceHref && user && canAccessRoute(user.role, section.workspaceHref) ? (
               <Link
                 href={section.workspaceHref}
                 onClick={onClose}
@@ -292,7 +287,7 @@ const SidebarContent = ({
                   {section.title}
                 </p>
               </Link>
-            ) : isFiltering ? null : (
+            ) : (
               <p
                 style={{
                   fontSize: 11,
@@ -310,15 +305,8 @@ const SidebarContent = ({
             {section.items.map((item) => renderNavLink(item))}
           </div>
         ))}
-
-        {isFiltering &&
-          filteredNav.primaryItems.length === 0 &&
-          filteredNav.extras.length === 0 &&
-          filteredNav.sections.length === 0 && (
-            <p className="px-4 py-6 text-sm text-center" style={{ color: "var(--text-muted)" }}>
-              No menu items match &ldquo;{navQuery.trim()}&rdquo;
-            </p>
-          )}
+          </>
+        )}
       </nav>
     </div>
   );
