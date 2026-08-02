@@ -37,25 +37,25 @@ export function ModuleShowcase() {
     return () => window.removeEventListener("resize", onResize);
   }, [activeId, updateSlider]);
 
-  return (
-    <section id="modules" className="hidden lg:block border-y border-[#e5e7eb] bg-white py-16 lg:py-24">
-      <div className="erp-marketing-shell">
-        <div className="text-center max-w-3xl mx-auto mb-10">
-          <p className="text-xs font-medium uppercase tracking-wide text-[#6b7280] mb-3">
-            From inventory to online store
-          </p>
-          <h2 className="text-2xl sm:text-4xl font-semibold text-[#171717]">
-            Our jewellery ERP is all you need
-          </h2>
-          <p className="mt-4 text-[#525252] leading-relaxed">
-            Inventory, invoicing, sales, procurement, production, CRM, online store, multi-branch
-            transfers, reports, HR, and payroll — tailored to Indian jewellery with guided
-            onboarding inside each workspace.
-          </p>
-        </div>
+  const prefetch = (src: string) => {
+    const img = new window.Image();
+    img.src = src;
+  };
 
-        <div className="relative border-b border-[#e5e7eb] mb-8 overflow-x-auto scrollbar-hide">
-          <div ref={tabBarRef} className="flex min-w-max gap-1 pb-0 relative">
+  return (
+    <section className="mkt-section">
+      <div className="mkt-shell-wide">
+        <p className="mkt-eyebrow text-center">From counter to karigar floor</p>
+        <h2 className="mkt-display mkt-section-title mt-3">
+          One platform for your entire jewellery business
+        </h2>
+        <p className="mkt-section-desc mt-3">
+          Inventory, production, GST billing, CRM, online store, multi-branch transfers, and
+          reports — with guided onboarding in every workspace.
+        </p>
+
+        <div className="relative border-b border-[#e5e5e5] mt-12 mb-10 overflow-x-auto scrollbar-hide">
+          <div ref={tabBarRef} className="flex min-w-max gap-0 relative">
             {SHOWCASE_MODULES.map((mod, i) => {
               const Icon = mod.icon;
               const isActive = mod.id === activeId;
@@ -67,88 +67,59 @@ export function ModuleShowcase() {
                   }}
                   type="button"
                   onClick={() => setActiveId(mod.id)}
-                  className={`erp-showcase-tab ${isActive ? "erp-showcase-tab-active" : ""}`}
+                  onMouseEnter={() => prefetch(mod.screenshot)}
+                  className={`mkt-showcase-tab ${isActive ? "mkt-showcase-tab-active" : ""}`}
                   aria-selected={isActive}
                   role="tab"
                 >
-                  <Icon size={18} strokeWidth={1.75} />
-                  <span>{mod.shortLabel}</span>
+                  <Icon size={16} strokeWidth={1.75} />
+                  <span className="hidden sm:inline">{mod.shortLabel}</span>
                 </button>
               );
             })}
             <div
-              className="erp-showcase-tab-slider"
+              className="mkt-showcase-slider"
               style={{ left: slider.left, width: slider.width }}
             />
           </div>
         </div>
 
-        <div role="tabpanel" className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-          <div className="erp-showcase-screenshot">
-            <button
-              type="button"
-              className="w-full text-left group"
-              onClick={() => {
-                const el = document.getElementById("showcase-lightbox");
-                if (el) (el as HTMLDialogElement).showModal();
-              }}
-              aria-label={`Enlarge ${activeModule.label} screenshot`}
-            >
+        <div role="tabpanel" className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          <div className="mkt-browser order-2 lg:order-1">
+            <div className="relative aspect-[16/10] bg-white">
               <Image
+                key={activeModule.id}
                 src={activeModule.screenshot}
                 alt={`${activeModule.label} screenshot`}
-                width={960}
-                height={600}
-                className="w-full h-auto rounded-lg border border-[#e5e7eb] shadow-sm group-hover:shadow-md transition-shadow"
-                priority={activeId === "inventory"}
+                fill
+                className="object-contain object-top p-1"
+                sizes="(max-width: 1024px) 100vw, 560px"
+                quality={82}
               />
-              <span className="text-xs text-[#9ca3af] mt-2 block">Click to enlarge</span>
-            </button>
+            </div>
           </div>
 
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-[#e74c3c] mb-2">
-              {activeModule.processLabel}
-            </p>
-            <h3 className="text-2xl sm:text-3xl font-semibold text-[#171717]">
-              {activeModule.label}
-            </h3>
-            <p className="mt-2 text-[#525252]">{activeModule.tagline}</p>
+          <div className="order-1 lg:order-2">
+            <p className="mkt-eyebrow text-[#b8860b]">{activeModule.processLabel}</p>
+            <h3 className="mkt-display text-3xl mt-2">{activeModule.label}</h3>
+            <p className="mt-3 mkt-lead">{activeModule.tagline}</p>
 
-            <ul className="mt-6 grid sm:grid-cols-2 gap-x-6 gap-y-2.5">
+            <ul className="mt-8 grid sm:grid-cols-2 gap-x-6 gap-y-3">
               {activeModule.features.map((feat) => (
-                <li key={feat} className="flex items-start gap-2 text-sm text-[#404040]">
-                  <Check size={16} className="text-[#e74c3c] shrink-0 mt-0.5" strokeWidth={2.5} />
+                <li key={feat} className="flex items-start gap-2 text-sm text-[#525252]">
+                  <Check size={15} className="text-[#b8860b] shrink-0 mt-0.5" strokeWidth={2.5} />
                   {feat}
                 </li>
               ))}
             </ul>
 
-            <Link
-              href={activeModule.knowMoreHref}
-              className="inline-flex items-center gap-1.5 mt-8 text-sm font-semibold text-[#e74c3c] hover:text-[#cf4436] transition-colors group"
-            >
+            <Link href={activeModule.knowMoreHref} className="mkt-link mt-8">
               Know more
-              <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+              <ArrowRight size={15} />
             </Link>
           </div>
         </div>
       </div>
-
-      <dialog id="showcase-lightbox" className="erp-showcase-lightbox">
-        <form method="dialog">
-          <button type="submit" className="erp-showcase-lightbox-close" aria-label="Close">
-            ×
-          </button>
-        </form>
-        <Image
-          src={activeModule.screenshot}
-          alt={`${activeModule.label} enlarged`}
-          width={1200}
-          height={750}
-          className="max-w-full max-h-[85vh] w-auto h-auto rounded-lg"
-        />
-      </dialog>
     </section>
   );
 }

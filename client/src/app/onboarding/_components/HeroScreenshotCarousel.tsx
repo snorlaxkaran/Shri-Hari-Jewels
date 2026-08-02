@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { SHOWCASE_MODULES } from "@/lib/onboarding/modules-showcase";
 
 const HERO_MODULES = SHOWCASE_MODULES.filter((m) =>
@@ -14,42 +14,46 @@ export function HeroScreenshotCarousel() {
   const [activeIndex, setActiveIndex] = useState(0);
   const active = HERO_MODULES[activeIndex];
 
+  const prefetch = useCallback((index: number) => {
+    const img = new window.Image();
+    img.src = HERO_MODULES[index].heroScreenshot;
+  }, []);
+
   return (
-    <div className="erp-marketing-card erp-marketing-hero shadow-md overflow-hidden p-0">
-      <div className="relative bg-[#f9fafb] border-b border-[#e5e7eb]">
-        <div className="px-4 py-3 flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
-          <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
-          <span className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
-          <span className="ml-2 text-xs text-[#6b7280]">{active.label}</span>
+    <div className="mkt-shell-wide">
+      <div className="mkt-browser">
+        <div className="mkt-browser-chrome">
+          <span className="mkt-browser-dot bg-[#ff5f57]" />
+          <span className="mkt-browser-dot bg-[#febc2e]" />
+          <span className="mkt-browser-dot bg-[#28c840]" />
+          <span className="mkt-browser-label">{active.label}</span>
         </div>
         <div className="relative aspect-[16/10] bg-white">
+          <Image
+            key={active.id}
+            src={active.heroScreenshot}
+            alt={active.label}
+            fill
+            className="object-contain object-top"
+            sizes="(max-width: 768px) 100vw, 1200px"
+            priority={activeIndex === 0}
+            quality={82}
+          />
+        </div>
+        <div className="mkt-browser-tabs">
           {HERO_MODULES.map((mod, i) => (
-            <Image
+            <button
               key={mod.id}
-              src={mod.heroScreenshot}
-              alt={mod.label}
-              fill
-              className={`object-cover object-top transition-opacity duration-300 ${
-                i === activeIndex ? "opacity-100" : "opacity-0"
-              }`}
-              sizes="(max-width: 768px) 100vw, 50vw"
-              priority={i === 0}
-            />
+              type="button"
+              onClick={() => setActiveIndex(i)}
+              onMouseEnter={() => prefetch(i)}
+              onFocus={() => prefetch(i)}
+              className={`mkt-browser-tab ${i === activeIndex ? "mkt-browser-tab-active" : ""}`}
+            >
+              {mod.shortLabel}
+            </button>
           ))}
         </div>
-      </div>
-      <div className="flex overflow-x-auto scrollbar-hide border-t border-[#e5e7eb]">
-        {HERO_MODULES.map((mod, i) => (
-          <button
-            key={mod.id}
-            type="button"
-            onClick={() => setActiveIndex(i)}
-            className={`erp-hero-tab shrink-0 ${i === activeIndex ? "erp-hero-tab-active" : ""}`}
-          >
-            {mod.shortLabel}
-          </button>
-        ))}
       </div>
     </div>
   );

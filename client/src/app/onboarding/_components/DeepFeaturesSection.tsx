@@ -5,37 +5,36 @@ import { DEEP_FEATURES } from "@/lib/onboarding/marketing-content";
 
 export function DeepFeaturesSection() {
   return (
-    <section id="features" className="py-16 lg:py-24 bg-[#f4f5f7]">
-      <div className="erp-marketing-shell space-y-20">
+    <section className="mkt-section mkt-section-alt">
+      <div className="mkt-shell-wide space-y-24">
         {DEEP_FEATURES.map((feature, i) => (
           <div
             key={feature.id}
-            className={`grid lg:grid-cols-2 gap-10 lg:gap-16 items-center ${
+            className={`grid lg:grid-cols-2 gap-12 lg:gap-20 items-center ${
               i % 2 === 1 ? "lg:[&>*:first-child]:order-2" : ""
             }`}
           >
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-[#e74c3c] mb-2">
-                {feature.eyebrow}
-              </p>
-              <h2 className="text-2xl sm:text-3xl font-semibold text-[#171717]">{feature.title}</h2>
-              <p className="mt-4 text-[#525252] leading-relaxed">{feature.body}</p>
-              <Link
-                href={feature.href}
-                className="inline-flex items-center gap-1.5 mt-6 text-sm font-semibold text-[#e74c3c] hover:text-[#cf4436] group"
-              >
+              <p className="mkt-eyebrow">{feature.eyebrow}</p>
+              <h2 className="mkt-display text-3xl mt-3">{feature.title}</h2>
+              <p className="mt-4 mkt-lead max-w-none">{feature.body}</p>
+              <Link href={feature.href} className="mkt-link mt-6">
                 {feature.linkLabel}
-                <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+                <ArrowRight size={15} />
               </Link>
             </div>
-            <div className="erp-marketing-card p-0 overflow-hidden">
-              <Image
-                src={feature.screenshot}
-                alt={feature.screenshotAlt}
-                width={960}
-                height={600}
-                className="w-full h-auto"
-              />
+            <div className="mkt-browser">
+              <div className="relative aspect-[16/10] bg-white">
+                <Image
+                  src={feature.screenshot}
+                  alt={feature.screenshotAlt}
+                  fill
+                  className="object-contain object-top"
+                  sizes="(max-width: 1024px) 100vw, 560px"
+                  loading="lazy"
+                  quality={80}
+                />
+              </div>
             </div>
           </div>
         ))}

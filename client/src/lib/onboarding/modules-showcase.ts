@@ -51,9 +51,9 @@ export const SHOWCASE_MODULES: ShowcaseModule[] = [
     tagline: "Piece-level stock with hallmark compliance",
     processLabel: "Stock-to-Shelf",
     icon: Package,
-    screenshot: "/onboarding/inventory.png",
-    mobileScreenshot: "/onboarding/inventory.png",
-    heroScreenshot: "/onboarding/inventory.png",
+    screenshot: "/onboarding/dashboard.png",
+    mobileScreenshot: "/onboarding/dashboard.png",
+    heroScreenshot: "/onboarding/dashboard.png",
     features: [
       "Piece-level stock tracking",
       "HUID & hallmark batches",
@@ -76,8 +76,8 @@ export const SHOWCASE_MODULES: ShowcaseModule[] = [
         "Stock snapshots for insurance or audit",
       ],
       screenshots: [
-        { src: "/onboarding/inventory.png", caption: "All stock — filter by metal, branch, status" },
-        { src: "/onboarding/dashboard.png", caption: "Dashboard — stock value at a glance" },
+        { src: "/onboarding/dashboard.png", caption: "Stock KPIs — gold, silver, diamond at a glance" },
+        { src: "/onboarding/sales.png", caption: "Counter sales linked to live inventory" },
       ],
       example: {
         title: "Sample piece — SHJ-2024-0842",
@@ -99,8 +99,8 @@ export const SHOWCASE_MODULES: ShowcaseModule[] = [
     tagline: "Wax to QC with karigar settlements",
     processLabel: "Design-to-Delivery",
     icon: Factory,
-    screenshot: "/onboarding/production.png",
-    mobileScreenshot: "/onboarding/production.png",
+    screenshot: "/onboarding/designs.png",
+    mobileScreenshot: "/onboarding/designs.png",
     heroScreenshot: "/onboarding/designs.png",
     features: [
       "CAD-ready design library",
@@ -125,7 +125,7 @@ export const SHOWCASE_MODULES: ShowcaseModule[] = [
       ],
       screenshots: [
         { src: "/onboarding/designs.png", caption: "Design library with BOM stages" },
-        { src: "/onboarding/production.png", caption: "Production runs — stage tracking" },
+        { src: "/onboarding/analytics.png", caption: "Production & sales analytics" },
       ],
       example: {
         title: "Sample run — WR-1047 · Kundan necklace",
@@ -195,9 +195,9 @@ export const SHOWCASE_MODULES: ShowcaseModule[] = [
     tagline: "Leads, repairs, and customer history",
     processLabel: "Lead-to-Loyalty",
     icon: Users,
-    screenshot: "/onboarding/dashboard.png",
-    mobileScreenshot: "/onboarding/dashboard.png",
-    heroScreenshot: "/onboarding/dashboard.png",
+    screenshot: "/onboarding/sales.png",
+    mobileScreenshot: "/onboarding/sales.png",
+    heroScreenshot: "/onboarding/invoices.png",
     features: [
       "Customer ledger",
       "Purchase history",
@@ -220,8 +220,8 @@ export const SHOWCASE_MODULES: ShowcaseModule[] = [
         "Department tags for campaigns",
       ],
       screenshots: [
-        { src: "/onboarding/dashboard.png", caption: "Customer overview on dashboard" },
-        { src: "/onboarding/sales.png", caption: "Sales linked to customer record" },
+        { src: "/onboarding/sales.png", caption: "Counter billing with customer history" },
+        { src: "/onboarding/invoices.png", caption: "GST invoices per customer" },
       ],
       example: {
         title: "Sample customer — Mehta Jewellers",
@@ -292,9 +292,9 @@ export const SHOWCASE_MODULES: ShowcaseModule[] = [
     tagline: "Scan, send, and receive across showrooms",
     processLabel: "Branch-to-Branch",
     icon: Store,
-    screenshot: "/onboarding/inventory.png",
-    mobileScreenshot: "/onboarding/inventory.png",
-    heroScreenshot: "/onboarding/inventory.png",
+    screenshot: "/onboarding/web-orders.png",
+    mobileScreenshot: "/onboarding/web-orders.png",
+    heroScreenshot: "/onboarding/web-orders.png",
     features: [
       "Branch-wise stock",
       "Scan & send transfers",
@@ -317,8 +317,8 @@ export const SHOWCASE_MODULES: ShowcaseModule[] = [
         "Consolidated reports for owners",
       ],
       screenshots: [
-        { src: "/onboarding/inventory.png", caption: "Branch-filtered stock view" },
-        { src: "/onboarding/dashboard.png", caption: "Multi-branch dashboard" },
+        { src: "/onboarding/web-orders.png", caption: "Web orders fulfilled from branch stock" },
+        { src: "/onboarding/dashboard.png", caption: "Consolidated view across branches" },
       ],
       example: {
         title: "Sample transfer — TRF-2024-0156",
@@ -388,9 +388,9 @@ export const SHOWCASE_MODULES: ShowcaseModule[] = [
     tagline: "Vendors, purchase bills, raw materials",
     processLabel: "Procure-to-Pay",
     icon: Truck,
-    screenshot: "/onboarding/inventory.png",
-    mobileScreenshot: "/onboarding/inventory.png",
-    heroScreenshot: "/onboarding/inventory.png",
+    screenshot: "/onboarding/invoices.png",
+    mobileScreenshot: "/onboarding/invoices.png",
+    heroScreenshot: "/onboarding/invoices.png",
     features: [
       "Vendor master",
       "Purchase bills",
@@ -413,8 +413,8 @@ export const SHOWCASE_MODULES: ShowcaseModule[] = [
         "Export to Tally for your CA",
       ],
       screenshots: [
-        { src: "/onboarding/inventory.png", caption: "Stock after material inward" },
-        { src: "/onboarding/dashboard.png", caption: "Purchase summary" },
+        { src: "/onboarding/invoices.png", caption: "Purchase & vendor bills with GST" },
+        { src: "/onboarding/dashboard.png", caption: "Stock updated after material inward" },
       ],
       example: {
         title: "Sample purchase — PB-2024-0088",

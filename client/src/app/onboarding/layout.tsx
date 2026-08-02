@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Fraunces, Inter } from "next/font/google";
 
 import "@/styles/erpnext-auth.css";
+import "@/styles/marketing-premium.css";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-marketing",
+  display: "swap",
+});
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -21,7 +28,9 @@ export default function OnboardingLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`${inter.variable} min-h-screen font-sans antialiased text-[#171717] bg-white`}>
+    <div
+      className={`${inter.variable} ${fraunces.variable} min-h-screen antialiased`}
+    >
       {children}
     </div>
   );

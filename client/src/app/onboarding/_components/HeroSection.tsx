@@ -1,40 +1,46 @@
 import Link from "next/link";
-import { Zap } from "lucide-react";
+import { Gem } from "lucide-react";
 import { HeroScreenshotCarousel } from "./HeroScreenshotCarousel";
 
 export function HeroSection() {
   return (
-    <section className="border-b border-[#e5e7eb] bg-white">
-      <div className="erp-marketing-shell py-16 lg:py-24 grid lg:grid-cols-2 gap-14 lg:gap-16 items-center">
-        <div>
-          <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#6b7280] mb-4">
-            <Zap size={14} className="text-[#e74c3c]" />
-            2-month free trial · No credit card
-          </p>
-          <h1 className="text-4xl sm:text-5xl lg:text-[3.25rem] font-semibold leading-[1.08] tracking-tight text-[#171717]">
-            The only jewellery ERP you&apos;ll ever need
-          </h1>
-          <p className="mt-5 text-lg text-[#525252] leading-relaxed max-w-lg">
-            Piece-level inventory, shop-floor production, GST billing, multi-branch transfers,
-            and an optional online store — built for Indian jewellers, not adapted from generic ERP.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/onboarding/start" className="erp-btn-primary w-auto px-6 py-2.5">
-              Start 2-month free trial
-            </Link>
-            <Link href="#request-demo" className="erp-btn-secondary px-6 py-2.5 inline-flex items-center">
-              Request a demo
-            </Link>
-            <Link
-              href="/shop/shree-hari-jewels"
-              className="erp-btn-secondary px-6 py-2.5 inline-flex items-center"
-            >
-              Browse demo store
-            </Link>
-          </div>
+    <section className="mkt-hero">
+      <div className="mkt-shell">
+        <Link href="/onboarding/start" className="mkt-banner-pill">
+          <span>✦</span>
+          2-month free trial
+          <span className="text-[#d4d4d4]">/</span>
+          No credit card required
+        </Link>
+
+        <div className="mt-8 flex flex-col items-center">
+          <span className="mkt-brand-mark">
+            <Gem size={18} />
+          </span>
+          <p className="mt-3 text-sm font-semibold tracking-tight">Shri Hari Jewels</p>
         </div>
-        <HeroScreenshotCarousel />
+
+        <h1 className="mkt-display mkt-hero-title mt-6">
+          The only jewellery ERP
+          <br />
+          you&apos;ll ever need
+        </h1>
+        <p className="mkt-hero-sub">User-friendly. Customisable. All-in-one.</p>
+        <p className="mkt-hero-tagline">
+          Piece-level inventory, karigar production, GST billing &amp; online store
+        </p>
+
+        <div className="mkt-hero-actions">
+          <Link href="#request-demo" className="mkt-btn mkt-btn-outline">
+            Request a demo
+          </Link>
+          <Link href="/onboarding/start" className="mkt-btn mkt-btn-dark">
+            Start free trial →
+          </Link>
+        </div>
       </div>
+
+      <HeroScreenshotCarousel />
     </section>
   );
 }

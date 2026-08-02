@@ -138,43 +138,33 @@ export function DemoRequestForm() {
 
 export function ImplementationSection() {
   return (
-    <section id="request-demo" className="py-16 lg:py-24 bg-white">
-      <div className="erp-marketing-shell">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <p className="text-xs font-medium uppercase tracking-wide text-[#6b7280] mb-3">
-            Implementations
-          </p>
-          <h2 className="text-2xl sm:text-4xl font-semibold">Pick your implementation journey</h2>
-          <p className="mt-3 text-[#525252]">
-            Start a trial on your own, or request a guided walkthrough for multi-branch and
-            manufacturing setups.
-          </p>
-        </div>
+    <section className="mkt-section mkt-section-alt">
+      <div className="mkt-shell-wide">
+        <p className="mkt-eyebrow text-center">Get started</p>
+        <h2 className="mkt-display mkt-section-title mt-3">Start trial or request a demo</h2>
+        <p className="mkt-section-desc">
+          Explore on your own with a 2-month trial, or tell us about your setup for a guided
+          walkthrough.
+        </p>
 
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid lg:grid-cols-2 gap-8 mt-12 max-w-4xl mx-auto">
           {IMPLEMENTATION_PATHS.map((path) => (
-            <div
-              key={path.id}
-              className={`erp-marketing-card ${path.primary ? "border-[#e74c3c] bg-[#fffafa]" : ""}`}
-            >
-              <p className="text-xs font-medium uppercase text-[#e74c3c]">{path.subtitle}</p>
+            <div key={path.id} className="mkt-card">
+              <p className="mkt-eyebrow">{path.subtitle}</p>
               <h3 className="mt-2 text-xl font-semibold">{path.title}</h3>
-              <p className="mt-3 text-sm text-[#525252] leading-relaxed">{path.description}</p>
+              <p className="mt-3 text-sm text-[#737373] leading-relaxed">{path.description}</p>
               {path.id === "self-serve" ? (
-                <Link
-                  href={path.href}
-                  className="inline-flex mt-6 erp-btn-primary w-auto px-6 py-2.5"
-                >
+                <Link href={path.href} className="mkt-btn mkt-btn-dark mt-6">
                   {path.cta}
                 </Link>
               ) : null}
             </div>
           ))}
+        </div>
 
-          <div className="lg:col-span-2 erp-marketing-card">
-            <h3 className="font-semibold mb-4">Request a demo</h3>
-            <DemoRequestForm />
-          </div>
+        <div className="mkt-card mt-8 max-w-2xl mx-auto">
+          <h3 className="font-semibold mb-4">Request a demo</h3>
+          <DemoRequestForm />
         </div>
       </div>
     </section>
