@@ -20,6 +20,26 @@ export type DemoRequest = {
   createdAt: string;
 };
 
+export type SubmitDemoRequestPayload = {
+  businessName: string;
+  contactName: string;
+  phone: string;
+  email?: string;
+  city?: string;
+  businessType?: string;
+  message?: string;
+};
+
+export const submitDemoRequest = async (
+  payload: SubmitDemoRequestPayload,
+): Promise<{ id: string; message: string }> => {
+  const { data } = await api.post<{ id: string; message: string }>(
+    "/api/demo-requests",
+    payload,
+  );
+  return data;
+};
+
 export const fetchDemoRequests = async (): Promise<DemoRequest[]> => {
   const { data } = await api.get<DemoRequest[]>("/api/demo-requests");
   return data;
