@@ -83,9 +83,8 @@ export default function PlatformDemoRequestsPage() {
           <div>
             <h1 className="text-2xl font-semibold">Demo requests</h1>
             <p className="text-sm text-[var(--text-muted)] mt-1">
-              Leads from the public onboarding page. When{" "}
-              <code className="text-xs">PLATFORM_DEMO_WHATSAPP</code> is set, visitors
-              are prompted to send you a WhatsApp after submitting the form.
+              Leads from the public onboarding page. New submissions email all
+              platform admins (SuperAdmin accounts such as admin@karan.com).
             </p>
           </div>
           <select

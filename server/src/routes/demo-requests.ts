@@ -3,10 +3,7 @@ import { Router } from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { prisma } from "../lib/db.js";
 import { canManageOrganizations } from "../lib/auth/permissions.js";
-import {
-  buildDemoRequestWhatsAppUrl,
-  notifyDemoRequestByEmail,
-} from "../lib/demo-requests/notify.js";
+import { notifyPlatformAdminsOfDemoRequest } from "../lib/demo-requests/notify.js";
 import { routeParam } from "../lib/route-param.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 
@@ -66,15 +63,13 @@ demoRequestsRouter.post("/", submitRateLimiter, async (req, res) => {
 
     const created = await prisma.demoRequest.create({ data: payload });
 
-    const whatsappUrl = buildDemoRequestWhatsAppUrl(payload);
-    void notifyDemoRequestByEmail(payload).catch((err) => {
-      console.error("Demo request email notification failed", err);
+    void notifyPlatformAdminsOfDemoRequest(payload).catch((err) => {
+      console.error("Demo request notification failed", err);
     });
 
     res.status(201).json({
       id: created.id,
       message: "Thank you — we'll be in touch shortly.",
-      whatsappUrl,
     });
   } catch (error) {
     console.error("POST /api/demo-requests", error);

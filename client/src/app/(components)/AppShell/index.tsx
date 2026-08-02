@@ -8,12 +8,15 @@ import NavigationProgress from "@/app/(components)/NavigationProgress";
 import Sidebar from "@/app/(components)/Sidebar";
 import MarketRateBanner from "@/app/(components)/MarketRateBanner";
 import SubscriptionWarningBanner from "@/app/(components)/SubscriptionWarningBanner";
-import { isTodayHighlightRoute } from "@/lib/navigation";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const highlightToday = isTodayHighlightRoute(pathname);
+  const isSetupWizard = pathname === "/setup";
+
+  if (isSetupWizard) {
+    return <>{children}</>;
+  }
 
   return (
     <div
@@ -47,7 +50,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             style={{
               flex: 1,
               padding: "20px 24px",
-              backgroundColor: highlightToday ? "#fee2e2" : undefined,
             }}
           >
             {children}

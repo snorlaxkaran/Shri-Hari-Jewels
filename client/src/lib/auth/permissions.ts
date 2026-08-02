@@ -5,6 +5,8 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
   Admin: ["*"],
   ProductionManager: [
     "/dashboard",
+    "/setup",
+    "/workspace",
     "/inventory",
     "/products",
     "/hallmark",
@@ -24,6 +26,8 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
   ],
   SalesManager: [
     "/dashboard",
+    "/setup",
+    "/workspace",
     "/inventory",
     "/products",
     "/hallmark",
@@ -44,9 +48,9 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/storefront",
     "/expenses",
   ],
-  Store: ["/dashboard", "/inventory", "/products", "/stock-transfer", "/sales", "/customers", "/repairs", "/expenses"],
-  Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs", "/repairs", "/expenses"],
-  Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/reports", "/raw-inventory", "/vendors", "/purchase-bills", "/settings/tally-export", "/expenses", "/employees", "/attendance", "/payroll"],
+  Store: ["/dashboard", "/setup", "/workspace", "/inventory", "/products", "/stock-transfer", "/sales", "/customers", "/repairs", "/expenses"],
+  Karigar: ["/dashboard", "/setup", "/workspace", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs", "/repairs", "/expenses"],
+  Accountant: ["/dashboard", "/setup", "/workspace", "/invoices", "/sales-analytics", "/reports", "/raw-inventory", "/vendors", "/purchase-bills", "/settings/tally-export", "/expenses", "/employees", "/attendance", "/payroll"],
 };
 
 export const canViewReports = (role: UserRole): boolean =>

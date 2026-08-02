@@ -22,6 +22,25 @@ const getTransporter = () => {
   });
 };
 
+export const sendPlainEmail = async (
+  to: string,
+  subject: string,
+  body: string,
+): Promise<void> => {
+  const from = process.env.SMTP_FROM ?? process.env.SMTP_USER;
+  if (!from) {
+    throw new Error("SMTP_FROM or SMTP_USER must be set for outbound email.");
+  }
+
+  const transporter = getTransporter();
+  await transporter.sendMail({
+    from,
+    to,
+    subject,
+    text: body,
+  });
+};
+
 export const sendEmailWithAttachment = async (
   to: string,
   subject: string,

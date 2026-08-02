@@ -534,6 +534,13 @@ model ShopSettings {
   metalWastageAlertPercent       Decimal  @default(3.00) @db.Decimal(5, 2)
   eInvoiceMandatory              Boolean  @default(false)
   onboardingCompletedAt          DateTime?
+  setupImplementingFor           String?
+  setupTeamSize                  String?
+  setupBusinessType              String?
+  setupCurrentSystem             String?
+  enabledModules                 String[] @default(["inventory", "sales"])
+  loadDemoData                   Boolean  @default(false)
+  dismissedModuleOnboarding      String[] @default([])
   updatedAt                      DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

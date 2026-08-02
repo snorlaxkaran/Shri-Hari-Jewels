@@ -8,6 +8,7 @@ import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatCard from "@/app/(components)/StatCard";
 import LiveSalesSummary from "@/app/(components)/dashboard/LiveSalesSummary";
 import AttendanceSelfMark from "@/app/(components)/dashboard/AttendanceSelfMark";
+import SetupProgressBanner from "@/app/(components)/SetupProgressBanner";
 import { useSales } from "@/lib/sales/sales-context";
 import { formatCompact, formatCurrency, formatDate } from "@/lib/format";
 import { fetchHallmarkPendingCount } from "@/lib/api/hallmark";
@@ -52,6 +53,8 @@ export default function DashboardPage() {
           {error}
         </div>
       )}
+
+      <SetupProgressBanner />
 
       {hallmarkPending != null && hallmarkPending > 0 && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-amber-200 bg-amber-50 text-amber-900">

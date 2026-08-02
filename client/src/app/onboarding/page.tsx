@@ -64,13 +64,13 @@ const SCREENSHOT_COLLAGE = [
   { src: "/onboarding/sales.png", alt: "Counter sales screen", height: "h-40", offset: "mt-4" },
 ] as const;
 
-const BUSINESS_TYPES = [
-  "Retail showroom",
-  "Manufacturer",
-  "Wholesale / B2B",
-  "Multi-branch house",
-  "Other",
-];
+import {
+  BUSINESS_TYPES,
+  CURRENT_SYSTEM_OPTIONS,
+  JEWELLERY_MODULES,
+  MODULE_META,
+  TEAM_SIZE_OPTIONS,
+} from "@/lib/onboarding/config";
 
 function displayClass(extra = "") {
   return `font-[family-name:var(--font-portfolio-display)] ${extra}`;
@@ -215,6 +215,8 @@ export default function OnboardingPortfolioPage() {
     email: "",
     city: "",
     businessType: "",
+    teamSize: "",
+    currentSystem: "",
     message: "",
   });
   const [submitting, setSubmitting] = useState(false);
@@ -241,7 +243,16 @@ export default function OnboardingPortfolioPage() {
       const res = await fetch(`${API_BASE_URL}/api/demo-requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          message: [
+            form.message,
+            form.teamSize ? `Team size: ${form.teamSize}` : "",
+            form.currentSystem ? `Current system: ${form.currentSystem}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        }),
       });
       const data = (await res.json()) as { error?: string; message?: string };
       if (!res.ok) {
@@ -255,6 +266,8 @@ export default function OnboardingPortfolioPage() {
         email: "",
         city: "",
         businessType: "",
+        teamSize: "",
+        currentSystem: "",
         message: "",
       });
     } catch (err) {
@@ -334,6 +347,34 @@ export default function OnboardingPortfolioPage() {
                 </li>
               ))}
             </ul>
+          </div>
+        </section>
+
+        {/* Module portfolio */}
+        <section id="modules" className="max-w-6xl mx-auto px-6 py-16 lg:py-20">
+          <Eyebrow>Modules</Eyebrow>
+          <h2 className={displayClass("text-3xl sm:text-4xl font-semibold text-[#211a12] leading-tight max-w-2xl")}>
+            Everything a jeweller needs — nothing generic
+          </h2>
+          <p className="mt-4 text-[#6b5d4a] max-w-2xl leading-relaxed font-sans">
+            Workspaces guide you module by module, like a modern ERP — but every screen speaks
+            jewellery: piece codes, HUID, wax-to-QC, karigar settlements.
+          </p>
+          <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-4 font-sans">
+            {JEWELLERY_MODULES.map((id) => {
+              const meta = MODULE_META[id];
+              return (
+                <article
+                  key={id}
+                  className="rounded-xl border border-[#e2d6bc] bg-[#fffdf8] p-6 hover:border-[#f0c33f] transition-colors"
+                >
+                  <h3 className={displayClass("text-lg font-semibold text-[#211a12]")}>
+                    {meta.label}
+                  </h3>
+                  <p className="mt-2 text-sm text-[#6b5d4a] leading-relaxed">{meta.description}</p>
+                </article>
+              );
+            })}
           </div>
         </section>
 
@@ -605,6 +646,35 @@ export default function OnboardingPortfolioPage() {
                 </label>
               </div>
 
+              <div className="grid sm:grid-cols-2 gap-4">
+                <label className="block text-sm">
+                  <span className={monoClassName("text-[#e2d6bc] mb-1 block")}>Team size</span>
+                  <select
+                    className="w-full rounded-md border border-[#2b2015] bg-[#2b2015] px-3 py-2.5 text-sm text-white outline-none focus:border-[#f0c33f]"
+                    value={form.teamSize}
+                    onChange={(e) => setForm((f) => ({ ...f, teamSize: e.target.value }))}
+                  >
+                    <option value="">Select…</option>
+                    {TEAM_SIZE_OPTIONS.map((size) => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  <span className={monoClassName("text-[#e2d6bc] mb-1 block")}>Current system</span>
+                  <select
+                    className="w-full rounded-md border border-[#2b2015] bg-[#2b2015] px-3 py-2.5 text-sm text-white outline-none focus:border-[#f0c33f]"
+                    value={form.currentSystem}
+                    onChange={(e) => setForm((f) => ({ ...f, currentSystem: e.target.value }))}
+                  >
+                    <option value="">Select…</option>
+                    {CURRENT_SYSTEM_OPTIONS.map((sys) => (
+                      <option key={sys} value={sys}>{sys}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
               <label className="block text-sm">
                 <span className={monoClassName("text-[#e2d6bc] mb-1 block")}>Business type</span>
                 <select
@@ -684,6 +754,11 @@ export default function OnboardingPortfolioPage() {
             <nav className="sm:text-right">
               <p className={monoClassName("text-[#6b5d4a] mb-4")}>On this page</p>
               <ul className="space-y-2 text-sm text-[#e2d6bc]">
+                <li>
+                  <a href="#modules" className="hover:text-[#f0c33f] transition-colors">
+                    Modules
+                  </a>
+                </li>
                 <li>
                   <a href="#how-it-works" className="hover:text-[#f0c33f] transition-colors">
                     Product

@@ -7,6 +7,8 @@ import {
   Factory,
   FileText,
   Gem,
+  Home,
+  LayoutDashboard,
   Package,
   PackageOpen,
   Palette,
@@ -33,48 +35,13 @@ export type NavItem = {
   href: string;
   icon: React.ReactNode;
   badge?: string | number;
-  /** Temporary marker for features shipped on 2026-07-18 */
-  highlightToday?: boolean;
 };
 
 export type NavSection = {
   title: string;
+  workspaceHref?: string;
   items: NavItem[];
 };
-
-/** Routes added or updated in today's commits — remove when review is done. */
-export const TODAY_HIGHLIGHT_HREFS = [
-  "/dashboard",
-  "/sales",
-  "/invoices",
-  "/leads",
-  "/repairs",
-  "/vendors",
-  "/purchase-bills",
-  "/settings",
-  "/settings/tally-export",
-  "/sales-analytics",
-  "/reports/category",
-  "/reports/department",
-  "/reports/customer",
-  "/reports/location-wise",
-  "/reports/cad",
-  "/reports/stock-report",
-  "/reports/gst",
-  "/reports/stock-valuation",
-  "/reports/ageing-stock",
-  "/reports/staff-performance",
-] as const;
-
-export const isTodayHighlightRoute = (pathname: string): boolean =>
-  TODAY_HIGHLIGHT_HREFS.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`),
-  );
-
-const markToday = (item: Omit<NavItem, "highlightToday">): NavItem => ({
-  ...item,
-  highlightToday: isTodayHighlightRoute(item.href),
-});
 
 const icon = (Component: React.ElementType) =>
   createElement(Component, { size: 17 });
@@ -82,6 +49,7 @@ const icon = (Component: React.ElementType) =>
 export const navSections: NavSection[] = [
   {
     title: "Inventory",
+    workspaceHref: "/workspace/inventory",
     items: [
       { label: "All stock", href: "/inventory", icon: icon(Package) },
       { label: "Product", href: "/products", icon: icon(Tags) },
@@ -92,6 +60,7 @@ export const navSections: NavSection[] = [
   },
   {
     title: "Stock transfer",
+    workspaceHref: "/workspace/multibranch",
     items: [
       { label: "Scan & send", href: "/stock-transfer", icon: icon(Scan) },
       { label: "Sent", href: "/stock-transfer/sent", icon: icon(Send) },
@@ -101,17 +70,19 @@ export const navSections: NavSection[] = [
   },
   {
     title: "Sales",
+    workspaceHref: "/workspace/sales",
     items: [
-      markToday({ label: "Sales", href: "/sales", icon: icon(ShoppingCart) }),
+      { label: "Sales", href: "/sales", icon: icon(ShoppingCart) },
       { label: "Orders", href: "/orders", icon: icon(ShoppingBag) },
       { label: "Customers", href: "/customers", icon: icon(Users) },
-      markToday({ label: "Leads", href: "/leads", icon: icon(UserPlus) }),
-      markToday({ label: "Repairs", href: "/repairs", icon: icon(Wrench) }),
-      markToday({ label: "Invoices", href: "/invoices", icon: icon(FileText) }),
+      { label: "Leads", href: "/leads", icon: icon(UserPlus) },
+      { label: "Repairs", href: "/repairs", icon: icon(Wrench) },
+      { label: "Invoices", href: "/invoices", icon: icon(FileText) },
     ],
   },
   {
     title: "Production",
+    workspaceHref: "/workspace/production",
     items: [
       { label: "Designs", href: "/designs", icon: icon(Palette) },
       { label: "Motifs", href: "/motifs", icon: icon(Gem) },
@@ -124,23 +95,24 @@ export const navSections: NavSection[] = [
   {
     title: "Reports",
     items: [
-      markToday({ label: "Sales analytics", href: "/sales-analytics", icon: icon(BarChart2) }),
-      markToday({ label: "Category report", href: "/reports/category", icon: icon(BarChart2) }),
-      markToday({ label: "Department report", href: "/reports/department", icon: icon(BarChart2) }),
-      markToday({ label: "Customer report", href: "/reports/customer", icon: icon(Users) }),
-      markToday({ label: "Location-wise", href: "/reports/location-wise", icon: icon(Store) }),
-      markToday({ label: "CAD pipeline", href: "/reports/cad", icon: icon(Palette) }),
-      markToday({ label: "Stock snapshot", href: "/reports/stock-report", icon: icon(Package) }),
-      markToday({ label: "GST report", href: "/reports/gst", icon: icon(FileText) }),
-      markToday({ label: "Stock valuation", href: "/reports/stock-valuation", icon: icon(Diamond) }),
-      markToday({ label: "Ageing stock", href: "/reports/ageing-stock", icon: icon(PackageOpen) }),
-      markToday({ label: "Staff performance", href: "/reports/staff-performance", icon: icon(Users) }),
+      { label: "Sales analytics", href: "/sales-analytics", icon: icon(BarChart2) },
+      { label: "Category report", href: "/reports/category", icon: icon(BarChart2) },
+      { label: "Department report", href: "/reports/department", icon: icon(BarChart2) },
+      { label: "Customer report", href: "/reports/customer", icon: icon(Users) },
+      { label: "Location-wise", href: "/reports/location-wise", icon: icon(Store) },
+      { label: "CAD pipeline", href: "/reports/cad", icon: icon(Palette) },
+      { label: "Stock snapshot", href: "/reports/stock-report", icon: icon(Package) },
+      { label: "GST report", href: "/reports/gst", icon: icon(FileText) },
+      { label: "Stock valuation", href: "/reports/stock-valuation", icon: icon(Diamond) },
+      { label: "Ageing stock", href: "/reports/ageing-stock", icon: icon(PackageOpen) },
+      { label: "Staff performance", href: "/reports/staff-performance", icon: icon(Users) },
     ],
   },
   {
     title: "Online Store",
+    workspaceHref: "/workspace/storefront",
     items: [
-      { label: "Store dashboard", href: "/storefront", icon: icon(Globe) },
+      { label: "Store dashboard", href: "/workspace/storefront", icon: icon(Globe) },
       { label: "Store settings", href: "/storefront/settings", icon: icon(Settings) },
       { label: "Publish products", href: "/storefront/products", icon: icon(Package) },
       { label: "Collections", href: "/storefront/collections", icon: icon(Palette) },
@@ -151,15 +123,19 @@ export const navSections: NavSection[] = [
     title: "System",
     items: [
       { label: "Branches", href: "/branches", icon: icon(Store) },
-      markToday({ label: "Vendors", href: "/vendors", icon: icon(Briefcase) }),
-      markToday({ label: "Purchase bills", href: "/purchase-bills", icon: icon(FileText) }),
+      { label: "Vendors", href: "/vendors", icon: icon(Briefcase) },
+      { label: "Purchase bills", href: "/purchase-bills", icon: icon(FileText) },
       { label: "Expenses", href: "/expenses", icon: icon(Wallet) },
       { label: "Employees", href: "/employees", icon: icon(UserCog) },
       { label: "Attendance", href: "/attendance", icon: icon(CalendarDays) },
       { label: "Payroll", href: "/payroll", icon: icon(Banknote) },
-      markToday({ label: "Settings", href: "/settings", icon: icon(Settings) }),
+      { label: "Settings", href: "/settings", icon: icon(Settings) },
     ],
   },
+];
+
+export const primaryNavItems: NavItem[] = [
+  { label: "Home", href: "/dashboard", icon: icon(LayoutDashboard) },
 ];
 
 export const filterNavSections = (
@@ -178,7 +154,12 @@ export type BreadcrumbItem = {
 };
 
 export const getNavSectionForPath = (pathname: string): NavSection | undefined => {
+  if (pathname.startsWith("/workspace/")) {
+    const ws = navSections.find((s) => s.workspaceHref === pathname);
+    if (ws) return ws;
+  }
   for (const section of navSections) {
+    if (section.workspaceHref === pathname) return section;
     if (section.items.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))) {
       return section;
     }
@@ -194,10 +175,9 @@ export const getBreadcrumbs = (pathname: string): BreadcrumbItem[] => {
 
   const section = getNavSectionForPath(pathname);
   if (section && section.title !== "Overview") {
-    const firstItem = section.items[0];
     crumbs.push({
       label: section.title,
-      href: firstItem?.href,
+      href: section.workspaceHref ?? section.items[0]?.href,
     });
   }
 
@@ -210,6 +190,12 @@ export const getBreadcrumbs = (pathname: string): BreadcrumbItem[] => {
 };
 
 export const getPageTitle = (pathname: string): string => {
+  if (pathname === "/setup") return "Setup Wizard";
+  if (pathname === "/workspace/inventory") return "Inventory Workspace";
+  if (pathname === "/workspace/production") return "Production Workspace";
+  if (pathname === "/workspace/sales") return "Sales Workspace";
+  if (pathname === "/workspace/storefront") return "Online Store Workspace";
+  if (pathname === "/workspace/multibranch") return "Multi-Branch Workspace";
   if (pathname.match(/^\/products\/[^/]+\/edit$/)) return "Edit Product";
   if (pathname === "/inventory/new") return "Add Stock";
   if (pathname === "/inventory/add-units") return "Add Units";
@@ -268,3 +254,5 @@ export const getPageTitle = (pathname: string): string => {
   }
   return "Dashboard";
 };
+
+export { Home };

@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { X, Home } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -12,8 +12,9 @@ import {
   canViewRepairs,
   canViewHallmark,
   canViewStockTransfers,
+  isMasterAdmin,
 } from "@/lib/auth/permissions";
-import { filterNavSections } from "@/lib/navigation";
+import { filterNavSections, primaryNavItems } from "@/lib/navigation";
 import { fetchIncomingTransferCount } from "@/lib/api/inventory";
 import { fetchFollowUpsDueCount } from "@/lib/api/leads";
 import { fetchReadyForPickupCount } from "@/lib/api/repairs";
@@ -110,9 +111,60 @@ const SidebarContent = ({
     [router],
   );
 
+  const renderNavLink = (item: { label: string; href: string; icon: React.ReactNode; badge?: string | number }) => {
+    const isActive =
+      pathname === item.href || pathname.startsWith(`${item.href}/`);
+    const badge = item.badge;
+
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onPointerEnter={() => prefetchRoute(item.href)}
+        onFocus={() => prefetchRoute(item.href)}
+        onClick={() => {
+          prefetchRoute(item.href);
+          onClose();
+        }}
+        data-active={isActive}
+        className="sidebar-nav-item w-full flex items-center text-left transition-colors duration-150"
+        style={{
+          fontSize: 13,
+          fontWeight: isActive ? 500 : 400,
+          padding: "7px 16px",
+          gap: 8,
+          borderRadius: 0,
+          color: isActive ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
+          backgroundColor: isActive ? "var(--sidebar-active)" : undefined,
+          borderLeft: isActive ? "3px solid var(--sidebar-active-border)" : "3px solid transparent",
+          paddingLeft: 13,
+        }}
+      >
+        <span className="sidebar-nav-icon flex-shrink-0 w-[16px] flex justify-center">
+          {item.icon}
+        </span>
+        <span className="flex-1">{item.label}</span>
+        {badge !== undefined && (
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              padding: "1px 6px",
+              borderRadius: 2,
+              background: isActive ? "rgba(255, 153, 0, 0.25)" : "rgba(255, 255, 255, 0.1)",
+              color: isActive ? "#ffffff" : "var(--sidebar-text)",
+            }}
+          >
+            {badge}
+          </span>
+        )}
+      </Link>
+    );
+  };
+
   return (
     <div
-      className="flex flex-col h-full w-[220px] overflow-y-auto"
+      className="flex flex-col h-full w-[240px] overflow-y-auto"
       style={{
         backgroundColor: "var(--sidebar-bg)",
         borderRight: "1px solid var(--sidebar-border)",
@@ -132,6 +184,28 @@ const SidebarContent = ({
       )}
 
       <nav className="flex-1" style={{ paddingTop: 8 }}>
+        <div className="px-4 pb-2">
+          {primaryNavItems
+            .filter((item) => user && canAccessRoute(user.role, item.href))
+            .map((item) => renderNavLink(item))}
+          {user && isMasterAdmin(user.role) && (
+            <Link
+              href="/setup"
+              onClick={onClose}
+              className="sidebar-nav-item w-full flex items-center text-left transition-colors duration-150"
+              style={{
+                fontSize: 12,
+                padding: "6px 16px",
+                gap: 8,
+                color: pathname === "/setup" ? "var(--sidebar-text-active)" : "#879596",
+              }}
+            >
+              <span className="w-[16px] flex justify-center">⚙</span>
+              <span>Setup wizard</span>
+            </Link>
+          )}
+        </div>
+
         {sections.map((section, si) => (
           <div key={section.title}>
             {si !== 0 && (
@@ -143,79 +217,41 @@ const SidebarContent = ({
                 }}
               />
             )}
-            <p
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "#879596",
-                padding: "12px 16px 4px",
-              }}
-            >
-              {section.title}
-            </p>
-
-            {section.items.map((item) => {
-              const isActive =
-                pathname === item.href || pathname.startsWith(`${item.href}/`);
-              const badge = item.badge;
-              const isToday = item.highlightToday;
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onPointerEnter={() => prefetchRoute(item.href)}
-                  onFocus={() => prefetchRoute(item.href)}
-                  onClick={() => {
-                    prefetchRoute(item.href);
-                    onClose();
-                  }}
-                  data-active={isActive}
-                  data-today-highlight={isToday || undefined}
-                  className="sidebar-nav-item w-full flex items-center text-left transition-colors duration-150"
+            {section.workspaceHref && user && canAccessRoute(user.role, section.workspaceHref) ? (
+              <Link
+                href={section.workspaceHref}
+                onClick={onClose}
+                className="flex items-center gap-2 px-4 pt-3 pb-1 group"
+              >
+                <Home size={12} style={{ color: "#879596" }} />
+                <p
                   style={{
-                    fontSize: 13,
-                    fontWeight: 400,
-                    padding: "7px 16px",
-                    gap: 8,
-                    borderRadius: 0,
-                    color: isActive
-                      ? "var(--sidebar-text-active)"
-                      : "var(--sidebar-text)",
-                    backgroundColor: isToday
-                      ? isActive
-                        ? "rgba(252, 165, 165, 0.28)"
-                        : "rgba(252, 165, 165, 0.18)"
-                      : undefined,
-                    borderLeft: isToday ? "3px solid #fca5a5" : undefined,
-                    paddingLeft: isToday ? 13 : 16,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: pathname === section.workspaceHref ? "#ffffff" : "#879596",
                   }}
                 >
-                  <span className="sidebar-nav-icon flex-shrink-0 w-[16px] flex justify-center">
-                    {item.icon}
-                  </span>
-                  <span className="flex-1">{item.label}</span>
-                  {badge !== undefined && (
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        padding: "1px 6px",
-                        borderRadius: 2,
-                        background: isActive
-                          ? "rgba(255, 153, 0, 0.25)"
-                          : "rgba(255, 255, 255, 0.1)",
-                        color: isActive ? "#ffffff" : "var(--sidebar-text)",
-                      }}
-                    >
-                      {badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+                  {section.title}
+                </p>
+              </Link>
+            ) : (
+              <p
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "#879596",
+                  padding: "12px 16px 4px",
+                }}
+              >
+                {section.title}
+              </p>
+            )}
+
+            {section.items.map((item) => renderNavLink(item))}
           </div>
         ))}
       </nav>
