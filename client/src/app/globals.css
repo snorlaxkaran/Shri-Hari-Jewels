@@ -267,6 +267,9 @@ body,
 
 .page-content {
   padding: 16px 0;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
 }
 
 .page-title {
@@ -344,6 +347,8 @@ body,
 /* Data tables */
 .data-table-wrap {
   overflow-x: auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .data-table {
@@ -512,6 +517,7 @@ body,
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  width: 100%;
 }
 
 .filter-search {
@@ -1234,6 +1240,7 @@ select.filter-select:focus {
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 10px;
   margin-bottom: 20px;
+  width: 100%;
 }
 
 .home-shortcut {
@@ -1443,8 +1450,10 @@ select.filter-select:focus {
 
 .app-main {
   flex: 1;
+  width: 100%;
+  min-width: 0;
   padding: 16px 24px;
-  max-width: 1200px;
+  box-sizing: border-box;
 }
 
 /* ── Workspace dock (ERPNext module rail) ── */
@@ -1528,6 +1537,7 @@ select.filter-select:focus {
   margin-bottom: 12px;
   padding: 6px 0;
   border-bottom: 1px solid var(--border);
+  width: 100%;
 }
 
 .list-toolbar-start,

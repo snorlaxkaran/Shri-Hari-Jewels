@@ -1,6 +1,7 @@
 /* ERPNext-inspired module workspace (desk home per module) */
 .ws-page {
-  max-width: 1200px;
+  width: 100%;
+  max-width: none;
 }
 
 .ws-shortcuts {
