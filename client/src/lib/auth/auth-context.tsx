@@ -68,6 +68,12 @@ type AuthContextValue = {
   loading: boolean;
   login: (input: LoginInput) => Promise<LoginResponse>;
   verify2FA: (tempToken: string, code: string) => Promise<void>;
+  signInWithSession: (
+    token: string,
+    refreshToken: string,
+    loggedIn: AuthUser,
+    redirectTo?: string,
+  ) => void;
   logout: () => void;
 };
 
@@ -134,15 +140,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void bootstrap();
   }, [bootstrap]);
 
-  const completeLogin = useCallback(
-    (token: string, refreshToken: string, loggedIn: AuthUser) => {
+  const signInWithSession = useCallback(
+    (token: string, refreshToken: string, loggedIn: AuthUser, redirectTo?: string) => {
       persistSession(token, refreshToken);
       setUser(loggedIn);
       router.replace(
-        loggedIn.role === "SuperAdmin" ? "/platform/companies" : "/dashboard",
+        redirectTo ?? (loggedIn.role === "SuperAdmin" ? "/platform/companies" : "/dashboard"),
       );
     },
     [router],
+  );
+
+  const completeLogin = useCallback(
+    (token: string, refreshToken: string, loggedIn: AuthUser) => {
+      signInWithSession(token, refreshToken, loggedIn);
+    },
+    [signInWithSession],
   );
 
   const login = useCallback(
@@ -179,8 +192,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   const value = useMemo(
-    () => ({ user, loading, login, verify2FA, logout }),
-    [user, loading, login, verify2FA, logout],
+    () => ({ user, loading, login, verify2FA, signInWithSession, logout }),
+    [user, loading, login, verify2FA, signInWithSession, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

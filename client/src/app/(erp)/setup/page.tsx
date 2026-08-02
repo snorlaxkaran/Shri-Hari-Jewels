@@ -25,6 +25,26 @@ import {
 const SLIDES = ["persona", "organization", "review"] as const;
 type SlideId = (typeof SLIDES)[number];
 
+const DEFAULT_STATUS: OnboardingStatus = {
+  completed: false,
+  profile: {
+    implementingFor: null,
+    teamSize: null,
+    businessType: null,
+    currentSystem: null,
+    enabledModules: ["inventory", "sales"],
+    loadDemoData: false,
+  },
+  steps: {
+    businessInfo: false,
+    gstConfigured: false,
+    branchCreated: false,
+    openingStock: false,
+    personaComplete: false,
+  },
+  modules: {},
+};
+
 export default function SetupWizardPage() {
   const router = useRouter();
   const [slide, setSlide] = useState<SlideId>("persona");
@@ -44,8 +64,10 @@ export default function SetupWizardPage() {
   });
 
   useEffect(() => {
+    let cancelled = false;
     void Promise.all([fetchOnboardingStatus(), fetchSettings()])
       .then(([s, settings]) => {
+        if (cancelled) return;
         setStatus(s);
         if (s.completed) {
           router.replace("/dashboard");
@@ -67,9 +89,36 @@ export default function SetupWizardPage() {
           gstNumber: settings.gstNumber ?? "",
           loadDemoData: s.profile.loadDemoData,
         }));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setStatus({
+            completed: false,
+            profile: {
+              implementingFor: null,
+              teamSize: null,
+              businessType: null,
+              currentSystem: null,
+              enabledModules: ["inventory", "sales"],
+              loadDemoData: false,
+            },
+            steps: {
+              businessInfo: false,
+              gstConfigured: false,
+              branchCreated: false,
+              openingStock: false,
+              personaComplete: false,
+            },
+            modules: {},
+          });
+        }
       });
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
+  const activeStatus = status ?? DEFAULT_STATUS;
   const slideIndex = SLIDES.indexOf(slide);
   const progress = ((slideIndex + 1) / SLIDES.length) * 100;
 
@@ -159,14 +208,6 @@ export default function SetupWizardPage() {
       setSubmitting(false);
     }
   };
-
-  if (!status) {
-    return (
-      <div className="setup-wizard-shell flex items-center justify-center">
-        <p style={{ color: "var(--text-muted)" }}>Loading setup wizard…</p>
-      </div>
-    );
-  }
 
   return (
     <div className="setup-wizard-shell">
@@ -334,7 +375,7 @@ export default function SetupWizardPage() {
                 {form.enabledModules.map((moduleId) => {
                   const meta = MODULE_META[moduleId];
                   const steps = MODULE_STEPS[moduleId];
-                  const moduleState = status.modules[moduleId];
+                  const moduleState = activeStatus.modules[moduleId];
                   const done = steps.filter((s) => moduleState?.steps[s.key]).length;
                   return (
                     <li key={moduleId} className="surface-card p-4">

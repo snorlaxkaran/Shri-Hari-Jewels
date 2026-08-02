@@ -252,6 +252,19 @@ model DemoRequest {
   @@index([createdAt])
 }
 
+model PhoneOtpChallenge {
+  id        String   @id @default(uuid())
+  phone     String
+  purpose   String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([phone, purpose])
+  @@index([expiresAt])
+}
+
 model Subscription {
   id               String             @id @default(uuid())
   organizationId   String             @unique

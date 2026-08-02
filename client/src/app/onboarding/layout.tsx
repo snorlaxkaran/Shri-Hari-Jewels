@@ -1,23 +1,16 @@
 import type { Metadata } from "next";
-import { Fraunces, IBM_Plex_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 
-const fraunces = Fraunces({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-portfolio-display",
-  display: "swap",
-});
-
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-portfolio-mono",
+  variable: "--font-marketing",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Jewellery ERP · ERP + Online Store for Indian Jewellers",
+  title: "Shri Hari Jewels · Jewellery ERP + Online Store",
   description:
-    "Inventory, production, GST billing, and a customer-facing online store — one platform for Indian jewellery businesses.",
+    "Piece-level inventory, production floor, GST billing, and a synced online store — built for Indian jewellers.",
 };
 
 export default function OnboardingLayout({
@@ -26,14 +19,7 @@ export default function OnboardingLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className={`${fraunces.variable} ${ibmPlexMono.variable} min-h-screen`}
-      style={{
-        fontFamily: "var(--font-portfolio-display), Georgia, serif",
-        backgroundColor: "#faf6ec",
-        color: "#211a12",
-      }}
-    >
+    <div className={`${inter.variable} min-h-screen font-sans antialiased text-[#171717] bg-white`}>
       {children}
     </div>
   );

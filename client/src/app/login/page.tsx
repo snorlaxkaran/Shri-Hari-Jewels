@@ -901,8 +901,8 @@ export default function LoginPage() {
                   whiteSpace: "nowrap",
                 }}
               >
-                <a href="/onboarding" style={{ color: "var(--accent)" }}>
-                  Product tour
+                <a href="/onboarding/start" style={{ color: "var(--accent)" }}>
+                  Start free trial
                 </a>
                 {" · "}
                 Jewellery ERP
