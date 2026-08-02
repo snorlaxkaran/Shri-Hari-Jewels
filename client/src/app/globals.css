@@ -853,8 +853,6 @@ select.filter-select:focus {
   white-space: nowrap;
 }
 
-}
-
 /* Setup wizard (ERPNext-style first-run flow) */
 .setup-wizard-shell {
   min-height: 100vh;
