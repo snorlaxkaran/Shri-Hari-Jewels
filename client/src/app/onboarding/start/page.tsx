@@ -184,7 +184,7 @@ export default function TrialStartPage() {
                 className="w-full flex items-center justify-center gap-2 rounded-md bg-[#171717] hover:bg-[#262626] text-white text-sm font-medium py-2.5 disabled:opacity-60"
               >
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
-                {submitting ? "Starting trial…" : "Verify & continue"}
+                {submitting ? "Verifying…" : "Verify & continue"}
               </button>
               <button
                 type="button"

@@ -15,14 +15,72 @@ export type TrialSignupResult = {
   needsSetup: boolean;
 };
 
+type TrialUserRecord = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  active: boolean;
+  organizationId: string | null;
+  organization?: { id: string; name: string; active: boolean } | null;
+};
+
+const createTrialSession = async (
+  user: TrialUserRecord,
+  needsSetup: boolean,
+): Promise<TrialSignupResult> => {
+  const payload = {
+    sub: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role as AuthUser["role"],
+    organizationId: user.organizationId ?? undefined,
+    organizationName: user.organization?.name,
+  };
+
+  const refreshToken = await createRefreshToken(user.id);
+
+  return {
+    token: signAccessToken(payload),
+    refreshToken,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role as AuthUser["role"],
+      organizationId: user.organizationId ?? undefined,
+      organizationName: user.organization?.name,
+    },
+    needsSetup,
+  };
+};
+
+const signInExistingTrialUser = async (
+  existing: TrialUserRecord,
+): Promise<TrialSignupResult> => {
+  if (!existing.active) {
+    throw new TrialOtpError("This account is inactive. Contact support.", 403);
+  }
+  if (!existing.organizationId || !existing.organization?.active) {
+    throw new TrialOtpError("This account is not available. Contact support.", 403);
+  }
+
+  const settings = await prisma.shopSettings.findUnique({
+    where: { organizationId: existing.organizationId },
+    select: { onboardingCompletedAt: true },
+  });
+
+  return createTrialSession(existing, settings?.onboardingCompletedAt == null);
+};
+
 export const provisionTrialTenant = async (phone: string): Promise<TrialSignupResult> => {
   const email = phoneToLoginEmail(phone);
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    include: { organization: { select: { id: true, name: true, active: true } } },
+  });
   if (existing) {
-    throw new TrialOtpError(
-      "This number already has an account. Sign in from the login page.",
-      409,
-    );
+    return signInExistingTrialUser(existing);
   }
 
   const slugBase = phoneToOrgSlug(phone);
@@ -79,34 +137,11 @@ export const provisionTrialTenant = async (phone: string): Promise<TrialSignupRe
         defaultBranchId: branch.id,
         branches: { create: { branchId: branch.id } },
       },
-      include: { organization: { select: { id: true, name: true } } },
+      include: { organization: { select: { id: true, name: true, active: true } } },
     });
 
     return admin;
   });
 
-  const payload = {
-    sub: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role as AuthUser["role"],
-    organizationId: user.organizationId ?? undefined,
-    organizationName: user.organization?.name,
-  };
-
-  const refreshToken = await createRefreshToken(user.id);
-
-  return {
-    token: signAccessToken(payload),
-    refreshToken,
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role as AuthUser["role"],
-      organizationId: user.organizationId ?? undefined,
-      organizationName: user.organization?.name,
-    },
-    needsSetup: true,
-  };
+  return createTrialSession(user, true);
 };

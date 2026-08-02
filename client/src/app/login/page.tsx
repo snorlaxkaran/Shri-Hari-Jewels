@@ -902,7 +902,7 @@ export default function LoginPage() {
                 }}
               >
                 <a href="/onboarding/start" style={{ color: "var(--accent)" }}>
-                  Start free trial
+                  Sign in with mobile
                 </a>
                 {" · "}
                 Jewellery ERP
