@@ -7,9 +7,11 @@ import { Check, ChevronLeft, ChevronRight, Gem } from "lucide-react";
 import {
   completeOnboarding,
   fetchOnboardingStatus,
+  saveSetupCredentials,
   saveSetupProfile,
   type OnboardingStatus,
 } from "@/lib/api/onboarding";
+import "@/styles/erpnext-auth.css";
 import { fetchSettings } from "@/lib/api/settings";
 import {
   BUSINESS_TYPES,
@@ -23,11 +25,16 @@ import {
   type JewelleryModuleId,
 } from "@/lib/onboarding/config";
 
-const SLIDES = ["persona", "organization", "review"] as const;
+const SLIDES = ["credentials", "persona", "organization", "review"] as const;
 type SlideId = (typeof SLIDES)[number];
 
 const DEFAULT_STATUS: OnboardingStatus = {
   completed: false,
+  account: {
+    email: "",
+    name: "Owner",
+    credentialsConfigured: false,
+  },
   profile: {
     implementingFor: null,
     teamSize: null,
@@ -37,6 +44,7 @@ const DEFAULT_STATUS: OnboardingStatus = {
     loadDemoData: false,
   },
   steps: {
+    credentialsConfigured: false,
     businessInfo: false,
     gstConfigured: false,
     branchCreated: false,
@@ -54,6 +62,10 @@ export default function SetupWizardPage() {
   const [error, setError] = useState("");
 
   const [form, setForm] = useState({
+    loginName: "",
+    loginEmail: "",
+    loginPassword: "",
+    loginPasswordConfirm: "",
     implementingFor: "",
     teamSize: "",
     businessType: "",
@@ -72,6 +84,12 @@ export default function SetupWizardPage() {
         setStatus(s);
         setForm((f) => ({
           ...f,
+          loginName: s.account.name !== "Owner" ? s.account.name : "",
+          loginEmail: s.account.credentialsConfigured
+            ? s.account.email
+            : s.account.email.endsWith("@shreehari.com")
+              ? ""
+              : s.account.email,
           implementingFor: s.profile.implementingFor ?? "",
           teamSize: s.profile.teamSize ?? "",
           businessType: s.profile.businessType ?? "",
@@ -86,11 +104,15 @@ export default function SetupWizardPage() {
           gstNumber: settings.gstNumber ?? "",
           loadDemoData: s.profile.loadDemoData,
         }));
+        if (s.account.credentialsConfigured) {
+          setSlide("persona");
+        }
       })
       .catch(() => {
         if (!cancelled) {
           setStatus({
             completed: false,
+            account: { email: "", name: "Owner", credentialsConfigured: false },
             profile: {
               implementingFor: null,
               teamSize: null,
@@ -100,6 +122,7 @@ export default function SetupWizardPage() {
               loadDemoData: false,
             },
             steps: {
+              credentialsConfigured: false,
               businessInfo: false,
               gstConfigured: false,
               branchCreated: false,
@@ -138,6 +161,20 @@ export default function SetupWizardPage() {
 
   const validateSlide = (): boolean => {
     setError("");
+    if (slide === "credentials") {
+      if (!form.loginEmail.trim() || !form.loginEmail.includes("@")) {
+        setError("Enter a valid login email.");
+        return false;
+      }
+      if (form.loginPassword.length < 6) {
+        setError("Password must be at least 6 characters.");
+        return false;
+      }
+      if (form.loginPassword !== form.loginPasswordConfirm) {
+        setError("Passwords do not match.");
+        return false;
+      }
+    }
     if (slide === "persona") {
       if (!form.implementingFor || !form.teamSize || !form.businessType || !form.currentSystem) {
         setError("Please answer all questions about your business.");
@@ -175,6 +212,14 @@ export default function SetupWizardPage() {
     if (!validateSlide()) return;
     setSubmitting(true);
     try {
+      if (slide === "credentials") {
+        const updated = await saveSetupCredentials({
+          email: form.loginEmail.trim(),
+          password: form.loginPassword,
+          name: form.loginName.trim() || undefined,
+        });
+        setStatus(updated);
+      }
       if (slide === "organization") {
         await persistProfile();
       }
@@ -211,22 +256,22 @@ export default function SetupWizardPage() {
 
   if (status?.completed) {
     return (
-      <div className="setup-wizard-shell">
-        <header className="setup-wizard-header">
-          <div className="flex items-center gap-2">
-            <div className="setup-wizard-logo">
-              <Gem size={18} />
+      <div className="erp-setup-shell">
+        <header className="erp-setup-header">
+          <div className="flex items-center gap-2 font-semibold">
+            <div className="erp-auth-brand-mark">
+              <Gem size={16} />
             </div>
-            <span className="text-sm font-semibold">Shri Hari Jewels</span>
+            Shri Hari Jewels
           </div>
         </header>
-        <main className="setup-wizard-main">
-          <div className="setup-wizard-card text-center">
-            <h1 className="setup-wizard-title">Setup already complete</h1>
-            <p className="setup-wizard-subtitle mt-2">
+        <main className="erp-setup-main">
+          <div className="erp-setup-card text-center">
+            <h1 className="erp-setup-title">Setup already complete</h1>
+            <p className="erp-setup-help">
               Your showroom workspace is ready. Continue to the dashboard when you&apos;re set.
             </p>
-            <Link href="/dashboard" className="btn-primary inline-block mt-6 px-6 py-2.5 text-sm">
+            <Link href="/dashboard" className="erp-btn-primary inline-flex mt-6 px-6 w-auto">
               Go to dashboard
             </Link>
           </div>
@@ -236,34 +281,92 @@ export default function SetupWizardPage() {
   }
 
   return (
-    <div className="setup-wizard-shell">
-      <header className="setup-wizard-header">
-        <div className="flex items-center gap-2">
-          <div className="setup-wizard-logo">
-            <Gem size={18} />
+    <div className="erp-setup-shell">
+      <header className="erp-setup-header">
+        <div className="flex items-center gap-2 font-semibold">
+          <div className="erp-auth-brand-mark">
+            <Gem size={16} />
           </div>
-          <span className="text-sm font-semibold">Shri Hari Jewels</span>
+          Shri Hari Jewels
         </div>
-        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+        <p className="text-[#6b7280]">
           Step {slideIndex + 1} of {SLIDES.length}
         </p>
       </header>
 
-      <div className="setup-wizard-progress">
-        <div className="setup-wizard-progress-bar" style={{ width: `${progress}%` }} />
+      <div className="erp-setup-progress">
+        <div className="erp-setup-progress-bar" style={{ width: `${progress}%` }} />
       </div>
 
-      <main className="setup-wizard-main">
-        <div className="setup-wizard-card">
+      <main className="erp-setup-main">
+        <div className="erp-setup-card">
+          {slide === "credentials" && (
+            <>
+              <h1 className="erp-setup-title">Set up your login</h1>
+              <p className="erp-setup-help">
+                Choose the email and password you&apos;ll use to sign in next time. No verification
+                needed — you already verified your mobile.
+              </p>
+
+              <div className="space-y-3">
+                <label className="erp-form-group block mb-0">
+                  <span>Your name</span>
+                  <input
+                    value={form.loginName}
+                    onChange={(e) => setForm((f) => ({ ...f, loginName: e.target.value }))}
+                    placeholder="e.g. Karan Sharma"
+                  />
+                </label>
+
+                <label className="erp-form-group block mb-0">
+                  <span>Login email *</span>
+                  <input
+                    required
+                    type="email"
+                    autoComplete="email"
+                    value={form.loginEmail}
+                    onChange={(e) => setForm((f) => ({ ...f, loginEmail: e.target.value }))}
+                    placeholder="you@yourjewellery.com"
+                  />
+                </label>
+
+                <label className="erp-form-group block mb-0">
+                  <span>Password *</span>
+                  <input
+                    required
+                    type="password"
+                    autoComplete="new-password"
+                    value={form.loginPassword}
+                    onChange={(e) => setForm((f) => ({ ...f, loginPassword: e.target.value }))}
+                    placeholder="At least 6 characters"
+                  />
+                </label>
+
+                <label className="erp-form-group block mb-0">
+                  <span>Confirm password *</span>
+                  <input
+                    required
+                    type="password"
+                    autoComplete="new-password"
+                    value={form.loginPasswordConfirm}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, loginPasswordConfirm: e.target.value }))
+                    }
+                  />
+                </label>
+              </div>
+            </>
+          )}
+
           {slide === "persona" && (
             <>
-              <h1 className="setup-wizard-title">A little about your jewellery business</h1>
-              <p className="setup-wizard-subtitle">
+              <h1 className="erp-setup-title">A little about your jewellery business</h1>
+              <p className="erp-setup-help">
                 A few quick questions so we can set things up the way you work.
               </p>
 
-              <div className="setup-wizard-fields">
-                <label className="setup-field">
+              <div className="space-y-3 mt-2">
+                <label className="erp-form-group block mb-0">
                   <span>Who are you setting this up for?</span>
                   <select
                     value={form.implementingFor}
@@ -276,7 +379,7 @@ export default function SetupWizardPage() {
                   </select>
                 </label>
 
-                <label className="setup-field">
+                <label className="erp-form-group block mb-0">
                   <span>How big is the team?</span>
                   <select
                     value={form.teamSize}
@@ -289,7 +392,7 @@ export default function SetupWizardPage() {
                   </select>
                 </label>
 
-                <label className="setup-field">
+                <label className="erp-form-group block mb-0">
                   <span>What kind of jewellery business?</span>
                   <select
                     value={form.businessType}
@@ -302,7 +405,7 @@ export default function SetupWizardPage() {
                   </select>
                 </label>
 
-                <label className="setup-field">
+                <label className="erp-form-group block mb-0">
                   <span>What do you use today?</span>
                   <select
                     value={form.currentSystem}
@@ -315,16 +418,16 @@ export default function SetupWizardPage() {
                   </select>
                 </label>
 
-                <div className="setup-field">
+                <div className="erp-form-group mb-0">
                   <span>Modules you plan to use</span>
-                  <div className="setup-module-grid">
+                  <div className="erp-module-grid mt-2">
                     {JEWELLERY_MODULES.map((id) => {
                       const meta = MODULE_META[id];
                       const checked = form.enabledModules.includes(id);
                       return (
                         <label
                           key={id}
-                          className={`setup-module-tile ${checked ? "setup-module-tile-active" : ""}`}
+                          className={`erp-module-tile ${checked ? "erp-module-tile-active" : ""}`}
                         >
                           <input
                             type="checkbox"
@@ -346,13 +449,13 @@ export default function SetupWizardPage() {
 
           {slide === "organization" && (
             <>
-              <h1 className="setup-wizard-title">Set up your organisation</h1>
-              <p className="setup-wizard-subtitle">
+              <h1 className="erp-setup-title">Set up your organisation</h1>
+              <p className="erp-setup-help">
                 Basic details for billing, invoices, and your team workspace.
               </p>
 
-              <div className="setup-wizard-fields">
-                <label className="setup-field">
+              <div className="space-y-3 mt-2">
+                <label className="erp-form-group block mb-0">
                   <span>Business / showroom name *</span>
                   <input
                     required
@@ -362,7 +465,7 @@ export default function SetupWizardPage() {
                   />
                 </label>
 
-                <label className="setup-field">
+                <label className="erp-form-group block mb-0">
                   <span>GSTIN (optional now, required for tax invoices)</span>
                   <input
                     value={form.gstNumber}
@@ -371,7 +474,7 @@ export default function SetupWizardPage() {
                   />
                 </label>
 
-                <label className="setup-module-tile flex-row items-start gap-3 cursor-pointer">
+                <label className="erp-module-tile flex-row items-start gap-3 cursor-pointer mb-0">
                   <input
                     type="checkbox"
                     checked={form.loadDemoData}
@@ -392,8 +495,8 @@ export default function SetupWizardPage() {
 
           {slide === "review" && (
             <>
-              <h1 className="setup-wizard-title">You&apos;re ready to go</h1>
-              <p className="setup-wizard-subtitle">
+              <h1 className="erp-setup-title">You&apos;re ready to go</h1>
+              <p className="erp-setup-help">
                 Complete these quick steps from each workspace — we&apos;ll guide you inside the ERP.
               </p>
 
@@ -430,15 +533,11 @@ export default function SetupWizardPage() {
             </>
           )}
 
-          {error && (
-            <p className="mt-4 text-sm px-3 py-2 rounded border border-red-200 bg-red-50 text-red-700">
-              {error}
-            </p>
-          )}
+          {error ? <p className="erp-alert-error mt-4">{error}</p> : null}
 
-          <div className="setup-wizard-actions">
+          <div className="erp-setup-actions">
             {slideIndex > 0 ? (
-              <button type="button" className="btn-secondary px-4 py-2 text-sm" onClick={goBack}>
+              <button type="button" className="erp-btn-secondary" onClick={goBack}>
                 <ChevronLeft size={16} className="inline mr-1" />
                 Back
               </button>
@@ -449,7 +548,7 @@ export default function SetupWizardPage() {
             {slide === "review" ? (
               <button
                 type="button"
-                className="btn-primary px-6 py-2 text-sm"
+                className="erp-btn-primary w-auto px-6"
                 disabled={submitting}
                 onClick={() => void handleFinish()}
               >
@@ -458,7 +557,7 @@ export default function SetupWizardPage() {
             ) : (
               <button
                 type="button"
-                className="btn-primary px-6 py-2 text-sm"
+                className="erp-btn-primary w-auto px-6"
                 disabled={submitting}
                 onClick={() => void goNext()}
               >

@@ -19,8 +19,14 @@ export type ModuleOnboardingState = {
 
 export type OnboardingStatus = {
   completed: boolean;
+  account: {
+    email: string;
+    name: string;
+    credentialsConfigured: boolean;
+  };
   profile: OnboardingProfile;
   steps: {
+    credentialsConfigured: boolean;
     businessInfo: boolean;
     gstConfigured: boolean;
     branchCreated: boolean;
@@ -28,6 +34,12 @@ export type OnboardingStatus = {
     personaComplete: boolean;
   };
   modules: Partial<Record<JewelleryModuleId, ModuleOnboardingState>>;
+};
+
+export type SetupCredentialsInput = {
+  email: string;
+  password: string;
+  name?: string;
 };
 
 export type SetupProfileInput = {
@@ -44,6 +56,13 @@ export type SetupProfileInput = {
 export const fetchOnboardingStatus = async (): Promise<OnboardingStatus> => {
   const { data } = await api.get("/api/onboarding/status");
   return data;
+};
+
+export const saveSetupCredentials = async (
+  input: SetupCredentialsInput,
+): Promise<OnboardingStatus> => {
+  const { data } = await api.post("/api/onboarding/credentials", input);
+  return data.status;
 };
 
 export const saveSetupProfile = async (

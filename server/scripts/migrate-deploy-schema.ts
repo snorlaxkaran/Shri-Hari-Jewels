@@ -818,7 +818,49 @@ const main = async () => {
   await ensureMultiTenantOrganizations();
   await ensureOrgScopedInventoryIdentifiers();
   await ensureTenantStorefront();
+  await ensureUserTrialCredentials();
   console.log("Deploy schema migration complete."  );
+};
+
+const ensureUserTrialCredentials = async () => {
+  if (!(await tableExists("User"))) return;
+
+  if (!(await columnExists("User", "phone"))) {
+    await run(
+      "Add User.phone for trial signup…",
+      `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "phone" TEXT;`,
+    );
+    await run(
+      "User.phone unique index…",
+      `CREATE UNIQUE INDEX IF NOT EXISTS "User_phone_key" ON "User"("phone");`,
+    );
+  }
+
+  if (!(await columnExists("User", "credentialsConfigured"))) {
+    await run(
+      "Add User.credentialsConfigured…",
+      `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "credentialsConfigured" BOOLEAN NOT NULL DEFAULT false;`,
+    );
+  }
+
+  await run(
+    "Backfill trial phone from placeholder email…",
+    `
+    UPDATE "User"
+    SET "phone" = split_part("email", '@', 1)
+    WHERE "phone" IS NULL
+      AND "email" ~ '^[0-9]{10}@shreehari\\.com$';
+    `,
+  );
+
+  await run(
+    "Mark seeded / manual accounts as credentials configured…",
+    `
+    UPDATE "User"
+    SET "credentialsConfigured" = true
+    WHERE "email" !~ '^[0-9]{10}@shreehari\\.com$';
+    `,
+  );
 };
 
 const ensureStorefrontTables = async () => {

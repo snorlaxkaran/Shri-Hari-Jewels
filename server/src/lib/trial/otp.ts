@@ -71,6 +71,20 @@ export const sendTrialOtp = async (rawPhone: string): Promise<{ phone: string }>
     );
   }
 
+  const placeholderEmail = `${phone}@shreehari.com`;
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      OR: [{ phone }, { email: placeholderEmail }],
+    },
+    select: { credentialsConfigured: true },
+  });
+  if (existingUser?.credentialsConfigured) {
+    throw new TrialOtpError(
+      "This number is already registered. Sign in with your email and password.",
+      409,
+    );
+  }
+
   const recent = await prisma.phoneOtpChallenge.findFirst({
     where: { phone, purpose: "trial" },
     orderBy: { createdAt: "desc" },

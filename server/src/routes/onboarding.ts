@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { canManageOrganizations } from "../lib/auth/permissions.js";
+import { canManageSettings } from "../lib/auth/permissions.js";
 import {
   completeOnboarding,
   dismissModuleOnboarding,
@@ -7,6 +7,10 @@ import {
   saveSetupProfile,
   type SetupProfileInput,
 } from "../lib/onboarding/service.js";
+import {
+  CredentialsError,
+  saveLoginCredentials,
+} from "../lib/onboarding/credentials.js";
 import { JEWELLERY_MODULES } from "../lib/onboarding/config.js";
 import {
   authenticate,
@@ -44,7 +48,7 @@ onboardingRouter.get(
   requireOrganization,
   async (req: AuthenticatedRequest, res) => {
     try {
-      const status = await getOnboardingStatus(req.organizationId!);
+      const status = await getOnboardingStatus(req.organizationId!, req.user!.id);
       res.json(status);
     } catch (error) {
       console.error("GET /api/onboarding/status", error);
@@ -54,10 +58,44 @@ onboardingRouter.get(
 );
 
 onboardingRouter.post(
+  "/credentials",
+  authenticate,
+  requireOrganization,
+  requireRole(canManageSettings),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = req.body as {
+        email?: string;
+        password?: string;
+        name?: string;
+      };
+      if (typeof body.email !== "string" || typeof body.password !== "string") {
+        res.status(400).json({ error: "Email and password are required." });
+        return;
+      }
+      const account = await saveLoginCredentials(req.user!.id, {
+        email: body.email,
+        password: body.password,
+        name: typeof body.name === "string" ? body.name : undefined,
+      });
+      const status = await getOnboardingStatus(req.organizationId!, req.user!.id);
+      res.json({ account, status });
+    } catch (error) {
+      if (error instanceof CredentialsError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/onboarding/credentials", error);
+      res.status(500).json({ error: "Failed to save login credentials." });
+    }
+  },
+);
+
+onboardingRouter.post(
   "/profile",
   authenticate,
   requireOrganization,
-  requireRole(canManageOrganizations),
+  requireRole(canManageSettings),
   async (req: AuthenticatedRequest, res) => {
     try {
       const parsed = parseProfile(req.body);
@@ -82,7 +120,7 @@ onboardingRouter.post(
   "/complete",
   authenticate,
   requireOrganization,
-  requireRole(canManageOrganizations),
+  requireRole(canManageSettings),
   async (req: AuthenticatedRequest, res) => {
     try {
       await completeOnboarding(req.organizationId!);
@@ -98,7 +136,7 @@ onboardingRouter.post(
   "/modules/:moduleId/dismiss",
   authenticate,
   requireOrganization,
-  requireRole(canManageOrganizations),
+  requireRole(canManageSettings),
   async (req: AuthenticatedRequest, res) => {
     try {
       const moduleId = String(req.params.moduleId ?? "");

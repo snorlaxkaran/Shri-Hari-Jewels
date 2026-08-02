@@ -21,6 +21,7 @@ type TrialUserRecord = {
   name: string;
   role: string;
   active: boolean;
+  credentialsConfigured: boolean;
   organizationId: string | null;
   organization?: { id: string; name: string; active: boolean } | null;
 };
@@ -58,6 +59,12 @@ const createTrialSession = async (
 const signInExistingTrialUser = async (
   existing: TrialUserRecord,
 ): Promise<TrialSignupResult> => {
+  if (existing.credentialsConfigured) {
+    throw new TrialOtpError(
+      "This number is already registered. Sign in with your email and password.",
+      409,
+    );
+  }
   if (!existing.active) {
     throw new TrialOtpError("This account is inactive. Contact support.", 403);
   }
@@ -70,7 +77,10 @@ const signInExistingTrialUser = async (
     select: { onboardingCompletedAt: true },
   });
 
-  return createTrialSession(existing, settings?.onboardingCompletedAt == null);
+  const needsSetup =
+    !existing.credentialsConfigured || settings?.onboardingCompletedAt == null;
+
+  return createTrialSession(existing, needsSetup);
 };
 
 export const provisionTrialTenant = async (phone: string): Promise<TrialSignupResult> => {
@@ -130,10 +140,12 @@ export const provisionTrialTenant = async (phone: string): Promise<TrialSignupRe
       data: {
         organizationId: org.id,
         email,
+        phone,
         name: "Owner",
         password: hashed,
         role: "Admin",
         active: true,
+        credentialsConfigured: false,
         defaultBranchId: branch.id,
         branches: { create: { branchId: branch.id } },
       },

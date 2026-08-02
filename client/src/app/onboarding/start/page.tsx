@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useLayoutEffect, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Gem, Loader2 } from "lucide-react";
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
+import ErpNextAuthShell from "@/app/(components)/auth/ErpNextAuthShell";
 import { sendTrialOtp, verifyTrialOtp } from "@/lib/api/trial";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -22,7 +23,6 @@ export default function TrialStartPage() {
   const otpRef = useRef<HTMLInputElement>(null);
   const didClear = useRef(false);
 
-  // Always start fresh — an old login must not skip OTP or hijack the trial flow.
   useLayoutEffect(() => {
     if (didClear.current) return;
     didClear.current = true;
@@ -32,8 +32,8 @@ export default function TrialStartPage() {
 
   useEffect(() => {
     if (resendIn <= 0) return;
-    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
   }, [resendIn]);
 
   useEffect(() => {
@@ -80,7 +80,7 @@ export default function TrialStartPage() {
     setSubmitting(true);
     setError("");
     try {
-      const result = await sendTrialOtp(verifiedPhone);
+      await sendTrialOtp(verifiedPhone);
       setResendIn(15);
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not resend code."));
@@ -91,129 +91,109 @@ export default function TrialStartPage() {
 
   if (!sessionCleared || authLoading) {
     return (
-      <div className="min-h-screen bg-[#f4f5f6] flex items-center justify-center">
-        <Loader2 className="animate-spin text-[#737373]" size={24} />
+      <div className="erp-auth-page flex items-center justify-center">
+        <Loader2 className="animate-spin text-[#6b7280]" size={24} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f5f6] flex flex-col">
-      <header className="bg-white border-b border-[#e2e6ea] px-6 py-4 flex items-center justify-between">
-        <Link href="/onboarding" className="flex items-center gap-2 text-[#171717] font-semibold">
-          <span className="w-8 h-8 rounded-md bg-[#ff5858] flex items-center justify-center">
-            <Gem size={16} className="text-white" />
-          </span>
-          Shri Hari Jewels
-        </Link>
+    <ErpNextAuthShell
+      title={step === "phone" ? "Start your free trial" : "Verify your mobile"}
+      subtitle={
+        step === "phone"
+          ? "One-time phone verification. After setup you'll sign in with email and password."
+          : `Enter the 6-digit code sent to +91 ${verifiedPhone.slice(0, 5)} ${verifiedPhone.slice(5)}.`
+      }
+      backHref={step === "phone" ? "/onboarding" : undefined}
+      backLabel="Back"
+      navAction={
         <Link href="/login" className="text-sm text-[#525252] hover:text-[#171717]">
           Sign in
         </Link>
-      </header>
+      }
+    >
+      {error ? <p className="erp-alert-error">{error}</p> : null}
 
-      <main className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-md bg-white border border-[#e2e6ea] rounded-lg shadow-sm p-8">
-          <Link
-            href="/onboarding"
-            className="inline-flex items-center gap-1 text-xs text-[#737373] hover:text-[#171717] mb-6"
+      {step === "phone" ? (
+        <form onSubmit={handleSendOtp}>
+          <div className="erp-form-group">
+            <label htmlFor="trial_phone">Mobile number</label>
+            <div className="erp-input-row">
+              <span className="erp-input-prefix">+91</span>
+              <input
+                id="trial_phone"
+                required
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
+                placeholder="98765 43210"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <button type="submit" className="erp-btn-primary" disabled={submitting}>
+            {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
+            {submitting ? "Sending…" : "Send verification code"}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={handleVerify}>
+          <div className="erp-form-group">
+            <label htmlFor="trial_otp">6-digit code</label>
+            <input
+              ref={otpRef}
+              id="trial_otp"
+              required
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              pattern="\d{6}"
+              autoComplete="one-time-code"
+              className="text-center tracking-[0.3em] font-mono"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="erp-btn-primary"
+            disabled={submitting || otp.length !== 6}
           >
-            <ArrowLeft size={14} />
-            Back
-          </Link>
+            {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
+            {submitting ? "Verifying…" : "Verify & continue"}
+          </button>
 
-          <h1 className="text-xl font-semibold text-[#171717]">
-            {step === "phone" ? "Start your 2-month free trial" : "Verify your mobile"}
-          </h1>
-          <p className="mt-2 text-sm text-[#525252] leading-relaxed">
-            {step === "phone"
-              ? "Enter your phone number. We’ll text you a 6-digit code on SMS — usually arrives in a few seconds."
-              : `Enter the code sent to +91 ${verifiedPhone.slice(0, 5)} ${verifiedPhone.slice(5)}.`}
-          </p>
+          <div className="erp-auth-footer mt-3 space-y-2">
+            <button
+              type="button"
+              disabled={resendIn > 0 || submitting}
+              onClick={() => void handleResend()}
+              className="block w-full text-sm bg-transparent border-none cursor-pointer disabled:opacity-50"
+            >
+              {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
+            </button>
+            <button
+              type="button"
+              className="block w-full text-sm bg-transparent border-none cursor-pointer text-[#737373]"
+              onClick={() => {
+                setStep("phone");
+                setError("");
+                setOtp("");
+              }}
+            >
+              Change number
+            </button>
+          </div>
+        </form>
+      )}
 
-          {step === "phone" ? (
-            <form onSubmit={handleSendOtp} className="mt-6 space-y-4">
-              <label className="block text-sm">
-                <span className="font-medium text-[#404040]">Mobile number</span>
-                <div className="mt-1.5 flex rounded-md border border-[#d4d4d4] overflow-hidden focus-within:ring-2 focus-within:ring-[#0089ff]/30 focus-within:border-[#0089ff]">
-                  <span className="px-3 py-2.5 bg-[#fafafa] text-sm text-[#737373] border-r border-[#e5e5e5]">
-                    +91
-                  </span>
-                  <input
-                    required
-                    type="tel"
-                    inputMode="numeric"
-                    autoComplete="tel"
-                    placeholder="98765 43210"
-                    className="flex-1 px-3 py-2.5 text-sm outline-none"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                  />
-                </div>
-              </label>
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full flex items-center justify-center gap-2 rounded-md bg-[#171717] hover:bg-[#262626] text-white text-sm font-medium py-2.5 disabled:opacity-60"
-              >
-                {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
-                {submitting ? "Sending…" : "Send verification code"}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleVerify} className="mt-6 space-y-4">
-              <label className="block text-sm">
-                <span className="font-medium text-[#404040]">6-digit code</span>
-                <input
-                  ref={otpRef}
-                  required
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  pattern="\d{6}"
-                  autoComplete="one-time-code"
-                  className="mt-1.5 w-full rounded-md border border-[#d4d4d4] px-3 py-2.5 text-sm tracking-[0.3em] text-center font-mono outline-none focus:ring-2 focus:ring-[#0089ff]/30 focus:border-[#0089ff]"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                />
-              </label>
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <button
-                type="submit"
-                disabled={submitting || otp.length !== 6}
-                className="w-full flex items-center justify-center gap-2 rounded-md bg-[#171717] hover:bg-[#262626] text-white text-sm font-medium py-2.5 disabled:opacity-60"
-              >
-                {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
-                {submitting ? "Verifying…" : "Verify & continue"}
-              </button>
-              <button
-                type="button"
-                disabled={resendIn > 0 || submitting}
-                onClick={() => void handleResend()}
-                className="w-full text-sm text-[#525252] hover:text-[#171717] disabled:opacity-50"
-              >
-                {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
-              </button>
-              <button
-                type="button"
-                className="w-full text-sm text-[#737373] hover:text-[#171717]"
-                onClick={() => {
-                  setStep("phone");
-                  setError("");
-                  setOtp("");
-                }}
-              >
-                Change number
-              </button>
-            </form>
-          )}
-
-          <p className="mt-6 text-xs text-[#737373] leading-relaxed">
-            By continuing you agree to a 2-month trial of Shri Hari Jewels ERP. No credit card
-            required.
-          </p>
-        </div>
-      </main>
-    </div>
+      <p className="mt-6 text-xs text-[#737373] leading-relaxed text-center">
+        2-month free trial · No credit card · Phone verification is only needed once
+      </p>
+    </ErpNextAuthShell>
   );
 }

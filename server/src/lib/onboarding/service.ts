@@ -21,6 +21,11 @@ export type ModuleStepStatus = Record<string, boolean>;
 
 export type OnboardingStatusPayload = {
   completed: boolean;
+  account: {
+    email: string;
+    name: string;
+    credentialsConfigured: boolean;
+  };
   profile: {
     implementingFor: string | null;
     teamSize: string | null;
@@ -30,6 +35,7 @@ export type OnboardingStatusPayload = {
     loadDemoData: boolean;
   };
   steps: {
+    credentialsConfigured: boolean;
     businessInfo: boolean;
     gstConfigured: boolean;
     branchCreated: boolean;
@@ -155,7 +161,20 @@ const isModuleComplete = (steps: ModuleStepStatus, moduleId: JewelleryModuleId):
 
 export const getOnboardingStatus = async (
   organizationId: string,
+  userId: string,
 ): Promise<OnboardingStatusPayload> => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      email: true,
+      name: true,
+      credentialsConfigured: true,
+    },
+  });
+  if (!user) {
+    throw new Error("User not found.");
+  }
+
   const settings = await prisma.shopSettings.findUnique({
     where: { organizationId },
   });
@@ -192,6 +211,11 @@ export const getOnboardingStatus = async (
 
   return {
     completed: settings?.onboardingCompletedAt != null,
+    account: {
+      email: user.email,
+      name: user.name,
+      credentialsConfigured: user.credentialsConfigured,
+    },
     profile: {
       implementingFor: settings?.setupImplementingFor ?? null,
       teamSize: settings?.setupTeamSize ?? null,
@@ -201,6 +225,7 @@ export const getOnboardingStatus = async (
       loadDemoData: settings?.loadDemoData ?? false,
     },
     steps: {
+      credentialsConfigured: user.credentialsConfigured,
       businessInfo: Boolean(
         settings?.businessName && settings.businessName !== DEFAULT_BUSINESS_NAME,
       ),
@@ -262,7 +287,7 @@ export const saveSetupProfile = async (
     await seedDemoData(organizationId, actorUserId);
   }
 
-  return getOnboardingStatus(organizationId);
+  return getOnboardingStatus(organizationId, actorUserId);
 };
 
 export const completeOnboarding = async (
