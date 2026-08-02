@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useLayoutEffect, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Gem, Loader2 } from "lucide-react";
 import { sendTrialOtp, verifyTrialOtp } from "@/lib/api/trial";
@@ -9,7 +9,8 @@ import { useAuth } from "@/lib/auth/auth-context";
 type Step = "phone" | "otp";
 
 export default function TrialStartPage() {
-  const { signInWithSession, user, loading: authLoading } = useAuth();
+  const { signInWithSession, clearSession, loading: authLoading } = useAuth();
+  const [sessionCleared, setSessionCleared] = useState(false);
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
   const [verifiedPhone, setVerifiedPhone] = useState("");
@@ -19,12 +20,15 @@ export default function TrialStartPage() {
   const [error, setError] = useState("");
   const [resendIn, setResendIn] = useState(0);
   const otpRef = useRef<HTMLInputElement>(null);
+  const didClear = useRef(false);
 
-  useEffect(() => {
-    if (!authLoading && user) {
-      window.location.href = "/setup";
-    }
-  }, [authLoading, user]);
+  // Always start fresh — an old login must not skip OTP or hijack the trial flow.
+  useLayoutEffect(() => {
+    if (didClear.current) return;
+    didClear.current = true;
+    clearSession();
+    setSessionCleared(true);
+  }, [clearSession]);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -86,6 +90,14 @@ export default function TrialStartPage() {
       setSubmitting(false);
     }
   };
+
+  if (!sessionCleared || authLoading) {
+    return (
+      <div className="min-h-screen bg-[#f4f5f6] flex items-center justify-center">
+        <Loader2 className="animate-spin text-[#737373]" size={24} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f4f5f6] flex flex-col">

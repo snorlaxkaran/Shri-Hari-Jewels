@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronLeft, ChevronRight, Gem } from "lucide-react";
@@ -69,10 +70,6 @@ export default function SetupWizardPage() {
       .then(([s, settings]) => {
         if (cancelled) return;
         setStatus(s);
-        if (s.completed) {
-          router.replace("/dashboard");
-          return;
-        }
         setForm((f) => ({
           ...f,
           implementingFor: s.profile.implementingFor ?? "",
@@ -202,12 +199,41 @@ export default function SetupWizardPage() {
     try {
       await persistProfile();
       await completeOnboarding();
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem("shj_trial_setup");
+      }
       router.replace("/dashboard");
     } catch {
       setError("Could not complete setup. Try again.");
       setSubmitting(false);
     }
   };
+
+  if (status?.completed) {
+    return (
+      <div className="setup-wizard-shell">
+        <header className="setup-wizard-header">
+          <div className="flex items-center gap-2">
+            <div className="setup-wizard-logo">
+              <Gem size={18} />
+            </div>
+            <span className="text-sm font-semibold">Shri Hari Jewels</span>
+          </div>
+        </header>
+        <main className="setup-wizard-main">
+          <div className="setup-wizard-card text-center">
+            <h1 className="setup-wizard-title">Setup already complete</h1>
+            <p className="setup-wizard-subtitle mt-2">
+              Your showroom workspace is ready. Continue to the dashboard when you&apos;re set.
+            </p>
+            <Link href="/dashboard" className="btn-primary inline-block mt-6 px-6 py-2.5 text-sm">
+              Go to dashboard
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="setup-wizard-shell">

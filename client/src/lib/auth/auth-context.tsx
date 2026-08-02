@@ -74,6 +74,8 @@ type AuthContextValue = {
     loggedIn: AuthUser,
     redirectTo?: string,
   ) => void;
+  /** Clear tokens locally without navigation — use before a fresh trial signup. */
+  clearSession: () => void;
   logout: () => void;
 };
 
@@ -140,10 +142,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void bootstrap();
   }, [bootstrap]);
 
+  const clearSession = useCallback(() => {
+    const storage = getAuthStorage();
+    storage?.removeItem(TOKEN_KEY);
+    storage?.removeItem(REFRESH_TOKEN_KEY);
+    clearAuthToken();
+    setUser(null);
+    setLoading(false);
+  }, []);
+
   const signInWithSession = useCallback(
     (token: string, refreshToken: string, loggedIn: AuthUser, redirectTo?: string) => {
       persistSession(token, refreshToken);
       setUser(loggedIn);
+      if (redirectTo === "/setup" && typeof window !== "undefined") {
+        window.sessionStorage.setItem("shj_trial_setup", "1");
+      }
       router.replace(
         redirectTo ?? (loggedIn.role === "SuperAdmin" ? "/platform/companies" : "/dashboard"),
       );
@@ -192,8 +206,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   const value = useMemo(
-    () => ({ user, loading, login, verify2FA, signInWithSession, logout }),
-    [user, loading, login, verify2FA, signInWithSession, logout],
+    () => ({ user, loading, login, verify2FA, signInWithSession, clearSession, logout }),
+    [user, loading, login, verify2FA, signInWithSession, clearSession, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
