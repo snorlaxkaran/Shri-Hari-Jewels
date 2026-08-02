@@ -4,7 +4,11 @@ import { X, Home } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import GlobalSearch from "@/app/(components)/GlobalSearch";
+import SidebarNavSearch, {
+  filterNavSectionsByQuery,
+  flattenNavMatches,
+  rankNavMatches,
+} from "@/app/(components)/Sidebar/SidebarNavSearch";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   canAccessRoute,
@@ -41,6 +45,7 @@ const SidebarContent = ({
   const [readyForPickupCount, setReadyForPickupCount] = useState<number | undefined>();
   const [hallmarkPendingCount, setHallmarkPendingCount] = useState<number | undefined>();
   const [expensesPendingCount, setExpensesPendingCount] = useState<number | undefined>();
+  const [navQuery, setNavQuery] = useState("");
 
   const sections = useMemo(() => {
     if (!user) return [];
@@ -67,6 +72,32 @@ const SidebarContent = ({
       }),
     }));
   }, [user, incomingCount, followUpsDueCount, readyForPickupCount, hallmarkPendingCount, expensesPendingCount]);
+
+  const setupNavItem = useMemo(
+    () =>
+      user && isMasterAdmin(user.role)
+        ? [{ label: "Setup wizard", href: "/setup" }]
+        : [],
+    [user],
+  );
+
+  const accessiblePrimary = useMemo(
+    () => primaryNavItems.filter((item) => user && canAccessRoute(user.role, item.href)),
+    [user],
+  );
+
+  const filteredNav = useMemo(
+    () =>
+      filterNavSectionsByQuery(sections, accessiblePrimary, navQuery, setupNavItem),
+    [sections, accessiblePrimary, navQuery, setupNavItem],
+  );
+
+  const navMatches = useMemo(() => {
+    const flat = flattenNavMatches(sections, accessiblePrimary, setupNavItem);
+    return rankNavMatches(flat, navQuery);
+  }, [sections, accessiblePrimary, setupNavItem, navQuery]);
+
+  const isFiltering = navQuery.trim().length > 0;
 
   useEffect(() => {
     if (!user || !canViewStockTransfers(user.role)) return;
@@ -185,33 +216,40 @@ const SidebarContent = ({
       )}
 
       <div className="sidebar-search">
-        <GlobalSearch />
+        <SidebarNavSearch
+          value={navQuery}
+          onChange={setNavQuery}
+          matches={navMatches}
+          onNavigate={onClose}
+        />
       </div>
 
       <nav className="flex-1" style={{ paddingTop: 8 }}>
         <div className="px-4 pb-2">
-          {primaryNavItems
-            .filter((item) => user && canAccessRoute(user.role, item.href))
-            .map((item) => renderNavLink(item))}
-          {user && isMasterAdmin(user.role) && (
+          {filteredNav.primaryItems.map((item) => renderNavLink(item))}
+          {filteredNav.extras.map((item) => (
             <Link
-              href="/setup"
+              key={item.href}
+              href={item.href}
               onClick={onClose}
               className="sidebar-nav-item w-full flex items-center text-left transition-colors duration-150"
               style={{
                 fontSize: 12,
                 padding: "6px 16px",
                 gap: 8,
-                color: pathname === "/setup" ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
+                color:
+                  pathname === item.href
+                    ? "var(--sidebar-text-active)"
+                    : "var(--sidebar-text)",
               }}
             >
               <span className="w-[16px] flex justify-center">⚙</span>
-              <span>Setup wizard</span>
+              <span>{item.label}</span>
             </Link>
-          )}
+          ))}
         </div>
 
-        {sections.map((section, si) => (
+        {filteredNav.sections.map((section, si) => (
           <div key={section.title}>
             {si !== 0 && (
               <div
@@ -222,7 +260,20 @@ const SidebarContent = ({
                 }}
               />
             )}
-            {section.workspaceHref && user && canAccessRoute(user.role, section.workspaceHref) ? (
+            {isFiltering ? (
+              <p
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "var(--sidebar-text)",
+                  padding: "12px 16px 4px",
+                }}
+              >
+                {section.title}
+              </p>
+            ) : section.workspaceHref && user && canAccessRoute(user.role, section.workspaceHref) ? (
               <Link
                 href={section.workspaceHref}
                 onClick={onClose}
@@ -241,7 +292,7 @@ const SidebarContent = ({
                   {section.title}
                 </p>
               </Link>
-            ) : (
+            ) : isFiltering ? null : (
               <p
                 style={{
                   fontSize: 11,
@@ -259,6 +310,15 @@ const SidebarContent = ({
             {section.items.map((item) => renderNavLink(item))}
           </div>
         ))}
+
+        {isFiltering &&
+          filteredNav.primaryItems.length === 0 &&
+          filteredNav.extras.length === 0 &&
+          filteredNav.sections.length === 0 && (
+            <p className="px-4 py-6 text-sm text-center" style={{ color: "var(--text-muted)" }}>
+              No menu items match &ldquo;{navQuery.trim()}&rdquo;
+            </p>
+          )}
       </nav>
     </div>
   );
