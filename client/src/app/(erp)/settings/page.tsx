@@ -149,6 +149,19 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {isAdmin && (
+        <div className="surface-card p-5 mb-6 max-w-2xl">
+          <h2 className="text-sm font-semibold text-zinc-900 mb-1">Inventory admin</h2>
+          <p className="text-sm text-zinc-500 mb-3">
+            Rename a catalog SKU for all pieces (e.g. SMNK0011 → SMNK0012). Piece item codes never
+            change.
+          </p>
+          <Link href="/settings/sku-rename" className="btn-secondary inline-flex px-4 py-2 text-sm">
+            Rename SKU
+          </Link>
+        </div>
+      )}
+
       {user && canExportTally(user.role) && (
         <div
           className="surface-card p-5 mb-6 max-w-2xl"

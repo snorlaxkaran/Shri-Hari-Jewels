@@ -52,7 +52,7 @@ export default function OnboardingPortfolioPage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#f4f5f7]">
       <header className="sticky top-0 z-20 bg-white border-b border-[#e5e7eb] h-12">
-        <div className="max-w-6xl mx-auto px-6 h-full flex items-center justify-between">
+        <div className="erp-marketing-shell h-full flex items-center justify-between">
           <Link href="/onboarding" className="erp-auth-brand">
             <span className="erp-auth-brand-mark">
               <Gem size={16} />
@@ -77,14 +77,14 @@ export default function OnboardingPortfolioPage() {
       </header>
 
       <section className="border-b border-[#e5e7eb] bg-white">
-        <div className="max-w-6xl mx-auto px-6 py-16 lg:py-20 grid lg:grid-cols-2 gap-12 items-center">
+        <div className="erp-marketing-shell py-16 lg:py-24 grid lg:grid-cols-2 gap-14 lg:gap-16 items-center">
           <div>
             <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#6b7280] mb-4">
               <Zap size={14} className="text-[#e74c3c]" />
               2-month free trial · No credit card
             </p>
-            <h1 className="text-4xl sm:text-[2.75rem] font-semibold leading-[1.1] tracking-tight text-[#171717]">
-              Jewellery ERP built the way ERPNext feels — clean, fast, professional
+            <h1 className="text-4xl sm:text-5xl lg:text-[3.25rem] font-semibold leading-[1.08] tracking-tight text-[#171717]">
+              Jewellery ERP — clean, fast, and built for your counter
             </h1>
             <p className="mt-5 text-lg text-[#525252] leading-relaxed max-w-lg">
               Every piece tracked from wax to wrist — inventory, shop-floor production, GST
@@ -103,7 +103,7 @@ export default function OnboardingPortfolioPage() {
             </div>
           </div>
 
-          <div className="erp-page-card max-w-none shadow-md">
+          <div className="erp-marketing-card erp-marketing-hero shadow-md">
             <div className="px-4 py-3 border-b border-[#e5e7eb] bg-[#f9fafb] flex items-center gap-2 rounded-t-[12px]">
               <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
               <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
@@ -135,11 +135,11 @@ export default function OnboardingPortfolioPage() {
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-6 py-16">
-        <h2 className="text-2xl font-semibold text-center mb-10">Get started in minutes</h2>
+      <section className="erp-marketing-shell py-16">
+        <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-10">Get started in minutes</h2>
         <div className="grid md:grid-cols-3 gap-6">
           {STEPS.map((step) => (
-            <div key={step.n} className="erp-page-card max-w-none">
+            <div key={step.n} className="erp-marketing-card">
               <span className="inline-flex w-8 h-8 items-center justify-center rounded-full bg-[#e74c3c] text-white text-sm font-semibold">
                 {step.n}
               </span>
@@ -150,8 +150,8 @@ export default function OnboardingPortfolioPage() {
         </div>
       </section>
 
-      <section id="features" className="border-y border-[#e5e7eb] bg-white py-10">
-        <div className="max-w-6xl mx-auto px-6">
+      <section id="features" className="border-y border-[#e5e7eb] bg-white py-12">
+        <div className="erp-marketing-shell">
           <ul className="flex flex-wrap justify-center gap-x-8 gap-y-3">
             {HIGHLIGHTS.map((item) => (
               <li key={item} className="flex items-center gap-2 text-sm text-[#404040]">
@@ -163,9 +163,9 @@ export default function OnboardingPortfolioPage() {
         </div>
       </section>
 
-      <section id="modules" className="max-w-6xl mx-auto px-6 py-16 lg:py-20">
+      <section id="modules" className="erp-marketing-shell py-16 lg:py-24">
         <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-2xl sm:text-3xl font-semibold">Workspaces built for jewellers</h2>
+          <h2 className="text-2xl sm:text-4xl font-semibold">Workspaces built for jewellers</h2>
           <p className="mt-3 text-[#525252]">
             Not a generic ERP — each module is tailored to Indian jewellery operations with
             guided onboarding inside the app.
@@ -176,7 +176,7 @@ export default function OnboardingPortfolioPage() {
             const meta = MODULE_META[id];
             const Icon = MODULE_ICONS[id];
             return (
-              <article key={id} className="erp-page-card max-w-none hover:border-[#d1d5db] transition-colors">
+              <article key={id} className="erp-marketing-card hover:border-[#d1d5db] transition-colors">
                 <Icon size={22} className="text-[#e74c3c] mb-3" strokeWidth={1.75} />
                 <h3 className="font-semibold">{meta.label}</h3>
                 <p className="mt-2 text-sm text-[#525252] leading-relaxed">{meta.description}</p>
@@ -187,8 +187,8 @@ export default function OnboardingPortfolioPage() {
       </section>
 
       <section className="bg-[#171717] text-white">
-        <div className="max-w-6xl mx-auto px-6 py-16 text-center">
-          <h2 className="text-2xl sm:text-3xl font-semibold">Ready to run a calmer counter?</h2>
+        <div className="erp-marketing-shell py-20 text-center">
+          <h2 className="text-2xl sm:text-4xl font-semibold">Ready to run a calmer counter?</h2>
           <p className="mt-3 text-[#a3a3a3] max-w-lg mx-auto">
             Verify your mobile once, set your login email in setup, and start managing inventory
             the same day.
@@ -203,7 +203,7 @@ export default function OnboardingPortfolioPage() {
       </section>
 
       <footer className="border-t border-[#e5e7eb] py-8 bg-white">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-[#6b7280]">
+        <div className="erp-marketing-shell flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-[#6b7280]">
           <p>© {new Date().getFullYear()} Shri Hari Jewels</p>
           <div className="flex gap-6">
             <Link href="/login" className="hover:text-[#171717]">

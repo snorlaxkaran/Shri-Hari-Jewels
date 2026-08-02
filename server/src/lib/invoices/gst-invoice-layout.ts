@@ -210,7 +210,7 @@ const drawTribeHeader = (
   const leftColWidth = contentWidth * 0.55;
   const topY = doc.y;
 
-  doc.font("Helvetica-Bold").fontSize(20).fillColor(T.gold);
+  doc.font("Helvetica-Bold").fontSize(20).fillColor(T.text);
   doc.text(settings.businessName, left, topY, { width: leftColWidth });
 
   let leftY = doc.y + 2;
@@ -229,10 +229,17 @@ const drawTribeHeader = (
     width: leftColWidth,
   });
 
-  doc.font("Helvetica-Bold").fontSize(13).fillColor(T.text);
-  doc.text(layout.documentTitle, left + leftColWidth, topY, {
-    width: contentWidth - leftColWidth,
-    align: "right",
+  const titleBoxWidth = contentWidth - leftColWidth;
+  const titleBoxX = left + leftColWidth;
+  doc.save();
+  doc.lineWidth(0.75).strokeColor(T.border);
+  doc.rect(titleBoxX, topY, titleBoxWidth, 36).stroke();
+  doc.restore();
+
+  doc.font("Helvetica-Bold").fontSize(12).fillColor(T.text);
+  doc.text(layout.documentTitle, titleBoxX, topY + 11, {
+    width: titleBoxWidth,
+    align: "center",
   });
 
   const headerBottom = Math.max(doc.y, leftY + 14);
@@ -406,6 +413,8 @@ const drawTribeItemTable = (
 
   doc.save();
   doc.rect(left, y, contentWidth, TABLE_HEADER_HEIGHT).fill(T.tableHeaderFill);
+  doc.lineWidth(0.5).strokeColor(T.border);
+  doc.rect(left, y, contentWidth, TABLE_HEADER_HEIGHT).stroke();
   doc.restore();
 
   let x = left;

@@ -17,6 +17,8 @@ import {
   listStockTransfers,
   listProducts,
   repairInventory,
+  renameProductSku,
+  getProductBySku,
   transferInventoryUnits,
   updateProduct,
 } from "../lib/inventory/service.js";
@@ -823,6 +825,59 @@ inventoryRouter.post(
       }
       console.error("POST /api/inventory/units/:unitId/release-hold", error);
       res.status(500).json({ error: "Failed to release hold" });
+    }
+  },
+);
+
+inventoryRouter.get(
+  "/by-sku/:sku",
+  requireRole((role) => role === "Admin"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const product = await getProductBySku(
+        routeParam(req.params.sku),
+        req.organizationId!,
+      );
+      if (!product) {
+        res.status(404).json({ error: "No product found with that SKU." });
+        return;
+      }
+      res.json(product);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("GET /api/inventory/by-sku/:sku", error);
+      res.status(500).json({ error: "Failed to look up SKU" });
+    }
+  },
+);
+
+inventoryRouter.patch(
+  "/:id/sku",
+  requireRole((role) => role === "Admin"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const newSku = typeof req.body?.newSku === "string" ? req.body.newSku : "";
+      if (!newSku.trim()) {
+        res.status(400).json({ error: "newSku is required." });
+        return;
+      }
+      const product = await renameProductSku(
+        routeParam(req.params.id),
+        newSku,
+        req.organizationId!,
+        { id: req.user!.id, name: req.user!.name },
+      );
+      res.json(product);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("PATCH /api/inventory/:id/sku", error);
+      res.status(500).json({ error: "Failed to rename SKU" });
     }
   },
 );

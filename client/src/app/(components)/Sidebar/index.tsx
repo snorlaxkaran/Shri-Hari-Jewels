@@ -4,6 +4,7 @@ import { X, Home } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import GlobalSearch from "@/app/(components)/GlobalSearch";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   canAccessRoute,
@@ -182,6 +183,10 @@ const SidebarContent = ({
           </button>
         </div>
       )}
+
+      <div className="sidebar-search">
+        <GlobalSearch />
+      </div>
 
       <nav className="flex-1" style={{ paddingTop: 8 }}>
         <div className="px-4 pb-2">

@@ -130,6 +130,7 @@ export const navSections: NavSection[] = [
       { label: "Attendance", href: "/attendance", icon: icon(CalendarDays) },
       { label: "Payroll", href: "/payroll", icon: icon(Banknote) },
       { label: "Settings", href: "/settings", icon: icon(Settings) },
+      { label: "Rename SKU", href: "/settings/sku-rename", icon: icon(Tags) },
     ],
   },
 ];
@@ -225,6 +226,7 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname === "/payroll/new") return "New Payroll Run";
   if (pathname.startsWith("/payroll/")) return "Payroll Run";
   if (pathname === "/payroll") return "Payroll";
+  if (pathname === "/settings/sku-rename") return "Rename SKU";
   if (pathname === "/settings/tally-export") return "Tally Export";
   if (pathname === "/production-runs/new") return "New Production Run";
   if (pathname === "/production-runs/dashboard") return "Production Dashboard";

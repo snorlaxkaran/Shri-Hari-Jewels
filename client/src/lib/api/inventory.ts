@@ -82,6 +82,24 @@ export const updateProduct = async (
   return data;
 };
 
+export const fetchProductBySku = async (sku: string): Promise<InventoryItem> => {
+  const { data } = await api.get<InventoryItem>(
+    `/api/inventory/by-sku/${encodeURIComponent(sku.trim())}`,
+  );
+  return data;
+};
+
+export const renameProductSku = async (
+  productId: string,
+  newSku: string,
+): Promise<InventoryItem> => {
+  const { data } = await api.patch<InventoryItem>(
+    `/api/inventory/${productId}/sku`,
+    { newSku },
+  );
+  return data;
+};
+
 export const deleteProduct = async (productId: string): Promise<void> => {
   await api.delete(`/api/inventory/${productId}`);
 };

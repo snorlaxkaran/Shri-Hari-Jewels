@@ -1,12 +1,12 @@
-/** Tribe / TBA wholesale invoice palette (from Inv-format.pdf). */
+/** ERPNext-inspired retail GST invoice palette */
 export const INVOICE_THEME = {
-  gold: "#9c7a32",
-  text: "#1f2328",
+  gold: "#e74c3c",
+  text: "#171717",
   muted: "#6b7280",
-  border: "#e5e7eb",
-  panelFill: "#fafaf8",
-  tableHeaderFill: "#1f2328",
-  tableHeaderText: "#ffffff",
-  payableBarFill: "#1f2328",
+  border: "#d1d5db",
+  panelFill: "#f9fafb",
+  tableHeaderFill: "#f3f4f6",
+  tableHeaderText: "#374151",
+  payableBarFill: "#171717",
   payableBarText: "#ffffff",
 } as const;

@@ -1196,6 +1196,25 @@ select.filter-select:focus {
   line-height: 1.35;
 }
 
+/* Sidebar search */
+.sidebar-search {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sidebar-search .global-search-input {
+  height: 30px;
+  font-size: 12px;
+  background: var(--bg-muted);
+}
+
+.sidebar-search .global-search-dropdown {
+  left: 12px;
+  right: 12px;
+  width: auto;
+}
+
 @media print {
   @page {
     size: 91mm 12mm;

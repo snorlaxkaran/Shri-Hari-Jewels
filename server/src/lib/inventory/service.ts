@@ -22,6 +22,7 @@ import { getStockStatus } from "./status.js";
 import { syncProductStockInTx } from "./stock-sync.js";
 import {
   recordInventoryAudit,
+  recordInventoryAuditInTx,
   recordUnitTransferOutInTx,
   recordUnitsCreatedInTx,
   type AuditActor,
@@ -948,6 +949,95 @@ export const updateProduct = async (
     include: productInclude,
   });
   if (!refreshed) return null;
+
+  return toInventoryItem(refreshed, { marketRates: await getCurrentMarketRates() });
+};
+
+export const getProductBySku = async (
+  sku: string,
+  organizationId: string,
+): Promise<InventoryItem | null> => {
+  const normalized = sku.trim().toUpperCase();
+  if (!normalized) return null;
+
+  const product = await prisma.product.findFirst({
+    where: { organizationId, sku: normalized },
+    include: productInclude,
+  });
+  if (!product) return null;
+
+  return toInventoryItem(product, { marketRates: await getCurrentMarketRates() });
+};
+
+/** Admin-only: rename catalog SKU on Product. Piece item codes are never changed. */
+export const renameProductSku = async (
+  productId: string,
+  newSku: string,
+  organizationId: string,
+  actor: AuditActor,
+): Promise<InventoryItem> => {
+  const normalized = newSku.trim().toUpperCase();
+  if (!normalized) {
+    throw new InventoryError("New SKU is required.", 400);
+  }
+
+  const existing = await prisma.product.findFirst({
+    where: { id: productId, organizationId },
+    include: { units: { select: { id: true, itemCode: true } } },
+  });
+  if (!existing) {
+    throw new InventoryError("Product not found.", 404);
+  }
+
+  const oldSku = existing.sku.trim().toUpperCase();
+  if (oldSku === normalized) {
+    throw new InventoryError("New SKU is the same as the current SKU.", 400);
+  }
+
+  const conflict = await prisma.product.findFirst({
+    where: {
+      organizationId,
+      sku: normalized,
+      NOT: { id: productId },
+    },
+  });
+  if (conflict) {
+    throw new InventoryError(
+      `SKU "${normalized}" is already used by another product.`,
+      409,
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.product.update({
+      where: { id: productId },
+      data: { sku: normalized },
+    });
+
+    await recordInventoryAuditInTx(tx, {
+      entityType: "Product",
+      entityId: productId,
+      productId,
+      action: "SkuRenamed",
+      previousValue: { sku: existing.sku },
+      newValue: {
+        sku: normalized,
+        unitCount: existing.units.length,
+        itemCodesUnchanged: existing.units.map((u) => u.itemCode),
+      },
+      reason: "admin_sku_rename",
+      performedById: actor.id,
+      performedByName: actor.name,
+    });
+  });
+
+  const refreshed = await prisma.product.findUnique({
+    where: { id: productId },
+    include: productInclude,
+  });
+  if (!refreshed) {
+    throw new InventoryError("Product not found after rename.", 500);
+  }
 
   return toInventoryItem(refreshed, { marketRates: await getCurrentMarketRates() });
 };
