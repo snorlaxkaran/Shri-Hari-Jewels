@@ -29,6 +29,7 @@ import {
 } from "./totp.js";
 import { writeAuditLog } from "../audit/service.js";
 import { logBusinessEvent } from "../logger.js";
+import { normalizeIndianPhone, hasConfiguredLogin } from "../trial/phone.js";
 
 export class AuthError extends Error {
   constructor(
@@ -103,13 +104,30 @@ export const login = async (input: LoginInput): Promise<LoginResult> => {
 
   const email = resolveLoginEmail(identifier);
 
-  const user = await prisma.user.findUnique({
+  let user = await prisma.user.findUnique({
     where: { email },
     include: { organization: { select: { id: true, name: true, active: true } } },
   });
 
+  if (!user) {
+    const phone = normalizeIndianPhone(identifier);
+    if (phone) {
+      user = await prisma.user.findUnique({
+        where: { phone },
+        include: { organization: { select: { id: true, name: true, active: true } } },
+      });
+    }
+  }
+
   if (!user || !user.active) {
     throw new AuthError("Invalid email or password.");
+  }
+
+  if (!hasConfiguredLogin(user)) {
+    throw new AuthError(
+      "You have not set a login email and password yet. Use “Verify mobile & continue” on the sign-in page, enter your phone number, and complete the login setup step.",
+      403,
+    );
   }
 
   if (isAccountLocked(user.lockedUntil)) {

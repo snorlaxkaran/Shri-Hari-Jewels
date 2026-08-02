@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import PageHeader from "@/app/(components)/PageHeader";
+import ListPageShell from "@/app/(components)/ListPageShell";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatusBadge from "@/app/(components)/StatusBadge";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -58,117 +58,90 @@ function CustomersPageContent() {
     });
   }, [customers, search, typeFilter]);
 
-  if (!hydrated || loading) {
-    return <PageSkeleton />;
-  }
-
   return (
-    <div className="page-content">
-      <PageHeader
-        title="Customers"
-        subtitle={`${filtered.length} registered customers`}
-        action={
-          canManage ? (
-            <Link
-              href="/customers/new"
-              className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
-            >
-              <Plus size={16} />
-              Add Customer
-            </Link>
-          ) : undefined
-        }
-      />
-
-      {error && (
-        <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">
-          {error}
-        </div>
-      )}
-
-      <div className="filter-bar">
-        <div className="filter-search">
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, company, phone, or city…"
-          />
-        </div>
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="filter-select"
-        >
-          <option value="All Types">All Types</option>
-          {CUSTOMER_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
-        <span className="filter-count">{filtered.length} customers</span>
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className="surface-card p-8 text-center text-sm text-zinc-400">
-          {canManage
-            ? "No customers yet. Add your first customer to get started."
-            : "No customers found."}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((customer) => (
-            <button
-              key={customer.id}
-              type="button"
-              onClick={() => setSelectedId(customer.id)}
-              className={`surface-card p-5 text-left hover:border-zinc-300 transition-colors w-full ${
-                selectedId === customer.id ? "ring-2 ring-zinc-300 border-zinc-300" : ""
-              }`}
-            >
-              <div className="flex items-start justify-between mb-3 gap-2">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-full avatar text-sm shrink-0">
-                    {customer.name.charAt(0)}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm text-zinc-900 truncate">{customer.name}</p>
-                    {customer.companyName && (
-                      <p className="text-xs text-zinc-500 truncate">{customer.companyName}</p>
-                    )}
-                    <p className="text-xs text-zinc-400">{customer.billingCity ?? customer.city ?? "—"}</p>
-                  </div>
+    <ListPageShell
+      title="Customers"
+      subtitle={`${filtered.length} registered customers`}
+      loading={!hydrated || loading}
+      error={error || null}
+      searchPlaceholder="Search by name, company, phone, or city…"
+      searchValue={search}
+      onSearchChange={setSearch}
+      filterValue={typeFilter}
+      filterOptions={[
+        { value: "All Types", label: "All Types" },
+        ...CUSTOMER_TYPES.map((type) => ({ value: type, label: type })),
+      ]}
+      onFilterChange={setTypeFilter}
+      countLabel={`${filtered.length} customers`}
+      isEmpty={filtered.length === 0}
+      emptyMessage={
+        canManage
+          ? "No customers yet. Add your first customer to get started."
+          : "No customers found."
+      }
+      action={
+        canManage ? (
+          <Link href="/customers/new" className="btn-primary flex items-center gap-2">
+            <Plus size={16} />
+            Add Customer
+          </Link>
+        ) : undefined
+      }
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {filtered.map((customer) => (
+          <button
+            key={customer.id}
+            type="button"
+            onClick={() => setSelectedId(customer.id)}
+            className={`surface-card p-5 text-left hover:border-zinc-300 transition-colors w-full ${
+              selectedId === customer.id ? "ring-2 ring-zinc-300 border-zinc-300" : ""
+            }`}
+          >
+            <div className="flex items-start justify-between mb-3 gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-full avatar text-sm shrink-0">
+                  {customer.name.charAt(0)}
                 </div>
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  <CustomerTypeBadge type={customer.customerType ?? "Individual Buyer"} />
-                  <StatusBadge status={customer.tier} />
-                </div>
-              </div>
-              <div className="space-y-1.5 text-xs text-zinc-500">
-                <p>{customer.mobile}</p>
-                {customer.email && <p>{customer.email}</p>}
-              </div>
-              <div className="flex justify-between mt-4 pt-3 border-t border-zinc-100 text-xs">
-                <div>
-                  <p className="text-zinc-400">Purchases</p>
-                  <p className="font-semibold text-zinc-900">{customer.totalOrders}</p>
-                </div>
-                <div>
-                  <p className="text-zinc-400">Total Spent</p>
-                  <p className="font-semibold text-zinc-900">{formatCurrency(customer.totalSpent)}</p>
-                </div>
-                <div>
-                  <p className="text-zinc-400">Last Visit</p>
-                  <p className="font-semibold text-zinc-900">
-                    {customer.lastVisit ? formatDate(customer.lastVisit) : "—"}
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm text-zinc-900 truncate">{customer.name}</p>
+                  {customer.companyName && (
+                    <p className="text-xs text-zinc-500 truncate">{customer.companyName}</p>
+                  )}
+                  <p className="text-xs text-zinc-400">
+                    {customer.billingCity ?? customer.city ?? "—"}
                   </p>
                 </div>
               </div>
-            </button>
-          ))}
-        </div>
-      )}
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <CustomerTypeBadge type={customer.customerType ?? "Individual Buyer"} />
+                <StatusBadge status={customer.tier} />
+              </div>
+            </div>
+            <div className="space-y-1.5 text-xs text-zinc-500">
+              <p>{customer.mobile}</p>
+              {customer.email && <p>{customer.email}</p>}
+            </div>
+            <div className="flex justify-between mt-4 pt-3 border-t border-zinc-100 text-xs">
+              <div>
+                <p className="text-zinc-400">Purchases</p>
+                <p className="font-semibold text-zinc-900">{customer.totalOrders}</p>
+              </div>
+              <div>
+                <p className="text-zinc-400">Total Spent</p>
+                <p className="font-semibold text-zinc-900">{formatCurrency(customer.totalSpent)}</p>
+              </div>
+              <div>
+                <p className="text-zinc-400">Last Visit</p>
+                <p className="font-semibold text-zinc-900">
+                  {customer.lastVisit ? formatDate(customer.lastVisit) : "—"}
+                </p>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
 
       {selectedId && (
         <CustomerDetailPanel
@@ -176,6 +149,6 @@ function CustomersPageContent() {
           onClose={() => setSelectedId(null)}
         />
       )}
-    </div>
+    </ListPageShell>
   );
 }

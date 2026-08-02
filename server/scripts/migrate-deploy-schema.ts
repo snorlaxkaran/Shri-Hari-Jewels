@@ -861,6 +861,15 @@ const ensureUserTrialCredentials = async () => {
     WHERE "email" !~ '^[0-9]{10}@shreehari\\.com$';
     `,
   );
+
+  await run(
+    "Trial placeholder emails must complete login setup…",
+    `
+    UPDATE "User"
+    SET "credentialsConfigured" = false
+    WHERE "email" ~ '^[0-9]{10}@shreehari\\.com$';
+    `,
+  );
 };
 
 const ensureStorefrontTables = async () => {

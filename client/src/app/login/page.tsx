@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Smartphone } from "lucide-react";
 import ErpNextAuthShell from "@/app/(components)/auth/ErpNextAuthShell";
 import { useAuth } from "@/lib/auth/auth-context";
 import { consumeInactivityLogoutFlag } from "@/lib/auth/use-idle-logout";
@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [inactivityNotice, setInactivityNotice] = useState(false);
+  const needsMobileSetup = error.toLowerCase().includes("verify mobile");
 
   useEffect(() => {
     if (consumeInactivityLogoutFlag()) {
@@ -63,27 +64,76 @@ export default function LoginPage() {
       subtitle={
         tempToken
           ? "Enter the 6-digit code from your authenticator app."
-          : "Welcome! Please sign in to continue."
+          : "Use mobile OTP if you have not set your login email yet."
       }
       navAction={
         <Link href="/onboarding/start" className="erp-auth-nav-link">
-          Start free trial
+          New trial
         </Link>
       }
     >
       {inactivityNotice ? (
-        <p className="erp-alert-error" style={{ background: "#fffbeb", borderColor: "#fde68a", color: "#92400e" }}>
+        <p
+          className="erp-alert-error"
+          style={{ background: "#fffbeb", borderColor: "#fde68a", color: "#92400e" }}
+        >
           You were signed out due to inactivity.
         </p>
       ) : null}
 
-      {error ? <p className="erp-alert-error">{error}</p> : null}
+      {!tempToken ? (
+        <>
+          <div
+            className="rounded-lg border border-[#fecaca] bg-[#fff5f4] p-4 mb-5"
+            style={{ borderColor: "#f5c6c0" }}
+          >
+            <p className="text-sm font-medium text-[#171717] m-0">
+              Started a trial but never set email &amp; password?
+            </p>
+            <p className="text-xs text-[#525252] mt-1.5 mb-3 leading-relaxed">
+              You cannot sign in with email until you complete that step. Verify your mobile
+              number — we&apos;ll take you straight to the login setup screen.
+            </p>
+            <Link
+              href="/onboarding/start"
+              className="erp-btn-primary w-full no-underline"
+              style={{ textDecoration: "none" }}
+            >
+              <Smartphone size={16} />
+              Verify mobile &amp; continue
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex-1 h-px bg-[#e5e7eb]" />
+            <span className="text-xs text-[#9ca3af] whitespace-nowrap">
+              Already set login email
+            </span>
+            <div className="flex-1 h-px bg-[#e5e7eb]" />
+          </div>
+        </>
+      ) : null}
+
+      {error ? (
+        <div className="erp-alert-error">
+          {error}
+          {needsMobileSetup ? (
+            <Link
+              href="/onboarding/start"
+              className="erp-btn-primary w-full mt-3 no-underline"
+              style={{ textDecoration: "none" }}
+            >
+              Verify mobile &amp; continue
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
 
       <form onSubmit={handleSubmit}>
         {!tempToken ? (
           <>
             <div className="erp-form-group">
-              <label htmlFor="login_email">Email</label>
+              <label htmlFor="login_email">Login email</label>
               <input
                 id="login_email"
                 type="text"
@@ -91,7 +141,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
+                placeholder="you@yourjewellery.com"
               />
             </div>
 
@@ -135,7 +185,7 @@ export default function LoginPage() {
 
         <button type="submit" className="erp-btn-primary" disabled={submitting}>
           {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
-          {submitting ? "Please wait…" : tempToken ? "Verify" : "Continue"}
+          {submitting ? "Please wait…" : tempToken ? "Verify" : "Sign in with email"}
         </button>
       </form>
 
@@ -154,8 +204,8 @@ export default function LoginPage() {
           </button>
         ) : (
           <>
-            New here?{" "}
-            <Link href="/onboarding/start">Start your 2-month free trial</Link>
+            First time?{" "}
+            <Link href="/onboarding/start">Start 2-month free trial</Link>
           </>
         )}
       </div>

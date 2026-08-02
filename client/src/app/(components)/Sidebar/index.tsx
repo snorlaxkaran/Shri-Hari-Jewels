@@ -151,8 +151,8 @@ const SidebarContent = ({
               fontWeight: 600,
               padding: "1px 6px",
               borderRadius: 2,
-              background: isActive ? "rgba(255, 153, 0, 0.25)" : "rgba(255, 255, 255, 0.1)",
-              color: isActive ? "#ffffff" : "var(--sidebar-text)",
+              background: isActive ? "var(--accent-light)" : "var(--bg-subtle)",
+              color: isActive ? "var(--accent)" : "var(--sidebar-text)",
             }}
           >
             {badge}
@@ -197,7 +197,7 @@ const SidebarContent = ({
                 fontSize: 12,
                 padding: "6px 16px",
                 gap: 8,
-                color: pathname === "/setup" ? "var(--sidebar-text-active)" : "#879596",
+                color: pathname === "/setup" ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
               }}
             >
               <span className="w-[16px] flex justify-center">⚙</span>
@@ -212,7 +212,7 @@ const SidebarContent = ({
               <div
                 style={{
                   height: 1,
-                  background: "rgba(255,255,255,0.06)",
+                  background: "var(--border)",
                   margin: "8px 0",
                 }}
               />
@@ -223,14 +223,14 @@ const SidebarContent = ({
                 onClick={onClose}
                 className="flex items-center gap-2 px-4 pt-3 pb-1 group"
               >
-                <Home size={12} style={{ color: "#879596" }} />
+                <Home size={12} style={{ color: "var(--accent)" }} />
                 <p
                   style={{
                     fontSize: 11,
                     fontWeight: 600,
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
-                    color: pathname === section.workspaceHref ? "#ffffff" : "#879596",
+                    color: pathname === section.workspaceHref ? "var(--accent)" : "var(--sidebar-text)",
                   }}
                 >
                   {section.title}
@@ -243,7 +243,7 @@ const SidebarContent = ({
                   fontWeight: 600,
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
-                  color: "#879596",
+                  color: "#6b7280",
                   padding: "12px 16px 4px",
                 }}
               >

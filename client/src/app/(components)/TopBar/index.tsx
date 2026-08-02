@@ -4,6 +4,7 @@ import { ChevronDown, Gem, LogOut, Menu, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import GlobalSearch from "@/app/(components)/GlobalSearch";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   canAccessRoute,
@@ -85,7 +86,7 @@ const TopBar = ({ onMenuClick }: TopBarProps) => {
       </button>
 
       <Link href="/dashboard" className="topbar-brand">
-        <Gem size={16} style={{ color: "var(--accent-orange)" }} />
+        <Gem size={16} style={{ color: "var(--accent)" }} />
         <span>Shri Hari Jewels</span>
       </Link>
 
@@ -107,6 +108,12 @@ const TopBar = ({ onMenuClick }: TopBarProps) => {
           );
         })}
       </nav>
+
+      <div className="topbar-divider hidden lg:block" />
+
+      <div className="topbar-search hidden md:block">
+        <GlobalSearch />
+      </div>
 
       <div className="topbar-actions">
         <div className="topbar-divider" />

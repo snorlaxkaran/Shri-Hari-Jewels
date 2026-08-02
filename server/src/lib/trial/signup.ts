@@ -6,7 +6,7 @@ import { createRefreshToken } from "../auth/refresh-token.js";
 import { createTrialSubscription } from "../subscriptions/service.js";
 import type { AuthUser } from "../../types.js";
 import { TrialOtpError } from "./otp.js";
-import { phoneToLoginEmail, phoneToOrgSlug } from "./phone.js";
+import { phoneToLoginEmail, phoneToOrgSlug, hasConfiguredLogin } from "./phone.js";
 
 export type TrialSignupResult = {
   token: string;
@@ -59,7 +59,7 @@ const createTrialSession = async (
 const signInExistingTrialUser = async (
   existing: TrialUserRecord,
 ): Promise<TrialSignupResult> => {
-  if (existing.credentialsConfigured) {
+  if (hasConfiguredLogin(existing)) {
     throw new TrialOtpError(
       "This number is already registered. Sign in with your email and password.",
       409,
@@ -78,7 +78,7 @@ const signInExistingTrialUser = async (
   });
 
   const needsSetup =
-    !existing.credentialsConfigured || settings?.onboardingCompletedAt == null;
+    !hasConfiguredLogin(existing) || settings?.onboardingCompletedAt == null;
 
   return createTrialSession(existing, needsSetup);
 };

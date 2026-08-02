@@ -5,6 +5,7 @@ import {
   normalizeModules,
 } from "./config.js";
 import { seedDemoData } from "./demo-data.js";
+import { hasConfiguredLogin } from "../trial/phone.js";
 
 export type SetupProfileInput = {
   implementingFor?: string;
@@ -214,7 +215,7 @@ export const getOnboardingStatus = async (
     account: {
       email: user.email,
       name: user.name,
-      credentialsConfigured: user.credentialsConfigured,
+      credentialsConfigured: hasConfiguredLogin(user),
     },
     profile: {
       implementingFor: settings?.setupImplementingFor ?? null,
@@ -225,7 +226,7 @@ export const getOnboardingStatus = async (
       loadDemoData: settings?.loadDemoData ?? false,
     },
     steps: {
-      credentialsConfigured: user.credentialsConfigured,
+      credentialsConfigured: hasConfiguredLogin(user),
       businessInfo: Boolean(
         settings?.businessName && settings.businessName !== DEFAULT_BUSINESS_NAME,
       ),

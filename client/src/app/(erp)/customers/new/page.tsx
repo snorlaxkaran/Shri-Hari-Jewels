@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ChevronDown } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
+import FormSection from "@/app/(components)/FormSection";
 import {
   CustomerBillingAddressFields,
   CustomerTaxBankSectionCollapsible,
@@ -115,100 +116,102 @@ export default function NewCustomerPage() {
 
       <form onSubmit={handleSubmit} className="form-layout">
         <div className="form-columns">
-          <section className="form-section">
-            <h2 className="section-title">Company / Business Info</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
-                <label className={labelClass}>Company Name *</label>
-                <input
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  className={fieldClass}
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Customer Type *</label>
-                <select
-                  value={customerType}
-                  onChange={(e) => setCustomerType(e.target.value)}
-                  className={fieldClass}
-                >
-                  {CUSTOMER_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Owner Name</label>
-                <input
-                  value={ownerName}
-                  onChange={(e) => setOwnerName(e.target.value)}
-                  className={fieldClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Primary Contact Person</label>
-                <input
-                  value={contactPersonName}
-                  onChange={(e) => setContactPersonName(e.target.value)}
-                  className={fieldClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Customer Name *</label>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className={fieldClass}
-                  placeholder="Display name for this customer"
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Mobile Number *</label>
-                <input value={mobile} onChange={(e) => setMobile(e.target.value)} className={fieldClass} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className={labelClass}>Email Address</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={fieldClass}
-                />
-              </div>
+          <FormSection
+            title="Company / Business Info"
+            description="Primary identity used on invoices and CRM."
+            columns={2}
+          >
+            <div className="sm:col-span-2">
+              <label className={labelClass}>Company Name *</label>
+              <input
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                className={fieldClass}
+                autoFocus
+              />
             </div>
-          </section>
+            <div>
+              <label className={labelClass}>Customer Type *</label>
+              <select
+                value={customerType}
+                onChange={(e) => setCustomerType(e.target.value)}
+                className={fieldClass}
+              >
+                {CUSTOMER_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Owner Name</label>
+              <input
+                value={ownerName}
+                onChange={(e) => setOwnerName(e.target.value)}
+                className={fieldClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Primary Contact Person</label>
+              <input
+                value={contactPersonName}
+                onChange={(e) => setContactPersonName(e.target.value)}
+                className={fieldClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Customer Name *</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={fieldClass}
+                placeholder="Display name for this customer"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Mobile Number *</label>
+              <input value={mobile} onChange={(e) => setMobile(e.target.value)} className={fieldClass} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelClass}>Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={fieldClass}
+              />
+            </div>
+          </FormSection>
 
           <div className="space-y-8">
-            <section className="form-section">
-              <h2 className="section-title">Billing & Financial Details</h2>
-              <p className="form-section-note">Optional — used on tax invoices for B2B customers.</p>
+            <FormSection
+              title="Billing & Financial Details"
+              description="Optional — used on tax invoices for B2B customers."
+            >
               <CustomerBillingAddressFields values={financial} onChange={setFinancial} />
-            </section>
+            </FormSection>
 
-            <section className="form-section">
+            <FormSection title="Tax & Bank">
               <CustomerTaxBankSectionCollapsible values={financial} onChange={setFinancial} />
-            </section>
+            </FormSection>
           </div>
         </div>
 
-        <section className="form-section">
+        <FormSection title="Personal Details (Optional)">
           <button
             type="button"
             onClick={() => setPersonalOpen((prev) => !prev)}
-            className="form-collapsible-trigger"
+            className="form-collapsible-trigger mb-3"
           >
-            <span className="section-title">Personal Details (Optional)</span>
+            <span className="text-sm text-zinc-600">Birthday, anniversary, preferences</span>
             <ChevronDown
               size={16}
               className={`text-zinc-400 transition-transform shrink-0 ${personalOpen ? "rotate-180" : ""}`}
             />
           </button>
           {personalOpen && (
-            <div className="form-collapsible-body grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>Birthday</label>
                 <input
@@ -242,7 +245,7 @@ export default function NewCustomerPage() {
               </div>
             </div>
           )}
-        </section>
+        </FormSection>
 
         <div className="flex gap-3 max-w-md">
           <Link href="/customers" className="btn-secondary flex-1 px-4 py-2.5 text-sm text-center">

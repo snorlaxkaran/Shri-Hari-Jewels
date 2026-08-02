@@ -14,3 +14,12 @@ export const phoneToOrgSlug = (phone: string): string => {
   const digits = normalizeIndianPhone(phone) ?? phone.replace(/\D/g, "");
   return `jew-${digits}`;
 };
+
+/** Trial users keep a synthetic email until they pick a real login address. */
+export const isPlaceholderTrialEmail = (email: string): boolean =>
+  /^[0-9]{10}@shreehari\.com$/i.test(email.trim());
+
+export const hasConfiguredLogin = (user: {
+  email: string;
+  credentialsConfigured: boolean;
+}): boolean => user.credentialsConfigured && !isPlaceholderTrialEmail(user.email);

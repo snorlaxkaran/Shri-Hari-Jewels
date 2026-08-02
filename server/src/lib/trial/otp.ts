@@ -11,7 +11,7 @@ import {
   isTwilioVerifyConfigured,
   sendTwilioVerifyOtp,
 } from "../sms/twilio-verify.js";
-import { normalizeIndianPhone } from "./phone.js";
+import { normalizeIndianPhone, hasConfiguredLogin, phoneToLoginEmail } from "./phone.js";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
@@ -71,14 +71,14 @@ export const sendTrialOtp = async (rawPhone: string): Promise<{ phone: string }>
     );
   }
 
-  const placeholderEmail = `${phone}@shreehari.com`;
+  const placeholderEmail = phoneToLoginEmail(phone);
   const existingUser = await prisma.user.findFirst({
     where: {
       OR: [{ phone }, { email: placeholderEmail }],
     },
-    select: { credentialsConfigured: true },
+    select: { credentialsConfigured: true, email: true },
   });
-  if (existingUser?.credentialsConfigured) {
+  if (existingUser && hasConfiguredLogin(existingUser)) {
     throw new TrialOtpError(
       "This number is already registered. Sign in with your email and password.",
       409,

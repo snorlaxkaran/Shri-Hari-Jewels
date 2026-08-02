@@ -9,6 +9,7 @@ import StatCard from "@/app/(components)/StatCard";
 import LiveSalesSummary from "@/app/(components)/dashboard/LiveSalesSummary";
 import AttendanceSelfMark from "@/app/(components)/dashboard/AttendanceSelfMark";
 import SetupProgressBanner from "@/app/(components)/SetupProgressBanner";
+import { HOME_SHORTCUTS } from "@/lib/dashboard/home-shortcuts";
 import { useSales } from "@/lib/sales/sales-context";
 import { formatCompact, formatCurrency, formatDate } from "@/lib/format";
 import { fetchHallmarkPendingCount } from "@/lib/api/hallmark";
@@ -55,6 +56,19 @@ export default function DashboardPage() {
       )}
 
       <SetupProgressBanner />
+
+      <div className="home-shortcuts">
+        {HOME_SHORTCUTS.map((shortcut) => {
+          const Icon = shortcut.icon;
+          return (
+            <Link key={shortcut.href} href={shortcut.href} className="home-shortcut">
+              <Icon size={18} className="home-shortcut-icon" aria-hidden />
+              <span className="home-shortcut-label">{shortcut.label}</span>
+              <span className="home-shortcut-desc">{shortcut.description}</span>
+            </Link>
+          );
+        })}
+      </div>
 
       {hallmarkPending != null && hallmarkPending > 0 && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-amber-200 bg-amber-50 text-amber-900">
