@@ -59,17 +59,17 @@ export default function OnboardingPortfolioPage() {
             </span>
             Shri Hari Jewels
           </Link>
-          <nav className="flex items-center gap-5 text-sm">
-            <a href="#features" className="text-[#525252] hover:text-[#171717] hidden sm:inline">
+          <nav className="erp-auth-nav-actions">
+            <a href="#features" className="erp-auth-nav-link hidden sm:inline">
               Features
             </a>
-            <a href="#modules" className="text-[#525252] hover:text-[#171717] hidden sm:inline">
+            <a href="#modules" className="erp-auth-nav-link hidden sm:inline">
               Modules
             </a>
-            <Link href="/login" className="text-[#525252] hover:text-[#171717]">
+            <Link href="/login" className="erp-auth-nav-link">
               Sign in
             </Link>
-            <Link href="/onboarding/start" className="erp-btn-primary w-auto px-4">
+            <Link href="/onboarding/start" className="erp-btn-primary w-auto px-4 shrink-0">
               Start free trial
             </Link>
           </nav>

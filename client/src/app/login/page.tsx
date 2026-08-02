@@ -66,7 +66,7 @@ export default function LoginPage() {
           : "Welcome! Please sign in to continue."
       }
       navAction={
-        <Link href="/onboarding/start" className="text-sm text-[#e74c3c] font-medium">
+        <Link href="/onboarding/start" className="erp-auth-nav-link">
           Start free trial
         </Link>
       }

@@ -25,8 +25,16 @@ import {
   type JewelleryModuleId,
 } from "@/lib/onboarding/config";
 
-const SLIDES = ["credentials", "persona", "organization", "review"] as const;
-type SlideId = (typeof SLIDES)[number];
+const ALL_SLIDES = ["credentials", "persona", "organization", "review"] as const;
+type SlideId = (typeof ALL_SLIDES)[number];
+
+const slidesForStatus = (status: OnboardingStatus): SlideId[] => {
+  if (!status.account.credentialsConfigured) {
+    return status.completed ? ["credentials"] : [...ALL_SLIDES];
+  }
+  if (status.completed) return [];
+  return ALL_SLIDES.filter((s) => s !== "credentials");
+};
 
 const DEFAULT_STATUS: OnboardingStatus = {
   completed: false,
@@ -56,8 +64,9 @@ const DEFAULT_STATUS: OnboardingStatus = {
 
 export default function SetupWizardPage() {
   const router = useRouter();
-  const [slide, setSlide] = useState<SlideId>("persona");
+  const [slide, setSlide] = useState<SlideId>("credentials");
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
+  const [loadingStatus, setLoadingStatus] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -78,10 +87,15 @@ export default function SetupWizardPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoadingStatus(true);
     void Promise.all([fetchOnboardingStatus(), fetchSettings()])
       .then(([s, settings]) => {
         if (cancelled) return;
         setStatus(s);
+        const slides = slidesForStatus(s);
+        if (slides.length > 0) {
+          setSlide(slides[0]);
+        }
         setForm((f) => ({
           ...f,
           loginName: s.account.name !== "Owner" ? s.account.name : "",
@@ -104,9 +118,6 @@ export default function SetupWizardPage() {
           gstNumber: settings.gstNumber ?? "",
           loadDemoData: s.profile.loadDemoData,
         }));
-        if (s.account.credentialsConfigured) {
-          setSlide("persona");
-        }
       })
       .catch(() => {
         if (!cancelled) {
@@ -131,7 +142,11 @@ export default function SetupWizardPage() {
             },
             modules: {},
           });
+          setSlide("credentials");
         }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingStatus(false);
       });
     return () => {
       cancelled = true;
@@ -139,8 +154,12 @@ export default function SetupWizardPage() {
   }, [router]);
 
   const activeStatus = status ?? DEFAULT_STATUS;
-  const slideIndex = SLIDES.indexOf(slide);
-  const progress = ((slideIndex + 1) / SLIDES.length) * 100;
+  const activeSlides = slidesForStatus(activeStatus);
+  const slideIndex = activeSlides.indexOf(slide);
+  const progress =
+    activeSlides.length > 0 ? ((slideIndex + 1) / activeSlides.length) * 100 : 100;
+  const credentialsOnly =
+    activeStatus.completed && !activeStatus.account.credentialsConfigured;
 
   const toggleModule = (id: JewelleryModuleId) => {
     setForm((f) => ({
@@ -219,11 +238,18 @@ export default function SetupWizardPage() {
           name: form.loginName.trim() || undefined,
         });
         setStatus(updated);
+        if (updated.completed || credentialsOnly) {
+          if (typeof window !== "undefined") {
+            window.sessionStorage.removeItem("shj_trial_setup");
+          }
+          router.replace("/dashboard");
+          return;
+        }
       }
       if (slide === "organization") {
         await persistProfile();
       }
-      const next = SLIDES[slideIndex + 1];
+      const next = activeSlides[slideIndex + 1];
       if (next) setSlide(next);
     } catch {
       setError("Could not save setup. Try again.");
@@ -234,7 +260,7 @@ export default function SetupWizardPage() {
 
   const goBack = () => {
     setError("");
-    const prev = SLIDES[slideIndex - 1];
+    const prev = activeSlides[slideIndex - 1];
     if (prev) setSlide(prev);
   };
 
@@ -254,7 +280,15 @@ export default function SetupWizardPage() {
     }
   };
 
-  if (status?.completed) {
+  if (loadingStatus) {
+    return (
+      <div className="erp-setup-shell flex items-center justify-center min-h-[50vh]">
+        <p className="text-sm text-[#6b7280]">Loading setup…</p>
+      </div>
+    );
+  }
+
+  if (activeStatus.completed && activeStatus.account.credentialsConfigured) {
     return (
       <div className="erp-setup-shell">
         <header className="erp-setup-header">
@@ -290,7 +324,7 @@ export default function SetupWizardPage() {
           Shri Hari Jewels
         </div>
         <p className="text-[#6b7280]">
-          Step {slideIndex + 1} of {SLIDES.length}
+          Step {slideIndex + 1} of {activeSlides.length}
         </p>
       </header>
 
@@ -304,8 +338,9 @@ export default function SetupWizardPage() {
             <>
               <h1 className="erp-setup-title">Set up your login</h1>
               <p className="erp-setup-help">
-                Choose the email and password you&apos;ll use to sign in next time. No verification
-                needed — you already verified your mobile.
+                {credentialsOnly
+                  ? "Your showroom setup is done — add a login email and password so you can sign in next time."
+                  : "Choose the email and password you'll use to sign in next time. No verification needed — you already verified your mobile."}
               </p>
 
               <div className="space-y-3">
@@ -545,14 +580,20 @@ export default function SetupWizardPage() {
               <span />
             )}
 
-            {slide === "review" ? (
+            {slide === "review" || (credentialsOnly && slide === "credentials") ? (
               <button
                 type="button"
                 className="erp-btn-primary w-auto px-6"
                 disabled={submitting}
-                onClick={() => void handleFinish()}
+                onClick={() =>
+                  void (credentialsOnly && slide === "credentials" ? goNext() : handleFinish())
+                }
               >
-                {submitting ? "Finishing…" : "Go to dashboard"}
+                {submitting
+                  ? "Saving…"
+                  : credentialsOnly && slide === "credentials"
+                    ? "Save & go to dashboard"
+                    : "Go to dashboard"}
               </button>
             ) : (
               <button

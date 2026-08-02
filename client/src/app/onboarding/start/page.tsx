@@ -70,7 +70,8 @@ export default function TrialStartPage() {
         session.needsSetup ? "/setup" : "/dashboard",
       );
     } catch (err) {
-      setError(getApiErrorMessage(err, "Verification failed."));
+      const message = getApiErrorMessage(err, "Verification failed.");
+      setError(message);
       setSubmitting(false);
     }
   };
@@ -108,12 +109,23 @@ export default function TrialStartPage() {
       backHref={step === "phone" ? "/onboarding" : undefined}
       backLabel="Back"
       navAction={
-        <Link href="/login" className="text-sm text-[#525252] hover:text-[#171717]">
+        <Link href="/login" className="erp-auth-nav-link">
           Sign in
         </Link>
       }
     >
-      {error ? <p className="erp-alert-error">{error}</p> : null}
+      {error ? (
+        <div className="erp-alert-error">
+          {error}
+          {error.toLowerCase().includes("sign in") ? (
+            <p className="mt-2 mb-0">
+              <Link href="/login" className="text-[#b91c1c] font-medium underline">
+                Go to sign in →
+              </Link>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {step === "phone" ? (
         <form onSubmit={handleSendOtp}>
