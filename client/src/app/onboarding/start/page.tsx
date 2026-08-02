@@ -128,8 +128,8 @@ export default function TrialStartPage() {
           </h1>
           <p className="mt-2 text-sm text-[#525252] leading-relaxed">
             {step === "phone"
-              ? "Enter your phone number. We’ll send a one-time code — no password needed to get started."
-              : `We sent a 6-digit code to +91 ${verifiedPhone.slice(0, 5)} ${verifiedPhone.slice(5)}.`}
+              ? "Enter your phone number. We’ll text you a 6-digit code on SMS — usually arrives in a few seconds."
+              : `Enter the code sent to +91 ${verifiedPhone.slice(0, 5)} ${verifiedPhone.slice(5)}.`}
           </p>
 
           {step === "phone" ? (
@@ -165,9 +165,15 @@ export default function TrialStartPage() {
           ) : (
             <form onSubmit={handleVerify} className="mt-6 space-y-4">
               {devOtp && (
-                <p className="text-xs rounded-md bg-amber-50 border border-amber-200 text-amber-900 px-3 py-2">
-                  Dev mode — your code is <strong>{devOtp}</strong>
-                </p>
+                <div className="rounded-md bg-[#f0f7ff] border border-[#0089ff]/30 px-4 py-3 text-center">
+                  <p className="text-xs text-[#525252]">Your verification code</p>
+                  <p className="mt-1 text-2xl font-mono font-semibold tracking-[0.35em] text-[#171717]">
+                    {devOtp}
+                  </p>
+                  <p className="mt-2 text-xs text-[#737373]">
+                    Enter this code below. SMS to your phone is being activated.
+                  </p>
+                </div>
               )}
               <label className="block text-sm">
                 <span className="font-medium text-[#404040]">6-digit code</span>

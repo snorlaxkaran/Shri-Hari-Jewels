@@ -28,3 +28,15 @@ services:
         value: https://shri-hari-jewels.vercel.app
       - key: JWT_SECRET
         generateValue: true
+      # Trial OTP SMS via Twilio (Messages app delivery)
+      - key: SMS_PROVIDER
+        value: twilio
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_SMS_FROM
+        sync: false
+      # Show OTP on screen until Twilio keys are added (remove after SMS is live)
+      - key: TRIAL_OTP_ECHO
+        value: "true"

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { prisma } from "../db.js";
 import { logger } from "../logger.js";
+import { isSmsConfigured, sendOtpSms, SmsDeliveryError } from "../sms/send-otp.js";
 import { normalizeIndianPhone } from "./phone.js";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
@@ -24,11 +25,30 @@ const generateCode = (): string =>
   String(crypto.randomInt(100000, 999999));
 
 const shouldEchoOtp = (): boolean =>
-  process.env.NODE_ENV !== "production" || process.env.TRIAL_OTP_ECHO === "true";
+  process.env.TRIAL_OTP_ECHO === "true" ||
+  (process.env.NODE_ENV !== "production" && !isSmsConfigured());
 
 const deliverOtp = async (phone: string, code: string): Promise<void> => {
-  logger.info({ phone, code: shouldEchoOtp() ? code : "[redacted]" }, "Trial OTP issued");
-  // SMS provider hook — configure MSG91/Twilio when ready
+  if (shouldEchoOtp() && !isSmsConfigured()) {
+    logger.info({ phone, code }, "Trial OTP (SMS not configured — dev echo)");
+    return;
+  }
+
+  if (!isSmsConfigured()) {
+    throw new TrialOtpError(
+      "SMS is not configured on the server. Contact support or try again later.",
+      503,
+    );
+  }
+
+  try {
+    await sendOtpSms(phone, code);
+  } catch (error) {
+    if (error instanceof SmsDeliveryError) {
+      throw new TrialOtpError(error.message, 503);
+    }
+    throw error;
+  }
 };
 
 export const sendTrialOtp = async (
@@ -51,6 +71,13 @@ export const sendTrialOtp = async (
   const expiresAt = new Date(Date.now() + OTP_TTL_MS);
 
   await prisma.phoneOtpChallenge.deleteMany({ where: { phone, purpose: "trial" } });
+
+  try {
+    await deliverOtp(phone, code);
+  } catch (error) {
+    throw error;
+  }
+
   await prisma.phoneOtpChallenge.create({
     data: {
       phone,
@@ -59,8 +86,6 @@ export const sendTrialOtp = async (
       expiresAt,
     },
   });
-
-  await deliverOtp(phone, code);
 
   return {
     phone,
