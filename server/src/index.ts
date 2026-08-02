@@ -94,6 +94,11 @@ const port = Number(process.env.PORT) || 4000;
 const clientUrl = process.env.CLIENT_URL ?? "http://localhost:3000";
 const isProduction = process.env.NODE_ENV === "production";
 
+// Render/Vercel sit behind a reverse proxy — needed for correct client IP in rate limits.
+if (isProduction) {
+  app.set("trust proxy", 1);
+}
+
 assertProductionDatabase();
 validateEinvoiceEnvironment();
 

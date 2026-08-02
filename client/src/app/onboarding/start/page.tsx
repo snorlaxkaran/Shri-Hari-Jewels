@@ -4,6 +4,7 @@ import { FormEvent, useLayoutEffect, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Gem, Loader2 } from "lucide-react";
 import { sendTrialOtp, verifyTrialOtp } from "@/lib/api/trial";
+import { getApiErrorMessage } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/auth-context";
 
 type Step = "phone" | "otp";
@@ -49,10 +50,10 @@ export default function TrialStartPage() {
       setVerifiedPhone(result.phone);
       setDevOtp(result.devOtp ?? null);
       setStep("otp");
-      setResendIn(30);
+      setResendIn(15);
       setOtp("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send code.");
+      setError(getApiErrorMessage(err, "Could not send code."));
     } finally {
       setSubmitting(false);
     }
@@ -71,7 +72,7 @@ export default function TrialStartPage() {
         session.needsSetup ? "/setup" : "/dashboard",
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Verification failed.");
+      setError(getApiErrorMessage(err, "Verification failed."));
       setSubmitting(false);
     }
   };
@@ -83,9 +84,9 @@ export default function TrialStartPage() {
     try {
       const result = await sendTrialOtp(verifiedPhone);
       setDevOtp(result.devOtp ?? null);
-      setResendIn(30);
+      setResendIn(15);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not resend code.");
+      setError(getApiErrorMessage(err, "Could not resend code."));
     } finally {
       setSubmitting(false);
     }

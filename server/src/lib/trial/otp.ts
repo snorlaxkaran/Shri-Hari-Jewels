@@ -6,7 +6,7 @@ import { normalizeIndianPhone } from "./phone.js";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
-const RESEND_COOLDOWN_MS = 30 * 1000;
+const RESEND_COOLDOWN_MS = 15 * 1000;
 
 export class TrialOtpError extends Error {
   constructor(
@@ -64,7 +64,10 @@ export const sendTrialOtp = async (
     orderBy: { createdAt: "desc" },
   });
   if (recent && Date.now() - recent.createdAt.getTime() < RESEND_COOLDOWN_MS) {
-    throw new TrialOtpError("Please wait a few seconds before requesting another code.", 429);
+    const waitSec = Math.ceil(
+      (RESEND_COOLDOWN_MS - (Date.now() - recent.createdAt.getTime())) / 1000,
+    );
+    throw new TrialOtpError(`Please wait ${waitSec}s before requesting another code.`, 429);
   }
 
   const code = generateCode();

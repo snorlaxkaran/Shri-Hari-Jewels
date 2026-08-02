@@ -1,20 +1,36 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { sendTrialOtp, TrialOtpError, verifyTrialOtp } from "../lib/trial/otp.js";
 import { provisionTrialTenant } from "../lib/trial/signup.js";
 
 export const trialRouter = Router();
 
-const otpRateLimiter = rateLimit({
+const phoneKey = (req: Request, prefix: string): string => {
+  const raw = typeof req.body?.phone === "string" ? req.body.phone : "";
+  const digits = raw.replace(/\D/g, "").slice(-10);
+  if (digits.length === 10) return `${prefix}:${digits}`;
+  return `${prefix}:ip:${ipKeyGenerator(req.ip ?? "unknown")}`;
+};
+
+const sendOtpRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 12,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Too many OTP requests. Try again later." },
-  keyGenerator: (req) => ipKeyGenerator(req.ip ?? "unknown"),
+  message: { error: "Too many code requests for this number. Try again in 15 minutes." },
+  keyGenerator: (req) => phoneKey(req, "trial-send"),
 });
 
-trialRouter.post("/send-otp", otpRateLimiter, async (req, res) => {
+const verifyOtpRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many verification attempts. Try again in 15 minutes." },
+  keyGenerator: (req) => phoneKey(req, "trial-verify"),
+});
+
+trialRouter.post("/send-otp", sendOtpRateLimiter, async (req, res) => {
   try {
     const phone = typeof req.body?.phone === "string" ? req.body.phone : "";
     const result = await sendTrialOtp(phone);
@@ -29,7 +45,7 @@ trialRouter.post("/send-otp", otpRateLimiter, async (req, res) => {
   }
 });
 
-trialRouter.post("/verify-otp", otpRateLimiter, async (req, res) => {
+trialRouter.post("/verify-otp", verifyOtpRateLimiter, async (req, res) => {
   try {
     const phone = typeof req.body?.phone === "string" ? req.body.phone : "";
     const code = typeof req.body?.code === "string" ? req.body.code : "";
