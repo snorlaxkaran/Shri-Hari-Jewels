@@ -833,6 +833,41 @@ export type UpdateUnitHallmarkInput = {
   hallmarkCenter?: string;
 };
 
+export type StockAuditMetalGroup = "Gold" | "Silver" | "Alloy";
+
+export type StockAuditStatus = "Open" | "Closed";
+
+export type StockAuditScanItem = {
+  id: string;
+  itemCode: string;
+  scannedByName: string;
+  scannedAt: string;
+};
+
+export type StockAuditSession = {
+  id: string;
+  branchId: string;
+  metalGroup: StockAuditMetalGroup;
+  metalLabel: string;
+  status: StockAuditStatus;
+  expectedCount: number;
+  counted: number;
+  pending: number;
+  startedById: string;
+  startedByName: string;
+  createdAt: string;
+  closedAt?: string;
+  scans: StockAuditScanItem[];
+};
+
+export type CreateStockAuditSessionInput = {
+  metalGroup: StockAuditMetalGroup;
+};
+
+export type ScanStockAuditInput = {
+  itemCode: string;
+};
+
 export type Vendor = {
   id: string;
   organizationId: string;

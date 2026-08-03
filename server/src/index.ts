@@ -53,6 +53,7 @@ import { trialRouter } from "./routes/trial.js";
 import { storefrontRouter } from "./routes/storefront.js";
 import { storefrontAdminRouter } from "./routes/storefront-admin.js";
 import { hallmarkBatchesRouter } from "./routes/hallmark-batches.js";
+import { stockAuditRouter } from "./routes/stock-audit.js";
 import { expensesRouter, pettyCashFloatRouter } from "./routes/expenses.js";
 import {
   employeesRouter,
@@ -215,6 +216,7 @@ app.use("/api/einvoice", einvoiceRouter);
 app.use("/api/onboarding", onboardingRouter);
 app.use("/api/trial", trialRouter);
 app.use("/api/hallmark-batches", hallmarkBatchesRouter);
+app.use("/api/stock-audit", stockAuditRouter);
 app.use("/api/expenses", expensesRouter);
 app.use("/api/petty-cash-float", pettyCashFloatRouter);
 app.use("/api/employees", employeesRouter);

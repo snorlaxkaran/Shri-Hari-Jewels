@@ -62,6 +62,8 @@ const styles: Record<string, { color: string }> = {
   "Receipt Pending": { color: "#d45b07" },
   Settled: { color: "#1d8102" },
   Requested: { color: "#d45b07" },
+  Open: { color: "#d45b07" },
+  Closed: { color: "#1d8102" },
 };
 
 export default function StatusBadge({ status }: { status: string }) {

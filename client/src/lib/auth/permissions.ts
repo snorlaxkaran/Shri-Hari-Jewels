@@ -11,6 +11,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/products",
     "/hallmark",
     "/entry-verification",
+    "/inventory/audit",
     "/stock-transfer",
     "/raw-inventory",
     "/orders",
@@ -32,6 +33,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/products",
     "/hallmark",
     "/entry-verification",
+    "/inventory/audit",
     "/stock-transfer",
     "/raw-inventory",
     "/sales",
@@ -48,7 +50,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/storefront",
     "/expenses",
   ],
-  Store: ["/dashboard", "/setup", "/workspace", "/inventory", "/products", "/stock-transfer", "/sales", "/customers", "/repairs", "/expenses"],
+  Store: ["/dashboard", "/setup", "/workspace", "/inventory", "/products", "/stock-transfer", "/inventory/audit", "/sales", "/customers", "/repairs", "/expenses"],
   Karigar: ["/dashboard", "/setup", "/workspace", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs", "/repairs", "/expenses"],
   Accountant: ["/dashboard", "/setup", "/workspace", "/invoices", "/sales-analytics", "/reports", "/raw-inventory", "/vendors", "/purchase-bills", "/settings/tally-export", "/expenses", "/employees", "/attendance", "/payroll"],
 };
@@ -169,6 +171,18 @@ export const canViewHallmark = (role: UserRole): boolean =>
 
 export const canManageHallmark = (role: UserRole): boolean =>
   role === "Admin" || role === "ProductionManager" || role === "SalesManager";
+
+export const canViewStockAudit = (role: UserRole): boolean =>
+  role === "Admin" ||
+  role === "ProductionManager" ||
+  role === "SalesManager" ||
+  role === "Store";
+
+export const canManageStockAudit = (role: UserRole): boolean =>
+  role === "Admin" ||
+  role === "ProductionManager" ||
+  role === "SalesManager" ||
+  role === "Store";
 
 export const canManageAccounting = (role: UserRole): boolean =>
   role === "Admin" || role === "Accountant";

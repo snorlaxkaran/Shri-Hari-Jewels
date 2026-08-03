@@ -31,6 +31,17 @@ enum InventoryUnitStatus {
   PendingVerification
 }
 
+enum StockAuditMetalGroup {
+  Gold
+  Silver
+  Alloy
+}
+
+enum StockAuditStatus {
+  Open
+  Closed
+}
+
 enum EntryVoucherStatus {
   Pending
   Verified
@@ -221,6 +232,7 @@ model Organization {
   purchaseBills       PurchaseBill[]
   tallyExportLogs     TallyExportLog[]
   hallmarkBatches     HallmarkBatch[]
+  stockAuditSessions  StockAuditSession[]
   pettyCashFloats     PettyCashFloat[]
   expenses            Expense[]
   employees           Employee[]
@@ -452,6 +464,7 @@ model Branch {
   repairOrders       RepairOrder[]
   purchaseBills      PurchaseBill[]
   hallmarkBatches    HallmarkBatch[]
+  stockAuditSessions StockAuditSession[]
   pettyCashFloats    PettyCashFloat[]
   expenses           Expense[]
   employees          Employee[]
@@ -626,6 +639,7 @@ model InventoryUnit {
   entryVoucher EntryVoucher? @relation(fields: [voucherId], references: [id], onDelete: SetNull)
   sale         Sale?
   hallmarkBatchItems HallmarkBatchItem[]
+  stockAuditScans    StockAuditScan[]
 
   @@unique([organizationId, itemCode])
   @@index([productId])
@@ -668,6 +682,43 @@ model HallmarkBatchItem {
   inventoryUnit InventoryUnit @relation(fields: [inventoryUnitId], references: [id], onDelete: Cascade)
 
   @@index([batchId])
+  @@index([inventoryUnitId])
+}
+
+model StockAuditSession {
+  id             String               @id @default(uuid())
+  organizationId String
+  branchId       String
+  metalGroup     StockAuditMetalGroup
+  status         StockAuditStatus     @default(Open)
+  expectedCount  Int
+  startedById    String
+  startedByName  String
+  createdAt      DateTime             @default(now())
+  closedAt       DateTime?
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch           @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  scans        StockAuditScan[]
+
+  @@index([organizationId, branchId, metalGroup, status])
+  @@index([branchId])
+}
+
+model StockAuditScan {
+  id              String   @id @default(uuid())
+  sessionId       String
+  inventoryUnitId String
+  itemCode        String
+  scannedById     String
+  scannedByName   String
+  scannedAt       DateTime @default(now())
+
+  session       StockAuditSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  inventoryUnit InventoryUnit     @relation(fields: [inventoryUnitId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, itemCode])
+  @@index([sessionId])
   @@index([inventoryUnitId])
 }
 
