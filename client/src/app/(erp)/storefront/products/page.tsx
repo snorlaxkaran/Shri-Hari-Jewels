@@ -2,30 +2,39 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import {
   bulkPublishProducts,
   fetchPublishableProducts,
+  fetchStorefrontAdminSettings,
   setProductPublished,
 } from "@/lib/api/storefront-admin";
 import { formatCurrency } from "@/lib/format";
-import type { PublishableProduct } from "@/lib/storefront/types";
+import { storefrontProductPath } from "@/lib/storefront/urls";
+import type { PublishableProduct, StorefrontAdminSettings } from "@/lib/storefront/types";
 
 export default function StorefrontProductsPage() {
   const [products, setProducts] = useState<PublishableProduct[]>([]);
+  const [settings, setSettings] = useState<StorefrontAdminSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "published" | "unpublished">("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const load = () => {
     setLoading(true);
-    fetchPublishableProducts()
-      .then(setProducts)
+    Promise.all([fetchPublishableProducts(), fetchStorefrontAdminSettings()])
+      .then(([prods, storeSettings]) => {
+        setProducts(prods);
+        setSettings(storeSettings);
+      })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const filtered = products.filter((p) => {
     if (filter === "published") return p.publishedToStorefront;
@@ -49,8 +58,28 @@ export default function StorefrontProductsPage() {
 
   return (
     <div className="page-content">
-      <PageHeader title="Publish Products" subtitle="Choose which inventory items appear on your online store" />
-      <div className="mb-4"><Link href="/storefront" className="text-sm text-zinc-500 hover:underline">← Back to Online Store</Link></div>
+      <PageHeader
+        title="Publish Products"
+        subtitle="Choose which inventory items appear on your online store"
+        action={
+          settings?.storeUrl ? (
+            <a
+              href={settings.storeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
+            >
+              <ExternalLink size={15} />
+              View shop
+            </a>
+          ) : undefined
+        }
+      />
+      <div className="mb-4">
+        <Link href="/storefront" className="text-sm text-zinc-500 hover:underline">
+          ← Back to Online Store
+        </Link>
+      </div>
 
       <div className="mb-4 flex flex-wrap gap-3 items-center">
         {(["all", "published", "unpublished"] as const).map((f) => (
@@ -65,10 +94,18 @@ export default function StorefrontProductsPage() {
         ))}
         {selected.size > 0 && (
           <>
-            <button type="button" onClick={() => bulkPublish(true)} className="rounded bg-green-700 px-3 py-1.5 text-xs text-white">
+            <button
+              type="button"
+              onClick={() => bulkPublish(true)}
+              className="rounded bg-green-700 px-3 py-1.5 text-xs text-white"
+            >
               Publish {selected.size} selected
             </button>
-            <button type="button" onClick={() => bulkPublish(false)} className="rounded border px-3 py-1.5 text-xs">
+            <button
+              type="button"
+              onClick={() => bulkPublish(false)}
+              className="rounded border px-3 py-1.5 text-xs"
+            >
               Unpublish {selected.size} selected
             </button>
           </>
@@ -79,53 +116,83 @@ export default function StorefrontProductsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-zinc-50 text-left text-xs text-zinc-500">
-              <th className="p-3 w-8"><input type="checkbox" onChange={(e) => {
-                if (e.target.checked) setSelected(new Set(filtered.map((p) => p.id)));
-                else setSelected(new Set());
-              }} /></th>
+              <th className="p-3 w-8">
+                <input
+                  type="checkbox"
+                  onChange={(e) => {
+                    if (e.target.checked) setSelected(new Set(filtered.map((p) => p.id)));
+                    else setSelected(new Set());
+                  }}
+                />
+              </th>
               <th className="p-3">Product</th>
               <th className="p-3">SKU</th>
               <th className="p-3">Category</th>
               <th className="p-3">Price</th>
               <th className="p-3">Stock</th>
               <th className="p-3">Online</th>
+              <th className="p-3">Website</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((product) => (
-              <tr key={product.id} className="border-b hover:bg-zinc-50">
-                <td className="p-3">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(product.id)}
-                    onChange={(e) => {
-                      const next = new Set(selected);
-                      if (e.target.checked) next.add(product.id);
-                      else next.delete(product.id);
-                      setSelected(next);
-                    }}
-                  />
-                </td>
-                <td className="p-3 font-medium">{product.name}</td>
-                <td className="p-3 text-zinc-500">{product.sku}</td>
-                <td className="p-3">{product.category}</td>
-                <td className="p-3">{formatCurrency(product.price)}</td>
-                <td className="p-3">{product.stock}</td>
-                <td className="p-3">
-                  <button
-                    type="button"
-                    onClick={() => togglePublish(product)}
-                    className={`rounded px-2 py-1 text-xs font-medium ${
-                      product.publishedToStorefront
-                        ? "bg-green-100 text-green-800"
-                        : "bg-zinc-100 text-zinc-600"
-                    }`}
-                  >
-                    {product.publishedToStorefront ? "Published" : "Draft"}
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {filtered.map((product) => {
+              const storeHref =
+                settings?.slug && product.publishedToStorefront
+                  ? storefrontProductPath(settings.slug, product.id)
+                  : null;
+
+              return (
+                <tr key={product.id} className="border-b hover:bg-zinc-50">
+                  <td className="p-3">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(product.id)}
+                      onChange={(e) => {
+                        const next = new Set(selected);
+                        if (e.target.checked) next.add(product.id);
+                        else next.delete(product.id);
+                        setSelected(next);
+                      }}
+                    />
+                  </td>
+                  <td className="p-3 font-medium">{product.name}</td>
+                  <td className="p-3 text-zinc-500">{product.sku}</td>
+                  <td className="p-3">{product.category}</td>
+                  <td className="p-3">{formatCurrency(product.price)}</td>
+                  <td className="p-3">{product.stock}</td>
+                  <td className="p-3">
+                    <button
+                      type="button"
+                      onClick={() => togglePublish(product)}
+                      className={`rounded px-2 py-1 text-xs font-medium ${
+                        product.publishedToStorefront
+                          ? "bg-green-100 text-green-800"
+                          : "bg-zinc-100 text-zinc-600"
+                      }`}
+                    >
+                      {product.publishedToStorefront ? "Published" : "Draft"}
+                    </button>
+                  </td>
+                  <td className="p-3">
+                    {storeHref ? (
+                      <a
+                        href={storeHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-700 hover:underline"
+                      >
+                        <ExternalLink size={13} />
+                        View on website
+                      </a>
+                    ) : (
+                      <span className="text-xs text-zinc-400" title="Publish this product to enable the store link">
+                        —
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         {filtered.length === 0 && (

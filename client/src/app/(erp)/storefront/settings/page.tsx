@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -136,6 +137,19 @@ function StorefrontSettingsForm() {
       <PageHeader
         title="Store Settings"
         subtitle="Configure your online jewellery store"
+        action={
+          settings?.storeUrl ? (
+            <a
+              href={settings.storeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
+            >
+              <ExternalLink size={15} />
+              View shop
+            </a>
+          ) : undefined
+        }
       />
 
       <div className="mb-4">
@@ -153,7 +167,20 @@ function StorefrontSettingsForm() {
             <span className="text-sm">Enable online store (make it publicly accessible)</span>
           </label>
           {settings?.storeUrl && (
-            <p className="text-xs text-zinc-500">Store URL: <span className="font-mono">{settings.storeUrl}</span></p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-xs text-zinc-500">
+                Store URL: <span className="font-mono">{settings.storeUrl}</span>
+              </p>
+              <a
+                href={settings.storeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                <ExternalLink size={13} />
+                Open shop
+              </a>
+            </div>
           )}
         </div>
 
