@@ -314,6 +314,7 @@ model StorefrontSettings {
   accentColor    String   @default("#1a1a1a")
   logoUrl        String?
   bannerUrl      String?
+  bannerUrls     Json?
   contactEmail   String?
   contactPhone   String?
   instagramUrl   String?

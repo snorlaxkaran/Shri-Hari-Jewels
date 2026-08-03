@@ -48,6 +48,7 @@ export type StorefrontConfigDto = {
   accentColor: string;
   logoUrl: string | null;
   bannerUrl: string | null;
+  bannerUrls: string[];
   contactEmail: string | null;
   contactPhone: string | null;
   instagramUrl: string | null;
@@ -150,6 +151,35 @@ export const toStorefrontCollection = (
   return dto;
 };
 
+const MAX_BANNER_SLIDES = 4;
+
+export const parseBannerUrls = (
+  settings: Pick<StorefrontSettings, "bannerUrls" | "bannerUrl">,
+): string[] => {
+  const raw = settings.bannerUrls;
+  if (Array.isArray(raw)) {
+    return raw
+      .filter((url): url is string => typeof url === "string" && url.trim().length > 0)
+      .map((url) => url.trim())
+      .slice(0, MAX_BANNER_SLIDES);
+  }
+
+  if (settings.bannerUrl?.trim()) {
+    return [settings.bannerUrl.trim()];
+  }
+
+  return [];
+};
+
+export const normalizeBannerUrlsInput = (urls: unknown): string[] => {
+  if (!Array.isArray(urls)) return [];
+  return urls
+    .filter((url): url is string => typeof url === "string")
+    .map((url) => url.trim())
+    .filter(Boolean)
+    .slice(0, MAX_BANNER_SLIDES);
+};
+
 export const toStorefrontConfig = (
   slug: string,
   settings: StorefrontSettings,
@@ -166,6 +196,7 @@ export const toStorefrontConfig = (
   accentColor: settings.accentColor,
   logoUrl: settings.logoUrl,
   bannerUrl: settings.bannerUrl,
+  bannerUrls: parseBannerUrls(settings),
   contactEmail: settings.contactEmail ?? shop?.phone ?? null,
   contactPhone: settings.contactPhone ?? shop?.phone ?? null,
   instagramUrl: settings.instagramUrl,

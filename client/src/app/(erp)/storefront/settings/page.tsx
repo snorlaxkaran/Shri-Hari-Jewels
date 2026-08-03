@@ -17,6 +17,17 @@ import type { StorefrontAdminSettings } from "@/lib/storefront/types";
 
 const fieldClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
+const BANNER_SLOT_COUNT = 4;
+
+const padBannerUrls = (urls: string[] | undefined | null, legacyUrl?: string | null): string[] => {
+  const filled =
+    urls && urls.length > 0
+      ? urls
+      : legacyUrl?.trim()
+        ? [legacyUrl.trim()]
+        : [];
+  return [...filled, ...Array(BANNER_SLOT_COUNT).fill("")].slice(0, BANNER_SLOT_COUNT) as string[];
+};
 
 export default function StorefrontSettingsPage() {
   const { user } = useAuth();
@@ -50,7 +61,7 @@ function StorefrontSettingsForm() {
   const [primaryColor, setPrimaryColor] = useState("#b8860b");
   const [accentColor, setAccentColor] = useState("#1a1a1a");
   const [logoUrl, setLogoUrl] = useState("");
-  const [bannerUrl, setBannerUrl] = useState("");
+  const [bannerUrls, setBannerUrls] = useState<string[]>(() => Array(BANNER_SLOT_COUNT).fill(""));
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
@@ -72,7 +83,7 @@ function StorefrontSettingsForm() {
         setPrimaryColor(s.primaryColor);
         setAccentColor(s.accentColor);
         setLogoUrl(s.logoUrl ?? "");
-        setBannerUrl(s.bannerUrl ?? "");
+        setBannerUrls(padBannerUrls(s.bannerUrls, s.bannerUrl));
         setContactEmail(s.contactEmail ?? "");
         setContactPhone(s.contactPhone ?? "");
         setInstagramUrl(s.instagramUrl ?? "");
@@ -101,7 +112,7 @@ function StorefrontSettingsForm() {
         primaryColor,
         accentColor,
         logoUrl: logoUrl.trim() || null,
-        bannerUrl: bannerUrl.trim() || null,
+        bannerUrls: bannerUrls.map((url) => url.trim()).filter(Boolean).slice(0, BANNER_SLOT_COUNT),
         contactEmail: contactEmail.trim() || null,
         contactPhone: contactPhone.trim() || null,
         instagramUrl: instagramUrl.trim() || null,
@@ -111,6 +122,7 @@ function StorefrontSettingsForm() {
         returnPolicy: returnPolicy.trim() || null,
       });
       setSettings(updated);
+      setBannerUrls(padBannerUrls(updated.bannerUrls, updated.bannerUrl));
 
       if (customDomain.trim() !== (settings?.customDomain ?? "")) {
         const withDomain = await updateStorefrontDomain(customDomain.trim() || null);
@@ -165,7 +177,38 @@ function StorefrontSettingsForm() {
             <div><label className={labelClass}>Accent Color</label><input type="color" className="h-10 w-full" value={accentColor} onChange={(e) => setAccentColor(e.target.value)} /></div>
           </div>
           <div><label className={labelClass}>Logo URL</label><input className={fieldClass} value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://..." /></div>
-          <div><label className={labelClass}>Banner URL</label><input className={fieldClass} value={bannerUrl} onChange={(e) => setBannerUrl(e.target.value)} placeholder="https://..." /></div>
+          <div>
+            <label className={labelClass}>Hero carousel banners</label>
+            <p className="text-xs text-zinc-500 mb-3">
+              Add up to 4 image URLs for the storefront hero carousel. Leave a slot empty to skip it.
+            </p>
+            <div className="space-y-3">
+              {bannerUrls.map((url, index) => (
+                <div key={index} className="flex gap-3 items-start">
+                  <span className="text-xs text-zinc-400 font-mono w-6 pt-2 shrink-0">{index + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <input
+                      className={fieldClass}
+                      value={url}
+                      onChange={(e) => {
+                        const next = [...bannerUrls];
+                        next[index] = e.target.value;
+                        setBannerUrls(next);
+                      }}
+                      placeholder="https://..."
+                    />
+                  </div>
+                  {url.trim() && (
+                    <div
+                      className="w-16 h-10 rounded border border-zinc-200 bg-zinc-50 shrink-0 bg-cover bg-center"
+                      style={{ backgroundImage: `url(${url.trim()})` }}
+                      title={`Banner ${index + 1} preview`}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="surface-card p-5 space-y-4">

@@ -7,6 +7,7 @@ import {
   toStorefrontConfig,
   toStorefrontProduct,
   toWebOrderDto,
+  normalizeBannerUrlsInput,
   type StorefrontCollectionDto,
   type StorefrontConfigDto,
   type WebOrderDto,
@@ -23,6 +24,7 @@ export type UpdateStorefrontSettingsInput = {
   accentColor?: string;
   logoUrl?: string | null;
   bannerUrl?: string | null;
+  bannerUrls?: string[] | null;
   contactEmail?: string | null;
   contactPhone?: string | null;
   instagramUrl?: string | null;
@@ -82,6 +84,11 @@ export const updateAdminStorefrontSettings = async (
   organizationId: string,
   input: UpdateStorefrontSettingsInput,
 ): Promise<StorefrontConfigDto & { customDomain: string | null; storeUrl: string }> => {
+  const bannerUrls =
+    input.bannerUrls !== undefined ? normalizeBannerUrlsInput(input.bannerUrls) : undefined;
+  const bannerUrl =
+    bannerUrls !== undefined ? (bannerUrls[0] ?? null) : input.bannerUrl;
+
   await prisma.storefrontSettings.upsert({
     where: { organizationId },
     create: {
@@ -94,7 +101,8 @@ export const updateAdminStorefrontSettings = async (
       primaryColor: input.primaryColor ?? "#b8860b",
       accentColor: input.accentColor ?? "#1a1a1a",
       logoUrl: input.logoUrl ?? null,
-      bannerUrl: input.bannerUrl ?? null,
+      bannerUrl: bannerUrl ?? null,
+      bannerUrls: bannerUrls ?? [],
       contactEmail: input.contactEmail ?? null,
       contactPhone: input.contactPhone ?? null,
       instagramUrl: input.instagramUrl ?? null,
@@ -112,7 +120,8 @@ export const updateAdminStorefrontSettings = async (
       ...(input.primaryColor !== undefined && { primaryColor: input.primaryColor }),
       ...(input.accentColor !== undefined && { accentColor: input.accentColor }),
       ...(input.logoUrl !== undefined && { logoUrl: input.logoUrl }),
-      ...(input.bannerUrl !== undefined && { bannerUrl: input.bannerUrl }),
+      ...(bannerUrl !== undefined && { bannerUrl }),
+      ...(bannerUrls !== undefined && { bannerUrls }),
       ...(input.contactEmail !== undefined && { contactEmail: input.contactEmail }),
       ...(input.contactPhone !== undefined && { contactPhone: input.contactPhone }),
       ...(input.instagramUrl !== undefined && { instagramUrl: input.instagramUrl }),

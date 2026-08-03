@@ -890,6 +890,7 @@ const ensureStorefrontTables = async () => {
       "accentColor" TEXT NOT NULL DEFAULT '#1a1a1a',
       "logoUrl" TEXT,
       "bannerUrl" TEXT,
+      "bannerUrls" JSONB,
       "contactEmail" TEXT,
       "contactPhone" TEXT,
       "instagramUrl" TEXT,
@@ -900,6 +901,22 @@ const ensureStorefrontTables = async () => {
       "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "StorefrontSettings_pkey" PRIMARY KEY ("id")
     )
+    `,
+  );
+
+  await run(
+    "Ensure StorefrontSettings.bannerUrls column…",
+    `ALTER TABLE "StorefrontSettings" ADD COLUMN IF NOT EXISTS "bannerUrls" JSONB`,
+  );
+
+  await run(
+    "Backfill StorefrontSettings.bannerUrls from bannerUrl…",
+    `
+    UPDATE "StorefrontSettings"
+    SET "bannerUrls" = jsonb_build_array("bannerUrl")
+    WHERE "bannerUrl" IS NOT NULL
+      AND TRIM("bannerUrl") <> ''
+      AND ("bannerUrls" IS NULL OR "bannerUrls" = '[]'::jsonb)
     `,
   );
 

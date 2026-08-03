@@ -310,6 +310,26 @@
   overflow: hidden;
 }
 
+.sf-hero-carousel {
+  position: absolute;
+  inset: 0;
+}
+
+.sf-hero-slide {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transition: opacity 0.85s ease;
+  pointer-events: none;
+}
+
+.sf-hero-slide.is-active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .sf-hero-bg {
   position: absolute;
   inset: 0;
@@ -317,9 +337,66 @@
   background-position: center;
 }
 
+.sf-hero-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  background: rgb(0 0 0 / 0.25);
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.sf-hero-nav:hover {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.sf-hero-nav-prev {
+  left: 1rem;
+}
+
+.sf-hero-nav-next {
+  right: 1rem;
+}
+
+.sf-hero-dots {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sf-hero-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  border: none;
+  padding: 0;
+  background: rgb(255 255 255 / 0.45);
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.sf-hero-dot.is-active {
+  background: var(--sf-gold, #b8860b);
+  transform: scale(1.15);
+}
+
 .sf-hero-overlay {
   position: absolute;
   inset: 0;
+  z-index: 1;
   background: linear-gradient(
     to bottom,
     rgb(0 0 0 / 0.35) 0%,
@@ -329,7 +406,7 @@
 
 .sf-hero-content {
   position: relative;
-  z-index: 1;
+  z-index: 3;
   max-width: 42rem;
   padding: 3rem 1.25rem;
 }

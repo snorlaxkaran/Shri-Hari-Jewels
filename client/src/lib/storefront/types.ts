@@ -10,6 +10,7 @@ export type StorefrontConfig = {
   accentColor: string;
   logoUrl: string | null;
   bannerUrl: string | null;
+  bannerUrls: string[];
   contactEmail: string | null;
   contactPhone: string | null;
   instagramUrl: string | null;

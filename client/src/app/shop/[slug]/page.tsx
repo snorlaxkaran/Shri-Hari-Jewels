@@ -7,6 +7,7 @@ import {
   fetchStorefrontProducts,
 } from "@/lib/api/storefront";
 import CollectionCard from "./(components)/CollectionCard";
+import HeroCarousel from "./(components)/HeroCarousel";
 import ProductCard from "./(components)/ProductCard";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -25,18 +26,16 @@ export default async function StorefrontHomePage({ params }: Props) {
     ? `https://wa.me/91${config.whatsappNumber.replace(/\D/g, "")}`
     : null;
 
-  const heroStyle = config.bannerUrl
-    ? { backgroundImage: `url(${config.bannerUrl})` }
-    : {
-        background: `linear-gradient(135deg, ${config.accentColor} 0%, ${config.primaryColor}99 100%)`,
-      };
+  const heroFallbackStyle = {
+    background: `linear-gradient(135deg, ${config.accentColor} 0%, ${config.primaryColor}99 100%)`,
+  };
 
   return (
     <div>
-      <section className="sf-hero">
-        <div className="sf-hero-bg" style={heroStyle} />
-        <div className="sf-hero-overlay" />
-        <div className="sf-hero-content">
+      <HeroCarousel
+        images={config.bannerUrls?.length ? config.bannerUrls : config.bannerUrl ? [config.bannerUrl] : []}
+        fallbackStyle={heroFallbackStyle}
+      >
           <p className="sf-eyebrow text-white/70 mb-3">Fine jewellery · Hallmarked</p>
           <h1 className="sf-display sf-hero-title">
             {config.heroTitle ?? `Welcome to ${config.businessName}`}
@@ -54,8 +53,7 @@ export default async function StorefrontHomePage({ params }: Props) {
               </Link>
             )}
           </div>
-        </div>
-      </section>
+      </HeroCarousel>
 
       {categories.length > 0 && (
         <section className="sf-section sf-section-alt">
