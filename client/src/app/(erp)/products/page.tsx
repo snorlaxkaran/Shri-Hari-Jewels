@@ -17,6 +17,7 @@ import {
   fetchProductCollections,
 } from "@/lib/api/product-collections";
 import { getApiErrorMessage } from "@/lib/api/client";
+import { useStorefrontProductLinks } from "@/lib/hooks/use-storefront-product-links";
 import type { InventoryItem } from "@/lib/types";
 
 const ProductTable = dynamic(
@@ -39,6 +40,7 @@ function sortProducts(items: InventoryItem[]): InventoryItem[] {
 export default function ProductsPage() {
   const { user } = useAuth();
   const { items, hydrated, loading, error } = useInventory();
+  const { settings, loading: linksLoading, isPublished } = useStorefrontProductLinks();
   const canWrite = user ? canWriteInventory(user.role) : false;
   const [search, setSearch] = useState("");
   const [metalTab, setMetalTab] = useState<ProductMetalTab>("all");
@@ -183,7 +185,12 @@ export default function ProductsPage() {
       </div>
 
       <div className="data-table-wrap w-full">
-        <ProductTable products={filtered} canWrite={canWrite} />
+        <ProductTable
+          products={filtered}
+          canWrite={canWrite}
+          storeSlug={linksLoading ? undefined : settings?.slug}
+          isPublished={linksLoading ? undefined : isPublished}
+        />
       </div>
     </div>
   );

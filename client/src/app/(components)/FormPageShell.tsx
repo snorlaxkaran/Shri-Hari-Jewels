@@ -10,6 +10,7 @@ type FormPageShellProps = {
   title: string;
   subtitle?: string;
   error?: string;
+  action?: React.ReactNode;
   onBackClick?: () => void;
   children: React.ReactNode;
 };
@@ -20,6 +21,7 @@ export default function FormPageShell({
   title,
   subtitle,
   error,
+  action,
   onBackClick,
   children,
 }: FormPageShellProps) {
@@ -44,7 +46,7 @@ export default function FormPageShell({
         </Link>
       )}
 
-      <PageHeader title={title} subtitle={subtitle} />
+      <PageHeader title={title} subtitle={subtitle} action={action} />
 
       {error && (
         <div className="px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">

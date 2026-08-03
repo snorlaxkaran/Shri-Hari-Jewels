@@ -8,6 +8,7 @@ import type { PendingImage } from "@/lib/inventory/images";
 import ImageUpload from "@/app/(components)/ImageUpload";
 import { fetchProductCollections } from "@/lib/api/product-collections";
 import { getApiErrorMessage } from "@/lib/api/client";
+import ViewOnWebsiteLink from "@/app/(components)/products/ViewOnWebsiteLink";
 
 const METALS: MetalType[] = ["Gold", "Silver", "Platinum", "Rose Gold"];
 const PURITIES: Purity[] = ["24K", "22K", "18K", "14K", "925"];
@@ -22,6 +23,9 @@ type ProductEditFormProps = {
   onDirtyChange?: (dirty: boolean) => void;
   /** Catalog mode edits SKU-level config only — no weight or price. */
   mode?: "full" | "catalog";
+  storeSlug?: string | null;
+  publishedToStorefront?: boolean;
+  storefrontLinksLoading?: boolean;
 };
 
 export default function ProductEditForm({
@@ -31,6 +35,9 @@ export default function ProductEditForm({
   onSubmit,
   onDirtyChange,
   mode = "full",
+  storeSlug,
+  publishedToStorefront = false,
+  storefrontLinksLoading = false,
 }: ProductEditFormProps) {
   const isCatalog = mode === "catalog";
   const [category, setCategory] = useState<ProductCategory>("Earrings");
@@ -134,7 +141,16 @@ export default function ProductEditForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
       <div className="surface-card p-5 space-y-4">
-        <p className="text-xs font-mono text-zinc-400">{product.sku}</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-mono text-zinc-400">{product.sku}</p>
+          {!storefrontLinksLoading && (
+            <ViewOnWebsiteLink
+              productId={product.id}
+              slug={storeSlug}
+              published={publishedToStorefront}
+            />
+          )}
+        </div>
         {isCatalog && (
           <p className="text-xs text-zinc-500 border border-zinc-200 rounded-lg px-3 py-2 bg-zinc-50">
             Weight and price are set per piece when adding stock — each item can have a

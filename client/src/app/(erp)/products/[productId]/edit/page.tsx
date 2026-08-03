@@ -6,10 +6,12 @@ import ConfirmDialog from "@/app/(components)/ConfirmDialog";
 import FormPageShell from "@/app/(components)/FormPageShell";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import ProductEditForm from "@/app/(components)/products/ProductEditForm";
+import ViewOnWebsiteLink from "@/app/(components)/products/ViewOnWebsiteLink";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canWriteInventory } from "@/lib/auth/permissions";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import { useUnsavedChangesGuard } from "@/lib/hooks/use-unsaved-changes-guard";
+import { useStorefrontProductLinks } from "@/lib/hooks/use-storefront-product-links";
 
 type PageProps = {
   params: Promise<{ productId: string }>;
@@ -20,6 +22,7 @@ export default function EditCatalogProductPage({ params }: PageProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { items, hydrated, loading, updateProduct } = useInventory();
+  const { settings, loading: linksLoading, isPublished } = useStorefrontProductLinks();
   const canWrite = user ? canWriteInventory(user.role) : false;
   const [dirty, setDirty] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -71,6 +74,16 @@ export default function EditCatalogProductPage({ params }: PageProps) {
         title="Edit Product"
         subtitle={product.sku}
         onBackClick={handleBack}
+        action={
+          !linksLoading ? (
+            <ViewOnWebsiteLink
+              productId={product.id}
+              slug={settings?.slug}
+              published={isPublished(product.id)}
+              variant="button"
+            />
+          ) : undefined
+        }
       >
         <ProductEditForm
           product={product}
@@ -78,6 +91,9 @@ export default function EditCatalogProductPage({ params }: PageProps) {
           cancelHref={backHref}
           onCancelClick={handleBack}
           onDirtyChange={setDirty}
+          storeSlug={settings?.slug}
+          publishedToStorefront={isPublished(product.id)}
+          storefrontLinksLoading={linksLoading}
           onSubmit={async (input) => {
             await updateProduct(product.id, input);
             router.push(backHref);
