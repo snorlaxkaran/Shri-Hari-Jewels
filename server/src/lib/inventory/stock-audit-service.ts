@@ -74,10 +74,14 @@ const countExpectedUnits = async (
 export const listStockAuditSessions = async (
   organizationId: string,
   branchId: string,
-  metalGroup: StockAuditMetalGroup,
+  metalGroup?: StockAuditMetalGroup,
 ): Promise<StockAuditSession[]> => {
   const sessions = await prisma.stockAuditSession.findMany({
-    where: { organizationId, branchId, metalGroup },
+    where: {
+      organizationId,
+      branchId,
+      ...(metalGroup ? { metalGroup } : {}),
+    },
     include: sessionInclude,
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
   });

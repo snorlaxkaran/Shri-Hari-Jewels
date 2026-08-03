@@ -203,8 +203,7 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname === "/inventory/add-units") return "Add Units";
   if (pathname.match(/^\/inventory\/[^/]+\/add-units$/)) return "Add Units";
   if (pathname.match(/^\/inventory\/[^/]+\/edit$/)) return "Edit Product";
-  if (pathname.startsWith("/inventory/audit/session/")) return "Stock Audit";
-  if (pathname.startsWith("/inventory/audit/")) return "Stock Audit";
+  if (pathname.startsWith("/inventory/audit/session/")) return "Scan Audit";
   if (pathname === "/inventory/audit") return "Stock Audit";
   if (pathname.startsWith("/inventory/item/")) return "Item History";
   if (pathname.startsWith("/entry-verification/")) return "Entry Verification";

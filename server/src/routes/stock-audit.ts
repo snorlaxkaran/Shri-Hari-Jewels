@@ -55,9 +55,11 @@ stockAuditRouter.get(
   async (req: AuthenticatedRequest, res) => {
     try {
       const branchId = await resolveBranchId(req);
-      const metalGroup = parseMetalGroupParam(
-        typeof req.query.metalGroup === "string" ? req.query.metalGroup : "",
-      );
+      const rawMetal =
+        typeof req.query.metalGroup === "string" ? req.query.metalGroup : "";
+      const metalGroup = rawMetal.trim()
+        ? parseMetalGroupParam(rawMetal)
+        : undefined;
       const sessions = await listStockAuditSessions(
         req.organizationId!,
         branchId,

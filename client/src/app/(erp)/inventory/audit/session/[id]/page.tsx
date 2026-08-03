@@ -105,8 +105,6 @@ export default function StockAuditSessionPage() {
     );
   }
 
-  const metalSlug = session.metalGroup.toLowerCase();
-
   return (
     <div className="page-content pb-28">
       <PageHeader
@@ -115,11 +113,11 @@ export default function StockAuditSessionPage() {
       />
 
       <Link
-        href={`/inventory/audit/${metalSlug}`}
+        href="/inventory/audit"
         className="mb-4 inline-flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900"
       >
         <ArrowLeft size={16} />
-        Back to {session.metalLabel} audits
+        Back to stock audit
       </Link>
 
       {error && (
@@ -268,7 +266,7 @@ export default function StockAuditSessionPage() {
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white/95 backdrop-blur md:left-[220px]">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-4">
             <Link
-              href={`/inventory/audit/${metalSlug}`}
+              href="/inventory/audit"
               className="btn-secondary px-4 py-2 text-sm"
             >
               Save & exit
