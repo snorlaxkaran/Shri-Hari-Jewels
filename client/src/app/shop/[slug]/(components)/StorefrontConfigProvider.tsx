@@ -14,6 +14,7 @@ export const StorefrontConfigProvider = ({
 }) => (
   <StorefrontConfigContext.Provider value={config}>
     <div
+      className="sf-page flex min-h-screen flex-col"
       style={
         {
           "--store-primary": config.primaryColor,

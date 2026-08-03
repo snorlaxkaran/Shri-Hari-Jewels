@@ -28,9 +28,9 @@ export default function CheckoutPage() {
 
   if (items.length === 0) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center">
-        <p className="text-zinc-500">Your cart is empty.</p>
-        <Link href={`/shop/${slug}/products`} className="mt-4 inline-block underline text-sm">
+      <div className="sf-empty">
+        <p className="sf-empty-title">Your bag is empty</p>
+        <Link href={`/shop/${slug}/products`} className="sf-view-all mt-4 inline-flex">
           Continue shopping
         </Link>
       </div>
@@ -63,70 +63,89 @@ export default function CheckoutPage() {
     }
   };
 
-  const fieldClass = "w-full rounded border border-zinc-200 px-3 py-2 text-sm";
-
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <h1 className="mb-8 text-3xl font-light" style={{ color: config.accentColor }}>
-        Checkout
-      </h1>
+    <div className="sf-section">
+      <div className="sf-shell">
+        <h1 className="sf-display sf-page-title">Checkout</h1>
 
-      <form onSubmit={handleSubmit} className="grid gap-10 lg:grid-cols-5">
-        <div className="space-y-4 lg:col-span-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">
-            Delivery Details
-          </h2>
-          <input required className={fieldClass} placeholder="Full name *" value={name} onChange={(e) => setName(e.target.value)} />
-          <input className={fieldClass} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input required className={fieldClass} placeholder="Mobile (10 digits) *" value={mobile} onChange={(e) => setMobile(e.target.value)} maxLength={10} />
-          <input required className={fieldClass} placeholder="Address line 1 *" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
-          <input className={fieldClass} placeholder="Address line 2" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
-          <div className="grid gap-4 sm:grid-cols-3">
-            <input required className={fieldClass} placeholder="City *" value={city} onChange={(e) => setCity(e.target.value)} />
-            <input required className={fieldClass} placeholder="State *" value={state} onChange={(e) => setState(e.target.value)} />
-            <input required className={fieldClass} placeholder="Pincode *" value={pincode} onChange={(e) => setPincode(e.target.value)} />
-          </div>
-          <textarea className={fieldClass} placeholder="Order notes (optional)" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <form onSubmit={handleSubmit} className="grid gap-10 lg:grid-cols-5">
+          <div className="space-y-4 lg:col-span-3">
+            <p className="sf-eyebrow">Delivery details</p>
 
-          {error && (
-            <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-          )}
-        </div>
-
-        <div className="lg:col-span-2">
-          <div className="rounded-lg border bg-white p-6">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500">
-              Order Summary
-            </h2>
-            <ul className="space-y-3 text-sm">
-              {items.map((item) => (
-                <li key={item.productId} className="flex justify-between">
-                  <span>{item.name} × {item.quantity}</span>
-                  <span>{formatStorePrice(item.price * item.quantity)}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-4 flex justify-between border-t pt-4 font-semibold">
-              <span>Total</span>
-              <span style={{ color: config.primaryColor }}>{formatStorePrice(subtotal)}</span>
+            <div className="sf-form-group">
+              <label htmlFor="checkout-name">Full name *</label>
+              <input id="checkout-name" required className="sf-input" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
-            {config.shippingNote && (
-              <p className="mt-4 text-xs text-zinc-500">{config.shippingNote}</p>
-            )}
-            <button
-              type="submit"
-              disabled={submitting}
-              className="mt-6 w-full rounded py-3 text-sm font-semibold uppercase tracking-wider text-white disabled:opacity-60"
-              style={{ backgroundColor: config.primaryColor }}
-            >
-              {submitting ? "Placing Order..." : "Place Order"}
-            </button>
-            <p className="mt-3 text-center text-xs text-zinc-400">
-              Payment on delivery / bank transfer as arranged with the store.
-            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sf-form-group">
+                <label htmlFor="checkout-email">Email</label>
+                <input id="checkout-email" type="email" className="sf-input" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+              <div className="sf-form-group">
+                <label htmlFor="checkout-mobile">Mobile *</label>
+                <input id="checkout-mobile" required className="sf-input" value={mobile} onChange={(e) => setMobile(e.target.value)} maxLength={10} />
+              </div>
+            </div>
+            <div className="sf-form-group">
+              <label htmlFor="checkout-addr1">Address line 1 *</label>
+              <input id="checkout-addr1" required className="sf-input" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
+            </div>
+            <div className="sf-form-group">
+              <label htmlFor="checkout-addr2">Address line 2</label>
+              <input id="checkout-addr2" className="sf-input" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="sf-form-group">
+                <label htmlFor="checkout-city">City *</label>
+                <input id="checkout-city" required className="sf-input" value={city} onChange={(e) => setCity(e.target.value)} />
+              </div>
+              <div className="sf-form-group">
+                <label htmlFor="checkout-state">State *</label>
+                <input id="checkout-state" required className="sf-input" value={state} onChange={(e) => setState(e.target.value)} />
+              </div>
+              <div className="sf-form-group">
+                <label htmlFor="checkout-pin">Pincode *</label>
+                <input id="checkout-pin" required className="sf-input" value={pincode} onChange={(e) => setPincode(e.target.value)} />
+              </div>
+            </div>
+            <div className="sf-form-group">
+              <label htmlFor="checkout-notes">Order notes</label>
+              <textarea id="checkout-notes" className="sf-textarea" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Gift wrap, delivery instructions…" />
+            </div>
+
+            {error && <div className="sf-alert-error">{error}</div>}
           </div>
-        </div>
-      </form>
+
+          <div className="lg:col-span-2">
+            <div className="sf-summary-card sticky top-24">
+              <p className="sf-eyebrow mb-4">Order summary</p>
+              <ul className="space-y-3 text-sm">
+                {items.map((item) => (
+                  <li key={item.productId} className="flex justify-between gap-2">
+                    <span className="text-[var(--sf-muted)]">
+                      {item.name} × {item.quantity}
+                    </span>
+                    <span className="font-medium shrink-0">{formatStorePrice(item.price * item.quantity)}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 flex justify-between border-t border-[var(--sf-border)] pt-4 font-semibold text-lg">
+                <span>Total</span>
+                <span>{formatStorePrice(subtotal)}</span>
+              </div>
+              {config.shippingNote && (
+                <p className="mt-4 text-xs text-[var(--sf-muted)]">{config.shippingNote}</p>
+              )}
+              <button type="submit" disabled={submitting} className="sf-btn sf-btn-primary sf-btn-block mt-6">
+                {submitting ? "Placing order…" : "Place order"}
+              </button>
+              <p className="mt-3 text-center text-xs text-[var(--sf-muted)]">
+                Payment on delivery or bank transfer as arranged with the store.
+              </p>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

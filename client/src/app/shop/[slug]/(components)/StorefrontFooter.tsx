@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MessageCircle, Phone } from "lucide-react";
 import type { StorefrontConfig } from "@/lib/storefront/types";
 
 export default function StorefrontFooter({
@@ -12,78 +13,75 @@ export default function StorefrontFooter({
   const address = [config.address, config.city, config.state, config.pincode]
     .filter(Boolean)
     .join(", ");
+  const whatsappHref = config.whatsappNumber
+    ? `https://wa.me/91${config.whatsappNumber.replace(/\D/g, "")}`
+    : null;
 
   return (
-    <footer
-      className="mt-auto border-t"
-      style={{ backgroundColor: config.accentColor, color: "#f5f5f5" }}
-    >
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4 sm:px-6">
+    <footer className="sf-footer">
+      <div className="sf-shell sf-footer-grid">
         <div>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider">
-            {config.businessName}
-          </h3>
+          <p className="sf-footer-brand">{config.businessName}</p>
           {config.tagline && (
-            <p className="text-sm text-zinc-300">{config.tagline}</p>
+            <p className="mt-2 text-sm text-[#a8a4a0] leading-relaxed max-w-xs">{config.tagline}</p>
           )}
           {config.gstNumber && (
-            <p className="mt-2 text-xs text-zinc-400">GST: {config.gstNumber}</p>
+            <p className="mt-3 text-xs text-[#7a7672]">GSTIN: {config.gstNumber}</p>
           )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {whatsappHref && (
+              <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="sf-btn sf-btn-gold sf-btn-sm">
+                <MessageCircle size={14} />
+                WhatsApp
+              </a>
+            )}
+            {config.contactPhone && (
+              <a href={`tel:${config.contactPhone}`} className="sf-btn sf-btn-outline-light sf-btn-sm">
+                <Phone size={14} />
+                Call store
+              </a>
+            )}
+          </div>
         </div>
 
         <div>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider">Shop</h3>
-          <ul className="space-y-2 text-sm text-zinc-300">
-            <li><Link href={`${base}/products`} className="hover:text-white">All Products</Link></li>
-            <li><Link href={`${base}/collections`} className="hover:text-white">Collections</Link></li>
-            <li><Link href={`${base}/about`} className="hover:text-white">About Us</Link></li>
-          </ul>
+          <p className="sf-footer-heading">Shop</p>
+          <Link href={`${base}/products`} className="sf-footer-link">All jewellery</Link>
+          <Link href={`${base}/collections`} className="sf-footer-link">Collections</Link>
+          <Link href={`${base}/about`} className="sf-footer-link">About us</Link>
         </div>
 
         <div>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider">Contact</h3>
-          <ul className="space-y-2 text-sm text-zinc-300">
-            {config.contactPhone && <li>{config.contactPhone}</li>}
-            {config.contactEmail && <li>{config.contactEmail}</li>}
-            {address && <li>{address}</li>}
-          </ul>
+          <p className="sf-footer-heading">Visit us</p>
+          {config.contactPhone && <p className="text-sm text-[#a8a4a0]">{config.contactPhone}</p>}
+          {config.contactEmail && (
+            <a href={`mailto:${config.contactEmail}`} className="sf-footer-link">
+              {config.contactEmail}
+            </a>
+          )}
+          {address && <p className="mt-2 text-sm text-[#a8a4a0] leading-relaxed">{address}</p>}
         </div>
 
         <div>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider">Follow</h3>
-          <ul className="space-y-2 text-sm text-zinc-300">
-            {config.instagramUrl && (
-              <li>
-                <a href={config.instagramUrl} target="_blank" rel="noopener noreferrer" className="hover:text-white">
-                  Instagram
-                </a>
-              </li>
-            )}
-            {config.facebookUrl && (
-              <li>
-                <a href={config.facebookUrl} target="_blank" rel="noopener noreferrer" className="hover:text-white">
-                  Facebook
-                </a>
-              </li>
-            )}
-            {config.whatsappNumber && (
-              <li>
-                <a
-                  href={`https://wa.me/91${config.whatsappNumber.replace(/\D/g, "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-white"
-                >
-                  WhatsApp
-                </a>
-              </li>
-            )}
-          </ul>
+          <p className="sf-footer-heading">Follow</p>
+          {config.instagramUrl && (
+            <a href={config.instagramUrl} target="_blank" rel="noopener noreferrer" className="sf-footer-link">
+              Instagram
+            </a>
+          )}
+          {config.facebookUrl && (
+            <a href={config.facebookUrl} target="_blank" rel="noopener noreferrer" className="sf-footer-link">
+              Facebook
+            </a>
+          )}
+          {config.returnPolicy && (
+            <p className="mt-3 text-xs text-[#7a7672] leading-relaxed">{config.returnPolicy}</p>
+          )}
         </div>
       </div>
 
-      <div className="border-t border-white/10 px-4 py-4 text-center text-xs text-zinc-400">
-        © {new Date().getFullYear()} {config.businessName}. All rights reserved.
+      <div className="sf-shell sf-footer-bottom">
+        © {new Date().getFullYear()} {config.businessName}. Crafted with Shri Hari Jewels.
       </div>
     </footer>
   );

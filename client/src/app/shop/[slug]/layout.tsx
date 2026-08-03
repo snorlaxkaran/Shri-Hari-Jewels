@@ -1,7 +1,22 @@
 import type { Metadata } from "next";
+import { Fraunces, Inter } from "next/font/google";
+import { notFound } from "next/navigation";
+import "@/styles/storefront.css";
 import { fetchStorefrontConfig, fetchStorefrontStatus } from "@/lib/api/storefront";
 import StoreDisabledPage from "./StoreDisabledPage";
 import StorefrontShell from "./StorefrontShell";
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-store-display",
+  display: "swap",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-store-body",
+  display: "swap",
+});
 
 type Props = {
   children: React.ReactNode;
@@ -14,14 +29,34 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const status = await fetchStorefrontStatus(slug);
     if (status.businessName) {
       return {
-        title: status.businessName,
-        description: `Shop fine jewellery at ${status.businessName}`,
+        title: `${status.businessName} · Online Jewellery Store`,
+        description: `Shop hallmarked gold & diamond jewellery at ${status.businessName}`,
       };
     }
-    return { title: "Store" };
+    return { title: "Jewellery Store" };
   } catch {
-    return { title: "Store" };
+    return { title: "Jewellery Store" };
   }
+}
+
+function StoreStartupMessage({ title, body }: { title: string; body: string }) {
+  return (
+    <div className={`${fraunces.variable} ${inter.variable} sf-page flex min-h-screen flex-col items-center justify-center px-4 text-center`}>
+      <GemPlaceholder />
+      <h1 className="sf-display text-2xl mt-6">{title}</h1>
+      <p className="mt-3 text-[var(--sf-muted)] max-w-md leading-relaxed">{body}</p>
+    </div>
+  );
+}
+
+function GemPlaceholder() {
+  return (
+    <div className="w-14 h-14 rounded-full bg-[#f5f3f0] flex items-center justify-center text-[var(--sf-gold,#b8860b)]">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M6 3h12l4 7-10 11L2 10l4-7z" />
+      </svg>
+    </div>
+  );
 }
 
 export default async function StorefrontLayout({ children, params }: Props) {
@@ -32,28 +67,22 @@ export default async function StorefrontLayout({ children, params }: Props) {
     status = await fetchStorefrontStatus(slug);
   } catch {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#faf9f7] px-4 text-center">
-        <div className="max-w-md">
-          <p className="text-4xl mb-6">⏳</p>
-          <h1 className="text-2xl font-light text-zinc-800">Store is starting up</h1>
-          <p className="mt-4 text-zinc-600 leading-relaxed">
-            The online store is being deployed. Please refresh in a minute.
-          </p>
-        </div>
-      </div>
+      <StoreStartupMessage
+        title="Store is starting up"
+        body="The online store is being deployed. Please refresh in a minute."
+      />
     );
   }
 
   if (!status.exists || !status.active) {
-    return null;
+    notFound();
   }
 
   if (!status.enabled) {
     return (
-      <StoreDisabledPage
-        businessName={status.businessName ?? slug}
-        slug={slug}
-      />
+      <div className={`${fraunces.variable} ${inter.variable}`}>
+        <StoreDisabledPage businessName={status.businessName ?? slug} slug={slug} />
+      </div>
     );
   }
 
@@ -62,21 +91,18 @@ export default async function StorefrontLayout({ children, params }: Props) {
     config = await fetchStorefrontConfig(slug);
   } catch {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#faf9f7] px-4 text-center">
-        <div className="max-w-md">
-          <p className="text-4xl mb-6">⏳</p>
-          <h1 className="text-2xl font-light text-zinc-800">Store is starting up</h1>
-          <p className="mt-4 text-zinc-600 leading-relaxed">
-            The store backend is updating. Please refresh shortly.
-          </p>
-        </div>
-      </div>
+      <StoreStartupMessage
+        title="Store is updating"
+        body="The store backend is updating. Please refresh shortly."
+      />
     );
   }
 
   return (
-    <StorefrontShell slug={slug} config={config}>
-      {children}
-    </StorefrontShell>
+    <div className={`${fraunces.variable} ${inter.variable}`}>
+      <StorefrontShell slug={slug} config={config}>
+        {children}
+      </StorefrontShell>
+    </div>
   );
 }

@@ -3,7 +3,7 @@ import ProductsPageContent from "./ProductsPageContent";
 
 export default function ProductsPage() {
   return (
-    <Suspense fallback={<div className="mx-auto max-w-7xl px-4 py-20 text-center text-zinc-500">Loading...</div>}>
+    <Suspense fallback={<div className="sf-empty"><p className="sf-empty-desc">Loading catalogue…</p></div>}>
       <ProductsPageContent />
     </Suspense>
   );

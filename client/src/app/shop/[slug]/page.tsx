@@ -1,8 +1,12 @@
 import Link from "next/link";
+import { ArrowRight, Gem, MessageCircle, Phone, Store } from "lucide-react";
 import {
+  fetchStorefrontCategories,
   fetchStorefrontCollections,
+  fetchStorefrontConfig,
   fetchStorefrontProducts,
 } from "@/lib/api/storefront";
+import CollectionCard from "./(components)/CollectionCard";
 import ProductCard from "./(components)/ProductCard";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -10,104 +14,186 @@ type Props = { params: Promise<{ slug: string }> };
 export default async function StorefrontHomePage({ params }: Props) {
   const { slug } = await params;
 
-  const [{ products }, collections] = await Promise.all([
+  const [config, { products }, collections, categories] = await Promise.all([
+    fetchStorefrontConfig(slug),
     fetchStorefrontProducts(slug, { limit: 8, sortBy: "newest" }),
     fetchStorefrontCollections(slug),
+    fetchStorefrontCategories(slug).catch(() => [] as string[]),
   ]);
 
-  const config = await import("@/lib/api/storefront").then((m) =>
-    m.fetchStorefrontConfig(slug),
-  );
+  const whatsappHref = config.whatsappNumber
+    ? `https://wa.me/91${config.whatsappNumber.replace(/\D/g, "")}`
+    : null;
+
+  const heroStyle = config.bannerUrl
+    ? { backgroundImage: `url(${config.bannerUrl})` }
+    : {
+        background: `linear-gradient(135deg, ${config.accentColor} 0%, ${config.primaryColor}99 100%)`,
+      };
 
   return (
     <div>
-      <section
-        className="relative flex min-h-[420px] items-center justify-center px-4 py-20 text-center"
-        style={{
-          background: config.bannerUrl
-            ? `linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(${config.bannerUrl}) center/cover`
-            : `linear-gradient(135deg, ${config.accentColor} 0%, ${config.primaryColor}88 100%)`,
-        }}
-      >
-        <div className="max-w-2xl text-white">
-          <h1 className="text-4xl font-light tracking-wide sm:text-5xl">
+      <section className="sf-hero">
+        <div className="sf-hero-bg" style={heroStyle} />
+        <div className="sf-hero-overlay" />
+        <div className="sf-hero-content">
+          <p className="sf-eyebrow text-white/70 mb-3">Fine jewellery · Hallmarked</p>
+          <h1 className="sf-display sf-hero-title">
             {config.heroTitle ?? `Welcome to ${config.businessName}`}
           </h1>
-          <p className="mt-4 text-lg text-white/85">
-            {config.heroSubtitle ?? config.tagline ?? "Discover exquisite handcrafted jewellery"}
+          <p className="sf-hero-sub">
+            {config.heroSubtitle ?? config.tagline ?? "Discover handcrafted gold & diamond jewellery"}
           </p>
-          <Link
-            href={`/shop/${slug}/products`}
-            className="mt-8 inline-block rounded px-8 py-3 text-sm font-semibold uppercase tracking-wider transition-opacity hover:opacity-90"
-            style={{ backgroundColor: config.primaryColor, color: "#fff" }}
-          >
-            Shop Now
-          </Link>
+          <div className="sf-hero-actions">
+            <Link href={`/shop/${slug}/products`} className="sf-btn sf-btn-gold">
+              Shop collection
+            </Link>
+            {collections.length > 0 && (
+              <Link href={`/shop/${slug}/collections`} className="sf-btn sf-btn-outline-light">
+                Explore collections
+              </Link>
+            )}
+          </div>
         </div>
       </section>
 
-      {collections.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-          <h2 className="mb-8 text-center text-2xl font-light tracking-wide" style={{ color: config.accentColor }}>
-            Collections
-          </h2>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {collections.slice(0, 3).map((col) => (
-              <Link
-                key={col.id}
-                href={`/shop/${slug}/collections/${col.slug}`}
-                className="group relative overflow-hidden rounded-lg"
-                style={{ aspectRatio: "4/3", backgroundColor: config.primaryColor + "22" }}
-              >
-                {col.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={col.imageUrl} alt={col.name} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-5xl opacity-30">✨</div>
-                )}
-                <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/60 to-transparent p-6">
-                  <div>
-                    <h3 className="text-xl font-medium text-white">{col.name}</h3>
-                    <p className="text-sm text-white/80">{col.productCount} pieces</p>
-                  </div>
-                </div>
+      {categories.length > 0 && (
+        <section className="sf-section sf-section-alt">
+          <div className="sf-shell">
+            <div className="sf-section-head">
+              <p className="sf-eyebrow">Shop by category</p>
+              <h2 className="sf-display sf-section-title mt-2">Find your perfect piece</h2>
+              <p className="sf-section-desc">
+                Browse rings, necklaces, bangles, and more — curated for every occasion.
+              </p>
+            </div>
+            <div className="sf-category-scroll">
+              <Link href={`/shop/${slug}/products`} className="sf-category-pill">
+                <Gem size={16} />
+                All jewellery
               </Link>
-            ))}
+              {categories.map((cat) => (
+                <Link
+                  key={cat}
+                  href={`/shop/${slug}/products?category=${encodeURIComponent(cat)}`}
+                  className="sf-category-pill"
+                >
+                  {cat}
+                </Link>
+              ))}
+            </div>
           </div>
         </section>
       )}
 
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-        <div className="mb-8 flex items-end justify-between">
-          <h2 className="text-2xl font-light tracking-wide" style={{ color: config.accentColor }}>
-            Featured Pieces
-          </h2>
-          <Link
-            href={`/shop/${slug}/products`}
-            className="text-sm font-medium hover:underline"
-            style={{ color: config.primaryColor }}
-          >
-            View all →
-          </Link>
-        </div>
-        {products.length === 0 ? (
-          <p className="text-center text-zinc-500 py-12">New pieces coming soon.</p>
-        ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {products.map((product) => (
-              <ProductCard key={product.id} slug={slug} product={product} config={config} />
-            ))}
+      {collections.length > 0 && (
+        <section className="sf-section">
+          <div className="sf-shell">
+            <div className="sf-section-head">
+              <p className="sf-eyebrow">Curated for you</p>
+              <h2 className="sf-display sf-section-title mt-2">Explore our collections</h2>
+              <p className="sf-section-desc">
+                From bridal sets to everyday elegance — each collection tells a story.
+              </p>
+            </div>
+            <div className="sf-collection-grid">
+              {collections.slice(0, 3).map((col) => (
+                <CollectionCard key={col.id} slug={slug} collection={col} />
+              ))}
+            </div>
+            {collections.length > 3 && (
+              <div className="text-center mt-8">
+                <Link href={`/shop/${slug}/collections`} className="sf-view-all">
+                  View all collections
+                  <ArrowRight size={16} />
+                </Link>
+              </div>
+            )}
           </div>
-        )}
+        </section>
+      )}
+
+      <section className="sf-section sf-section-alt">
+        <div className="sf-shell">
+          <div className="sf-section-head-row">
+            <div>
+              <p className="sf-eyebrow">New arrivals</p>
+              <h2 className="sf-display sf-section-title mt-2">Trending now</h2>
+            </div>
+            <Link href={`/shop/${slug}/products`} className="sf-view-all shrink-0">
+              View all
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+          {products.length === 0 ? (
+            <div className="sf-empty">
+              <p className="sf-empty-title">New pieces arriving soon</p>
+              <p className="sf-empty-desc">Check back shortly or visit our showroom.</p>
+            </div>
+          ) : (
+            <div className="sf-product-grid">
+              {products.map((product) => (
+                <ProductCard key={product.id} slug={slug} product={product} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="sf-experience">
+        <div className="sf-shell">
+          <div className="sf-section-head">
+            <p className="sf-eyebrow text-white/50">The {config.businessName} experience</p>
+            <h2 className="sf-display sf-section-title mt-2 text-white">We&apos;re here to help you choose</h2>
+            <p className="sf-section-desc text-white/65">
+              Book a consultation, chat on WhatsApp, or visit our showroom — personalised service at every step.
+            </p>
+          </div>
+          <div className="sf-experience-grid">
+            <div className="sf-experience-card">
+              <Store className="sf-experience-icon mx-auto" strokeWidth={1.5} />
+              <h3>Visit the showroom</h3>
+              <p>
+                {[config.address, config.city].filter(Boolean).join(", ") ||
+                  "Walk in to see pieces in person and get expert guidance."}
+              </p>
+            </div>
+            <div className="sf-experience-card">
+              <MessageCircle className="sf-experience-icon mx-auto" strokeWidth={1.5} />
+              <h3>Chat on WhatsApp</h3>
+              <p>Share designs, ask about making charges, or reserve a piece before you visit.</p>
+              {whatsappHref && (
+                <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="sf-btn sf-btn-gold sf-btn-sm mt-4">
+                  Message us
+                </a>
+              )}
+            </div>
+            <div className="sf-experience-card">
+              <Phone className="sf-experience-icon mx-auto" strokeWidth={1.5} />
+              <h3>Call our team</h3>
+              <p>Speak directly with our jewellery consultants for personalised recommendations.</p>
+              {config.contactPhone && (
+                <a href={`tel:${config.contactPhone}`} className="sf-btn sf-btn-outline-light sf-btn-sm mt-4">
+                  {config.contactPhone}
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
       </section>
 
       {config.aboutText && (
-        <section className="border-t bg-white px-4 py-16 sm:px-6">
-          <div className="mx-auto max-w-3xl text-center">
-            <h2 className="mb-4 text-2xl font-light" style={{ color: config.accentColor }}>
-              Our Story
-            </h2>
-            <p className="leading-relaxed text-zinc-600 whitespace-pre-line">{config.aboutText}</p>
+        <section className="sf-section">
+          <div className="sf-shell max-w-3xl text-center mx-auto">
+            <p className="sf-eyebrow">Our story</p>
+            <h2 className="sf-display sf-section-title mt-2">Crafted with care</h2>
+            <p className="mt-4 leading-relaxed text-[var(--sf-muted)] whitespace-pre-line">
+              {config.aboutText}
+            </p>
+            <Link href={`/shop/${slug}/about`} className="sf-view-all mt-6 inline-flex">
+              Read more
+              <ArrowRight size={16} />
+            </Link>
           </div>
         </section>
       )}
