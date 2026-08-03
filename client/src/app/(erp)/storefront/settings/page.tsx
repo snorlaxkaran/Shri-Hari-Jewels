@@ -13,21 +13,12 @@ import {
   updateStorefrontDomain,
 } from "@/lib/api/storefront-admin";
 import { getApiErrorMessage } from "@/lib/api/client";
+import { padBannerSlots, BANNER_SLOT_COUNT } from "@/lib/storefront/banner-crop";
 import type { StorefrontAdminSettings } from "@/lib/storefront/types";
+import BannerCarouselEditor from "./BannerCarouselEditor";
 
 const fieldClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium";
-const BANNER_SLOT_COUNT = 4;
-
-const padBannerUrls = (urls: string[] | undefined | null, legacyUrl?: string | null): string[] => {
-  const filled =
-    urls && urls.length > 0
-      ? urls
-      : legacyUrl?.trim()
-        ? [legacyUrl.trim()]
-        : [];
-  return [...filled, ...Array(BANNER_SLOT_COUNT).fill("")].slice(0, BANNER_SLOT_COUNT) as string[];
-};
 
 export default function StorefrontSettingsPage() {
   const { user } = useAuth();
@@ -83,7 +74,7 @@ function StorefrontSettingsForm() {
         setPrimaryColor(s.primaryColor);
         setAccentColor(s.accentColor);
         setLogoUrl(s.logoUrl ?? "");
-        setBannerUrls(padBannerUrls(s.bannerUrls, s.bannerUrl));
+        setBannerUrls(padBannerSlots(s.bannerUrls, s.bannerUrl));
         setContactEmail(s.contactEmail ?? "");
         setContactPhone(s.contactPhone ?? "");
         setInstagramUrl(s.instagramUrl ?? "");
@@ -122,7 +113,7 @@ function StorefrontSettingsForm() {
         returnPolicy: returnPolicy.trim() || null,
       });
       setSettings(updated);
-      setBannerUrls(padBannerUrls(updated.bannerUrls, updated.bannerUrl));
+      setBannerUrls(padBannerSlots(updated.bannerUrls, updated.bannerUrl));
 
       if (customDomain.trim() !== (settings?.customDomain ?? "")) {
         const withDomain = await updateStorefrontDomain(customDomain.trim() || null);
@@ -154,7 +145,7 @@ function StorefrontSettingsForm() {
       {error && <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">{error}</div>}
       {success && <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-green-200 bg-green-50 text-green-700">{success}</div>}
 
-      <form onSubmit={handleSave} className="space-y-6 max-w-2xl">
+      <form onSubmit={handleSave} className="space-y-6 max-w-4xl">
         <div className="surface-card p-5 space-y-4">
           <h3 className="font-medium">Store Status</h3>
           <label className="flex items-center gap-3 cursor-pointer">
@@ -179,35 +170,12 @@ function StorefrontSettingsForm() {
           <div><label className={labelClass}>Logo URL</label><input className={fieldClass} value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://..." /></div>
           <div>
             <label className={labelClass}>Hero carousel banners</label>
-            <p className="text-xs text-zinc-500 mb-3">
-              Add up to 4 image URLs for the storefront hero carousel. Leave a slot empty to skip it.
-            </p>
-            <div className="space-y-3">
-              {bannerUrls.map((url, index) => (
-                <div key={index} className="flex gap-3 items-start">
-                  <span className="text-xs text-zinc-400 font-mono w-6 pt-2 shrink-0">{index + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <input
-                      className={fieldClass}
-                      value={url}
-                      onChange={(e) => {
-                        const next = [...bannerUrls];
-                        next[index] = e.target.value;
-                        setBannerUrls(next);
-                      }}
-                      placeholder="https://..."
-                    />
-                  </div>
-                  {url.trim() && (
-                    <div
-                      className="w-16 h-10 rounded border border-zinc-200 bg-zinc-50 shrink-0 bg-cover bg-center"
-                      style={{ backgroundImage: `url(${url.trim()})` }}
-                      title={`Banner ${index + 1} preview`}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+            <BannerCarouselEditor
+              banners={bannerUrls}
+              onChange={setBannerUrls}
+              heroTitle={heroTitle || settings?.businessName}
+              heroSubtitle={heroSubtitle || tagline || undefined}
+            />
           </div>
         </div>
 
