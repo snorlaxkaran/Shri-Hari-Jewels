@@ -767,6 +767,9 @@ export type StockAuditStatus = "Open" | "Closed";
 export type StockAuditScanItem = {
   id: string;
   itemCode: string;
+  productName: string;
+  imageUrl?: string;
+  imageColor?: string;
   scannedByName: string;
   scannedAt: string;
 };

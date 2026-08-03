@@ -227,11 +227,13 @@ export default function StockAuditSessionPage() {
           <h2 className="text-sm font-semibold text-zinc-800">Scanned items</h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="data-table min-w-[720px]">
+          <table className="data-table inventory-table min-w-[860px]">
             <thead>
               <tr>
                 <th className="w-10" />
+                <th>Photo</th>
                 <th>Item code</th>
+                <th>Product</th>
                 <th>Scanned by</th>
                 <th>Scanned at</th>
               </tr>
@@ -239,7 +241,7 @@ export default function StockAuditSessionPage() {
             <tbody>
               {session.scans.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-10 text-center text-sm text-zinc-500">
+                  <td colSpan={6} className="py-10 text-center text-sm text-zinc-500">
                     No items scanned yet.
                   </td>
                 </tr>
@@ -249,9 +251,29 @@ export default function StockAuditSessionPage() {
                     <td>
                       <Check size={16} className="text-emerald-600" />
                     </td>
+                    <td className="col-photo">
+                      {scan.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={scan.imageUrl}
+                          alt={scan.productName}
+                          loading="lazy"
+                          className="inventory-photo"
+                        />
+                      ) : (
+                        <div
+                          className="inventory-photo inventory-photo-placeholder"
+                          style={{
+                            backgroundColor: scan.imageColor || "var(--bg-muted)",
+                          }}
+                          aria-hidden
+                        />
+                      )}
+                    </td>
                     <td className="td-code">
                       <ItemCodeLink itemCode={scan.itemCode} className="text-xs" />
                     </td>
+                    <td>{scan.productName}</td>
                     <td>{scan.scannedByName}</td>
                     <td className="td-muted">{formatDateTime(scan.scannedAt)}</td>
                   </tr>

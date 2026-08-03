@@ -23,7 +23,7 @@ const TOKEN_KEY = "shj_auth_token";
 const REFRESH_TOKEN_KEY = "shj_refresh_token";
 
 const getAuthStorage = () =>
-  typeof window !== "undefined" ? window.sessionStorage : null;
+  typeof window !== "undefined" ? window.localStorage : null;
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
@@ -87,7 +87,36 @@ const persistSession = (token: string, refreshToken?: string) => {
   if (refreshToken) {
     storage?.setItem(REFRESH_TOKEN_KEY, refreshToken);
   }
+  if (typeof window !== "undefined") {
+    window.sessionStorage.removeItem(TOKEN_KEY);
+    window.sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+  }
   setAuthToken(token);
+};
+
+const readStoredTokens = () => {
+  if (typeof window === "undefined") {
+    return { token: null as string | null, refreshToken: null as string | null };
+  }
+
+  let token = window.localStorage.getItem(TOKEN_KEY);
+  let refreshToken = window.localStorage.getItem(REFRESH_TOKEN_KEY);
+
+  if (!token) {
+    token = window.sessionStorage.getItem(TOKEN_KEY);
+    if (token) window.localStorage.setItem(TOKEN_KEY, token);
+  }
+  if (!refreshToken) {
+    refreshToken = window.sessionStorage.getItem(REFRESH_TOKEN_KEY);
+    if (refreshToken) window.localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  }
+
+  if (token || refreshToken) {
+    window.sessionStorage.removeItem(TOKEN_KEY);
+    window.sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+  }
+
+  return { token, refreshToken };
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -96,13 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const bootstrap = useCallback(async () => {
-    const storage = getAuthStorage();
-    const token = storage?.getItem(TOKEN_KEY) ?? null;
-    const refreshToken = storage?.getItem(REFRESH_TOKEN_KEY) ?? null;
-
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(TOKEN_KEY);
-    }
+    const { token, refreshToken } = readStoredTokens();
 
     if (!token && !refreshToken) {
       setUser(null);
@@ -128,8 +151,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         return;
       } catch {
+        const storage = getAuthStorage();
         storage?.removeItem(TOKEN_KEY);
         storage?.removeItem(REFRESH_TOKEN_KEY);
+        if (typeof window !== "undefined") {
+          window.sessionStorage.removeItem(TOKEN_KEY);
+          window.sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+        }
         clearAuthToken();
       }
     }
@@ -146,6 +174,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const storage = getAuthStorage();
     storage?.removeItem(TOKEN_KEY);
     storage?.removeItem(REFRESH_TOKEN_KEY);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(TOKEN_KEY);
+      window.sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+    }
     clearAuthToken();
     setUser(null);
     setLoading(false);
@@ -200,6 +232,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void logoutApi(refreshToken);
     storage?.removeItem(TOKEN_KEY);
     storage?.removeItem(REFRESH_TOKEN_KEY);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(TOKEN_KEY);
+      window.sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+    }
     clearAuthToken();
     setUser(null);
     router.replace("/login");

@@ -20,12 +20,39 @@ const AUDITABLE_STATUSES: InventoryUnitStatus[] = [
 ];
 
 const sessionInclude = {
-  scans: { orderBy: { scannedAt: "desc" as const } },
+  scans: {
+    orderBy: { scannedAt: "desc" as const },
+    include: {
+      inventoryUnit: {
+        include: {
+          product: {
+            select: {
+              name: true,
+              imageColor: true,
+              images: { orderBy: { sortOrder: "asc" }, take: 1 },
+            },
+          },
+        },
+      },
+    },
+  },
 } satisfies Prisma.StockAuditSessionInclude;
 
 type SessionRow = Prisma.StockAuditSessionGetPayload<{
   include: typeof sessionInclude;
 }>;
+
+const toScanDto = (
+  scan: SessionRow["scans"][number],
+): StockAuditScanItem => ({
+  id: scan.id,
+  itemCode: scan.itemCode,
+  productName: scan.inventoryUnit.product.name,
+  imageUrl: scan.inventoryUnit.product.images[0]?.url,
+  imageColor: scan.inventoryUnit.product.imageColor ?? undefined,
+  scannedByName: scan.scannedByName,
+  scannedAt: scan.scannedAt.toISOString(),
+});
 
 const toSessionDto = (session: SessionRow): StockAuditSession => {
   const counted = session.scans.length;
@@ -44,14 +71,7 @@ const toSessionDto = (session: SessionRow): StockAuditSession => {
     startedByName: session.startedByName,
     createdAt: session.createdAt.toISOString(),
     closedAt: session.closedAt?.toISOString(),
-    scans: session.scans.map(
-      (scan): StockAuditScanItem => ({
-        id: scan.id,
-        itemCode: scan.itemCode,
-        scannedByName: scan.scannedByName,
-        scannedAt: scan.scannedAt.toISOString(),
-      }),
-    ),
+    scans: session.scans.map(toScanDto),
   };
 };
 
