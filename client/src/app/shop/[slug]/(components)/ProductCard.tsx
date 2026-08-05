@@ -19,7 +19,13 @@ export default function ProductCard({
       <div className="sf-product-image-wrap" style={{ backgroundColor: product.imageColor }}>
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl} alt={product.name} className="sf-product-image" />
+          <img
+            src={imageUrl}
+            alt={product.name}
+            loading="lazy"
+            decoding="async"
+            className="sf-product-image"
+          />
         ) : (
           <div className="flex h-full items-center justify-center text-[var(--sf-gold)] opacity-40">
             <Gem size={40} strokeWidth={1} />

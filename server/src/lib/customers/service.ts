@@ -10,6 +10,7 @@ import type {
 } from "../../types.js";
 import { toSale } from "../sales/mappers.js";
 import { toCustomer } from "./mappers.js";
+import { moneyToNumber } from "../money.js";
 import { validateCustomerFinancialFields } from "./validation.js";
 import { writeAuditLog } from "../audit/service.js";
 import type { CustomerDepartmentContact as PrismaDeptContact } from "@prisma/client";
@@ -106,12 +107,45 @@ const validateFinancialFields = (input: NewCustomerInput | UpdateCustomerInput) 
 };
 
 export const listCustomers = async (organizationId: string): Promise<Customer[]> => {
-  const customers = await prisma.customer.findMany({
-    where: { organizationId },
-    include: customerInclude,
-    orderBy: { createdAt: "desc" },
-  });
-  return customers.map(toCustomer);
+  const [customers, saleStats] = await Promise.all([
+    prisma.customer.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.sale.groupBy({
+      by: ["customerId"],
+      where: {
+        customerId: { not: null },
+        branch: { organizationId },
+      },
+      _sum: { dealPrice: true },
+      _count: { _all: true },
+      _max: { soldAt: true },
+    }),
+  ]);
+
+  const statsByCustomerId = new Map(
+    saleStats
+      .filter((row) => row.customerId)
+      .map((row) => [
+        row.customerId as string,
+        {
+          totalSpent: moneyToNumber(row._sum.dealPrice ?? 0),
+          totalOrders: row._count._all,
+          lastVisit: row._max.soldAt?.toISOString(),
+        },
+      ]),
+  );
+
+  return customers.map((customer) =>
+    toCustomer(
+      customer,
+      statsByCustomerId.get(customer.id) ?? {
+        totalOrders: 0,
+        totalSpent: 0,
+      },
+    ),
+  );
 };
 
 export const getCustomer = async (
@@ -241,7 +275,7 @@ export const searchCustomers = async (
     take: 20,
   });
 
-  return customers.map(toCustomer);
+  return customers.map((customer) => toCustomer(customer));
 };
 
 export const updateCustomer = async (

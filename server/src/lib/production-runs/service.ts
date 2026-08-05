@@ -286,11 +286,6 @@ export const listProductionRuns = async (
   organizationId: string,
   branchId?: string,
 ): Promise<ProductionRun[]> => {
-  await syncCompletedRunsInventory({
-    id: "system",
-    name: "Production completion sync",
-  });
-
   const runs = await prisma.productionRun.findMany({
     where: organizationBranchFilter(organizationId, branchId),
     include: runInclude,

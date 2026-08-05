@@ -1,5 +1,9 @@
 import { api } from "./client";
-import type { StockAuditMetalGroup, StockAuditSession } from "@/lib/types";
+import type {
+  StockAuditMetalGroup,
+  StockAuditPendingItem,
+  StockAuditSession,
+} from "@/lib/types";
 
 export const fetchStockAuditSessions = async (
   metalGroup?: StockAuditMetalGroup,
@@ -21,9 +25,22 @@ export const createStockAuditSession = async (
 
 export const fetchStockAuditSession = async (
   sessionId: string,
+  options?: { includeScans?: boolean },
 ): Promise<StockAuditSession> => {
   const { data } = await api.get<StockAuditSession>(
     `/api/stock-audit/sessions/${sessionId}`,
+    {
+      params: options?.includeScans ? { includeScans: "true" } : undefined,
+    },
+  );
+  return data;
+};
+
+export const fetchStockAuditPendingItems = async (
+  sessionId: string,
+): Promise<StockAuditPendingItem[]> => {
+  const { data } = await api.get<StockAuditPendingItem[]>(
+    `/api/stock-audit/sessions/${sessionId}/pending`,
   );
   return data;
 };

@@ -26,27 +26,47 @@ import {
 import { generateWebOrderNo } from "./web-order-no.js";
 
 const productInclude = {
-  images: { orderBy: { sortOrder: "asc" as const } },
+  images: { orderBy: { sortOrder: "asc" as const }, take: 1 },
+};
+
+const batchCountAvailableUnits = async (
+  products: Array<{ id: string; metal: string; weightGrams: number }>,
+  organizationId: string,
+): Promise<Map<string, number>> => {
+  if (products.length === 0) return new Map();
+
+  const units = await prisma.inventoryUnit.findMany({
+    where: {
+      organizationId,
+      productId: { in: products.map((product) => product.id) },
+      status: InventoryUnitStatus.Available,
+    },
+    select: {
+      productId: true,
+      huid: true,
+      hallmarkNumber: true,
+    },
+  });
+
+  const productMeta = new Map(products.map((product) => [product.id, product]));
+  const counts = new Map(products.map((product) => [product.id, 0]));
+
+  for (const unit of units) {
+    const product = productMeta.get(unit.productId);
+    if (!product) continue;
+    if (requiresHallmark(product) && !isHallmarked(unit)) continue;
+    counts.set(unit.productId, (counts.get(unit.productId) ?? 0) + 1);
+  }
+
+  return counts;
 };
 
 const countAvailableUnits = async (
   product: { id: string; metal: string; weightGrams: number },
   organizationId: string,
 ): Promise<number> => {
-  const units = await prisma.inventoryUnit.findMany({
-    where: {
-      productId: product.id,
-      organizationId,
-      status: InventoryUnitStatus.Available,
-    },
-    select: { huid: true, hallmarkNumber: true },
-  });
-
-  if (!requiresHallmark(product)) {
-    return units.length;
-  }
-
-  return units.filter((unit) => isHallmarked(unit)).length;
+  const counts = await batchCountAvailableUnits([product], organizationId);
+  return counts.get(product.id) ?? 0;
 };
 
 export const getStorefrontConfig = async (
@@ -137,12 +157,10 @@ export const listStorefrontProducts = async (
     prisma.product.count({ where }),
   ]);
 
-  const stockCounts = await Promise.all(
-    products.map((p) => countAvailableUnits(p, organizationId)),
-  );
+  const stockCounts = await batchCountAvailableUnits(products, organizationId);
 
   return {
-    products: products.map((p, i) => toStorefrontProduct(p, stockCounts[i])),
+    products: products.map((p) => toStorefrontProduct(p, stockCounts.get(p.id) ?? 0)),
     total,
   };
 };

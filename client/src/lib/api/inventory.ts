@@ -18,15 +18,16 @@ export const fetchInventory = async (options?: {
   sortBy?: "createdAt" | "weightGrams" | "price" | "category";
   sortOrder?: "asc" | "desc";
   hallmarkStatus?: "missing";
+  skipCacheBust?: boolean;
 }): Promise<InventoryItem[]> => {
   const { data } = await api.get<InventoryItem[]>("/api/inventory", {
     params: {
-      _t: Date.now(),
+      ...(options?.skipCacheBust ? {} : { _t: Date.now() }),
       sortBy: options?.sortBy,
       sortOrder: options?.sortOrder,
       hallmarkStatus: options?.hallmarkStatus,
     },
-    headers: { "Cache-Control": "no-cache" },
+    headers: options?.skipCacheBust ? undefined : { "Cache-Control": "no-cache" },
     timeout: 60000,
   });
   return data;

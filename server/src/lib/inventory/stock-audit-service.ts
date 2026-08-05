@@ -11,7 +11,11 @@ import {
   prismaMetalFilterForAuditGroup,
   stockAuditMetalLabel,
 } from "./stock-audit-metal.js";
-import type { StockAuditScanItem, StockAuditSession } from "../../types.js";
+import type {
+  StockAuditPendingItem,
+  StockAuditScanItem,
+  StockAuditSession,
+} from "../../types.js";
 
 const AUDITABLE_STATUSES: InventoryUnitStatus[] = [
   InventoryUnitStatus.Available,
@@ -19,7 +23,11 @@ const AUDITABLE_STATUSES: InventoryUnitStatus[] = [
   InventoryUnitStatus.PendingVerification,
 ];
 
-const sessionInclude = {
+const sessionSummaryInclude = {
+  _count: { select: { scans: true } },
+} satisfies Prisma.StockAuditSessionInclude;
+
+const sessionScanInclude = {
   scans: {
     orderBy: { scannedAt: "desc" as const },
     include: {
@@ -38,12 +46,21 @@ const sessionInclude = {
   },
 } satisfies Prisma.StockAuditSessionInclude;
 
-type SessionRow = Prisma.StockAuditSessionGetPayload<{
-  include: typeof sessionInclude;
+type SessionSummaryRow = Prisma.StockAuditSessionGetPayload<{
+  include: typeof sessionSummaryInclude;
 }>;
 
+type SessionScanRow = Prisma.StockAuditSessionGetPayload<{
+  include: typeof sessionScanInclude;
+}>;
+
+type SessionExtras = {
+  scans?: StockAuditScanItem[];
+  lastScan?: StockAuditScanItem;
+};
+
 const toScanDto = (
-  scan: SessionRow["scans"][number],
+  scan: SessionScanRow["scans"][number],
 ): StockAuditScanItem => ({
   id: scan.id,
   itemCode: scan.itemCode,
@@ -54,8 +71,11 @@ const toScanDto = (
   scannedAt: scan.scannedAt.toISOString(),
 });
 
-const toSessionDto = (session: SessionRow): StockAuditSession => {
-  const counted = session.scans.length;
+const toSessionDto = (
+  session: SessionSummaryRow,
+  extras: SessionExtras = {},
+): StockAuditSession => {
+  const counted = session._count.scans;
   return {
     id: session.id,
     branchId: session.branchId,
@@ -71,9 +91,23 @@ const toSessionDto = (session: SessionRow): StockAuditSession => {
     startedByName: session.startedByName,
     createdAt: session.createdAt.toISOString(),
     closedAt: session.closedAt?.toISOString(),
-    scans: session.scans.map(toScanDto),
+    scans: extras.scans ?? [],
+    lastScan: extras.lastScan,
   };
 };
+
+const auditableUnitWhere = (
+  organizationId: string,
+  branchId: string,
+  metalGroup: StockAuditMetalGroup,
+): Prisma.InventoryUnitWhereInput => ({
+  organizationId,
+  branchId,
+  status: { in: AUDITABLE_STATUSES },
+  product: {
+    metal: prismaMetalFilterForAuditGroup(metalGroup),
+  },
+});
 
 const countExpectedUnits = async (
   organizationId: string,
@@ -81,14 +115,21 @@ const countExpectedUnits = async (
   metalGroup: StockAuditMetalGroup,
 ): Promise<number> =>
   prisma.inventoryUnit.count({
+    where: auditableUnitWhere(organizationId, branchId, metalGroup),
+  });
+
+const fetchSessionSummary = async (
+  sessionId: string,
+  organizationId: string,
+  branchId?: string,
+): Promise<SessionSummaryRow | null> =>
+  prisma.stockAuditSession.findFirst({
     where: {
+      id: sessionId,
       organizationId,
-      branchId,
-      status: { in: AUDITABLE_STATUSES },
-      product: {
-        metal: prismaMetalFilterForAuditGroup(metalGroup),
-      },
+      ...(branchId ? { branchId } : {}),
     },
+    include: sessionSummaryInclude,
   });
 
 export const listStockAuditSessions = async (
@@ -102,26 +143,97 @@ export const listStockAuditSessions = async (
       branchId,
       ...(metalGroup ? { metalGroup } : {}),
     },
-    include: sessionInclude,
+    include: sessionSummaryInclude,
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
   });
-  return sessions.map(toSessionDto);
+  return sessions.map((session) => toSessionDto(session));
 };
 
 export const getStockAuditSession = async (
   sessionId: string,
   organizationId: string,
   branchId?: string,
+  options?: { includeScans?: boolean },
 ): Promise<StockAuditSession | null> => {
-  const session = await prisma.stockAuditSession.findFirst({
-    where: {
-      id: sessionId,
-      organizationId,
-      ...(branchId ? { branchId } : {}),
-    },
-    include: sessionInclude,
-  });
+  if (options?.includeScans) {
+    const session = await prisma.stockAuditSession.findFirst({
+      where: {
+        id: sessionId,
+        organizationId,
+        ...(branchId ? { branchId } : {}),
+      },
+      include: sessionScanInclude,
+    });
+    if (!session) return null;
+    const counted = session.scans.length;
+    return {
+      id: session.id,
+      branchId: session.branchId,
+      metalGroup: session.metalGroup as StockAuditSession["metalGroup"],
+      metalLabel: stockAuditMetalLabel(
+        session.metalGroup as StockAuditSession["metalGroup"],
+      ),
+      status: session.status as StockAuditSession["status"],
+      expectedCount: session.expectedCount,
+      counted,
+      pending: Math.max(0, session.expectedCount - counted),
+      startedById: session.startedById,
+      startedByName: session.startedByName,
+      createdAt: session.createdAt.toISOString(),
+      closedAt: session.closedAt?.toISOString(),
+      scans: session.scans.map(toScanDto),
+    };
+  }
+
+  const session = await fetchSessionSummary(sessionId, organizationId, branchId);
   return session ? toSessionDto(session) : null;
+};
+
+export const listStockAuditPendingItems = async (
+  sessionId: string,
+  organizationId: string,
+  branchId: string,
+): Promise<StockAuditPendingItem[]> => {
+  const session = await prisma.stockAuditSession.findFirst({
+    where: { id: sessionId, organizationId, branchId },
+    select: { metalGroup: true },
+  });
+  if (!session) {
+    throw new InventoryError("Audit session not found.", 404);
+  }
+
+  const units = await prisma.inventoryUnit.findMany({
+    where: {
+      ...auditableUnitWhere(organizationId, branchId, session.metalGroup),
+      stockAuditScans: {
+        none: { sessionId },
+      },
+    },
+    include: {
+      product: {
+        select: {
+          name: true,
+          sku: true,
+          category: true,
+          metal: true,
+          purity: true,
+          weightGrams: true,
+        },
+      },
+    },
+    orderBy: { itemCode: "asc" },
+  });
+
+  return units.map((unit) => ({
+    itemCode: unit.itemCode,
+    productName: unit.product.name,
+    sku: unit.product.sku,
+    category: unit.product.category,
+    metal: unit.product.metal,
+    purity: unit.product.purity,
+    weightGrams: Number(unit.product.weightGrams),
+    status: unit.status,
+  }));
 };
 
 export const createStockAuditSession = async (
@@ -137,7 +249,7 @@ export const createStockAuditSession = async (
       metalGroup,
       status: StockAuditStatus.Open,
     },
-    include: sessionInclude,
+    select: { id: true },
   });
   if (openSession) {
     throw new InventoryError(
@@ -161,7 +273,7 @@ export const createStockAuditSession = async (
       startedById: actor.id,
       startedByName: actor.name,
     },
-    include: sessionInclude,
+    include: sessionSummaryInclude,
   });
 
   return toSessionDto(session);
@@ -179,10 +291,7 @@ export const scanStockAuditItem = async (
     throw new InventoryError("Scan an item code.", 400);
   }
 
-  const session = await prisma.stockAuditSession.findFirst({
-    where: { id: sessionId, organizationId, branchId },
-    include: sessionInclude,
-  });
+  const session = await fetchSessionSummary(sessionId, organizationId, branchId);
   if (!session) {
     throw new InventoryError("Audit session not found.", 404);
   }
@@ -190,10 +299,14 @@ export const scanStockAuditItem = async (
     throw new InventoryError("This audit session is closed.", 400);
   }
 
-  const alreadyScanned = session.scans.some(
-    (scan) => scan.itemCode.toLowerCase() === code.toLowerCase(),
-  );
-  if (alreadyScanned) {
+  const existingScan = await prisma.stockAuditScan.findFirst({
+    where: {
+      sessionId: session.id,
+      itemCode: { equals: code, mode: "insensitive" },
+    },
+    select: { id: true },
+  });
+  if (existingScan) {
     throw new InventoryError(`${code} has already been scanned in this audit.`, 409);
   }
 
@@ -225,7 +338,7 @@ export const scanStockAuditItem = async (
     );
   }
 
-  await prisma.stockAuditScan.create({
+  const createdScan = await prisma.stockAuditScan.create({
     data: {
       sessionId: session.id,
       inventoryUnitId: unit.id,
@@ -233,13 +346,29 @@ export const scanStockAuditItem = async (
       scannedById: actor.id,
       scannedByName: actor.name,
     },
+    include: {
+      inventoryUnit: {
+        include: {
+          product: {
+            select: {
+              name: true,
+              imageColor: true,
+              images: { orderBy: { sortOrder: "asc" }, take: 1 },
+            },
+          },
+        },
+      },
+    },
   });
 
-  const updated = await prisma.stockAuditSession.findUniqueOrThrow({
-    where: { id: session.id },
-    include: sessionInclude,
+  const updated = await fetchSessionSummary(session.id, organizationId, branchId);
+  if (!updated) {
+    throw new InventoryError("Audit session not found.", 404);
+  }
+
+  return toSessionDto(updated, {
+    lastScan: toScanDto(createdScan),
   });
-  return toSessionDto(updated);
 };
 
 export const closeStockAuditSession = async (
@@ -247,10 +376,7 @@ export const closeStockAuditSession = async (
   organizationId: string,
   branchId: string,
 ): Promise<StockAuditSession> => {
-  const session = await prisma.stockAuditSession.findFirst({
-    where: { id: sessionId, organizationId, branchId },
-    include: sessionInclude,
-  });
+  const session = await fetchSessionSummary(sessionId, organizationId, branchId);
   if (!session) {
     throw new InventoryError("Audit session not found.", 404);
   }
@@ -264,7 +390,7 @@ export const closeStockAuditSession = async (
       status: StockAuditStatus.Closed,
       closedAt: new Date(),
     },
-    include: sessionInclude,
+    include: sessionSummaryInclude,
   });
   return toSessionDto(updated);
 };

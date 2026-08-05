@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type {
@@ -24,7 +25,7 @@ import {
   updateProduct as updateProductApi,
 } from "@/lib/api/inventory";
 
-const AUTO_REFRESH_MS = 60_000; // keep stock fresh across tabs/devices
+const AUTO_REFRESH_MS = 5 * 60_000;
 
 const deriveProductStock = (units: InventoryItem["units"]) =>
   units.filter((unit) => unit.status === "Available").length;
@@ -94,15 +95,16 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hydratedRef = useRef(false);
 
   const refresh = useCallback(async (options?: { silent?: boolean }) => {
-    const silent = options?.silent && hydrated;
+    const silent = options?.silent && hydratedRef.current;
     if (!silent) {
       setLoading(true);
     }
     setError(null);
     try {
-      const data = await fetchInventory();
+      const data = await fetchInventory({ skipCacheBust: silent });
       setItems(data);
     } catch {
       setError("Could not connect to the server. Is the backend running?");
@@ -110,30 +112,22 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       if (!silent) {
         setLoading(false);
       }
+      hydratedRef.current = true;
       setHydrated(true);
     }
-  }, [hydrated]);
+  }, []);
 
   useEffect(() => {
-    refresh();
+    void refresh();
   }, [refresh]);
 
   useEffect(() => {
-    const onFocus = () => refresh({ silent: true });
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") refresh({ silent: true });
-    };
-
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibilityChange);
     const interval = window.setInterval(
       () => refresh({ silent: true }),
       AUTO_REFRESH_MS,
     );
 
     return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
       window.clearInterval(interval);
     };
   }, [refresh]);
@@ -159,9 +153,8 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const updateProduct = useCallback(async (id: string, input: UpdateProductInput) => {
     const updated = await updateProductApi(id, input);
     setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
-    await refresh({ silent: true });
     return updated;
-  }, [refresh]);
+  }, []);
 
   const deleteProduct = useCallback(async (id: string) => {
     await deleteProductApi(id);

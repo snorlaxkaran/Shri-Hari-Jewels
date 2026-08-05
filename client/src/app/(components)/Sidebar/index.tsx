@@ -105,35 +105,35 @@ const SidebarContent = ({
     fetchIncomingTransferCount()
       .then(setIncomingCount)
       .catch(() => setIncomingCount(undefined));
-  }, [user, pathname]);
+  }, [user]);
 
   useEffect(() => {
     if (!user || !canManageCustomers(user.role)) return;
     fetchFollowUpsDueCount()
       .then(setFollowUpsDueCount)
       .catch(() => setFollowUpsDueCount(undefined));
-  }, [user, pathname]);
+  }, [user]);
 
   useEffect(() => {
     if (!user || !canViewRepairs(user.role)) return;
     fetchReadyForPickupCount()
       .then(setReadyForPickupCount)
       .catch(() => setReadyForPickupCount(undefined));
-  }, [user, pathname]);
+  }, [user]);
 
   useEffect(() => {
     if (!user || !canViewHallmark(user.role)) return;
     fetchHallmarkPendingCount()
       .then(setHallmarkPendingCount)
       .catch(() => setHallmarkPendingCount(undefined));
-  }, [user, pathname]);
+  }, [user]);
 
   useEffect(() => {
     if (!user || !canManageExpenses(user.role)) return;
     fetchExpensesPendingCount()
       .then(setExpensesPendingCount)
       .catch(() => setExpensesPendingCount(undefined));
-  }, [user, pathname]);
+  }, [user]);
 
   const prefetchRoute = useCallback(
     (href: string) => {

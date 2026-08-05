@@ -847,6 +847,17 @@ export type StockAuditScanItem = {
   scannedAt: string;
 };
 
+export type StockAuditPendingItem = {
+  itemCode: string;
+  productName: string;
+  sku: string;
+  category: string;
+  metal: string;
+  purity: string;
+  weightGrams: number;
+  status: string;
+};
+
 export type StockAuditSession = {
   id: string;
   branchId: string;
@@ -861,6 +872,7 @@ export type StockAuditSession = {
   createdAt: string;
   closedAt?: string;
   scans: StockAuditScanItem[];
+  lastScan?: StockAuditScanItem;
 };
 
 export type CreateStockAuditSessionInput = {

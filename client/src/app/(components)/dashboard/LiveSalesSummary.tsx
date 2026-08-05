@@ -1,36 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchSalesAnalytics } from "@/lib/api/sales";
+import { useSales } from "@/lib/sales/sales-context";
 import { formatCurrency } from "@/lib/format";
 
 export default function LiveSalesSummary() {
-  const [todaySales, setTodaySales] = useState(0);
-  const [todayRevenue, setTodayRevenue] = useState(0);
+  const { analytics, refresh } = useSales();
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    setUpdatedAt(new Date());
+    const interval = setInterval(() => {
+      void refresh().then(() => setUpdatedAt(new Date()));
+    }, 120_000);
+    return () => clearInterval(interval);
+  }, [refresh]);
 
-    const refresh = async () => {
-      try {
-        const analytics = await fetchSalesAnalytics();
-        if (cancelled) return;
-        setTodaySales(analytics.stats?.todaySalesCount ?? 0);
-        setTodayRevenue(analytics.stats?.todaySales ?? 0);
-        setUpdatedAt(new Date());
-      } catch {
-        // keep last known values on refresh failure
-      }
-    };
-
-    void refresh();
-    const interval = setInterval(() => void refresh(), 60_000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, []);
+  const todaySales = analytics?.stats?.todaySalesCount ?? 0;
+  const todayRevenue = analytics?.stats?.todaySales ?? 0;
 
   return (
     <div

@@ -30,7 +30,6 @@ import {
 import { organizationBranchFilter, organizationTransferFromFilter, getOrganizationHeadOfficeBranchId } from "../branches/access.js";
 import { getBranchOrganizationId } from "../organizations/access.js";
 import { moneyToNumber, sumMoney } from "../money.js";
-import { repairCompletedRunInventorySkus } from "../production-runs/run-completion.js";
 import { toStockTransferDto } from "./transfer-actions.js";
 import { createEntryVoucherInTx } from "./vouchers-service.js";
 
@@ -55,7 +54,7 @@ const productInclude = {
     include: { branch: true, sale: true },
     orderBy: { createdAt: "asc" as const },
   },
-  images: { orderBy: { sortOrder: "asc" as const } },
+  images: { orderBy: { sortOrder: "asc" as const }, take: 1 },
 };
 
 export type InventorySortField =
@@ -94,8 +93,6 @@ export const listProducts = async (
   branchId?: string,
   options: InventoryListOptions = {},
 ): Promise<InventoryItem[]> => {
-  await repairCompletedRunInventorySkus();
-
   const sortBy = options.sortBy ?? "createdAt";
   const sortOrder = options.sortOrder ?? "desc";
 
@@ -126,7 +123,7 @@ export const listProducts = async (
           include: { branch: true, sale: true },
           orderBy: { createdAt: "asc" as const },
         },
-        images: { orderBy: { sortOrder: "asc" as const } },
+        images: { orderBy: { sortOrder: "asc" as const }, take: 1 },
       }
     : productInclude;
 

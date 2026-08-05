@@ -5,11 +5,58 @@ import { getCustomerTier } from "./tier.js";
 
 type CustomerWithSales = PrismaCustomer & { sales: Sale[] };
 
-export const toCustomer = (customer: CustomerWithSales): Customer => {
+type CustomerSaleStats = {
+  totalSpent: number;
+  totalOrders: number;
+  lastVisit?: string;
+};
+
+export const toCustomer = (
+  customer: CustomerWithSales | PrismaCustomer,
+  saleStats?: CustomerSaleStats,
+): Customer => {
+  if (saleStats) {
+    return {
+      id: customer.id,
+      name: customer.name,
+      mobile: customer.mobile,
+      companyName: customer.companyName ?? undefined,
+      ownerName: customer.ownerName ?? undefined,
+      contactPersonName: customer.contactPersonName ?? undefined,
+      customerType: customer.customerType,
+      email: customer.email ?? undefined,
+      address: customer.address ?? undefined,
+      city: customer.city ?? undefined,
+      billingAddressLine1: customer.billingAddressLine1 ?? undefined,
+      billingAddressLine2: customer.billingAddressLine2 ?? undefined,
+      billingCity: customer.billingCity ?? undefined,
+      billingState: customer.billingState ?? undefined,
+      billingPincode: customer.billingPincode ?? undefined,
+      billingCountry: customer.billingCountry ?? undefined,
+      panNumber: customer.panNumber ?? undefined,
+      gstNumber: customer.gstNumber ?? undefined,
+      gstRegisteredName: customer.gstRegisteredName ?? undefined,
+      bankAccountName: customer.bankAccountName ?? undefined,
+      bankAccountNumber: customer.bankAccountNumber ?? undefined,
+      bankIfsc: customer.bankIfsc ?? undefined,
+      bankName: customer.bankName ?? undefined,
+      birthday: customer.birthday?.toISOString(),
+      anniversary: customer.anniversary?.toISOString(),
+      ringSize: customer.ringSize ?? undefined,
+      preferences: customer.preferences ?? undefined,
+      totalOrders: saleStats.totalOrders,
+      totalSpent: saleStats.totalSpent,
+      lastVisit: saleStats.lastVisit,
+      tier: getCustomerTier(saleStats.totalSpent),
+      createdAt: customer.createdAt.toISOString(),
+    };
+  }
+
+  const customerWithSales = customer as CustomerWithSales;
   const totalSpent = moneyToNumber(
-    sumMoney(customer.sales.map((s) => s.dealPrice)),
+    sumMoney(customerWithSales.sales.map((s) => s.dealPrice)),
   );
-  const lastSale = customer.sales.sort(
+  const lastSale = customerWithSales.sales.sort(
     (a, b) => b.soldAt.getTime() - a.soldAt.getTime(),
   )[0];
 
@@ -41,7 +88,7 @@ export const toCustomer = (customer: CustomerWithSales): Customer => {
     anniversary: customer.anniversary?.toISOString(),
     ringSize: customer.ringSize ?? undefined,
     preferences: customer.preferences ?? undefined,
-    totalOrders: customer.sales.length,
+    totalOrders: customerWithSales.sales.length,
     totalSpent,
     lastVisit: lastSale?.soldAt.toISOString(),
     tier: getCustomerTier(totalSpent),

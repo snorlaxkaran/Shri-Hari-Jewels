@@ -3,21 +3,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Check, ScanLine } from "lucide-react";
+import { ArrowLeft, Download, ScanLine } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
-import ItemCodeLink from "@/app/(components)/inventory/ItemCodeLink";
 import StatusBadge from "@/app/(components)/StatusBadge";
 import {
   closeStockAuditSession,
+  fetchStockAuditPendingItems,
   fetchStockAuditSession,
   scanStockAuditItem,
 } from "@/lib/api/stock-audit";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { canManageStockAudit } from "@/lib/auth/permissions";
 import { useAuth } from "@/lib/auth/auth-context";
+import { exportAuditPendingExcel } from "@/lib/inventory/export-audit-pending";
 import type { StockAuditSession } from "@/lib/types";
-import { formatDateTime } from "@/lib/format";
 
 export default function StockAuditSessionPage() {
   const params = useParams<{ id: string }>();
@@ -32,6 +32,7 @@ export default function StockAuditSessionPage() {
   const [barcode, setBarcode] = useState("");
   const [scanning, setScanning] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const loadSession = useCallback(async () => {
@@ -68,7 +69,8 @@ export default function StockAuditSessionPage() {
       const updated = await scanStockAuditItem(session.id, code);
       setSession(updated);
       setBarcode("");
-      setInfo(`Scanned ${updated.scans[0]?.itemCode ?? code}.`);
+      const scannedCode = updated.lastScan?.itemCode ?? code;
+      setInfo(`Counted ${scannedCode}. ${updated.pending} still pending.`);
       inputRef.current?.focus();
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to scan item."));
@@ -92,6 +94,25 @@ export default function StockAuditSessionPage() {
     }
   };
 
+  const handleExportPending = async () => {
+    if (!session) return;
+    setExporting(true);
+    setError("");
+    try {
+      const items = await fetchStockAuditPendingItems(session.id);
+      if (items.length === 0) {
+        setInfo("No pending items to export.");
+        return;
+      }
+      exportAuditPendingExcel(items, session.metalLabel);
+      setInfo(`Exported ${items.length} pending item(s) to Excel.`);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to export pending items."));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading) return <PageSkeleton />;
 
   if (!session) {
@@ -109,7 +130,18 @@ export default function StockAuditSessionPage() {
     <div className="page-content pb-28">
       <PageHeader
         title={`${session.metalLabel} audit`}
-        subtitle="Scan each physical piece. A barcode can only be scanned once in this audit."
+        subtitle="Scan each physical piece. Counted items are saved immediately and hidden from this screen."
+        action={
+          <button
+            type="button"
+            onClick={() => void handleExportPending()}
+            disabled={exporting || session.pending === 0}
+            className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
+          >
+            <Download size={15} />
+            {exporting ? "Exporting…" : "Export pending (Excel)"}
+          </button>
+        }
       />
 
       <Link
@@ -172,8 +204,8 @@ export default function StockAuditSessionPage() {
           </p>
           <p className="mt-1 text-sm text-zinc-500">
             {session.pending > 0
-              ? `${session.pending} piece(s) still pending in system count.`
-              : "All expected pieces have been scanned."}
+              ? `${session.pending} piece(s) still pending. Export the pending list to Excel for a walk-through sheet.`
+              : "All expected pieces have been counted."}
           </p>
         </div>
       </div>
@@ -216,73 +248,12 @@ export default function StockAuditSessionPage() {
             </button>
           </div>
           <p className="mt-2 text-xs text-zinc-500">
-            Only {session.metalLabel.toLowerCase()} pieces at your branch can be scanned.
-            Duplicate scans and wrong-metal items are rejected.
+            Each scan is saved immediately and moved to counted — it will not appear
+            here again. Reopening this session starts with an empty scan box so you
+            can continue with the remaining {session.pending} pending piece(s).
           </p>
         </div>
       )}
-
-      <div className="surface-card overflow-hidden">
-        <div className="border-b border-zinc-100 px-5 py-3">
-          <h2 className="text-sm font-semibold text-zinc-800">Scanned items</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="data-table inventory-table min-w-[860px]">
-            <thead>
-              <tr>
-                <th className="w-10" />
-                <th>Photo</th>
-                <th>Item code</th>
-                <th>Product</th>
-                <th>Scanned by</th>
-                <th>Scanned at</th>
-              </tr>
-            </thead>
-            <tbody>
-              {session.scans.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-10 text-center text-sm text-zinc-500">
-                    No items scanned yet.
-                  </td>
-                </tr>
-              ) : (
-                session.scans.map((scan) => (
-                  <tr key={scan.id} className="bg-emerald-50/40">
-                    <td>
-                      <Check size={16} className="text-emerald-600" />
-                    </td>
-                    <td className="col-photo">
-                      {scan.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={scan.imageUrl}
-                          alt={scan.productName}
-                          loading="lazy"
-                          className="inventory-photo"
-                        />
-                      ) : (
-                        <div
-                          className="inventory-photo inventory-photo-placeholder"
-                          style={{
-                            backgroundColor: scan.imageColor || "var(--bg-muted)",
-                          }}
-                          aria-hidden
-                        />
-                      )}
-                    </td>
-                    <td className="td-code">
-                      <ItemCodeLink itemCode={scan.itemCode} className="text-xs" />
-                    </td>
-                    <td>{scan.productName}</td>
-                    <td>{scan.scannedByName}</td>
-                    <td className="td-muted">{formatDateTime(scan.scannedAt)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
       {canManage && session.status === "Open" && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white/95 backdrop-blur md:left-[220px]">

@@ -8,6 +8,7 @@ import {
   createStockAuditSession,
   closeStockAuditSession,
   getStockAuditSession,
+  listStockAuditPendingItems,
   listStockAuditSessions,
   scanStockAuditItem,
 } from "../lib/inventory/stock-audit-service.js";
@@ -116,6 +117,9 @@ stockAuditRouter.get(
         routeParam(req.params.id),
         req.organizationId!,
         branchId,
+        {
+          includeScans: req.query.includeScans === "true",
+        },
       );
       if (!session) {
         res.status(404).json({ error: "Audit session not found." });
@@ -125,6 +129,29 @@ stockAuditRouter.get(
     } catch (error) {
       console.error("GET /api/stock-audit/sessions/:id", error);
       res.status(500).json({ error: "Failed to fetch audit session." });
+    }
+  },
+);
+
+stockAuditRouter.get(
+  "/sessions/:id/pending",
+  requireRole(canViewStockAudit),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const branchId = await resolveBranchId(req);
+      const items = await listStockAuditPendingItems(
+        routeParam(req.params.id),
+        req.organizationId!,
+        branchId,
+      );
+      res.json(items);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("GET /api/stock-audit/sessions/:id/pending", error);
+      res.status(500).json({ error: "Failed to fetch pending audit items." });
     }
   },
 );

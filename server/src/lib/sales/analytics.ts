@@ -136,14 +136,74 @@ export const getSalesAnalytics = async (
   branchId?: string,
 ): Promise<SalesAnalytics> => {
   const branchFilter = organizationBranchFilter(organizationId, branchId);
-  const [sales, products, customerCount, pendingOrders, rawSummary, activeWorkOrders, marketRates, stoneStockSummary] =
-    await Promise.all([
+  const now = new Date();
+  const todayStart = startOfDay(now);
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const chartStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const completedSaleFilter = {
+    paymentStatus: SalePaymentStatus.Completed,
+    ...branchFilter,
+  };
+
+  const [
+    sales,
+    recentSales,
+    todayAggregate,
+    thisMonthAggregate,
+    lastMonthAggregate,
+    lifetimeAggregate,
+    products,
+    customerCount,
+    pendingOrders,
+    rawSummary,
+    activeWorkOrders,
+    marketRates,
+    stoneStockSummary,
+  ] = await Promise.all([
     prisma.sale.findMany({
       where: {
-        paymentStatus: SalePaymentStatus.Completed,
-        ...branchFilter,
+        ...completedSaleFilter,
+        soldAt: { gte: chartStart },
       },
       orderBy: { soldAt: "desc" },
+    }),
+    prisma.sale.findMany({
+      where: completedSaleFilter,
+      orderBy: { soldAt: "desc" },
+      take: 10,
+    }),
+    prisma.sale.aggregate({
+      where: {
+        ...completedSaleFilter,
+        soldAt: { gte: todayStart, lt: tomorrowStart },
+      },
+      _sum: { dealPrice: true },
+      _count: { _all: true },
+    }),
+    prisma.sale.aggregate({
+      where: {
+        ...completedSaleFilter,
+        soldAt: { gte: thisMonthStart, lt: nextMonthStart },
+      },
+      _sum: { dealPrice: true },
+      _count: { _all: true },
+    }),
+    prisma.sale.aggregate({
+      where: {
+        ...completedSaleFilter,
+        soldAt: { gte: lastMonthStart, lt: thisMonthStart },
+      },
+      _sum: { dealPrice: true },
+      _count: { _all: true },
+    }),
+    prisma.sale.aggregate({
+      where: completedSaleFilter,
+      _sum: { dealPrice: true },
+      _count: { _all: true },
     }),
     prisma.product.findMany({
       where: branchFilter,
@@ -173,15 +233,6 @@ export const getSalesAnalytics = async (
     getStoneStockSummary(organizationId, branchId),
   ]);
 
-  const now = new Date();
-  const todayStart = startOfDay(now);
-  const tomorrowStart = new Date(todayStart);
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-
-  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-
   const todaySalesList = sales.filter(
     (s) => s.soldAt >= todayStart && s.soldAt < tomorrowStart,
   );
@@ -192,16 +243,10 @@ export const getSalesAnalytics = async (
     (s) => s.soldAt >= lastMonthStart && s.soldAt < thisMonthStart,
   );
 
-  const todaySales = moneyToNumber(
-    sumMoney(todaySalesList.map((s) => s.dealPrice)),
-  );
-  const monthlySales = moneyToNumber(
-    sumMoney(thisMonthSales.map((s) => s.dealPrice)),
-  );
+  const todaySales = moneyToNumber(todayAggregate._sum.dealPrice ?? 0);
+  const monthlySales = moneyToNumber(thisMonthAggregate._sum.dealPrice ?? 0);
   const thisMonthRevenue = monthlySales;
-  const lastMonthRevenue = moneyToNumber(
-    sumMoney(lastMonthSales.map((s) => s.dealPrice)),
-  );
+  const lastMonthRevenue = moneyToNumber(lastMonthAggregate._sum.dealPrice ?? 0);
 
   const productStocks = products.map((product) => {
     const stock = product.units.filter(
@@ -228,10 +273,13 @@ export const getSalesAnalytics = async (
   ).size;
 
   const stats: DashboardStats = {
-    totalRevenue: moneyToNumber(sumMoney(sales.map((s) => s.dealPrice))),
+    totalRevenue: moneyToNumber(lifetimeAggregate._sum.dealPrice ?? 0),
     revenueChange: percentChange(thisMonthRevenue, lastMonthRevenue),
-    totalSales: sales.length,
-    salesChange: percentChange(thisMonthSales.length, lastMonthSales.length),
+    totalSales: lifetimeAggregate._count._all,
+    salesChange: percentChange(
+      thisMonthAggregate._count._all,
+      lastMonthAggregate._count._all,
+    ),
     inventoryCount,
     inventoryValue,
     lowStockCount,
@@ -241,7 +289,7 @@ export const getSalesAnalytics = async (
       uniqueCustomerIdsInRange(sales, lastMonthStart, thisMonthStart),
     ),
     todaySales,
-    todaySalesCount: todaySalesList.length,
+    todaySalesCount: todayAggregate._count._all,
     monthlySales,
     pendingOrders,
     customerCount,
@@ -256,7 +304,7 @@ export const getSalesAnalytics = async (
     stats,
     monthly: buildMonthlySeries(sales),
     categoryBreakdown: buildCategoryBreakdown(sales),
-    recentSales: sales.slice(0, 10).map(toSale),
+    recentSales: recentSales.map(toSale),
     topProducts: buildTopProducts(sales),
   };
 };
