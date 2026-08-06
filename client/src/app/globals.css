@@ -793,7 +793,7 @@ select.filter-select:focus {
   background: var(--bg-page);
 }
 
-/* Barcode label printing — 91mm × 12mm jewelry tags */
+/* Barcode label printing — 32mm × 16mm rat-tail jewelry tags */
 .barcode-print-root {
   position: fixed;
   left: -10000px;
@@ -804,31 +804,23 @@ select.filter-select:focus {
 
 .barcode-label {
   box-sizing: border-box;
-  width: 91mm;
-  height: 12mm;
-  padding: 0.6mm 1mm;
+  width: 32mm;
+  height: 16mm;
+  padding: 1mm;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 2mm;
+  justify-content: center;
+  gap: 0.4mm;
   overflow: hidden;
-  background: #fff;
+  background: #ffe5e5;
   color: #000;
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.barcode-label__primary {
-  flex: 0 0 42mm;
-  max-width: 42mm;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.2mm;
-}
-
 .barcode-label__code {
   margin: 0;
-  font-size: 6.5pt;
+  font-size: 5.5pt;
   font-weight: 700;
   font-family: "Courier New", monospace;
   letter-spacing: 0.02em;
@@ -836,12 +828,15 @@ select.filter-select:focus {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .barcode-label__barcode {
-  height: 5.5mm;
+  width: 100%;
+  height: 6mm;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 .barcode-label__svg {
@@ -850,26 +845,22 @@ select.filter-select:focus {
 }
 
 .barcode-label__meta {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 0.3mm;
-  line-height: 1.1;
-  font-size: 5.5pt;
+  align-items: center;
+  gap: 0.2mm;
+  line-height: 1.05;
+  font-size: 4.5pt;
   color: #222;
+  text-align: center;
 }
 
 .barcode-label__name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.barcode-label__weight,
-.barcode-label__huid {
-  white-space: nowrap;
+  max-width: 100%;
 }
 
 /* Setup wizard (ERPNext-style first-run flow) */
@@ -1790,7 +1781,7 @@ select.filter-select:focus {
 
 @media print {
   @page {
-    size: 91mm 12mm;
+    size: 32mm 16mm;
     margin: 0;
   }
 

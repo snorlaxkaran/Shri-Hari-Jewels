@@ -18,7 +18,7 @@ function BarcodeSvg({ value, className }: { value: string; className?: string })
       JsBarcode(node, value, {
         format: "CODE128",
         width: 1,
-        height: 22,
+        height: 16,
         margin: 0,
         displayValue: false,
       });
@@ -26,7 +26,7 @@ function BarcodeSvg({ value, className }: { value: string; className?: string })
       JsBarcode(node, value, {
         format: "CODE39",
         width: 1,
-        height: 22,
+        height: 16,
         margin: 0,
         displayValue: false,
       });
@@ -41,11 +41,9 @@ export function BarcodeLabelSheet({ labels }: BarcodeLabelSheetProps) {
     <div className="barcode-print-root">
       {labels.map((label) => (
         <article key={label.itemCode} className="barcode-label">
-          <div className="barcode-label__primary">
-            <p className="barcode-label__code">{label.itemCode}</p>
-            <div className="barcode-label__barcode">
-              <BarcodeSvg value={label.itemCode} className="barcode-label__svg" />
-            </div>
+          <p className="barcode-label__code">{label.itemCode}</p>
+          <div className="barcode-label__barcode">
+            <BarcodeSvg value={label.itemCode} className="barcode-label__svg" />
           </div>
           <div className="barcode-label__meta">
             <span className="barcode-label__name">{label.name}</span>
