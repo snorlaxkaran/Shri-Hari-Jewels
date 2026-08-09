@@ -1,5 +1,6 @@
 import { prisma } from "../db.js";
 import { toMoney, moneyToNumber } from "../money.js";
+import { computeExchangeValue } from "../pricing/arithmetic.js";
 import { writeAuditLog } from "../audit/service.js";
 import { logBusinessEvent } from "../logger.js";
 
@@ -24,7 +25,10 @@ export const createExchangeTransaction = async (input: {
   notes?: string;
   actor: { id?: string; name: string };
 }) => {
-  const exchangeValue = input.netWeightGrams * input.ratePerGram;
+  const exchangeValue = computeExchangeValue(
+    input.netWeightGrams,
+    input.ratePerGram,
+  );
   const row = await prisma.exchangeTransaction.create({
     data: {
       organizationId: input.organizationId,

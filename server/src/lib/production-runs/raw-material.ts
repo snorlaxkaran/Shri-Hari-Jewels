@@ -1,6 +1,8 @@
 import type { Prisma } from "@prisma/client";
 import { CertifiedStoneLotStatus } from "@prisma/client";
 import { ProductionRunError } from "./errors.js";
+import { lockStoneLotForUpdate } from "../inventory/stock-lock.js";
+import { assertStoneLotHasCarats } from "./stock-validation.js";
 
 type TransactionClient = Prisma.TransactionClient;
 
@@ -109,6 +111,7 @@ export const deductRawMaterialForItemInTx = async (
 
   const reason = `Production run ${run.runNo} — ${item.elementName}`;
 
+  await lockStoneLotForUpdate(tx, item.stoneLotId!);
   const lot = await tx.certifiedStoneLot.findUnique({
     where: { id: item.stoneLotId! },
   });
@@ -127,11 +130,7 @@ export const deductRawMaterialForItemInTx = async (
   }
 
   const carats = item.czWeight!;
-  if (lot.carat < carats) {
-    throw new ProductionRunError(
-      `Insufficient carats in lot ${lot.certificateNumber}: need ${carats}ct, have ${lot.carat}ct.`,
-    );
-  }
+  assertStoneLotHasCarats(lot, carats);
 
   const newCarat = lot.carat - carats;
   await tx.certifiedStoneLot.update({

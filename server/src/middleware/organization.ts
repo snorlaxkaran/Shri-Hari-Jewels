@@ -1,6 +1,6 @@
 import type { NextFunction, Response } from "express";
 import {
-  isSuperAdminRole,
+  OrganizationAccessError,
   requireOrganizationId,
 } from "../lib/organizations/access.js";
 import {
@@ -16,11 +16,6 @@ export const attachOrganization = async (
 ): Promise<void> => {
   if (!req.user) {
     res.status(401).json({ error: "Authentication required." });
-    return;
-  }
-
-  if (isSuperAdminRole(req.user.role)) {
-    next();
     return;
   }
 
@@ -45,9 +40,11 @@ export const attachOrganization = async (
 
     next();
   } catch (error) {
+    const statusCode =
+      error instanceof OrganizationAccessError ? error.statusCode : 403;
     const message =
       error instanceof Error ? error.message : "Organization access denied.";
-    res.status(403).json({ error: message });
+    res.status(statusCode).json({ error: message });
   }
 };
 

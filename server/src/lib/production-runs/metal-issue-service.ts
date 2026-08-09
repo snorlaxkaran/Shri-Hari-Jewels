@@ -2,7 +2,10 @@ import { StageLogAction } from "@prisma/client";
 import { prisma } from "../db.js";
 import { moneyToNumber, toMoney } from "../money.js";
 import { assertProductionRunInOrganization } from "../organizations/access.js";
+import { lockMetalLotForUpdate } from "../inventory/stock-lock.js";
+import { computeMetalIssueLossGrams } from "../pricing/arithmetic.js";
 import { getShopSettings } from "../settings/service.js";
+import { assertMetalLotHasGrams } from "./stock-validation.js";
 import {
   toApiProductionRunStage,
   toDbProductionRunStage,
@@ -157,14 +160,18 @@ export const issueMetalToKarigar = async (
 
   const issue = await prisma.$transaction(async (tx) => {
     if (input.metalLotId) {
+      await lockMetalLotForUpdate(tx, input.metalLotId);
       const lot = await tx.metalLot.findFirst({
         where: { id: input.metalLotId, branchId: run.branchId },
       });
       if (!lot) throw new MetalIssueError("Metal lot not found.", 404);
-      if (lot.weightGrams < input.weightIssuedGrams) {
-        throw new MetalIssueError(
-          `Insufficient metal in lot ${lot.lotNumber}: need ${input.weightIssuedGrams}g, have ${lot.weightGrams}g.`,
-        );
+      try {
+        assertMetalLotHasGrams(lot, input.weightIssuedGrams);
+      } catch (error) {
+        if (error instanceof Error) {
+          throw new MetalIssueError(error.message);
+        }
+        throw error;
       }
       const newWeight = roundWeight(lot.weightGrams - input.weightIssuedGrams);
       await tx.metalLot.update({
@@ -235,7 +242,7 @@ export const recordMetalReturn = async (
     );
   }
 
-  const weightLoss = roundWeight(issued - input.weightReturnedGrams);
+  const weightLoss = computeMetalIssueLossGrams(issued, input.weightReturnedGrams);
   const settings = await getShopSettings(organizationId);
   const thresholdPct = settings.metalWastageAlertPercent ?? 3;
   const lossPct = issued > 0 ? (weightLoss / issued) * 100 : 0;
@@ -247,7 +254,11 @@ export const recordMetalReturn = async (
 
   const updated = await prisma.$transaction(async (tx) => {
     if (input.weightReturnedGrams > 0 && issue.metalLot) {
-      const lot = issue.metalLot;
+      await lockMetalLotForUpdate(tx, issue.metalLot.id);
+      const lot = await tx.metalLot.findUnique({
+        where: { id: issue.metalLot.id },
+      });
+      if (!lot) throw new MetalIssueError("Metal lot not found.", 404);
       const newWeight = roundWeight(lot.weightGrams + input.weightReturnedGrams);
       await tx.metalLot.update({
         where: { id: lot.id },

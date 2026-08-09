@@ -13,6 +13,15 @@ import {
   findMetalLotsForBranch,
   sumMetalLotGrams,
 } from "./metal-lot-matching.js";
+import {
+  lockMetalLotForUpdate,
+  lockMetalLotsForUpdate,
+} from "../inventory/stock-lock.js";
+import { assertMetalLotHasGrams } from "./stock-validation.js";
+import {
+  planMetalLotDeductions,
+  roundWeightGrams,
+} from "../pricing/arithmetic.js";
 
 type TransactionClient = Prisma.TransactionClient;
 
@@ -38,7 +47,7 @@ type RunForMetalDeduction = {
   items: RunItemForMetal[];
 };
 
-const roundWeight = (value: number) => Math.round(value * 100) / 100;
+const roundWeight = roundWeightGrams;
 
 const toRunItemsForMetal = (items: MetalWeightItem[]): RunItemForMetal[] =>
   items.map((item) => ({
@@ -194,6 +203,7 @@ const deductMetalAcrossLotsInTx = async (
   const reasonBase = `Production run ${run.runNo} — metal inventory (${totalGrams}g for ${run.setsOrdered} set${run.setsOrdered !== 1 ? "s" : ""})`;
 
   if (selectedLotId) {
+    await lockMetalLotForUpdate(tx, selectedLotId);
     const lot = await tx.metalLot.findUnique({ where: { id: selectedLotId } });
     if (!lot) {
       throw new ProductionRunError("Selected metal lot not found.", 404);
@@ -203,11 +213,7 @@ const deductMetalAcrossLotsInTx = async (
         "Selected metal lot belongs to a different branch.",
       );
     }
-    if (lot.weightGrams < totalGrams) {
-      throw new ProductionRunError(
-        `Insufficient metal in lot ${lot.lotNumber}: need ${totalGrams}g for this run, have ${lot.weightGrams}g.`,
-      );
-    }
+    assertMetalLotHasGrams(lot, totalGrams, "for this run");
     await deductFromLotInTx(tx, lot, totalGrams, reasonBase, actor);
     return;
   }
@@ -225,36 +231,47 @@ const deductMetalAcrossLotsInTx = async (
     );
   }
 
-  let remaining = totalGrams;
-  const planned: Array<{ lot: (typeof matchingLots)[number]; amount: number }> =
-    [];
+  await lockMetalLotsForUpdate(
+    tx,
+    matchingLots.map((lot) => lot.id),
+  );
+  const lockedLots = await tx.metalLot.findMany({
+    where: {
+      id: { in: matchingLots.map((lot) => lot.id) },
+      weightGrams: { gt: 0 },
+    },
+    orderBy: { weightGrams: "desc" },
+  });
 
-  for (const lot of matchingLots) {
-    if (remaining <= 0) break;
-    const amount = roundWeight(Math.min(lot.weightGrams, remaining));
-    if (amount <= 0) continue;
-    planned.push({ lot, amount });
-    remaining = roundWeight(remaining - amount);
-  }
+  const { deductions, remaining: shortfall } = planMetalLotDeductions(
+    lockedLots.map((lot) => ({
+      id: lot.id,
+      lotNumber: lot.lotNumber,
+      weightGrams: lot.weightGrams,
+    })),
+    totalGrams,
+  );
 
-  if (remaining > 0.001) {
+  if (shortfall > 0.001) {
     throw new ProductionRunError(
       await buildInsufficientMetalError(
         tx,
         branchId,
         design,
         totalGrams,
-        matchingLots,
+        lockedLots,
       ),
     );
   }
 
-  for (const { lot, amount } of planned) {
+  for (const { lot, amount } of deductions) {
+    const fullLot = lockedLots.find((row) => row.id === lot.id);
+    if (!fullLot) continue;
     await deductFromLotInTx(
       tx,
-      lot,
+      fullLot,
       amount,
-      planned.length > 1 ? `${reasonBase} (partial)` : reasonBase,
+      deductions.length > 1 ? `${reasonBase} (partial)` : reasonBase,
       actor,
     );
   }

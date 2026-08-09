@@ -57,6 +57,18 @@ npm run dev
 
 Login at http://localhost:3000 — Motifs will call http://localhost:4000/api/motifs.
 
+### Integration tests (Postgres required)
+
+End-to-end checks for retail sale arithmetic, production metal deduction, and wholesale transfer totals:
+
+```bash
+docker compose up -d
+cd server
+npm run test:integration
+```
+
+Also runs in CI (`integration` job) against a Postgres service container.
+
 
 ## API Endpoints
 
@@ -69,8 +81,21 @@ Login at http://localhost:3000 — Motifs will call http://localhost:4000/api/mo
 
 ## Database
 
-- **Local dev:** SQLite file `prisma/dev.db` (gitignored) — fine for development only
+- **Local dev:** PostgreSQL via Docker (`docker compose up -d` from repo root). Matches production — do not use SQLite.
 - **Production:** Prisma Postgres (or any managed Postgres). **Never use SQLite on Render** — sales are lost when the server restarts after ~15 minutes idle.
+
+```bash
+# From repo root — start local Postgres
+docker compose up -d
+
+# server/.env
+DATABASE_URL=postgresql://shrihari:shrihari@localhost:5432/shri_hari_jewels?schema=public
+DIRECT_URL=postgresql://shrihari:shrihari@localhost:5432/shri_hari_jewels?schema=public
+
+cd server
+npm run db:push
+npm run db:seed
+```
 
 View data: `npm run db:studio`
 
@@ -96,7 +121,7 @@ If you sell an item and `completedSales` / `soldUnits` go back to 0 after a few 
 
 | Variable       | Default                 | Description       |
 | -------------- | ----------------------- | ----------------- |
-| `DATABASE_URL` | `postgresql://...` (prod) / `file:./dev.db` (local) | Database connection |
+| `DATABASE_URL` | `postgresql://shrihari:shrihari@localhost:5432/shri_hari_jewels?schema=public` (local Docker) | Database connection |
 | `PORT`         | `4000`                  | API port          |
 | `CLIENT_URL`   | `http://localhost:3000` | CORS origin       |
 | `JWT_SECRET`   | (dev fallback)          | **Required in production** |
