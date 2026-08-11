@@ -11,5 +11,8 @@ export const CATEGORY_SIZES: Partial<Record<ProductCategory, string[]>> = {
   Bangles: BANGLE_SIZES,
 };
 
-export const categoryHasSizeOptions = (category: ProductCategory): boolean =>
-  (CATEGORY_SIZES[category]?.length ?? 0) > 0;
+/** @deprecated Prefer DB-backed dropdown options via categorySizeFieldKey */
+export const categoryHasSizeOptions = (
+  category: ProductCategory,
+  sizeValues?: string[],
+): boolean => (sizeValues?.length ?? CATEGORY_SIZES[category]?.length ?? 0) > 0;

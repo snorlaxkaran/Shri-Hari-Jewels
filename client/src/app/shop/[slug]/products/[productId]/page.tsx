@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Award, Gem, Shield, Scale } from "lucide-react";
+import ProductCard from "../../(components)/ProductCard";
 import { fetchStorefrontProduct, formatStorePrice } from "@/lib/api/storefront";
 import { useStorefrontCart } from "@/lib/storefront/cart-context";
 import { useStorefrontConfig } from "../../(components)/StorefrontConfigProvider";
@@ -195,6 +196,17 @@ export default function ProductDetailPage() {
             )}
           </div>
         </div>
+
+        {product.relatedProducts && product.relatedProducts.length > 0 && (
+          <section className="mt-16 pt-10 border-t border-[var(--sf-border)]">
+            <h2 className="sf-display text-2xl mb-6">You may also like</h2>
+            <div className="sf-product-grid">
+              {product.relatedProducts.map((related) => (
+                <ProductCard key={related.id} slug={slug} product={related} />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

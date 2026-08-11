@@ -16,6 +16,22 @@ export const MODULE_LABELS: Record<JewelleryModuleId, string> = {
   multibranch: "Multi-Branch",
 };
 
+/** Per-module monthly add-on pricing in INR (à la carte). Inventory is the base module. */
+export const MODULE_PRICING: Record<JewelleryModuleId, number> = {
+  inventory: 2500,
+  production: 1000,
+  sales: 1500,
+  storefront: 1000,
+  multibranch: 1000,
+};
+
+export const computeMonthlyAmountFromModules = (modules: JewelleryModuleId[]): number => {
+  const normalized = normalizeModules(modules);
+  return normalized.reduce((sum, id) => sum + MODULE_PRICING[id], 0);
+};
+
+export const DEFAULT_GRACE_PERIOD_DAYS = 7;
+
 export const BUSINESS_TYPE_MODULES: Record<string, JewelleryModuleId[]> = {
   "Retail showroom": ["inventory", "sales", "storefront"],
   Manufacturer: ["inventory", "production", "sales"],

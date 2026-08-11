@@ -8,7 +8,9 @@ import PageSkeleton from "@/app/(components)/PageSkeleton";
 import {
   bulkPublishProducts,
   fetchPublishableProducts,
+  fetchRelatedProductIds,
   fetchStorefrontAdminSettings,
+  setAdminRelatedProducts,
   setProductPublished,
 } from "@/lib/api/storefront-admin";
 import { formatCurrency } from "@/lib/format";
@@ -21,6 +23,9 @@ export default function StorefrontProductsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "published" | "unpublished">("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [editingRelatedId, setEditingRelatedId] = useState<string | null>(null);
+  const [relatedSelection, setRelatedSelection] = useState<Set<string>>(new Set());
+  const [relatedSaving, setRelatedSaving] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -53,6 +58,29 @@ export default function StorefrontProductsPage() {
     setSelected(new Set());
     load();
   };
+
+  const startEditRelated = async (productId: string) => {
+    setEditingRelatedId(productId);
+    try {
+      const ids = await fetchRelatedProductIds(productId);
+      setRelatedSelection(new Set(ids));
+    } catch {
+      setRelatedSelection(new Set());
+    }
+  };
+
+  const saveRelatedProducts = async () => {
+    if (!editingRelatedId) return;
+    setRelatedSaving(true);
+    try {
+      await setAdminRelatedProducts(editingRelatedId, [...relatedSelection]);
+      setEditingRelatedId(null);
+    } finally {
+      setRelatedSaving(false);
+    }
+  };
+
+  const publishedProducts = products.filter((p) => p.publishedToStorefront);
 
   if (loading) return <PageSkeleton />;
 
@@ -131,6 +159,7 @@ export default function StorefrontProductsPage() {
               <th className="p-3">Price</th>
               <th className="p-3">Stock</th>
               <th className="p-3">Online</th>
+              <th className="p-3">Related</th>
               <th className="p-3">Website</th>
             </tr>
           </thead>
@@ -174,6 +203,19 @@ export default function StorefrontProductsPage() {
                     </button>
                   </td>
                   <td className="p-3">
+                    {product.publishedToStorefront ? (
+                      <button
+                        type="button"
+                        onClick={() => startEditRelated(product.id)}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        Edit related
+                      </button>
+                    ) : (
+                      <span className="text-xs text-zinc-400">—</span>
+                    )}
+                  </td>
+                  <td className="p-3">
                     {storeHref ? (
                       <a
                         href={storeHref}
@@ -199,6 +241,60 @@ export default function StorefrontProductsPage() {
           <p className="p-8 text-center text-zinc-500">No products found.</p>
         )}
       </div>
+
+      {editingRelatedId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgb(0 0 0 / 0.4)" }}
+        >
+          <div
+            className="max-w-lg w-full max-h-[80vh] overflow-auto rounded-xl border p-6"
+            style={{ background: "var(--bg-surface)", borderColor: "var(--border)" }}
+          >
+            <h3 className="font-medium mb-1">Related products</h3>
+            <p className="text-xs text-[var(--text-muted)] mb-4">
+              Shown in &ldquo;You may also like&rdquo; on this product&apos;s store page. One-directional — not mirrored on related items.
+            </p>
+            <ul className="space-y-2 mb-4">
+              {publishedProducts
+                .filter((p) => p.id !== editingRelatedId)
+                .map((p) => (
+                  <li key={p.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={relatedSelection.has(p.id)}
+                      onChange={(e) => {
+                        const next = new Set(relatedSelection);
+                        if (e.target.checked) next.add(p.id);
+                        else next.delete(p.id);
+                        setRelatedSelection(next);
+                      }}
+                    />
+                    <span>{p.name}</span>
+                    <span className="text-xs text-zinc-500 ml-auto">{p.sku}</span>
+                  </li>
+                ))}
+            </ul>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setEditingRelatedId(null)}
+                className="rounded border px-3 py-1.5 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveRelatedProducts}
+                disabled={relatedSaving}
+                className="rounded bg-zinc-900 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+              >
+                {relatedSaving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

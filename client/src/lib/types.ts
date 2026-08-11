@@ -213,6 +213,11 @@ export type NewProductInput = {
   vendorId?: string;
   stoneTypeIds?: string[];
   costPrice?: number;
+  wastagePercent?: number;
+  makingChargeType?: "Flat" | "PercentOfMetal";
+  makingChargesPct?: number;
+  purchaseDate?: string;
+  certifiedStoneLotId?: string;
 };
 
 export type LegacyStockImportRow = {
@@ -848,6 +853,32 @@ export type ProductCollection = {
 
 export type NewProductCollectionInput = {
   name: string;
+};
+
+export type DropdownOption = {
+  id: string;
+  organizationId: string;
+  fieldKey: string;
+  value: string;
+  sortOrder: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewDropdownOptionInput = {
+  fieldKey: string;
+  value: string;
+};
+
+export type UpdateDropdownOptionInput = {
+  active?: boolean;
+  sortOrder?: number;
+};
+
+export type ReorderDropdownOptionsInput = {
+  fieldKey: string;
+  orderedIds: string[];
 };
 
 export type PurchaseBill = {

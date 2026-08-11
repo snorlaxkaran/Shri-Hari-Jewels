@@ -16,6 +16,7 @@
     "build:render": "npm run build && npm run db:deploy",
     "db:backfill-wholesale-sale-branches": "tsx scripts/backfill-wholesale-sale-branches.ts",
     "db:backfill-missing-wholesale-sales": "tsx scripts/backfill-missing-wholesale-sales.ts",
+    "db:backfill-dropdown-options": "tsx scripts/backfill-dropdown-options.ts",
     "db:migrate-motif-stones": "tsx scripts/migrate-motif-stones.ts",
     "db:sync-motif-prices": "tsx scripts/sync-motif-prices.ts",
     "db:repair-inventory-weights": "tsx scripts/repair-inventory-weights.ts",

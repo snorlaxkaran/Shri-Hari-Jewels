@@ -165,6 +165,55 @@ export const listStorefrontProducts = async (
   };
 };
 
+const RELATED_PRODUCTS_LIMIT = 6;
+
+const fetchRelatedProductsForPdp = async (
+  organizationId: string,
+  product: { id: string; category: string },
+): Promise<StorefrontProductDto[]> => {
+  const curatedLinks = await prisma.productRelatedProduct.findMany({
+    where: { productId: product.id },
+    orderBy: { sortOrder: "asc" },
+    take: RELATED_PRODUCTS_LIMIT,
+    include: {
+      relatedProduct: {
+        include: productInclude,
+      },
+    },
+  });
+
+  let candidates = curatedLinks
+    .map((link) => link.relatedProduct)
+    .filter((p) => p.publishedToStorefront);
+
+  if (candidates.length === 0) {
+    const collectionIds = await prisma.storefrontCollectionProduct.findMany({
+      where: { productId: product.id },
+      select: { collectionId: true },
+    });
+
+    candidates = await prisma.product.findMany({
+      where: {
+        organizationId,
+        publishedToStorefront: true,
+        id: { not: product.id },
+        category: product.category,
+        ...(collectionIds.length > 0 && {
+          collectionLinks: {
+            some: { collectionId: { in: collectionIds.map((c) => c.collectionId) } },
+          },
+        }),
+      },
+      include: productInclude,
+      orderBy: { createdAt: "desc" },
+      take: RELATED_PRODUCTS_LIMIT,
+    });
+  }
+
+  const stockCounts = await batchCountAvailableUnits(candidates, organizationId);
+  return candidates.map((p) => toStorefrontProduct(p, stockCounts.get(p.id) ?? 0));
+};
+
 export const getStorefrontProduct = async (
   organizationId: string,
   productIdOrSku: string,
@@ -184,8 +233,14 @@ export const getStorefrontProduct = async (
     throw new StorefrontError("Product not found.", 404);
   }
 
-  const stock = await countAvailableUnits(product, organizationId);
-  return toStorefrontProduct(product, stock);
+  const [stock, relatedProducts] = await Promise.all([
+    countAvailableUnits(product, organizationId),
+    fetchRelatedProductsForPdp(organizationId, product),
+  ]);
+
+  const dto = toStorefrontProduct(product, stock);
+  dto.relatedProducts = relatedProducts;
+  return dto;
 };
 
 export const listStorefrontCollections = async (

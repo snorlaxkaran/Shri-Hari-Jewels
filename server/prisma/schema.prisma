@@ -47,6 +47,11 @@ enum EntryVoucherStatus {
   Verified
 }
 
+enum MakingChargeType {
+  Flat
+  PercentOfMetal
+}
+
 enum StockTransferStatus {
   Pending
   Accepted
@@ -203,14 +208,15 @@ enum RepairStatus {
 }
 
 model Organization {
-  id           String   @id @default(uuid())
-  name         String
-  slug         String   @unique
-  emailDomain  String?
-  customDomain String?  @unique
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(uuid())
+  name            String
+  slug            String   @unique
+  emailDomain     String?
+  customDomain    String?  @unique
+  active          Boolean  @default(true)
+  enabledModules  String[] @default(["inventory", "sales"])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   branches            Branch[]
   users               User[]
@@ -229,6 +235,7 @@ model Organization {
   repairOrders        RepairOrder[]
   vendors             Vendor[]
   productCollections  ProductCollection[]
+  dropdownOptions     DropdownOption[]
   purchaseBills       PurchaseBill[]
   creditNotes         CreditNote[]
   debitNotes          DebitNote[]
@@ -372,6 +379,20 @@ model StorefrontCollectionProduct {
   @@unique([collectionId, productId])
   @@index([collectionId])
   @@index([productId])
+}
+
+model ProductRelatedProduct {
+  id               String @id @default(uuid())
+  productId        String
+  relatedProductId String
+  sortOrder        Int    @default(0)
+
+  product        Product @relation("RelatedFrom", fields: [productId], references: [id], onDelete: Cascade)
+  relatedProduct Product @relation("RelatedTo", fields: [relatedProductId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, relatedProductId])
+  @@index([productId])
+  @@index([relatedProductId])
 }
 
 model WebOrder {
@@ -613,6 +634,8 @@ model Product {
   images       ProductImage[]
   productionRun ProductionRun? @relation("ProductionRunFinishedGoods")
   collectionLinks StorefrontCollectionProduct[]
+  relatedLinks    ProductRelatedProduct[] @relation("RelatedFrom")
+  relatedFromLinks ProductRelatedProduct[] @relation("RelatedTo")
   webOrderItems   WebOrderItem[]
 
   @@unique([organizationId, sku])
@@ -630,6 +653,10 @@ model InventoryUnit {
   status         InventoryUnitStatus @default(Available)
   listPrice      Decimal? @db.Decimal(12, 2)
   costPrice      Decimal? @db.Decimal(12, 2)
+  wastagePercent Decimal? @db.Decimal(5, 2)
+  makingChargeType MakingChargeType @default(Flat)
+  makingChargesPct Decimal? @db.Decimal(5, 2)
+  certifiedStoneLotId String?
   hallmarkNumber String?
   hallmarkCenter String?
   huid           String?
@@ -646,6 +673,7 @@ model InventoryUnit {
   branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
   product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
   entryVoucher EntryVoucher? @relation(fields: [voucherId], references: [id], onDelete: SetNull)
+  certifiedStoneLot CertifiedStoneLot? @relation(fields: [certifiedStoneLotId], references: [id], onDelete: SetNull)
   sale         Sale?
   hallmarkBatchItems HallmarkBatchItem[]
   stockAuditScans    StockAuditScan[]
@@ -657,6 +685,7 @@ model InventoryUnit {
   @@index([organizationId])
   @@index([voucherId])
   @@index([huid])
+  @@index([certifiedStoneLotId])
 }
 
 model HallmarkBatch {
@@ -745,6 +774,7 @@ model EntryVoucher {
   verifiedByName   String?
   status           EntryVoucherStatus  @default(Pending)
   vendorId         String?
+  purchaseDate     DateTime?
 
   organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   branch       Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
@@ -1475,6 +1505,7 @@ model CertifiedStoneLot {
   updatedAt         DateTime @updatedAt
 
   branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  inventoryUnits InventoryUnit[]
 
   @@unique([branchId, certificateNumber])
   @@index([branchId])
@@ -2068,6 +2099,23 @@ model ProductCollection {
   @@unique([organizationId, name])
   @@index([organizationId])
   @@index([isActive])
+}
+
+model DropdownOption {
+  id             String   @id @default(uuid())
+  organizationId String
+  fieldKey       String
+  value          String
+  sortOrder      Int      @default(0)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, fieldKey, value])
+  @@index([organizationId, fieldKey])
+  @@index([active])
 }
 
 model Vendor {

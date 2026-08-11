@@ -2,12 +2,13 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Download, Plus, Search } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import { useAuth } from "@/lib/auth/auth-context";
-import { canWriteInventory } from "@/lib/auth/permissions";
+import { canManageStorefront, canWriteInventory } from "@/lib/auth/permissions";
 import { useInventory } from "@/lib/inventory/inventory-context";
+import { exportProductsExcel } from "@/lib/inventory/export-products";
 import {
   matchesProductMetalTab,
   type ProductMetalTab,
@@ -16,6 +17,7 @@ import {
   createProductCollection,
   fetchProductCollections,
 } from "@/lib/api/product-collections";
+import { setProductPublished } from "@/lib/api/storefront-admin";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { useStorefrontProductLinks } from "@/lib/hooks/use-storefront-product-links";
 import type { InventoryItem } from "@/lib/types";
@@ -40,10 +42,14 @@ function sortProducts(items: InventoryItem[]): InventoryItem[] {
 export default function ProductsPage() {
   const { user } = useAuth();
   const { items, hydrated, loading, error } = useInventory();
-  const { settings, loading: linksLoading, isPublished } = useStorefrontProductLinks();
+  const { settings, loading: linksLoading, isPublished, setPublished } =
+    useStorefrontProductLinks();
   const canWrite = user ? canWriteInventory(user.role) : false;
+  const canToggleStorefront = user ? canManageStorefront(user.role) : false;
   const [search, setSearch] = useState("");
   const [metalTab, setMetalTab] = useState<ProductMetalTab>("all");
+  const [publishError, setPublishError] = useState("");
+  const [publishingProductId, setPublishingProductId] = useState<string | null>(null);
   const [showCollectionForm, setShowCollectionForm] = useState(false);
   const [collectionName, setCollectionName] = useState("");
   const [collectionError, setCollectionError] = useState("");
@@ -92,6 +98,23 @@ export default function ProductsPage() {
     }
   };
 
+  const handleExport = () => {
+    exportProductsExcel(filtered);
+  };
+
+  const handleTogglePublished = async (productId: string, published: boolean) => {
+    setPublishingProductId(productId);
+    setPublishError("");
+    try {
+      await setProductPublished(productId, published);
+      setPublished(productId, published);
+    } catch (err) {
+      setPublishError(getApiErrorMessage(err, "Failed to update storefront status."));
+    } finally {
+      setPublishingProductId(null);
+    }
+  };
+
   if (!hydrated || loading) {
     return <PageSkeleton />;
   }
@@ -102,22 +125,33 @@ export default function ProductsPage() {
         title="Product"
         subtitle={`${filtered.length} SKUs — shared catalog config for all units`}
         action={
-          canWrite ? (
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowCollectionForm((v) => !v)}
-              className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
+              onClick={handleExport}
+              disabled={filtered.length === 0}
+              className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
             >
-              <Plus size={16} />
-              Add Collection
+              <Download size={16} />
+              Export to Excel
             </button>
-          ) : undefined
+            {canWrite ? (
+              <button
+                type="button"
+                onClick={() => setShowCollectionForm((v) => !v)}
+                className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
+              >
+                <Plus size={16} />
+                Add Collection
+              </button>
+            ) : null}
+          </div>
         }
       />
 
-      {(error || collectionError) && (
+      {(error || collectionError || publishError) && (
         <div className="mb-4 px-4 py-3 rounded-lg text-sm border border-red-200 bg-red-50 text-red-700">
-          {error || collectionError}
+          {error || collectionError || publishError}
         </div>
       )}
 
@@ -188,8 +222,11 @@ export default function ProductsPage() {
         <ProductTable
           products={filtered}
           canWrite={canWrite}
+          canToggleStorefront={canToggleStorefront}
           storeSlug={linksLoading ? undefined : settings?.slug}
           isPublished={linksLoading ? undefined : isPublished}
+          onTogglePublished={canToggleStorefront ? handleTogglePublished : undefined}
+          publishingProductId={publishingProductId}
         />
       </div>
     </div>

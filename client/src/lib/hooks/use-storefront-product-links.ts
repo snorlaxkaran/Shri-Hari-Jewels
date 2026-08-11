@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   fetchPublishableProducts,
   fetchStorefrontAdminSettings,
@@ -13,19 +13,20 @@ export function useStorefrontProductLinks() {
   const [publishedIds, setPublishedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([
+  const load = useCallback(async () => {
+    const [storeSettings, products] = await Promise.all([
       fetchStorefrontAdminSettings().catch(() => null),
       fetchPublishableProducts().catch(() => []),
-    ])
-      .then(([storeSettings, products]) => {
-        setSettings(storeSettings);
-        setPublishedIds(
-          new Set(products.filter((p) => p.publishedToStorefront).map((p) => p.id)),
-        );
-      })
-      .finally(() => setLoading(false));
+    ]);
+    setSettings(storeSettings);
+    setPublishedIds(
+      new Set(products.filter((product) => product.publishedToStorefront).map((product) => product.id)),
+    );
   }, []);
+
+  useEffect(() => {
+    load().finally(() => setLoading(false));
+  }, [load]);
 
   const getStoreHref = (productId: string) =>
     settings?.slug && publishedIds.has(productId)
@@ -34,5 +35,14 @@ export function useStorefrontProductLinks() {
 
   const isPublished = (productId: string) => publishedIds.has(productId);
 
-  return { settings, loading, getStoreHref, isPublished };
+  const setPublished = useCallback((productId: string, published: boolean) => {
+    setPublishedIds((prev) => {
+      const next = new Set(prev);
+      if (published) next.add(productId);
+      else next.delete(productId);
+      return next;
+    });
+  }, []);
+
+  return { settings, loading, getStoreHref, isPublished, setPublished, refresh: load };
 }

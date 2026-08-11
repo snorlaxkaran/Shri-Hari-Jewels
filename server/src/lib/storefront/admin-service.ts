@@ -505,3 +505,59 @@ export const getStorefrontStats = async (
     pendingOrders,
   };
 };
+
+export const getRelatedProductIds = async (
+  organizationId: string,
+  productId: string,
+): Promise<string[]> => {
+  const product = await prisma.product.findFirst({
+    where: { id: productId, organizationId },
+    select: { id: true },
+  });
+  if (!product) return [];
+
+  const links = await prisma.productRelatedProduct.findMany({
+    where: { productId },
+    orderBy: { sortOrder: "asc" },
+    select: { relatedProductId: true },
+  });
+
+  return links.map((l) => l.relatedProductId);
+};
+
+export const setRelatedProducts = async (
+  organizationId: string,
+  productId: string,
+  relatedProductIds: string[],
+): Promise<string[]> => {
+  const product = await prisma.product.findFirst({
+    where: { id: productId, organizationId },
+    select: { id: true },
+  });
+  if (!product) throw new StorefrontError("Product not found.", 404);
+
+  const validProducts = await prisma.product.findMany({
+    where: {
+      organizationId,
+      id: { in: relatedProductIds.filter((id) => id !== productId) },
+    },
+    select: { id: true },
+  });
+  const validIds = [...validProducts.map((p) => p.id)];
+
+  await prisma.$transaction(async (tx) => {
+    await tx.productRelatedProduct.deleteMany({ where: { productId } });
+
+    if (validIds.length > 0) {
+      await tx.productRelatedProduct.createMany({
+        data: validIds.map((relatedProductId, index) => ({
+          productId,
+          relatedProductId,
+          sortOrder: index,
+        })),
+      });
+    }
+  });
+
+  return validIds;
+};

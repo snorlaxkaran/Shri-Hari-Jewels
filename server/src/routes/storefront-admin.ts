@@ -5,12 +5,14 @@ import {
   createCollection,
   deleteCollection,
   getAdminStorefrontSettings,
+  getRelatedProductIds,
   getStorefrontStats,
   listAdminCollections,
   listPublishableProducts,
   listWebOrders,
   setCollectionProducts,
   setProductPublished,
+  setRelatedProducts,
   updateAdminStorefrontSettings,
   updateCollection,
   updateCustomDomain,
@@ -243,6 +245,45 @@ storefrontAdminRouter.put(
       }
       console.error("PUT /api/storefront-admin/collections/:id/products", error);
       res.status(500).json({ error: "Failed to update collection products." });
+    }
+  },
+);
+
+storefrontAdminRouter.put(
+  "/products/:id/related-products",
+  requireRole(canManageStorefront),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { productIds } = req.body as { productIds: string[] };
+      const ids = await setRelatedProducts(
+        req.organizationId!,
+        routeParam(req.params.id),
+        productIds ?? [],
+      );
+      res.json({ productIds: ids });
+    } catch (error) {
+      if (error instanceof StorefrontError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("PUT /api/storefront-admin/products/:id/related-products", error);
+      res.status(500).json({ error: "Failed to update related products." });
+    }
+  },
+);
+
+storefrontAdminRouter.get(
+  "/products/:id/related-products",
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const ids = await getRelatedProductIds(
+        req.organizationId!,
+        routeParam(req.params.id),
+      );
+      res.json({ productIds: ids });
+    } catch (error) {
+      console.error("GET /api/storefront-admin/products/:id/related-products", error);
+      res.status(500).json({ error: "Failed to load related products." });
     }
   },
 );

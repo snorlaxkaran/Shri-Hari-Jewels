@@ -39,6 +39,7 @@ export type StorefrontProduct = {
   imageColor: string;
   storefrontDescription: string | null;
   images: Array<{ id: string; url: string; name: string }>;
+  relatedProducts?: StorefrontProduct[];
 };
 
 export type StorefrontCollection = {

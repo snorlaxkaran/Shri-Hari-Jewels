@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { CreditCard, Mail, MessageCircle, Phone, ShieldCheck } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
@@ -11,8 +11,20 @@ import {
   type BillingInfo,
   type PlatformContactInfo,
 } from "@/lib/api/billing";
+import {
+  createBillingOrder,
+  loadRazorpayScript,
+  updateOrganizationModules,
+  verifyBillingPayment,
+} from "@/lib/api/modules";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { clearSubscriptionLockout } from "@/lib/subscription-lockout";
+import {
+  JEWELLERY_MODULES,
+  MODULE_META,
+  MODULE_PRICING,
+  type JewelleryModuleId,
+} from "@/lib/onboarding/config";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 const statusLabel: Record<string, string> = {
@@ -36,21 +48,111 @@ export default function BillingPage() {
   const [contact, setContact] = useState<PlatformContactInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedModules, setSelectedModules] = useState<JewelleryModuleId[]>([]);
+  const [savingModules, setSavingModules] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [moduleMessage, setModuleMessage] = useState("");
 
-  useEffect(() => {
-    clearSubscriptionLockout();
-    Promise.all([fetchBillingInfo(), fetchPlatformContact()])
+  const load = useCallback(() => {
+    return Promise.all([fetchBillingInfo(), fetchPlatformContact()])
       .then(([billingData, contactData]) => {
         setBilling(billingData);
         setContact(contactData);
+        const modules = (billingData.subscription.enabledModules ?? ["inventory", "sales"]) as JewelleryModuleId[];
+        setSelectedModules(modules);
       })
-      .catch((err) => setError(getApiErrorMessage(err, "Failed to load billing information.")))
-      .finally(() => setLoading(false));
+      .catch((err) => setError(getApiErrorMessage(err, "Failed to load billing information.")));
   }, []);
+
+  useEffect(() => {
+    clearSubscriptionLockout();
+    load().finally(() => setLoading(false));
+  }, [load]);
+
+  const computedAmount = selectedModules.reduce((sum, id) => sum + MODULE_PRICING[id], 0);
+
+  const toggleModule = (id: JewelleryModuleId) => {
+    if (id === "inventory") return;
+    setSelectedModules((prev) =>
+      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id],
+    );
+  };
+
+  const saveModules = async () => {
+    setSavingModules(true);
+    setModuleMessage("");
+    try {
+      const result = await updateOrganizationModules(selectedModules);
+      setModuleMessage("Modules updated. Your monthly amount has been recalculated.");
+      await load();
+      setSelectedModules(result.enabledModules);
+    } catch (err) {
+      setModuleMessage(getApiErrorMessage(err, "Failed to update modules."));
+    } finally {
+      setSavingModules(false);
+    }
+  };
+
+  const startRazorpayCheckout = async () => {
+    if (!billing?.razorpayEnabled) return;
+    setPaying(true);
+    setError("");
+    try {
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded || !window.Razorpay) {
+        throw new Error("Could not load payment gateway.");
+      }
+
+      const order = await createBillingOrder();
+      if (!order.keyId) {
+        throw new Error("Payment gateway is not configured.");
+      }
+
+      const rzp = new window.Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Shree Hari Jewels ERP",
+        description: "Monthly subscription",
+        order_id: order.orderId,
+        handler: async (response: {
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }) => {
+          try {
+            await verifyBillingPayment(response);
+            clearSubscriptionLockout();
+            await load();
+          } catch (err) {
+            setError(getApiErrorMessage(err, "Payment verification failed."));
+          } finally {
+            setPaying(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setPaying(false),
+        },
+      });
+      rzp.open();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not start checkout."));
+      setPaying(false);
+    }
+  };
 
   if (loading) return <PageSkeleton />;
 
-  if (error || !billing) {
+  if (error && !billing) {
+    return (
+      <div>
+        <PageHeader title="Billing" />
+        <p className="text-sm text-red-600">{error}</p>
+      </div>
+    );
+  }
+
+  if (!billing) {
     return (
       <div>
         <PageHeader title="Billing" />
@@ -62,17 +164,33 @@ export default function BillingPage() {
   const { subscription, payments } = billing;
   const monthlyAmount = Number(subscription.monthlyAmount);
   const isSuspended = subscription.status === "Suspended" || subscription.status === "Cancelled";
+  const needsPayment =
+    isSuspended || subscription.status === "Trialing" || subscription.status === "Past Due";
+  const modulesChanged =
+    JSON.stringify([...selectedModules].sort()) !==
+    JSON.stringify([...(subscription.enabledModules ?? [])].sort());
 
   return (
     <div className="max-w-3xl space-y-6">
       <PageHeader
         title="Billing & subscription"
-        subtitle="Your ERP subscription plan and payment history"
+        subtitle="Manage modules, pricing, and renew your ERP plan"
       />
+
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {error}
+        </div>
+      )}
 
       {isSuspended && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           Your account is currently locked. Complete payment to restore access to the ERP.
+          {subscription.gracePeriodDays > 0 && (
+            <span className="block mt-1 text-red-700/80">
+              A {subscription.gracePeriodDays}-day grace period applies after your trial or billing period ends.
+            </span>
+          )}
         </div>
       )}
 
@@ -108,7 +226,75 @@ export default function BillingPage() {
               <dd className="font-medium mt-0.5">{formatDate(subscription.trialEndsAt)}</dd>
             </div>
           )}
+          {subscription.gracePeriodDays > 0 && (
+            <div>
+              <dt className="text-[var(--text-muted)]">Grace period</dt>
+              <dd className="font-medium mt-0.5">{subscription.gracePeriodDays} days after period end</dd>
+            </div>
+          )}
         </dl>
+      </section>
+
+      <section
+        className="rounded-xl border p-6 space-y-4"
+        style={{ borderColor: "var(--border)", background: "var(--bg-surface)" }}
+      >
+        <h2 className="font-medium">Your modules</h2>
+        <p className="text-sm text-[var(--text-muted)]">
+          Select the ERP modules your business uses. Pricing is per module; changes update your monthly amount immediately.
+        </p>
+
+        <ul className="space-y-2">
+          {JEWELLERY_MODULES.map((id) => {
+            const checked = selectedModules.includes(id);
+            const locked = id === "inventory";
+            return (
+              <li
+                key={id}
+                className="flex items-start gap-3 rounded-lg border px-4 py-3"
+                style={{ borderColor: "var(--border)" }}
+              >
+                <input
+                  type="checkbox"
+                  id={`module-${id}`}
+                  checked={checked}
+                  disabled={locked}
+                  onChange={() => toggleModule(id)}
+                  className="mt-1"
+                />
+                <label htmlFor={`module-${id}`} className="flex-1 cursor-pointer">
+                  <span className="font-medium text-sm">{MODULE_META[id].label}</span>
+                  <span className="block text-xs text-[var(--text-muted)] mt-0.5">
+                    {MODULE_META[id].description}
+                  </span>
+                </label>
+                <span className="text-sm font-medium whitespace-nowrap">
+                  {formatCurrency(MODULE_PRICING[id])}/mo
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+          <p className="text-sm">
+            Total: <strong>{formatCurrency(computedAmount)}</strong> / month
+          </p>
+          {modulesChanged && (
+            <button
+              type="button"
+              onClick={saveModules}
+              disabled={savingModules}
+              className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              style={{ background: "linear-gradient(135deg, #2563eb, #1d4ed8)" }}
+            >
+              {savingModules ? "Saving…" : "Save module selection"}
+            </button>
+          )}
+        </div>
+        {moduleMessage && (
+          <p className="text-sm text-[var(--text-muted)]">{moduleMessage}</p>
+        )}
       </section>
 
       <section
@@ -117,19 +303,42 @@ export default function BillingPage() {
       >
         <h2 className="font-medium mb-2">Renew your subscription</h2>
         <p className="text-sm text-[var(--text-muted)] mb-4">
-          Subscription payments are handled by our team. Contact us to renew via bank transfer,
-          cheque, or other agreed payment method.
+          Pay {formatCurrency(computedAmount)} for one month of access to your selected modules.
         </p>
 
-        <div className="flex items-start gap-3 rounded-lg border px-4 py-3 text-sm mb-4"
+        <div
+          className="flex items-start gap-3 rounded-lg border px-4 py-3 text-sm mb-4"
           style={{ borderColor: "var(--border)", background: "var(--bg-page)" }}
         >
           <ShieldCheck size={18} className="mt-0.5 text-emerald-600 flex-shrink-0" />
           <p>Your data is safe and will remain available once payment is confirmed.</p>
         </div>
 
-        {(contact?.phone || contact?.email || contact?.whatsapp) ? (
-          <ul className="space-y-2 text-sm">
+        {billing.razorpayEnabled ? (
+          <button
+            type="button"
+            onClick={startRazorpayCheckout}
+            disabled={paying || modulesChanged}
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
+            style={{ background: "linear-gradient(135deg, #2563eb, #1d4ed8)" }}
+          >
+            <CreditCard size={16} />
+            {paying ? "Opening checkout…" : `Pay ${formatCurrency(computedAmount)} with Razorpay`}
+          </button>
+        ) : null}
+
+        {modulesChanged && billing.razorpayEnabled && (
+          <p className="text-xs text-amber-700 mt-2">Save your module selection before paying.</p>
+        )}
+
+        {!billing.razorpayEnabled && needsPayment && (
+          <p className="text-sm text-[var(--text-muted)] mb-4">
+            Online payment is not configured. Contact us to renew via bank transfer or other agreed method.
+          </p>
+        )}
+
+        {(contact?.phone || contact?.email || contact?.whatsapp) && (
+          <ul className="space-y-2 text-sm mt-4">
             {contact.phone && (
               <li>
                 <a href={`tel:${contact.phone.replace(/\s/g, "")}`} className="inline-flex items-center gap-2 text-blue-600 hover:underline">
@@ -160,10 +369,6 @@ export default function BillingPage() {
               </li>
             )}
           </ul>
-        ) : (
-          <p className="text-sm text-[var(--text-muted)]">
-            Contact your account manager to renew. Platform contact details are not configured yet.
-          </p>
         )}
       </section>
 

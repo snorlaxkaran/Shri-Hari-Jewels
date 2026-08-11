@@ -119,3 +119,23 @@ export const MODULE_STEPS: Record<JewelleryModuleId, ModuleStepDef[]> = {
 
 export const modulesForBusinessType = (businessType: string): JewelleryModuleId[] =>
   BUSINESS_TYPE_MODULES[businessType] ?? ["inventory", "sales"];
+
+export const MODULE_PRICING: Record<JewelleryModuleId, number> = {
+  inventory: 2500,
+  production: 1000,
+  sales: 1500,
+  storefront: 1000,
+  multibranch: 1000,
+};
+
+export const computeMonthlyAmountFromModules = (modules: JewelleryModuleId[]): number =>
+  modules.reduce((sum, id) => sum + MODULE_PRICING[id], 0);
+
+/** Maps sidebar section titles to module IDs for nav filtering. */
+export const NAV_SECTION_MODULES: Record<string, JewelleryModuleId> = {
+  Inventory: "inventory",
+  "Stock transfer": "multibranch",
+  Sales: "sales",
+  Production: "production",
+  "Online Store": "storefront",
+};

@@ -146,3 +146,21 @@ export const updateWebOrder = async (
   const { data } = await api.patch<WebOrder>(`/api/storefront-admin/orders/${id}`, input);
   return data;
 };
+
+export const fetchRelatedProductIds = async (productId: string): Promise<string[]> => {
+  const { data } = await api.get<{ productIds: string[] }>(
+    `/api/storefront-admin/products/${productId}/related-products`,
+  );
+  return data.productIds;
+};
+
+export const setAdminRelatedProducts = async (
+  productId: string,
+  productIds: string[],
+): Promise<string[]> => {
+  const { data } = await api.put<{ productIds: string[] }>(
+    `/api/storefront-admin/products/${productId}/related-products`,
+    { productIds },
+  );
+  return data.productIds;
+};

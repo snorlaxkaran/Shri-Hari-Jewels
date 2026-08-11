@@ -20,6 +20,7 @@ export type SubscriptionSummary = {
   cancelledAt: string | null;
   createdAt: string;
   updatedAt: string;
+  enabledModules?: string[];
 };
 
 export type PlatformPaymentSummary = {
@@ -35,6 +36,8 @@ export type PlatformPaymentSummary = {
 export type BillingInfo = {
   subscription: SubscriptionSummary;
   payments: PlatformPaymentSummary[];
+  razorpayEnabled?: boolean;
+  razorpayKeyId?: string | null;
 };
 
 export type PlatformContactInfo = {

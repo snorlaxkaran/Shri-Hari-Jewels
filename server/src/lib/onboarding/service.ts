@@ -4,6 +4,11 @@ import {
   type JewelleryModuleId,
   normalizeModules,
 } from "./config.js";
+import {
+  getOrganizationModules,
+  updateOrganizationModules,
+} from "../modules/access.js";
+import { recalculateSubscriptionAmount } from "../subscriptions/service.js";
 import { seedDemoData } from "./demo-data.js";
 import { hasConfiguredLogin } from "../trial/phone.js";
 
@@ -187,7 +192,7 @@ export const getOnboardingStatus = async (
     where: { organizationId },
   });
 
-  const enabledModules = normalizeModules(settings?.enabledModules ?? ["inventory", "sales"]);
+  const enabledModules = await getOrganizationModules(organizationId);
   const dismissed = new Set(settings?.dismissedModuleOnboarding ?? []);
 
   const modules = {} as OnboardingStatusPayload["modules"];
@@ -253,10 +258,17 @@ export const saveSetupProfile = async (
 
   const enabledModules = input.enabledModules
     ? normalizeModules(input.enabledModules)
-    : normalizeModules(existing.enabledModules);
+    : await getOrganizationModules(organizationId);
 
   const shouldSeedDemo =
     input.loadDemoData === true && !existing.loadDemoData && existing.onboardingCompletedAt == null;
+
+  if (input.enabledModules !== undefined) {
+    await updateOrganizationModules(organizationId, enabledModules);
+    await recalculateSubscriptionAmount(organizationId).catch(() => {
+      /* subscription may not exist yet during early setup */
+    });
+  }
 
   await prisma.shopSettings.update({
     where: { organizationId },
@@ -273,7 +285,6 @@ export const saveSetupProfile = async (
       ...(input.currentSystem !== undefined && {
         setupCurrentSystem: input.currentSystem.trim() || null,
       }),
-      ...(input.enabledModules !== undefined && { enabledModules }),
       ...(input.businessName !== undefined && {
         businessName: input.businessName.trim() || DEFAULT_BUSINESS_NAME,
       }),

@@ -97,7 +97,9 @@ export const createPurchaseBill = async (
 ): Promise<PurchaseBill> => {
   if (!input.vendorId) throw new PurchaseBillError("Vendor is required.");
   if (!input.billNo?.trim()) throw new PurchaseBillError("Bill number is required.");
-  if (!input.billDate) throw new PurchaseBillError("Bill date is required.");
+  if (!input.billDate && !input.entryVoucherId) {
+    throw new PurchaseBillError("Bill date is required.");
+  }
   if (input.subtotal == null || input.subtotal < 0) {
     throw new PurchaseBillError("Subtotal is required.");
   }
@@ -121,6 +123,17 @@ export const createPurchaseBill = async (
     if (linked) throw new PurchaseBillError("Entry voucher is already linked to a bill.");
   }
 
+  const billDate = input.billDate
+    ? new Date(input.billDate)
+    : input.entryVoucherId
+      ? (
+          await prisma.entryVoucher.findFirst({
+            where: { id: input.entryVoucherId, organizationId },
+            select: { purchaseDate: true },
+          })
+        )?.purchaseDate ?? new Date()
+      : new Date();
+
   const gstAmount = input.gstAmount ?? 0;
   const paidAmount = input.paidAmount ?? 0;
   const total = input.total;
@@ -132,7 +145,7 @@ export const createPurchaseBill = async (
       branchId,
       vendorId: input.vendorId,
       billNo: input.billNo.trim(),
-      billDate: new Date(input.billDate),
+      billDate,
       entryVoucherId: input.entryVoucherId || null,
       subtotal: toMoney(input.subtotal),
       gstAmount: toMoney(gstAmount),

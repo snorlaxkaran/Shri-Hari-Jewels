@@ -12,15 +12,15 @@ import { canViewCostPrice, canWriteInventory } from "@/lib/auth/permissions";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import {
   HSN_OPTIONS,
-  STOCK_FORM_METALS,
-  STOCK_FORM_PURITIES,
-  STOCK_SUB_CATEGORIES,
   stockCategories,
 } from "@/lib/inventory/stock-import";
+import { categoryHasSizeOptions } from "@/lib/inventory/category-sizes";
 import {
-  CATEGORY_SIZES,
-  categoryHasSizeOptions,
-} from "@/lib/inventory/category-sizes";
+  categorySizeFieldKey,
+  DROPDOWN_FIELD_KEYS,
+  getDropdownValues,
+  groupDropdownOptions,
+} from "@/lib/inventory/dropdown-options";
 import type { ProductCategory } from "@/lib/inventory/categories";
 import { generateSku, generateUnitCodes } from "@/lib/inventory/sku";
 import type { PendingImage } from "@/lib/inventory/images";
@@ -30,43 +30,87 @@ import {
   createProductCollection,
   fetchProductCollections,
 } from "@/lib/api/product-collections";
+import {
+  createDropdownOption,
+  fetchDropdownOptions,
+} from "@/lib/api/dropdown-options";
 import { createVendor, fetchVendors } from "@/lib/api/vendors";
 import { createStoneType, fetchStoneTypes } from "@/lib/api/stone-types";
 import { getApiErrorMessage } from "@/lib/api/client";
 import type {
+  CertifiedStoneLot,
   MarketRatesCurrent,
   MetalType,
   ProductCollection,
   Purity,
   StoneType,
   Vendor,
+  DropdownOption,
 } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
+import { fetchCertifiedStoneLots } from "@/lib/api/raw-inventory";
+import {
+  calculateSellingPrice,
+  resolveMakingChargesPct,
+  resolveMarketRateForProduct,
+} from "@/lib/pricing/b2b-price";
 
 const fieldClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium uppercase tracking-wide";
+
+const todayIsoDate = () => new Date().toISOString().slice(0, 10);
+
+type MakingChargeTypeOption = "Flat" | "PercentOfMetal";
 
 const computeLivePrice = (
   weightGrams: number,
   metal: MetalType,
   purity: Purity,
   rates: MarketRatesCurrent | null,
+  options: {
+    makingChargeType: MakingChargeTypeOption;
+    makingCharges: number;
+    wastagePercent: number;
+  },
 ): number | null => {
   if (!rates || !weightGrams) return null;
-  let rate: number | null = null;
-  const goldMetals = new Set<MetalType>(["Gold", "Rose Gold", "Platinum"]);
-  if (goldMetals.has(metal) && purity === "22K") rate = rates.gold22k;
-  if (goldMetals.has(metal) && purity === "18K" && rates.gold22k) {
-    rate = Math.round(rates.gold22k * (18 / 22) * 100) / 100;
-  }
-  if (metal === "Silver" && purity === "925") rate = rates.silver925;
+
+  const rate = resolveMarketRateForProduct(
+    metal,
+    purity,
+    rates.gold22k,
+    rates.silver925,
+  );
   if (rate == null) return null;
 
+  const defaultMakingPct = resolveMakingChargesPct(
+    metal,
+    rates.goldMakingChargesPct,
+    rates.silverMakingChargesPct,
+  );
+
   const makingPct =
-    metal === "Silver" ? rates.silverMakingChargesPct : rates.goldMakingChargesPct;
-  const metalValue = Math.round(weightGrams * rate * 100) / 100;
-  const making = Math.round(metalValue * (makingPct / 100) * 100) / 100;
-  return metalValue + making;
+    options.makingChargeType === "PercentOfMetal"
+      ? options.makingCharges || defaultMakingPct
+      : defaultMakingPct;
+
+  const breakdown = calculateSellingPrice({
+    weightGrams,
+    metal: metal === "Silver" ? "Silver" : "Gold",
+    makingChargesPct: makingPct,
+    marketRatePerGram: rate,
+    wastagePct: options.wastagePercent,
+  });
+
+  if (options.makingChargeType === "Flat" && options.makingCharges > 0) {
+    const wastageCharges =
+      options.wastagePercent > 0
+        ? Math.round(breakdown.metalValue * (options.wastagePercent / 100) * 100) / 100
+        : 0;
+    return breakdown.metalValue + options.makingCharges + wastageCharges;
+  }
+
+  return breakdown.totalPrice;
 };
 
 export default function NewStockPage() {
@@ -93,6 +137,10 @@ export default function NewStockPage() {
   const [stoneTypeSubmitting, setStoneTypeSubmitting] = useState(false);
   const [category, setCategory] = useState<ProductCategory>("Others");
   const [subCategory, setSubCategory] = useState("");
+  const [showSubCategoryForm, setShowSubCategoryForm] = useState(false);
+  const [newSubCategory, setNewSubCategory] = useState("");
+  const [subCategorySubmitting, setSubCategorySubmitting] = useState(false);
+  const [dropdownOptions, setDropdownOptions] = useState<DropdownOption[]>([]);
   const [categorySize, setCategorySize] = useState("");
   const [collectionId, setCollectionId] = useState("");
   const [collections, setCollections] = useState<ProductCollection[]>([]);
@@ -103,7 +151,14 @@ export default function NewStockPage() {
   const [hsn, setHsn] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [purity, setPurity] = useState<Purity>("925");
+  const [makingChargeType, setMakingChargeType] =
+    useState<MakingChargeTypeOption>("Flat");
   const [makingCharges, setMakingCharges] = useState("");
+  const [wastagePercent, setWastagePercent] = useState("");
+  const [purchaseDate, setPurchaseDate] = useState(todayIsoDate);
+  const [certifiedStoneLotId, setCertifiedStoneLotId] = useState("");
+  const [certifiedStoneLots, setCertifiedStoneLots] = useState<CertifiedStoneLot[]>([]);
+  const [certifiedStoneSearch, setCertifiedStoneSearch] = useState("");
   const [price, setPrice] = useState("");
   const [costPrice, setCostPrice] = useState("");
   const [images, setImages] = useState<PendingImage[]>([]);
@@ -120,6 +175,12 @@ export default function NewStockPage() {
     fetchCurrentMarketRates()
       .then(setRates)
       .catch(() => setRates(null));
+  }, []);
+
+  useEffect(() => {
+    fetchDropdownOptions()
+      .then(setDropdownOptions)
+      .catch(() => setDropdownOptions([]));
   }, []);
 
   useEffect(() => {
@@ -140,8 +201,27 @@ export default function NewStockPage() {
       .catch(() => setStoneTypes([]));
   }, []);
 
-  const categorySizeOptions = CATEGORY_SIZES[category] ?? [];
-  const showCategorySize = categoryHasSizeOptions(category);
+  useEffect(() => {
+    fetchCertifiedStoneLots()
+      .then((lots) => setCertifiedStoneLots(lots.filter((lot) => lot.status === "In Stock")))
+      .catch(() => setCertifiedStoneLots([]));
+  }, []);
+
+  const groupedDropdownOptions = useMemo(
+    () => groupDropdownOptions(dropdownOptions),
+    [dropdownOptions],
+  );
+  const metalOptions = getDropdownValues(groupedDropdownOptions, DROPDOWN_FIELD_KEYS.metal);
+  const purityOptions = getDropdownValues(groupedDropdownOptions, DROPDOWN_FIELD_KEYS.purity);
+  const subCategoryOptions = getDropdownValues(
+    groupedDropdownOptions,
+    DROPDOWN_FIELD_KEYS.subCategory,
+  );
+  const categorySizeOptions = getDropdownValues(
+    groupedDropdownOptions,
+    categorySizeFieldKey(category),
+  );
+  const showCategorySize = categoryHasSizeOptions(category, categorySizeOptions);
 
   useEffect(() => {
     if (!showCategorySize) {
@@ -157,6 +237,57 @@ export default function NewStockPage() {
     () => stoneTypes.filter((type) => stoneTypeIds.includes(type.id)),
     [stoneTypes, stoneTypeIds],
   );
+
+  const filteredCertifiedStoneLots = useMemo(() => {
+    const query = certifiedStoneSearch.trim().toLowerCase();
+    if (!query) return certifiedStoneLots;
+    return certifiedStoneLots.filter(
+      (lot) =>
+        lot.certificateNumber.toLowerCase().includes(query) ||
+        lot.stoneType.toLowerCase().includes(query) ||
+        (lot.color?.toLowerCase().includes(query) ?? false),
+    );
+  }, [certifiedStoneLots, certifiedStoneSearch]);
+
+  const qtyNumber = Math.max(1, parseInt(quantity, 10) || 1);
+  const showCertifiedStoneLink = qtyNumber === 1;
+
+  useEffect(() => {
+    if (!showCertifiedStoneLink) {
+      setCertifiedStoneLotId("");
+      setCertifiedStoneSearch("");
+    }
+  }, [showCertifiedStoneLink]);
+
+  const handleAddSubCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newSubCategory.trim();
+    if (!trimmed) return;
+
+    setSubCategorySubmitting(true);
+    setError("");
+    try {
+      const created = await createDropdownOption({
+        fieldKey: DROPDOWN_FIELD_KEYS.subCategory,
+        value: trimmed,
+      });
+      setDropdownOptions((prev) =>
+        [...prev.filter((item) => item.id !== created.id), created].sort(
+          (a, b) =>
+            a.fieldKey.localeCompare(b.fieldKey) ||
+            a.sortOrder - b.sortOrder ||
+            a.value.localeCompare(b.value),
+        ),
+      );
+      setSubCategory(created.value);
+      setNewSubCategory("");
+      setShowSubCategoryForm(false);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to add sub category."));
+    } finally {
+      setSubCategorySubmitting(false);
+    }
+  };
 
   const handleAddCollection = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,8 +390,12 @@ export default function NewStockPage() {
   const livePrice = useMemo(() => {
     const weight = parseFloat(weightGrams);
     if (!weight) return null;
-    return computeLivePrice(weight, metal, purity, rates);
-  }, [weightGrams, metal, purity, rates]);
+    return computeLivePrice(weight, metal, purity, rates, {
+      makingChargeType,
+      makingCharges: parseFloat(makingCharges) || 0,
+      wastagePercent: parseFloat(wastagePercent) || 0,
+    });
+  }, [weightGrams, metal, purity, rates, makingChargeType, makingCharges, wastagePercent]);
 
   const marginPreview = useMemo(() => {
     if (!canSeeCostPrice) return null;
@@ -281,6 +416,7 @@ export default function NewStockPage() {
 
     const weight = parseFloat(weightGrams);
     const charges = makingCharges ? parseFloat(makingCharges) : 0;
+    const wastage = wastagePercent ? parseFloat(wastagePercent) : 0;
     const unitPrice = parseFloat(price || String(livePrice ?? ""));
     const qty = parseInt(quantity, 10);
 
@@ -289,7 +425,15 @@ export default function NewStockPage() {
       return;
     }
     if (isNaN(charges) || charges < 0) {
-      setError("Enter valid making charges.");
+      setError(
+        makingChargeType === "PercentOfMetal"
+          ? "Enter valid making charges (%)."
+          : "Enter valid making charges.",
+      );
+      return;
+    }
+    if (isNaN(wastage) || wastage < 0 || wastage > 100) {
+      setError("Wastage must be between 0 and 100.");
       return;
     }
     if (!unitPrice || unitPrice <= 0) {
@@ -333,7 +477,7 @@ export default function NewStockPage() {
         metal,
         purity,
         weightGrams: weight,
-        makingCharges: charges,
+        makingCharges: makingChargeType === "Flat" ? charges : 0,
         price: unitPrice,
         quantity: qty,
         images: images.map(({ id, url, name }) => ({ id, url, name })),
@@ -346,6 +490,13 @@ export default function NewStockPage() {
         vendorId: vendorId || undefined,
         stoneTypeIds: stoneTypeIds.length ? stoneTypeIds : undefined,
         costPrice: canSeeCostPrice && costPrice ? parseFloat(costPrice) : undefined,
+        wastagePercent: wastage > 0 ? wastage : undefined,
+        makingChargeType,
+        makingChargesPct:
+          makingChargeType === "PercentOfMetal" && charges >= 0 ? charges : undefined,
+        purchaseDate: purchaseDate || undefined,
+        certifiedStoneLotId:
+          showCertifiedStoneLink && certifiedStoneLotId ? certifiedStoneLotId : undefined,
       });
       await refresh({ silent: true });
       router.push("/inventory");
@@ -422,7 +573,7 @@ export default function NewStockPage() {
                 onChange={(e) => setMetal(e.target.value as MetalType)}
                 className={fieldClass}
               >
-                {STOCK_FORM_METALS.map((m) => (
+                {metalOptions.map((m) => (
                   <option key={m} value={m}>
                     {m}
                   </option>
@@ -597,6 +748,16 @@ export default function NewStockPage() {
             </div>
 
             <div>
+              <label className={labelClass}>Purchase Date</label>
+              <input
+                type="date"
+                value={purchaseDate}
+                onChange={(e) => setPurchaseDate(e.target.value)}
+                className={fieldClass}
+              />
+            </div>
+
+            <div>
               <label className={labelClass}>Category</label>
               <select
                 value={category}
@@ -612,14 +773,44 @@ export default function NewStockPage() {
             </div>
 
             <div>
-              <label className={labelClass}>Sub Category</label>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className={labelClass}>Sub Category</label>
+                {canAdd && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSubCategoryForm((prev) => !prev)}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    {showSubCategoryForm ? "Cancel" : "+ Add sub category"}
+                  </button>
+                )}
+              </div>
+              {showSubCategoryForm && canAdd && (
+                <form onSubmit={handleAddSubCategory} className="mb-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={newSubCategory}
+                    onChange={(e) => setNewSubCategory(e.target.value)}
+                    placeholder="New sub category"
+                    className={fieldClass}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={subCategorySubmitting || !newSubCategory.trim()}
+                    className="btn-primary px-3 py-2 text-sm whitespace-nowrap disabled:opacity-50"
+                  >
+                    {subCategorySubmitting ? "Saving…" : "Save"}
+                  </button>
+                </form>
+              )}
               <select
                 value={subCategory}
                 onChange={(e) => setSubCategory(e.target.value)}
                 className={fieldClass}
               >
                 <option value="">Choose …</option>
-                {STOCK_SUB_CATEGORIES.map((c) => (
+                {subCategoryOptions.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
@@ -627,6 +818,34 @@ export default function NewStockPage() {
               </select>
             </div>
           </div>
+
+          {showCertifiedStoneLink && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+              <div className="xl:col-span-2">
+                <label className={labelClass}>Link Certified Stone (optional)</label>
+                <input
+                  type="text"
+                  value={certifiedStoneSearch}
+                  onChange={(e) => setCertifiedStoneSearch(e.target.value)}
+                  placeholder="Search certificate no…"
+                  className={`${fieldClass} mb-2`}
+                />
+                <select
+                  value={certifiedStoneLotId}
+                  onChange={(e) => setCertifiedStoneLotId(e.target.value)}
+                  className={fieldClass}
+                >
+                  <option value="">Choose …</option>
+                  {filteredCertifiedStoneLots.map((lot) => (
+                    <option key={lot.id} value={lot.id}>
+                      {lot.certificateNumber} — {lot.stoneType}, {lot.carat} ct
+                      {lot.color ? `, ${lot.color}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
             {showCategorySize && (
@@ -737,7 +956,7 @@ export default function NewStockPage() {
 
           <div
             className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${
-              canSeeCostPrice ? "xl:grid-cols-5" : "xl:grid-cols-4"
+              canSeeCostPrice ? "xl:grid-cols-6" : "xl:grid-cols-5"
             }`}
           >
             <div>
@@ -747,7 +966,7 @@ export default function NewStockPage() {
                 onChange={(e) => setPurity(e.target.value as Purity)}
                 className={fieldClass}
               >
-                {STOCK_FORM_PURITIES.map((p) => (
+                {purityOptions.map((p) => (
                   <option key={p} value={p}>
                     {p}
                   </option>
@@ -756,12 +975,59 @@ export default function NewStockPage() {
             </div>
 
             <div>
-              <label className={labelClass}>Making Charges (₹)</label>
+              <label className={labelClass}>Making Charge Type</label>
+              <select
+                value={makingChargeType}
+                onChange={(e) => {
+                  setMakingChargeType(e.target.value as MakingChargeTypeOption);
+                  setMakingCharges("");
+                }}
+                className={fieldClass}
+              >
+                <option value="Flat">Flat (₹)</option>
+                <option value="PercentOfMetal">% of metal value</option>
+              </select>
+            </div>
+
+            <div>
+              <label className={labelClass}>
+                {makingChargeType === "PercentOfMetal"
+                  ? "Making Charges (%)"
+                  : "Making Charges (₹)"}
+              </label>
               <input
                 type="number"
                 min="0"
+                step={makingChargeType === "PercentOfMetal" ? "0.01" : "1"}
+                max={makingChargeType === "PercentOfMetal" ? "100" : undefined}
                 value={makingCharges}
                 onChange={(e) => setMakingCharges(e.target.value)}
+                placeholder={
+                  makingChargeType === "PercentOfMetal"
+                    ? rates
+                      ? String(
+                          resolveMakingChargesPct(
+                            metal,
+                            rates.goldMakingChargesPct,
+                            rates.silverMakingChargesPct,
+                          ),
+                        )
+                      : "Optional"
+                    : "Optional"
+                }
+                className={fieldClass}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Wastage (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={wastagePercent}
+                onChange={(e) => setWastagePercent(e.target.value)}
                 placeholder="Optional"
                 className={fieldClass}
               />

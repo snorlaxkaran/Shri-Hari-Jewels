@@ -24,6 +24,7 @@ export type StorefrontProductDto = {
   imageColor: string;
   storefrontDescription: string | null;
   images: Array<{ id: string; url: string; name: string }>;
+  relatedProducts?: StorefrontProductDto[];
 };
 
 export type StorefrontCollectionDto = {

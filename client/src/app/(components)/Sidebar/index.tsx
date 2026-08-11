@@ -26,6 +26,8 @@ import { fetchFollowUpsDueCount } from "@/lib/api/leads";
 import { fetchReadyForPickupCount } from "@/lib/api/repairs";
 import { fetchHallmarkPendingCount } from "@/lib/api/hallmark";
 import { fetchExpensesPendingCount } from "@/lib/api/expenses";
+import { fetchOrganizationModules } from "@/lib/api/modules";
+import type { JewelleryModuleId } from "@/lib/onboarding/config";
 
 type SidebarContentProps = {
   pathname: string;
@@ -47,10 +49,21 @@ const SidebarContent = ({
   const [hallmarkPendingCount, setHallmarkPendingCount] = useState<number | undefined>();
   const [expensesPendingCount, setExpensesPendingCount] = useState<number | undefined>();
   const [navQuery, setNavQuery] = useState("");
+  const [enabledModules, setEnabledModules] = useState<JewelleryModuleId[] | undefined>();
+
+  useEffect(() => {
+    if (!user) return;
+    fetchOrganizationModules()
+      .then((data) => setEnabledModules(data.enabledModules))
+      .catch(() => setEnabledModules(undefined));
+  }, [user]);
 
   const sections = useMemo(() => {
     if (!user) return [];
-    const base = filterNavSections((href) => canAccessRoute(user.role, href));
+    const base = filterNavSections(
+      (href) => canAccessRoute(user.role, href),
+      enabledModules,
+    );
     return base.map((section) => ({
       ...section,
       items: section.items.map((item) => {
@@ -72,7 +85,7 @@ const SidebarContent = ({
         return item;
       }),
     }));
-  }, [user, incomingCount, followUpsDueCount, readyForPickupCount, hallmarkPendingCount, expensesPendingCount]);
+  }, [user, incomingCount, followUpsDueCount, readyForPickupCount, hallmarkPendingCount, expensesPendingCount, enabledModules]);
 
   const setupNavItem = useMemo(
     () =>

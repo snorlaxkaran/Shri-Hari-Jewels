@@ -95,6 +95,54 @@ export const verifyWebhookSignature = (
   return expected === signature;
 };
 
+type RazorpayOrder = {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+};
+
+export const createSubscriptionOrder = async (
+  organizationId: string,
+  amountRupees: number,
+): Promise<RazorpayOrder> => {
+  const razorpay = getRazorpay();
+  if (!razorpay) {
+    throw new Error("Razorpay is not configured.");
+  }
+
+  const order = (await razorpay.orders.create({
+    amount: toPaise(amountRupees),
+    currency: "INR",
+    receipt: `sub_${organizationId.slice(0, 8)}_${Date.now()}`,
+    notes: {
+      organization_id: organizationId,
+      purpose: "subscription",
+    },
+  })) as RazorpayOrder;
+
+  return order;
+};
+
+export const verifyPaymentSignature = (
+  orderId: string,
+  paymentId: string,
+  signature: string,
+): boolean => {
+  const secret = process.env.RAZORPAY_KEY_SECRET;
+  if (!secret) return false;
+
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(`${orderId}|${paymentId}`)
+    .digest("hex");
+
+  return expected === signature;
+};
+
+export const getRazorpayKeyId = (): string | null =>
+  process.env.RAZORPAY_KEY_ID?.trim() || null;
+
 export const extractSaleIdFromWebhook = (
   payload: Record<string, unknown>,
 ): string | null => {

@@ -29,6 +29,8 @@ import {
   Banknote,
 } from "lucide-react";
 import { createElement } from "react";
+import type { JewelleryModuleId } from "@/lib/onboarding/config";
+import { NAV_SECTION_MODULES } from "@/lib/onboarding/config";
 
 export type NavItem = {
   label: string;
@@ -144,8 +146,15 @@ export const primaryNavItems: NavItem[] = [
 
 export const filterNavSections = (
   canAccess: (href: string) => boolean,
+  enabledModules?: JewelleryModuleId[],
 ): NavSection[] =>
   navSections
+    .filter((section) => {
+      if (!enabledModules) return true;
+      const moduleId = NAV_SECTION_MODULES[section.title];
+      if (!moduleId) return true;
+      return enabledModules.includes(moduleId);
+    })
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => canAccess(item.href)),
@@ -232,6 +241,7 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname.startsWith("/payroll/")) return "Payroll Run";
   if (pathname === "/payroll") return "Payroll";
   if (pathname === "/settings/sku-rename") return "Rename SKU";
+  if (pathname === "/settings/dropdown-options") return "Dropdown options";
   if (pathname === "/settings/tally-export") return "Tally Export";
   if (pathname === "/production-runs/new") return "New Production Run";
   if (pathname === "/production-runs/dashboard") return "Production Dashboard";

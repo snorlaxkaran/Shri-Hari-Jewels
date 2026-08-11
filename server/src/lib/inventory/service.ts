@@ -1,4 +1,4 @@
-import { InventoryUnitStatus, ProductStockStatus, SalePaymentStatus, StockTransferStatus } from "@prisma/client";
+import { CertifiedStoneLotStatus, InventoryUnitStatus, MakingChargeType, ProductStockStatus, SalePaymentStatus, StockTransferStatus } from "@prisma/client";
 import { prisma } from "../db.js";
 import type {
   Branch,
@@ -34,6 +34,10 @@ import { toStockTransferDto } from "./transfer-actions.js";
 import { createEntryVoucherInTx } from "./vouchers-service.js";
 import { resolveStoneTypeIds } from "../stone-types/service.js";
 import { resolveVendorId } from "../vendors/service.js";
+import {
+  calculateSellingPrice,
+  resolveMarketRateForProduct,
+} from "../pricing/b2b-price.js";
 
 export type EntryProductOptions = {
   entryVerification?: boolean;
@@ -277,6 +281,67 @@ export const createProduct = async (
       ? toMoney(input.costPrice)
       : null;
 
+  const makingChargeType =
+    input.makingChargeType === "PercentOfMetal"
+      ? MakingChargeType.PercentOfMetal
+      : MakingChargeType.Flat;
+
+  const wastageDecimal =
+    input.wastagePercent != null && input.wastagePercent > 0
+      ? toMoney(input.wastagePercent)
+      : null;
+
+  const makingChargesPctDecimal =
+    makingChargeType === MakingChargeType.PercentOfMetal &&
+    input.makingChargesPct != null &&
+    input.makingChargesPct >= 0
+      ? toMoney(input.makingChargesPct)
+      : null;
+
+  let resolvedMakingCharges = input.makingCharges;
+  if (
+    makingChargeType === MakingChargeType.PercentOfMetal &&
+    input.makingChargesPct != null
+  ) {
+    const rate = resolveMarketRateForProduct(
+      input.metal,
+      input.purity,
+      marketRates.gold22k,
+      marketRates.silver925,
+    );
+    if (rate != null) {
+      const breakdown = calculateSellingPrice({
+        weightGrams: input.weightGrams,
+        metal: input.metal === "Silver" ? "Silver" : "Gold",
+        makingChargesPct: input.makingChargesPct,
+        marketRatePerGram: rate,
+      });
+      resolvedMakingCharges = breakdown.makingCharges;
+    }
+  }
+
+  const purchaseDate = input.purchaseDate
+    ? new Date(input.purchaseDate)
+    : null;
+
+  if (input.certifiedStoneLotId) {
+    const lot = await prisma.certifiedStoneLot.findFirst({
+      where: { id: input.certifiedStoneLotId, branchId },
+    });
+    if (!lot) {
+      throw new InventoryError("Certified stone lot not found at this branch.", 404);
+    }
+    if (lot.status !== CertifiedStoneLotStatus.InStock) {
+      throw new InventoryError("Certified stone lot is not available.", 409);
+    }
+    if (input.quantity !== 1) {
+      throw new InventoryError(
+        "Certified stone linkage is only supported for quantity 1.",
+        400,
+      );
+    }
+  }
+
   const product = await prisma.$transaction(async (tx) => {
     let voucherId = options?.voucherId;
     if (useEntryVerification && !voucherId) {
@@ -289,12 +354,16 @@ export const createProduct = async (
         branchId,
         actor,
         input.vendorId ?? null,
+        purchaseDate,
       );
       voucherId = voucher.id;
-    } else if (voucherId && input.vendorId) {
+    } else if (voucherId) {
       await tx.entryVoucher.update({
         where: { id: voucherId },
-        data: { vendorId: input.vendorId },
+        data: {
+          vendorId: input.vendorId ?? undefined,
+          purchaseDate: purchaseDate ?? undefined,
+        },
       });
     }
 
@@ -316,7 +385,7 @@ export const createProduct = async (
         metal: input.metal,
         purity: input.purity,
         weightGrams: input.weightGrams,
-        makingCharges: input.makingCharges,
+        makingCharges: resolvedMakingCharges,
         stoneCarat: input.stoneCarat,
         price: input.price,
         stock: initialStock,
@@ -335,6 +404,10 @@ export const createProduct = async (
             status: unitStatus,
             listPrice: unitListPrice,
             costPrice: costPriceDecimal,
+            wastagePercent: wastageDecimal,
+            makingChargeType,
+            makingChargesPct: makingChargesPctDecimal,
+            certifiedStoneLotId: input.certifiedStoneLotId ?? null,
             voucherId: voucherId ?? null,
             stoneTypes: stoneTypeIds.length
               ? {
@@ -375,6 +448,13 @@ export const createProduct = async (
     );
 
     await syncProductStockInTx(tx, created.id);
+
+    if (input.certifiedStoneLotId) {
+      await tx.certifiedStoneLot.update({
+        where: { id: input.certifiedStoneLotId },
+        data: { status: CertifiedStoneLotStatus.Issued },
+      });
+    }
 
     return created;
   });

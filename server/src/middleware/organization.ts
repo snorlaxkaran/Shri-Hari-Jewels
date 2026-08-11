@@ -3,6 +3,7 @@ import {
   OrganizationAccessError,
   requireOrganizationId,
 } from "../lib/organizations/access.js";
+import { enforceModuleAccessForRequest } from "../lib/modules/access.js";
 import {
   checkSubscriptionAccess,
   isBillingRoute,
@@ -36,6 +37,9 @@ export const attachOrganization = async (
         });
         return;
       }
+
+      const moduleAllowed = await enforceModuleAccessForRequest(req, res);
+      if (!moduleAllowed) return;
     }
 
     next();

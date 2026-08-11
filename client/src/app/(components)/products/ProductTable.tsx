@@ -11,8 +11,11 @@ import type { InventoryItem } from "@/lib/types";
 type ProductTableProps = {
   products: InventoryItem[];
   canWrite: boolean;
+  canToggleStorefront?: boolean;
   storeSlug?: string | null;
   isPublished?: (productId: string) => boolean;
+  onTogglePublished?: (productId: string, published: boolean) => void | Promise<void>;
+  publishingProductId?: string | null;
 };
 
 function ProductThumb({ product }: { product: InventoryItem }) {
@@ -35,8 +38,11 @@ function ProductThumb({ product }: { product: InventoryItem }) {
 export default function ProductTable({
   products,
   canWrite,
+  canToggleStorefront = false,
   storeSlug,
   isPublished,
+  onTogglePublished,
+  publishingProductId,
 }: ProductTableProps) {
   if (products.length === 0) {
     return <p className="list-empty-state">No products found.</p>;
@@ -56,6 +62,7 @@ export default function ProductTable({
             <th>Purity</th>
             <th>Units</th>
             <th>Status</th>
+            {canToggleStorefront && <th>Storefront</th>}
             <th>Website</th>
             {canWrite && <th aria-label="Actions" />}
           </tr>
@@ -78,6 +85,28 @@ export default function ProductTable({
                 <td>
                   <StatusBadge status={product.status} />
                 </td>
+                {canToggleStorefront && onTogglePublished && isPublished && (
+                  <td>
+                    <button
+                      type="button"
+                      disabled={publishingProductId === product.id}
+                      onClick={() =>
+                        void onTogglePublished(product.id, !isPublished(product.id))
+                      }
+                      className={`rounded px-2 py-1 text-xs font-medium disabled:opacity-50 ${
+                        isPublished(product.id)
+                          ? "bg-green-100 text-green-800"
+                          : "bg-zinc-100 text-zinc-600"
+                      }`}
+                    >
+                      {publishingProductId === product.id
+                        ? "Saving…"
+                        : isPublished(product.id)
+                          ? "Live"
+                          : "Draft"}
+                    </button>
+                  </td>
+                )}
                 <td>
                   {isPublished ? (
                     <ViewOnWebsiteLink

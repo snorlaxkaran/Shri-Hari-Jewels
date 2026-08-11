@@ -1,5 +1,12 @@
 import { Prisma, SubscriptionStatus } from "@prisma/client";
 import { prisma } from "../db.js";
+import {
+  computeMonthlyAmountFromModules,
+  DEFAULT_GRACE_PERIOD_DAYS,
+  normalizeModules,
+  type JewelleryModuleId,
+} from "../onboarding/config.js";
+import { getOrganizationModules } from "../modules/access.js";
 
 export class SubscriptionError extends Error {
   constructor(
@@ -12,9 +19,6 @@ export class SubscriptionError extends Error {
 }
 
 const TRIAL_MONTHS = 2;
-const DEFAULT_MONTHLY_AMOUNT = new Prisma.Decimal(
-  process.env.SUBSCRIPTION_DEFAULT_MONTHLY_AMOUNT ?? "5000",
-);
 
 export const addMonths = (date: Date, months: number): Date => {
   const result = new Date(date);
@@ -38,6 +42,7 @@ export type SubscriptionSummary = {
   cancelledAt: string | null;
   createdAt: string;
   updatedAt: string;
+  enabledModules?: JewelleryModuleId[];
 };
 
 export type PlatformPaymentSummary = {
@@ -50,20 +55,23 @@ export type PlatformPaymentSummary = {
   createdAt: string;
 };
 
-const toSubscriptionSummary = (sub: {
-  id: string;
-  organizationId: string;
-  status: SubscriptionStatus;
-  planName: string;
-  monthlyAmount: Prisma.Decimal;
-  trialEndsAt: Date;
-  currentPeriodEnd: Date;
-  gracePeriodDays: number;
-  suspendedAt: Date | null;
-  cancelledAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}): SubscriptionSummary => ({
+const toSubscriptionSummary = (
+  sub: {
+    id: string;
+    organizationId: string;
+    status: SubscriptionStatus;
+    planName: string;
+    monthlyAmount: Prisma.Decimal;
+    trialEndsAt: Date;
+    currentPeriodEnd: Date;
+    gracePeriodDays: number;
+    suspendedAt: Date | null;
+    cancelledAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  },
+  enabledModules?: JewelleryModuleId[],
+): SubscriptionSummary => ({
   id: sub.id,
   organizationId: sub.organizationId,
   status: sub.status,
@@ -76,6 +84,7 @@ const toSubscriptionSummary = (sub: {
   cancelledAt: sub.cancelledAt?.toISOString() ?? null,
   createdAt: sub.createdAt.toISOString(),
   updatedAt: sub.updatedAt.toISOString(),
+  ...(enabledModules ? { enabledModules } : {}),
 });
 
 const toPaymentSummary = (payment: {
@@ -99,21 +108,52 @@ const toPaymentSummary = (payment: {
 export const createTrialSubscription = async (
   organizationId: string,
   tx: Prisma.TransactionClient = prisma,
+  enabledModules?: JewelleryModuleId[],
 ): Promise<void> => {
   const now = new Date();
   const trialEndsAt = addMonths(now, TRIAL_MONTHS);
+
+  let modules = enabledModules;
+  if (!modules) {
+    const org = await tx.organization.findUnique({
+      where: { id: organizationId },
+      select: { enabledModules: true },
+    });
+    modules = normalizeModules(org?.enabledModules ?? ["inventory", "sales"]);
+  }
+
+  const monthlyAmount = new Prisma.Decimal(computeMonthlyAmountFromModules(modules));
 
   await tx.subscription.create({
     data: {
       organizationId,
       status: SubscriptionStatus.Trialing,
       planName: "Standard",
-      monthlyAmount: DEFAULT_MONTHLY_AMOUNT,
+      monthlyAmount,
       trialEndsAt,
       currentPeriodEnd: trialEndsAt,
-      gracePeriodDays: 0,
+      gracePeriodDays: DEFAULT_GRACE_PERIOD_DAYS,
     },
   });
+};
+
+export const recalculateSubscriptionAmount = async (
+  organizationId: string,
+): Promise<SubscriptionSummary> => {
+  const modules = await getOrganizationModules(organizationId);
+  const amount = new Prisma.Decimal(computeMonthlyAmountFromModules(modules));
+
+  const sub = await prisma.subscription.findUnique({
+    where: { organizationId },
+  });
+  if (!sub) throw new SubscriptionError("Subscription not found.", 404);
+
+  const updated = await prisma.subscription.update({
+    where: { id: sub.id },
+    data: { monthlyAmount: amount },
+  });
+
+  return toSubscriptionSummary(updated, modules);
 };
 
 export const getSubscriptionByOrganizationId = async (
@@ -122,7 +162,9 @@ export const getSubscriptionByOrganizationId = async (
   const sub = await prisma.subscription.findUnique({
     where: { organizationId },
   });
-  return sub ? toSubscriptionSummary(sub) : null;
+  if (!sub) return null;
+  const modules = await getOrganizationModules(organizationId);
+  return toSubscriptionSummary(sub, modules);
 };
 
 export const getSubscriptionWithPayments = async (organizationId: string) => {
@@ -135,8 +177,10 @@ export const getSubscriptionWithPayments = async (organizationId: string) => {
 
   if (!sub) return null;
 
+  const modules = await getOrganizationModules(organizationId);
+
   return {
-    subscription: toSubscriptionSummary(sub),
+    subscription: toSubscriptionSummary(sub, modules),
     payments: sub.payments.map(toPaymentSummary),
   };
 };
@@ -233,6 +277,7 @@ export type RecordPaymentInput = {
   periodCovered?: string;
   notes?: string;
   recordedByName: string;
+  razorpayPaymentId?: string;
 };
 
 export const recordSubscriptionPayment = async (
@@ -260,6 +305,7 @@ export const recordSubscriptionPayment = async (
         periodCovered,
         recordedByName: input.recordedByName.trim(),
         notes: input.notes?.trim() || null,
+        razorpayPaymentId: input.razorpayPaymentId?.trim() || null,
       },
     });
 
@@ -277,7 +323,7 @@ export const recordSubscriptionPayment = async (
   });
 
   return {
-    subscription: toSubscriptionSummary(result.subscription),
+    subscription: toSubscriptionSummary(result.subscription, await getOrganizationModules(organizationId)),
     payment: toPaymentSummary(result.payment),
   };
 };
