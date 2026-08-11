@@ -13,6 +13,7 @@ import {
   type NicErrorDetail,
 } from "./errors.js";
 import type { Inv1Payload } from "./inv1-mapper.js";
+import type { CrnPayload } from "./crn-mapper.js";
 
 type NicAuthResponse = {
   Status: string | number;
@@ -191,7 +192,7 @@ const parseAckDate = (value: string): Date => {
 
 export const generateNicIrn = async (
   config: EinvoiceConfig,
-  payload: Inv1Payload,
+  payload: Inv1Payload | CrnPayload,
 ): Promise<NicGenerateResult> => {
   const data = await postEncryptedNic<Record<string, unknown>>(
     config,

@@ -39,6 +39,7 @@ const toPurchaseBill = (row: {
   gstAmount: { toString(): string };
   total: { toString(): string };
   paidAmount: { toString(): string };
+  debitedTotal: { toString(): string };
   status: string;
   createdAt: Date;
   vendor?: { id: string; name: string; gstNumber: string | null };
@@ -58,6 +59,7 @@ const toPurchaseBill = (row: {
   gstAmount: moneyToNumber(row.gstAmount.toString()),
   total: moneyToNumber(row.total.toString()),
   paidAmount: moneyToNumber(row.paidAmount.toString()),
+  debitedTotal: moneyToNumber(row.debitedTotal.toString()),
   status: row.status,
   createdAt: row.createdAt.toISOString(),
 });

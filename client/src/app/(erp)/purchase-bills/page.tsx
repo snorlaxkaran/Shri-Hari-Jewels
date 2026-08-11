@@ -118,14 +118,19 @@ export default function PurchaseBillsPage() {
         title="Purchase Bills"
         subtitle="Record vendor bills for Tally purchase voucher export"
         action={
-          <button
-            type="button"
-            onClick={() => setShowForm((v) => !v)}
-            className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
-          >
-            <Plus size={16} />
-            New Bill
-          </button>
+          <div className="flex gap-2">
+            <Link href="/debit-notes/issue" className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm">
+              Issue debit note
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowForm((v) => !v)}
+              className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
+            >
+              <Plus size={16} />
+              New Bill
+            </button>
+          </div>
         }
       />
 
@@ -215,6 +220,7 @@ export default function PurchaseBillsPage() {
                   <th>Paid</th>
                   <th>Status</th>
                   <th>Entry voucher</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -227,6 +233,14 @@ export default function PurchaseBillsPage() {
                     <td className="td-num">{formatCurrency(bill.paidAmount)}</td>
                     <td><StatusBadge status={bill.status} /></td>
                     <td className="td-muted">{bill.entryVoucherCode ?? "—"}</td>
+                    <td>
+                      <Link
+                        href={`/debit-notes/issue?billId=${bill.id}`}
+                        className="text-sm text-blue-600 hover:underline"
+                      >
+                        Debit note
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -39,6 +39,8 @@ export const toInvoice = (
   paymentMode: invoice.paymentMode as Invoice["paymentMode"],
   paymentRef: invoice.paymentRef ?? undefined,
   status: invoice.status as Invoice["status"],
+  creditedTotal: moneyToNumber(invoice.creditedTotal),
+  creditStatus: invoice.creditStatus,
   placeOfSupply: invoice.placeOfSupply ?? undefined,
   createdAt: invoice.createdAt.toISOString(),
   items: invoice.items.map(toInvoiceItem),

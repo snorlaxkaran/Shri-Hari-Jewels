@@ -1,75 +1,30 @@
-import type { Customer, Invoice, InvoiceItem, ShopSettings } from "../../types.js";
+import type { Customer, CreditNote, ShopSettings } from "../../types.js";
 import { gstStateCodeFromNumber } from "../invoices/gst-invoice-layout.js";
 import { moneyToNumber } from "../money.js";
 import { EinvoiceError } from "./errors.js";
+import type { Inv1Payload } from "./inv1-mapper.js";
 
-export type Inv1Payload = {
-  Version: string;
-  TranDtls: {
-    TaxSch: "GST";
-    SupTyp: "B2B";
-    RegRev: "Y" | "N";
-    IgstOnIntra: "Y" | "N";
-  };
+export type CrnPayload = Inv1Payload & {
   DocDtls: {
-    Typ: "INV" | "CRN" | "DBN";
+    Typ: "CRN";
     No: string;
     Dt: string;
   };
-  SellerDtls: {
-    Gstin: string;
-    LglNm: string;
-    TrdNm?: string;
-    Addr1: string;
-    Addr2?: string;
-    Loc: string;
-    Pin: number;
-    Stcd: string;
-    Ph?: string;
-    Em?: string;
-  };
-  BuyerDtls: {
-    Gstin: string;
-    LglNm: string;
-    TrdNm?: string;
-    Pos: string;
-    Addr1: string;
-    Addr2?: string;
-    Loc: string;
-    Pin?: number;
-    Stcd: string;
-    Ph?: string;
-    Em?: string;
-  };
-  ItemList: Array<{
-    SlNo: string;
-    PrdDesc: string;
-    IsServc: "Y" | "N";
-    HsnCd: string;
-    Qty: number;
-    Unit: string;
-    UnitPrice: number;
-    TotAmt: number;
-    Discount: number;
-    AssAmt: number;
-    GstRt: number;
-    IgstAmt: number;
-    CgstAmt: number;
-    SgstAmt: number;
-    TotItemVal: number;
-  }>;
-  ValDtls: {
-    AssVal: number;
-    CgstVal: number;
-    SgstVal: number;
-    IgstVal: number;
-    RndOffAmt: number;
-    TotInvVal: number;
+  RefDtls: {
+    InvRm: "Y";
+    PrecDocDtls: Array<{
+      InvNo: string;
+      InvDt: string;
+      InvIrn: string;
+    }>;
   };
 };
 
-export type InvoiceMappingInput = {
-  invoice: Invoice;
+export type CreditNoteMappingInput = {
+  creditNote: CreditNote;
+  originalInvoiceNo: string;
+  originalInvoiceDate: string;
+  originalIrn: string;
   settings: ShopSettings;
   customer: Pick<
     Customer,
@@ -99,11 +54,11 @@ const formatNicDate = (isoDate: string): string => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
-const normalizeDocNo = (invoiceNo: string): string => {
-  const trimmed = invoiceNo.trim().slice(0, 16);
+const normalizeDocNo = (docNo: string): string => {
+  const trimmed = docNo.trim().slice(0, 16);
   if (!/^[a-zA-Z1-9]/.test(trimmed)) {
     throw new EinvoiceError(
-      `Invoice number "${invoiceNo}" is invalid for e-Invoice (must not start with 0, /, or -).`,
+      `Credit note number "${docNo}" is invalid for e-Invoice.`,
       "INVALID_DOC_NO",
     );
   }
@@ -137,29 +92,32 @@ const resolveSellerAddress = (settings: ShopSettings) => {
 };
 
 const resolveBuyerAddress = (
-  invoice: Invoice,
-  customer: InvoiceMappingInput["customer"],
+  creditNote: CreditNote,
+  customer: CreditNoteMappingInput["customer"],
 ) => {
   const gstin = customer?.gstNumber?.trim().toUpperCase();
   if (!gstin) {
     throw new EinvoiceError(
-      "Buyer GSTIN is required for B2B e-Invoice generation.",
+      "Buyer GSTIN is required for B2B e-Invoice credit note.",
       "BUYER_GSTIN",
     );
   }
 
   const legalName = sanitizeText(
-    customer?.gstRegisteredName?.trim() || customer?.name?.trim() || invoice.customerName,
+    customer?.gstRegisteredName?.trim() || customer?.name?.trim() || creditNote.customerName,
     100,
   );
   const line1 = sanitizeText(
-    customer?.billingAddressLine1?.trim() || `${invoice.customerName} billing address`,
+    customer?.billingAddressLine1?.trim() || `${creditNote.customerName} billing address`,
     100,
   );
   const line2 = customer?.billingAddressLine2?.trim()
     ? sanitizeText(customer.billingAddressLine2, 100)
     : undefined;
-  const loc = sanitizeText(customer?.billingCity?.trim() || invoice.placeOfSupply?.trim() || "NA", 100);
+  const loc = sanitizeText(
+    customer?.billingCity?.trim() || creditNote.placeOfSupply?.trim() || "NA",
+    100,
+  );
   const stcd = gstStateCodeFromNumber(gstin) ?? "96";
   const pos =
     gstStateCodeFromNumber(gstin) ??
@@ -180,50 +138,37 @@ const resolveBuyerAddress = (
   };
 };
 
-const computeItemTax = (
-  item: InvoiceItem,
-  invoice: Invoice,
-  isIntraState: boolean,
-) => {
-  const assAmt = round2(moneyToNumber(item.amount));
-  const discount = round2(moneyToNumber(item.discount));
-  const gstRt = 3;
-  let cgstAmt = 0;
-  let sgstAmt = 0;
-  let igstAmt = 0;
-
-  if (isIntraState) {
-    cgstAmt = round2(assAmt * 0.015);
-    sgstAmt = round2(assAmt * 0.015);
-  } else {
-    igstAmt = round2(assAmt * 0.03);
-  }
-
-  return {
-    assAmt,
-    discount,
-    gstRt,
-    cgstAmt,
-    sgstAmt,
-    igstAmt,
-    totItemVal: round2(assAmt + cgstAmt + sgstAmt + igstAmt),
-  };
-};
-
-export const mapInvoiceToInv1 = (input: InvoiceMappingInput): Inv1Payload => {
-  const { invoice, settings, customer } = input;
+export const mapCreditNoteToCrn = (input: CreditNoteMappingInput): CrnPayload => {
+  const { creditNote, settings, customer, originalInvoiceNo, originalInvoiceDate, originalIrn } =
+    input;
 
   if (!settings.gstNumber?.trim()) {
     throw new EinvoiceError("Seller GSTIN is not configured.", "SELLER_GSTIN");
   }
+  if (!originalIrn.trim()) {
+    throw new EinvoiceError("Original invoice IRN is required for credit note e-Invoice.", "NO_IRN");
+  }
 
   const sellerGstin = settings.gstNumber.trim().toUpperCase();
   const sellerAddress = resolveSellerAddress(settings);
-  const buyer = resolveBuyerAddress(invoice, customer);
-  const isIntraState = invoice.igst <= 0;
+  const buyer = resolveBuyerAddress(creditNote, customer);
+  const isIntraState = creditNote.igst <= 0;
 
-  const itemList = invoice.items.map((item, index) => {
-    const tax = computeItemTax(item, invoice, isIntraState);
+  const itemList = creditNote.items.map((item, index) => {
+    const assAmt = round2(moneyToNumber(item.amount));
+    const discount = round2(moneyToNumber(item.discount));
+    const gstRt = 3;
+    let cgstAmt = 0;
+    let sgstAmt = 0;
+    let igstAmt = 0;
+
+    if (isIntraState) {
+      cgstAmt = round2(assAmt * 0.015);
+      sgstAmt = round2(assAmt * 0.015);
+    } else {
+      igstAmt = round2(assAmt * 0.03);
+    }
+
     return {
       SlNo: String(index + 1),
       PrdDesc: sanitizeText(item.productName, 300),
@@ -231,20 +176,20 @@ export const mapInvoiceToInv1 = (input: InvoiceMappingInput): Inv1Payload => {
       HsnCd: (item.hsnCode ?? "7113").replace(/\D/g, "").slice(0, 8),
       Qty: 1,
       Unit: "PCS",
-      UnitPrice: tax.assAmt,
-      TotAmt: tax.assAmt,
-      Discount: tax.discount,
-      AssAmt: tax.assAmt,
-      GstRt: tax.gstRt,
-      IgstAmt: tax.igstAmt,
-      CgstAmt: tax.cgstAmt,
-      SgstAmt: tax.sgstAmt,
-      TotItemVal: tax.totItemVal,
+      UnitPrice: assAmt,
+      TotAmt: assAmt,
+      Discount: discount,
+      AssAmt: assAmt,
+      GstRt: gstRt,
+      IgstAmt: igstAmt,
+      CgstAmt: cgstAmt,
+      SgstAmt: sgstAmt,
+      TotItemVal: round2(assAmt + cgstAmt + sgstAmt + igstAmt),
     };
   });
 
   if (itemList.length === 0) {
-    throw new EinvoiceError("Invoice has no line items.", "EMPTY_INVOICE");
+    throw new EinvoiceError("Credit note has no line items.", "EMPTY_CREDIT_NOTE");
   }
 
   return {
@@ -256,9 +201,19 @@ export const mapInvoiceToInv1 = (input: InvoiceMappingInput): Inv1Payload => {
       IgstOnIntra: "N",
     },
     DocDtls: {
-      Typ: "INV",
-      No: normalizeDocNo(invoice.invoiceNo),
-      Dt: formatNicDate(invoice.createdAt),
+      Typ: "CRN",
+      No: normalizeDocNo(creditNote.creditNoteNo),
+      Dt: formatNicDate(creditNote.createdAt),
+    },
+    RefDtls: {
+      InvRm: "Y",
+      PrecDocDtls: [
+        {
+          InvNo: normalizeDocNo(originalInvoiceNo),
+          InvDt: formatNicDate(originalInvoiceDate),
+          InvIrn: originalIrn.trim(),
+        },
+      ],
     },
     SellerDtls: {
       Gstin: sellerGstin,
@@ -286,12 +241,12 @@ export const mapInvoiceToInv1 = (input: InvoiceMappingInput): Inv1Payload => {
     },
     ItemList: itemList,
     ValDtls: {
-      AssVal: round2(moneyToNumber(invoice.taxableValue)),
-      CgstVal: round2(moneyToNumber(invoice.cgst)),
-      SgstVal: round2(moneyToNumber(invoice.sgst)),
-      IgstVal: round2(moneyToNumber(invoice.igst)),
-      RndOffAmt: round2(moneyToNumber(invoice.roundOff)),
-      TotInvVal: round2(moneyToNumber(invoice.total)),
+      AssVal: round2(moneyToNumber(creditNote.taxableValue)),
+      CgstVal: round2(moneyToNumber(creditNote.cgst)),
+      SgstVal: round2(moneyToNumber(creditNote.sgst)),
+      IgstVal: round2(moneyToNumber(creditNote.igst)),
+      RndOffAmt: round2(moneyToNumber(creditNote.roundOff)),
+      TotInvVal: round2(moneyToNumber(creditNote.total)),
     },
   };
 };

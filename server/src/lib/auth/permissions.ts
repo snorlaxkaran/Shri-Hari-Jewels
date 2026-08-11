@@ -46,6 +46,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/hallmark",
     "/sales-analytics",
     "/invoices",
+    "/credit-notes",
     "/designs",
     "/motifs",
     "/production-runs",
@@ -53,7 +54,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
   ],
   Store: ["/dashboard", "/inventory", "/stock-transfer", "/inventory/audit", "/sales", "/customers", "/repairs", "/hallmark", "/expenses"],
   Karigar: ["/dashboard", "/orders", "/work-orders", "/designs", "/motifs", "/production-runs", "/repairs", "/expenses"],
-  Accountant: ["/dashboard", "/invoices", "/sales-analytics", "/raw-inventory", "/vendors", "/purchase-bills", "/settings/tally-export", "/expenses", "/employees", "/attendance", "/payroll"],
+  Accountant: ["/dashboard", "/invoices", "/credit-notes", "/sales-analytics", "/raw-inventory", "/vendors", "/purchase-bills", "/debit-notes", "/settings/tally-export", "/expenses", "/employees", "/attendance", "/payroll"],
 };
 
 export const canAccessRoute = (role: UserRole, pathname: string): boolean => {
@@ -119,6 +120,9 @@ export const canUpdateWorkOrders = (role: UserRole): boolean =>
   role === "Admin" || role === "ProductionManager" || role === "Karigar";
 
 export const canViewInvoices = (role: UserRole): boolean =>
+  role === "Admin" || role === "SalesManager" || role === "Accountant";
+
+export const canManageCreditNotes = (role: UserRole): boolean =>
   role === "Admin" || role === "SalesManager" || role === "Accountant";
 
 export const canViewAnalytics = (role: UserRole): boolean =>

@@ -855,6 +855,7 @@ export type PurchaseBill = {
   gstAmount: number;
   total: number;
   paidAmount: number;
+  debitedTotal?: number;
   status: string;
   createdAt: string;
 };
@@ -1004,7 +1005,115 @@ export type Sale = {
   soldAt: string;
 };
 
-export type InvoiceStatus = "Paid" | "Pending";
+export type InvoiceStatus =
+  | "Paid"
+  | "Pending"
+  | "Partially Credited"
+  | "Fully Credited";
+
+export type CreditNoteReason =
+  | "SalesReturn"
+  | "PostSaleDiscount"
+  | "RateQuantityCorrection"
+  | "EInvoiceCancellationSubstitute"
+  | "Other";
+
+export type CreditNoteRefundMode =
+  | "Cash"
+  | "UPI"
+  | "BankTransfer"
+  | "AdjustFutureSale";
+
+export type CreditNoteItem = {
+  id: string;
+  invoiceItemId: string;
+  itemCode: string;
+  productName: string;
+  sku: string;
+  hsnCode?: string;
+  metal: string;
+  listPrice: number;
+  discount: number;
+  amount: number;
+  returnStock: boolean;
+};
+
+export type CreditNote = {
+  id: string;
+  creditNoteNo: string;
+  invoiceId: string;
+  invoiceNo?: string;
+  customerId?: string;
+  customerName: string;
+  customerMobile: string;
+  reason: CreditNoteReason | string;
+  reasonText?: string;
+  subtotal: number;
+  discount: number;
+  taxableValue: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  roundOff: number;
+  total: number;
+  refundMode: CreditNoteRefundMode | string;
+  refundRef?: string;
+  status: string;
+  placeOfSupply?: string;
+  createdByName: string;
+  createdAt: string;
+  items: CreditNoteItem[];
+};
+
+export type NewCreditNoteItemInput = {
+  invoiceItemId: string;
+  amount: number;
+  returnStock?: boolean;
+};
+
+export type NewCreditNoteInput = {
+  invoiceId: string;
+  reason: CreditNoteReason | string;
+  reasonText?: string;
+  refundMode: CreditNoteRefundMode | string;
+  refundRef?: string;
+  items: NewCreditNoteItemInput[];
+};
+
+export type DebitNoteReason =
+  | "VendorReturn"
+  | "BillingCorrection"
+  | "DefectiveGoods"
+  | "Other";
+
+export type DebitNote = {
+  id: string;
+  debitNoteNo: string;
+  purchaseBillId: string;
+  purchaseBillNo?: string;
+  vendorId: string;
+  vendorName?: string;
+  entryVoucherId?: string;
+  entryVoucherCode?: string;
+  reason: DebitNoteReason | string;
+  reasonText?: string;
+  subtotal: number;
+  gstAmount: number;
+  total: number;
+  status: string;
+  createdByName: string;
+  createdAt: string;
+};
+
+export type NewDebitNoteInput = {
+  purchaseBillId: string;
+  reason: DebitNoteReason | string;
+  reasonText?: string;
+  subtotal: number;
+  gstAmount?: number;
+  total: number;
+  entryVoucherId?: string;
+};
 
 export type InvoiceItem = {
   id: string;
@@ -1037,6 +1146,8 @@ export type Invoice = {
   paymentMode: PaymentMode;
   paymentRef?: string;
   status: InvoiceStatus;
+  creditedTotal?: number;
+  creditStatus?: string;
   placeOfSupply?: string;
   createdAt: string;
   items: InvoiceItem[];

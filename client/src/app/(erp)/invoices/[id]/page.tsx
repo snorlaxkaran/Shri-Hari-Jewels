@@ -183,10 +183,15 @@ export default function InvoiceDetailPage() {
         title={invoice.invoiceNo}
         subtitle={`${invoice.customerName} · ${formatCurrency(invoice.total)}`}
         action={
-          <button type="button" className="row-action-btn" onClick={handleOpenPdf}>
-            <FileText className="h-4 w-4" />
-            View PDF
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/invoices/${invoice.id}/credit-note`} className="row-action-btn">
+              Issue credit note
+            </Link>
+            <button type="button" className="row-action-btn" onClick={handleOpenPdf}>
+              <FileText className="h-4 w-4" />
+              View PDF
+            </button>
+          </div>
         }
       />
 
@@ -379,10 +384,18 @@ export default function InvoiceDetailPage() {
               ) : null}
 
               {eInvoice?.status === "Generated" && !canCancel ? (
-                <p className="text-xs text-zinc-500 pt-2 border-t">
-                  The 24-hour IRP cancellation window has passed. Issue a credit note
-                  instead.
-                </p>
+                <div className="pt-2 border-t space-y-2">
+                  <p className="text-xs text-zinc-500">
+                    The 24-hour IRP cancellation window has passed. Issue a credit note to
+                    reverse this e-invoice on GSTN.
+                  </p>
+                  <Link
+                    href={`/invoices/${invoice.id}/credit-note`}
+                    className="row-action-btn justify-center w-full"
+                  >
+                    Issue credit note
+                  </Link>
+                </div>
               ) : null}
             </div>
           </section>
