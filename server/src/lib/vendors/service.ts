@@ -73,6 +73,34 @@ export const createVendor = async (
   return toVendor(row);
 };
 
+export const resolveVendorId = async (
+  organizationId: string,
+  vendorId?: string,
+  vendorName?: string,
+): Promise<string | undefined> => {
+  if (vendorId?.trim()) {
+    const vendor = await prisma.vendor.findFirst({
+      where: { id: vendorId.trim(), organizationId },
+    });
+    if (!vendor) throw new VendorError("Vendor not found.");
+    return vendor.id;
+  }
+
+  const name = vendorName?.trim();
+  if (!name) return undefined;
+
+  const existing = await prisma.vendor.findFirst({
+    where: {
+      organizationId,
+      name: { equals: name, mode: "insensitive" },
+    },
+  });
+  if (existing) return existing.id;
+
+  const created = await createVendor(organizationId, { name });
+  return created.id;
+};
+
 export const updateVendor = async (
   id: string,
   organizationId: string,

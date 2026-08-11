@@ -23,6 +23,7 @@ type ParsedRow = {
   name?: string;
   category?: string;
   subCategory?: string;
+  categorySize?: string;
   collection?: string;
   websiteStatus?: string;
   vendor?: string;
@@ -36,6 +37,7 @@ type ParsedRow = {
   colorStone?: string;
   retailPrice?: number;
   cost?: number;
+  costPrice?: number;
   activeDate?: string;
   location?: string;
   remarks?: string;
@@ -68,6 +70,8 @@ const HEADER_ALIASES: Record<string, keyof ParsedRow> = {
   "item no/barcode": "itemCode",
   status: "status",
   "item description": "name",
+  "category size": "categorySize",
+  "size": "categorySize",
   category: "category",
   "sub-category": "subCategory",
   "sub category": "subCategory",
@@ -175,7 +179,7 @@ export const mapStockExcelRows = (
     for (const [header, value] of Object.entries(raw)) {
       const key = HEADER_ALIASES[normalizeHeader(header)];
       if (!key) continue;
-      if (key === "wtGross" || key === "wtNet" || key === "wtOther" || key === "wtStone" || key === "retailPrice" || key === "cost" || key === "makingCharges" || key === "ageingDays") {
+      if (key === "wtGross" || key === "wtNet" || key === "wtOther" || key === "wtStone" || key === "retailPrice" || key === "cost" || key === "costPrice" || key === "makingCharges" || key === "ageingDays") {
         parsed[key] = cellNumber(value);
       } else if (key === "purity") {
         parsed.purity = value as string | number;
@@ -221,6 +225,7 @@ export const mapStockExcelRows = (
       name,
       category: mapLegacyCategory(parsed.category ?? "Others"),
       subCategory: parsed.subCategory || undefined,
+      categorySize: parsed.categorySize || undefined,
       collection: parsed.collection || undefined,
       vendor: parsed.vendor || undefined,
       metal,
@@ -228,6 +233,7 @@ export const mapStockExcelRows = (
       weightGrams: weight,
       stoneName: parsed.stoneName || undefined,
       retailPrice,
+      costPrice: parsed.cost ?? parsed.costPrice,
       hsn: parsed.hsn || undefined,
       stockType: parsed.stockType || undefined,
     });

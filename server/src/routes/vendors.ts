@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { canManageAccounting } from "../lib/auth/permissions.js";
+import { canManageAccounting, canReadInventory, canWriteInventory } from "../lib/auth/permissions.js";
 import {
   createVendor,
   listVendors,
@@ -16,7 +16,7 @@ export const vendorsRouter = Router();
 vendorsRouter.use(authenticate);
 vendorsRouter.use(attachOrganization);
 
-vendorsRouter.get("/", requireRole(canManageAccounting), async (req: AuthenticatedRequest, res) => {
+vendorsRouter.get("/", requireRole(canReadInventory), async (req: AuthenticatedRequest, res) => {
   try {
     const vendors = await listVendors(req.organizationId!);
     res.json(vendors);
@@ -26,7 +26,7 @@ vendorsRouter.get("/", requireRole(canManageAccounting), async (req: Authenticat
   }
 });
 
-vendorsRouter.post("/", requireRole(canManageAccounting), async (req: AuthenticatedRequest, res) => {
+vendorsRouter.post("/", requireRole(canWriteInventory), async (req: AuthenticatedRequest, res) => {
   try {
     const vendor = await createVendor(req.organizationId!, req.body as NewVendorInput);
     res.status(201).json(vendor);

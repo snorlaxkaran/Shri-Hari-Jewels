@@ -29,9 +29,11 @@ import {
 } from "./audit.js";
 import { organizationBranchFilter, organizationTransferFromFilter, getOrganizationHeadOfficeBranchId } from "../branches/access.js";
 import { getBranchOrganizationId } from "../organizations/access.js";
-import { moneyToNumber, sumMoney } from "../money.js";
+import { moneyToNumber, sumMoney, toMoney } from "../money.js";
 import { toStockTransferDto } from "./transfer-actions.js";
 import { createEntryVoucherInTx } from "./vouchers-service.js";
+import { resolveStoneTypeIds } from "../stone-types/service.js";
+import { resolveVendorId } from "../vendors/service.js";
 
 export type EntryProductOptions = {
   entryVerification?: boolean;
@@ -262,6 +264,19 @@ export const createProduct = async (
 
   const useEntryVerification = options?.entryVerification ?? false;
 
+  const stoneTypeIds = input.stoneTypeIds?.length
+    ? await resolveStoneTypeIds(organizationId, input.stoneTypeIds)
+    : [];
+
+  if (input.vendorId) {
+    await resolveVendorId(organizationId, input.vendorId);
+  }
+
+  const costPriceDecimal =
+    input.costPrice != null && input.costPrice > 0
+      ? toMoney(input.costPrice)
+      : null;
+
   const product = await prisma.$transaction(async (tx) => {
     let voucherId = options?.voucherId;
     if (useEntryVerification && !voucherId) {
@@ -273,8 +288,14 @@ export const createProduct = async (
         organizationId,
         branchId,
         actor,
+        input.vendorId ?? null,
       );
       voucherId = voucher.id;
+    } else if (voucherId && input.vendorId) {
+      await tx.entryVoucher.update({
+        where: { id: voucherId },
+        data: { vendorId: input.vendorId },
+      });
     }
 
     const unitStatus = useEntryVerification
@@ -301,6 +322,11 @@ export const createProduct = async (
         stock: initialStock,
         status: initialProductStatus,
         imageColor: CATEGORY_COLORS[category] ?? "#a1a1aa",
+        subCategory: input.subCategory?.trim() || null,
+        categorySize: input.categorySize?.trim() || null,
+        stoneInfo: input.stoneInfo?.trim() || null,
+        hsnCode: input.hsnCode?.trim() || null,
+        productCollectionId: input.productCollectionId ?? null,
         units: {
           create: unitCodes.map((itemCode) => ({
             organizationId,
@@ -308,7 +334,16 @@ export const createProduct = async (
             itemCode,
             status: unitStatus,
             listPrice: unitListPrice,
+            costPrice: costPriceDecimal,
             voucherId: voucherId ?? null,
+            stoneTypes: stoneTypeIds.length
+              ? {
+                  create: stoneTypeIds.map((stoneTypeId, sortOrder) => ({
+                    stoneTypeId,
+                    sortOrder,
+                  })),
+                }
+              : undefined,
           })),
         },
         images: {

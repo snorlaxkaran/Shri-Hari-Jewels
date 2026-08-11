@@ -15,6 +15,10 @@ import { computeLiveListPriceForProduct } from "./unit-pricing.js";
 import { recordInventoryAudit, recordUnitsCreatedInTx } from "./audit.js";
 import { syncProductStockInTx } from "./stock-sync.js";
 import { createEntryVoucherInTx } from "./vouchers-service.js";
+import { resolveVendorId } from "../vendors/service.js";
+import { resolveStoneTypeIds } from "../stone-types/service.js";
+import { listProductCollections } from "../product-collections/service.js";
+import { toMoney } from "../money.js";
 
 export type { BulkStockImportResult, LegacyStockImportRow };
 
@@ -45,13 +49,32 @@ const deriveMakingCharges = (
   return Math.max(0, Math.round(retailPrice * 0.15 * 100) / 100);
 };
 
-const buildProductInput = (
+const buildProductInput = async (
   catalogNo: string,
   rows: LegacyStockImportRow[],
   marketRates: Awaited<ReturnType<typeof getCurrentMarketRates>>,
-): NewProductInput => {
+  organizationId: string,
+  actorName: string,
+): Promise<NewProductInput> => {
   const first = rows[0];
   const stoneSuffix = first.stoneName ? ` (${first.stoneName})` : "";
+
+  let productCollectionId: string | undefined;
+  if (first.collection?.trim()) {
+    const collections = await listProductCollections(organizationId, false);
+    const match = collections.find(
+      (item) => item.name.toLowerCase() === first.collection!.trim().toLowerCase(),
+    );
+    productCollectionId = match?.id;
+  }
+
+  const vendorId = first.vendor
+    ? await resolveVendorId(organizationId, undefined, first.vendor)
+    : undefined;
+
+  const stoneTypeIds = first.stoneName
+    ? await resolveStoneTypeIds(organizationId, undefined, [first.stoneName], actorName)
+    : [];
 
   return {
     name: first.name.trim() + stoneSuffix,
@@ -71,6 +94,13 @@ const buildProductInput = (
     images: [],
     catalogNo,
     itemCodes: rows.map((row) => row.itemCode),
+    subCategory: first.subCategory,
+    categorySize: first.categorySize,
+    hsnCode: first.hsn,
+    productCollectionId,
+    vendorId,
+    stoneTypeIds,
+    costPrice: first.costPrice,
   };
 };
 
@@ -101,8 +131,13 @@ export const importLegacyStock = async (
   let voucherCode: string | undefined;
 
   if (actor) {
+    const firstVendor = rows.find((row) => row.vendor?.trim())?.vendor;
+    const vendorId = firstVendor
+      ? await resolveVendorId(organizationId, undefined, firstVendor)
+      : undefined;
+
     const voucher = await prisma.$transaction(async (tx) =>
-      createEntryVoucherInTx(tx, organizationId, branchId, actor),
+      createEntryVoucherInTx(tx, organizationId, branchId, actor, vendorId ?? null),
     );
     voucherId = voucher.id;
     voucherCode = voucher.voucherCode;
@@ -141,6 +176,16 @@ export const importLegacyStock = async (
           marketRates,
         );
 
+        const firstRow = newRows[0];
+        const stoneTypeIds = firstRow?.stoneName
+          ? await resolveStoneTypeIds(
+              organizationId,
+              undefined,
+              [firstRow.stoneName],
+              actor?.name ?? "System",
+            )
+          : [];
+
         await prisma.$transaction(async (tx) => {
           const rowsData = newRows.map((row) => ({
             organizationId,
@@ -151,6 +196,10 @@ export const importLegacyStock = async (
               ? InventoryUnitStatus.PendingVerification
               : InventoryUnitStatus.Available,
             listPrice: row.retailPrice ?? unitListPrice,
+            costPrice:
+              row.costPrice != null && row.costPrice > 0
+                ? toMoney(row.costPrice)
+                : null,
             voucherId: voucherId ?? null,
           }));
 
@@ -163,6 +212,19 @@ export const importLegacyStock = async (
             },
             select: { id: true, itemCode: true },
           });
+
+          if (stoneTypeIds.length) {
+            await tx.inventoryUnitStoneType.createMany({
+              data: createdUnits.flatMap((unit) =>
+                stoneTypeIds.map((stoneTypeId, sortOrder) => ({
+                  unitId: unit.id,
+                  stoneTypeId,
+                  sortOrder,
+                })),
+              ),
+              skipDuplicates: true,
+            });
+          }
 
           if (actor) {
             await recordUnitsCreatedInTx(
@@ -189,7 +251,13 @@ export const importLegacyStock = async (
         continue;
       }
 
-      const input = buildProductInput(catalogNo, groupRows, marketRates);
+      const input = await buildProductInput(
+        catalogNo,
+        groupRows,
+        marketRates,
+        organizationId,
+        actor?.name ?? "System",
+      );
       await createProduct(input, branchId, actor, entryOptions);
       created += 1;
       unitsAdded += groupRows.length;

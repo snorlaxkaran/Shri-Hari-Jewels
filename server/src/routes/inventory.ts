@@ -1,9 +1,12 @@
 import { Router } from "express";
+import { StoneTypeError } from "../lib/stone-types/service.js";
+import { VendorError } from "../lib/vendors/service.js";
 import {
   canDeleteProduct,
   canManageStockTransfers,
   canReadInventory,
   canReceiveStockTransfers,
+  canViewCostPrice,
   canViewStockTransfers,
   canWriteInventory,
 } from "../lib/auth/permissions.js";
@@ -167,12 +170,15 @@ inventoryRouter.post(
       }
 
       const branchId = await getUserBranch(req.user!.id, req.organizationId!);
+      const role = req.user!.role;
+      const sanitizedInput: NewProductInput = {
+        ...input,
+        images: input.images ?? [],
+        costPrice: canViewCostPrice(role) ? input.costPrice : undefined,
+      };
 
       const product = await createProduct(
-        {
-          ...input,
-          images: input.images ?? [],
-        },
+        sanitizedInput,
         branchId,
         { id: req.user!.id, name: req.user!.name },
         { entryVerification: true },
@@ -180,6 +186,10 @@ inventoryRouter.post(
       res.status(201).json(product);
     } catch (error) {
       if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      if (error instanceof VendorError || error instanceof StoneTypeError) {
         res.status(error.statusCode).json({ error: error.message });
         return;
       }
@@ -204,7 +214,12 @@ inventoryRouter.post(
       }
 
       const branchId = await getUserBranch(req.user!.id, req.organizationId!);
-      const result = await importLegacyStock(rows, branchId, {
+      const role = req.user!.role;
+      const sanitizedRows = canViewCostPrice(role)
+        ? rows
+        : rows.map((row) => ({ ...row, costPrice: undefined }));
+
+      const result = await importLegacyStock(sanitizedRows, branchId, {
         id: req.user!.id,
         name: req.user!.name,
       });

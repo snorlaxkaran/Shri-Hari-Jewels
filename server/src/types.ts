@@ -278,6 +278,14 @@ export type NewProductInput = {
   catalogNo?: string;
   /** Barcode / item codes — one per unit when importing legacy stock */
   itemCodes?: string[];
+  subCategory?: string;
+  categorySize?: string;
+  stoneInfo?: string;
+  hsnCode?: string;
+  productCollectionId?: string;
+  vendorId?: string;
+  stoneTypeIds?: string[];
+  costPrice?: number;
 };
 
 export type LegacyStockImportRow = {
@@ -286,6 +294,7 @@ export type LegacyStockImportRow = {
   name: string;
   category: string;
   subCategory?: string;
+  categorySize?: string;
   collection?: string;
   vendor?: string;
   metal: string;
@@ -293,6 +302,7 @@ export type LegacyStockImportRow = {
   weightGrams: number;
   stoneName?: string;
   retailPrice: number;
+  costPrice?: number;
   hsn?: string;
   stockType?: string;
 };

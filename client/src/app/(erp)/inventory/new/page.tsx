@@ -8,7 +8,7 @@ import PageHeader from "@/app/(components)/PageHeader";
 import ImageUpload from "@/app/(components)/ImageUpload";
 import StockExcelImport from "@/app/(components)/inventory/StockExcelImport";
 import { useAuth } from "@/lib/auth/auth-context";
-import { canWriteInventory } from "@/lib/auth/permissions";
+import { canViewCostPrice, canWriteInventory } from "@/lib/auth/permissions";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import {
   HSN_OPTIONS,
@@ -17,6 +17,10 @@ import {
   STOCK_SUB_CATEGORIES,
   stockCategories,
 } from "@/lib/inventory/stock-import";
+import {
+  CATEGORY_SIZES,
+  categoryHasSizeOptions,
+} from "@/lib/inventory/category-sizes";
 import type { ProductCategory } from "@/lib/inventory/categories";
 import { generateSku, generateUnitCodes } from "@/lib/inventory/sku";
 import type { PendingImage } from "@/lib/inventory/images";
@@ -26,8 +30,17 @@ import {
   createProductCollection,
   fetchProductCollections,
 } from "@/lib/api/product-collections";
+import { createVendor, fetchVendors } from "@/lib/api/vendors";
+import { createStoneType, fetchStoneTypes } from "@/lib/api/stone-types";
 import { getApiErrorMessage } from "@/lib/api/client";
-import type { MarketRatesCurrent, MetalType, ProductCollection, Purity } from "@/lib/types";
+import type {
+  MarketRatesCurrent,
+  MetalType,
+  ProductCollection,
+  Purity,
+  StoneType,
+  Vendor,
+} from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 
 const fieldClass = "input-field w-full px-3 py-2 text-sm";
@@ -61,18 +74,27 @@ export default function NewStockPage() {
   const { user } = useAuth();
   const { items, addProduct, refresh } = useInventory();
   const canAdd = user ? canWriteInventory(user.role) : false;
+  const canSeeCostPrice = user ? canViewCostPrice(user.role) : false;
 
   const [metal, setMetal] = useState<MetalType>("Silver");
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
   const [catalogNo, setCatalogNo] = useState("");
   const [description, setDescription] = useState("");
-  const [stones, setStones] = useState("");
+  const [stoneTypeIds, setStoneTypeIds] = useState<string[]>([]);
   const [stoneInfo, setStoneInfo] = useState("");
-  const [supplier, setSupplier] = useState("");
+  const [vendorId, setVendorId] = useState("");
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [showVendorForm, setShowVendorForm] = useState(false);
+  const [newVendorName, setNewVendorName] = useState("");
+  const [vendorSubmitting, setVendorSubmitting] = useState(false);
+  const [stoneTypes, setStoneTypes] = useState<StoneType[]>([]);
+  const [showStoneTypeForm, setShowStoneTypeForm] = useState(false);
+  const [newStoneTypeName, setNewStoneTypeName] = useState("");
+  const [stoneTypeSubmitting, setStoneTypeSubmitting] = useState(false);
   const [category, setCategory] = useState<ProductCategory>("Others");
   const [subCategory, setSubCategory] = useState("");
   const [categorySize, setCategorySize] = useState("");
-  const [collection, setCollection] = useState("");
+  const [collectionId, setCollectionId] = useState("");
   const [collections, setCollections] = useState<ProductCollection[]>([]);
   const [showCollectionForm, setShowCollectionForm] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState("");
@@ -83,6 +105,7 @@ export default function NewStockPage() {
   const [purity, setPurity] = useState<Purity>("925");
   const [makingCharges, setMakingCharges] = useState("");
   const [price, setPrice] = useState("");
+  const [costPrice, setCostPrice] = useState("");
   const [images, setImages] = useState<PendingImage[]>([]);
   const [rates, setRates] = useState<MarketRatesCurrent | null>(null);
   const [error, setError] = useState("");
@@ -105,6 +128,36 @@ export default function NewStockPage() {
       .catch(() => setCollections([]));
   }, []);
 
+  useEffect(() => {
+    fetchVendors()
+      .then(setVendors)
+      .catch(() => setVendors([]));
+  }, []);
+
+  useEffect(() => {
+    fetchStoneTypes()
+      .then(setStoneTypes)
+      .catch(() => setStoneTypes([]));
+  }, []);
+
+  const categorySizeOptions = CATEGORY_SIZES[category] ?? [];
+  const showCategorySize = categoryHasSizeOptions(category);
+
+  useEffect(() => {
+    if (!showCategorySize) {
+      setCategorySize("");
+      return;
+    }
+    if (categorySize && !categorySizeOptions.includes(categorySize)) {
+      setCategorySize("");
+    }
+  }, [category, categorySize, categorySizeOptions, showCategorySize]);
+
+  const selectedStoneTypes = useMemo(
+    () => stoneTypes.filter((type) => stoneTypeIds.includes(type.id)),
+    [stoneTypes, stoneTypeIds],
+  );
+
   const handleAddCollection = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = newCollectionName.trim();
@@ -119,7 +172,7 @@ export default function NewStockPage() {
           a.name.localeCompare(b.name),
         ),
       );
-      setCollection(created.name);
+      setCollectionId(created.id);
       setNewCollectionName("");
       setShowCollectionForm(false);
     } catch (err) {
@@ -127,6 +180,62 @@ export default function NewStockPage() {
     } finally {
       setCollectionSubmitting(false);
     }
+  };
+
+  const handleAddVendor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newVendorName.trim();
+    if (!trimmed) return;
+
+    setVendorSubmitting(true);
+    setError("");
+    try {
+      const created = await createVendor({ name: trimmed });
+      setVendors((prev) =>
+        [...prev.filter((item) => item.id !== created.id), created].sort((a, b) =>
+          a.name.localeCompare(b.name),
+        ),
+      );
+      setVendorId(created.id);
+      setNewVendorName("");
+      setShowVendorForm(false);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to add vendor."));
+    } finally {
+      setVendorSubmitting(false);
+    }
+  };
+
+  const handleAddStoneType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newStoneTypeName.trim();
+    if (!trimmed) return;
+
+    setStoneTypeSubmitting(true);
+    setError("");
+    try {
+      const created = await createStoneType({ name: trimmed });
+      setStoneTypes((prev) =>
+        [...prev.filter((item) => item.id !== created.id), created].sort((a, b) =>
+          a.name.localeCompare(b.name),
+        ),
+      );
+      setStoneTypeIds((prev) =>
+        prev.includes(created.id) ? prev : [...prev, created.id],
+      );
+      setNewStoneTypeName("");
+      setShowStoneTypeForm(false);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to add stone type."));
+    } finally {
+      setStoneTypeSubmitting(false);
+    }
+  };
+
+  const toggleStoneType = (id: string) => {
+    setStoneTypeIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
   };
 
   const existingSkus = useMemo(() => items.map((i) => i.sku), [items]);
@@ -152,6 +261,14 @@ export default function NewStockPage() {
     if (!weight) return null;
     return computeLivePrice(weight, metal, purity, rates);
   }, [weightGrams, metal, purity, rates]);
+
+  const marginPreview = useMemo(() => {
+    if (!canSeeCostPrice) return null;
+    const retail = parseFloat(price || String(livePrice ?? ""));
+    const cost = parseFloat(costPrice);
+    if (!retail || !cost || cost <= 0) return null;
+    return Math.round((retail - cost) * 100) / 100;
+  }, [canSeeCostPrice, price, costPrice, livePrice]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,10 +315,12 @@ export default function NewStockPage() {
 
     const fullName = [
       description.trim(),
-      stones.trim() ? `[${stones.trim()}]` : "",
+      selectedStoneTypes.length
+        ? `[${selectedStoneTypes.map((type) => type.name).join(", ")}]`
+        : "",
       stoneInfo.trim() ? `— ${stoneInfo.trim()}` : "",
       subCategory ? `(${subCategory})` : "",
-      collection ? `{${collection}}` : "",
+      categorySize ? `Size ${categorySize}` : "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -219,6 +338,14 @@ export default function NewStockPage() {
         quantity: qty,
         images: images.map(({ id, url, name }) => ({ id, url, name })),
         catalogNo: !autoGenerateSku && manualSku ? manualSku : undefined,
+        subCategory: subCategory || undefined,
+        categorySize: categorySize || undefined,
+        stoneInfo: stoneInfo.trim() || undefined,
+        hsnCode: hsn || undefined,
+        productCollectionId: collectionId || undefined,
+        vendorId: vendorId || undefined,
+        stoneTypeIds: stoneTypeIds.length ? stoneTypeIds : undefined,
+        costPrice: canSeeCostPrice && costPrice ? parseFloat(costPrice) : undefined,
       });
       await refresh({ silent: true });
       router.push("/inventory");
@@ -346,14 +473,68 @@ export default function NewStockPage() {
             </div>
 
             <div>
-              <label className={labelClass}>Stones (multiple)</label>
-              <input
-                type="text"
-                value={stones}
-                onChange={(e) => setStones(e.target.value)}
-                placeholder="Pearl, Glass…"
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className={labelClass}>Stones (multiple)</label>
+                {canAdd && (
+                  <button
+                    type="button"
+                    onClick={() => setShowStoneTypeForm((prev) => !prev)}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    {showStoneTypeForm ? "Cancel" : "+ Add stone type"}
+                  </button>
+                )}
+              </div>
+              {showStoneTypeForm && canAdd && (
+                <form onSubmit={handleAddStoneType} className="mb-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={newStoneTypeName}
+                    onChange={(e) => setNewStoneTypeName(e.target.value)}
+                    placeholder="New stone type name"
+                    className={fieldClass}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={stoneTypeSubmitting || !newStoneTypeName.trim()}
+                    className="btn-primary px-3 py-2 text-sm whitespace-nowrap disabled:opacity-50"
+                  >
+                    {stoneTypeSubmitting ? "Saving…" : "Save"}
+                  </button>
+                </form>
+              )}
+              {selectedStoneTypes.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {selectedStoneTypes.map((type) => (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => toggleStoneType(type.id)}
+                      className="text-xs px-2 py-1 rounded-full bg-zinc-200 text-zinc-700 hover:bg-zinc-300"
+                    >
+                      {type.name} ×
+                    </button>
+                  ))}
+                </div>
+              )}
+              <select
+                value=""
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (id) toggleStoneType(id);
+                }}
                 className={fieldClass}
-              />
+              >
+                <option value="">Add stone type…</option>
+                {stoneTypes
+                  .filter((type) => !stoneTypeIds.includes(type.id))
+                  .map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+              </select>
             </div>
           </div>
 
@@ -370,14 +551,49 @@ export default function NewStockPage() {
             </div>
 
             <div>
-              <label className={labelClass}>Supplier</label>
-              <input
-                type="text"
-                value={supplier}
-                onChange={(e) => setSupplier(e.target.value)}
-                placeholder="Vendor name"
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className={labelClass}>Vendor</label>
+                {canAdd && (
+                  <button
+                    type="button"
+                    onClick={() => setShowVendorForm((prev) => !prev)}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    {showVendorForm ? "Cancel" : "+ Add vendor"}
+                  </button>
+                )}
+              </div>
+              {showVendorForm && canAdd && (
+                <form onSubmit={handleAddVendor} className="mb-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={newVendorName}
+                    onChange={(e) => setNewVendorName(e.target.value)}
+                    placeholder="New vendor name"
+                    className={fieldClass}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={vendorSubmitting || !newVendorName.trim()}
+                    className="btn-primary px-3 py-2 text-sm whitespace-nowrap disabled:opacity-50"
+                  >
+                    {vendorSubmitting ? "Saving…" : "Save"}
+                  </button>
+                </form>
+              )}
+              <select
+                value={vendorId}
+                onChange={(e) => setVendorId(e.target.value)}
                 className={fieldClass}
-              />
+              >
+                <option value="">Choose …</option>
+                {vendors.map((vendor) => (
+                  <option key={vendor.id} value={vendor.id}>
+                    {vendor.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -413,16 +629,23 @@ export default function NewStockPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-            <div>
-              <label className={labelClass}>Category Size</label>
-              <input
-                type="text"
-                value={categorySize}
-                onChange={(e) => setCategorySize(e.target.value)}
-                placeholder="Size"
-                className={fieldClass}
-              />
-            </div>
+            {showCategorySize && (
+              <div>
+                <label className={labelClass}>Category Size</label>
+                <select
+                  value={categorySize}
+                  onChange={(e) => setCategorySize(e.target.value)}
+                  className={fieldClass}
+                >
+                  <option value="">Choose …</option>
+                  {categorySizeOptions.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div>
               <div className="flex items-center justify-between gap-2 mb-1">
@@ -457,13 +680,13 @@ export default function NewStockPage() {
                 </form>
               )}
               <select
-                value={collection}
-                onChange={(e) => setCollection(e.target.value)}
+                value={collectionId}
+                onChange={(e) => setCollectionId(e.target.value)}
                 className={fieldClass}
               >
                 <option value="">Choose …</option>
                 {collections.map((item) => (
-                  <option key={item.id} value={item.name}>
+                  <option key={item.id} value={item.id}>
                     {item.name}
                   </option>
                 ))}
@@ -471,14 +694,14 @@ export default function NewStockPage() {
             </div>
 
             <div>
-              <label className={labelClass}>Weight</label>
+              <label className={labelClass}>Net Weight (g)</label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={weightGrams}
                 onChange={(e) => setWeightGrams(e.target.value)}
-                placeholder="Weight"
+                placeholder="Net weight"
                 className={fieldClass}
               />
             </div>
@@ -512,7 +735,11 @@ export default function NewStockPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div
+            className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${
+              canSeeCostPrice ? "xl:grid-cols-5" : "xl:grid-cols-4"
+            }`}
+          >
             <div>
               <label className={labelClass}>Purity</label>
               <select
@@ -540,6 +767,20 @@ export default function NewStockPage() {
               />
             </div>
 
+            {canSeeCostPrice && (
+              <div>
+                <label className={labelClass}>Cost Price (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={costPrice}
+                  onChange={(e) => setCostPrice(e.target.value)}
+                  placeholder="Optional"
+                  className={fieldClass}
+                />
+              </div>
+            )}
+
             <div>
               <label className={labelClass}>Retail / List Price (₹)</label>
               <input
@@ -551,6 +792,17 @@ export default function NewStockPage() {
                 className={fieldClass}
               />
             </div>
+
+            {marginPreview != null && (
+              <div className="flex items-end">
+                <p className="text-xs text-zinc-500 pb-2">
+                  Margin:{" "}
+                  <span className="font-medium text-zinc-700">
+                    {formatCurrency(marginPreview)}
+                  </span>
+                </p>
+              </div>
+            )}
           </div>
 
           <div>

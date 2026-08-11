@@ -95,6 +95,59 @@ export const createStoneType = async (
   return toStoneType(created);
 };
 
+export const resolveStoneTypeIds = async (
+  organizationId: string,
+  stoneTypeIds?: string[],
+  stoneNames?: string[],
+  createdByName = "System",
+): Promise<string[]> => {
+  const ids = new Set<string>();
+
+  if (stoneTypeIds?.length) {
+    const types = await prisma.stoneType.findMany({
+      where: {
+        organizationId,
+        id: { in: stoneTypeIds },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    if (types.length !== stoneTypeIds.length) {
+      throw new StoneTypeError("One or more stone types not found.");
+    }
+    for (const type of types) ids.add(type.id);
+  }
+
+  if (stoneNames?.length) {
+    await ensureDefaultStoneTypes(organizationId, createdByName);
+    for (const raw of stoneNames) {
+      const parts = raw.split(/[,;/]+/).map((part) => part.trim()).filter(Boolean);
+      for (const name of parts) {
+        const existing = await prisma.stoneType.findFirst({
+          where: {
+            organizationId,
+            name: { equals: name, mode: "insensitive" },
+          },
+        });
+        if (existing) {
+          if (!existing.isActive) {
+            await prisma.stoneType.update({
+              where: { id: existing.id },
+              data: { isActive: true },
+            });
+          }
+          ids.add(existing.id);
+          continue;
+        }
+        const created = await createStoneType({ name }, organizationId, createdByName);
+        ids.add(created.id);
+      }
+    }
+  }
+
+  return [...ids];
+};
+
 export const resolveStoneTypeName = async (
   organizationId: string,
   stoneTypeId?: string,

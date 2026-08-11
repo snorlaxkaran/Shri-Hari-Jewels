@@ -4,7 +4,7 @@ import {
   createStoneType,
   listStoneTypes,
 } from "../lib/stone-types/service.js";
-import { canReadRawInventory, canWriteRawInventory } from "../lib/auth/permissions.js";
+import { canReadInventory, canWriteInventory } from "../lib/auth/permissions.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
 import { attachOrganization } from "../middleware/organization.js";
 import type { NewStoneTypeInput } from "../types.js";
@@ -14,7 +14,7 @@ export const stoneTypesRouter = Router();
 stoneTypesRouter.use(authenticate);
 stoneTypesRouter.use(attachOrganization);
 
-stoneTypesRouter.get("/", requireRole(canReadRawInventory), async (req: AuthenticatedRequest, res) => {
+stoneTypesRouter.get("/", requireRole(canReadInventory), async (req: AuthenticatedRequest, res) => {
   try {
     const activeOnly = req.query.activeOnly !== "false";
     const types = await listStoneTypes(req.organizationId!, activeOnly);
@@ -25,7 +25,7 @@ stoneTypesRouter.get("/", requireRole(canReadRawInventory), async (req: Authenti
   }
 });
 
-stoneTypesRouter.post("/", requireRole(canWriteRawInventory), async (req: AuthenticatedRequest, res) => {
+stoneTypesRouter.post("/", requireRole(canWriteInventory), async (req: AuthenticatedRequest, res) => {
   try {
     const type = await createStoneType(
       req.body as NewStoneTypeInput,

@@ -75,6 +75,7 @@ export const createEntryVoucherInTx = async (
   organizationId: string,
   branchId: string,
   actor: EntryVoucherActor,
+  vendorId?: string | null,
 ): Promise<{ id: string; voucherCode: string }> => {
   const voucherCode = await nextEntryVoucherCode(tx, organizationId);
   const voucher = await tx.entryVoucher.create({
@@ -85,6 +86,7 @@ export const createEntryVoucherInTx = async (
       createdByUserId: actor.id,
       createdByName: actor.name,
       status: EntryVoucherStatus.Pending,
+      vendorId: vendorId ?? null,
     },
     select: { id: true, voucherCode: true },
   });

@@ -218,6 +218,10 @@ export const canManageStockAudit = (role: UserRole): boolean =>
 export const canManageAccounting = (role: UserRole): boolean =>
   role === "Admin" || role === "Accountant";
 
+/** Cost price on stock entry — commercially sensitive margin data. */
+export const canViewCostPrice = (role: UserRole): boolean =>
+  canManageAccounting(role);
+
 export const canViewExpenses = (role: UserRole): boolean =>
   role === "Admin" ||
   role === "ProductionManager" ||
