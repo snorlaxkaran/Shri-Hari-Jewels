@@ -247,6 +247,26 @@ export type BulkStockImportResult = {
   voucherCode?: string;
 };
 
+/** One sheet row of "Change Collection through SKU". */
+export type BulkCollectionChangeRow = {
+  sku: string;
+  currentCollection?: string;
+  newCollection: string;
+};
+
+/** One sheet row of "Change SKU through Item Code". */
+export type BulkSkuChangeRow = {
+  itemCode: string;
+  newSku: string;
+};
+
+export type BulkUpdateResult = {
+  updated: number;
+  unchanged: number;
+  productsCreated: number;
+  errors: string[];
+};
+
 export type UpdateProductInput = {
   name?: string;
   category?: string;

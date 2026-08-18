@@ -5,6 +5,7 @@ import {
   ClipboardCheck,
   Diamond,
   Factory,
+  FileSpreadsheet,
   FileText,
   Gem,
   Home,
@@ -136,6 +137,11 @@ export const navSections: NavSection[] = [
       { label: "Payroll", href: "/payroll", icon: icon(Banknote) },
       { label: "Settings", href: "/settings", icon: icon(Settings) },
       { label: "Rename SKU", href: "/settings/sku-rename", icon: icon(Tags) },
+      {
+        label: "Bulk updates",
+        href: "/settings/bulk-updates",
+        icon: icon(FileSpreadsheet),
+      },
     ],
   },
 ];
@@ -241,6 +247,7 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname.startsWith("/payroll/")) return "Payroll Run";
   if (pathname === "/payroll") return "Payroll";
   if (pathname === "/settings/sku-rename") return "Rename SKU";
+  if (pathname === "/settings/bulk-updates") return "Bulk updates";
   if (pathname === "/settings/dropdown-options") return "Dropdown options";
   if (pathname === "/settings/tally-export") return "Tally Export";
   if (pathname === "/production-runs/new") return "New Production Run";

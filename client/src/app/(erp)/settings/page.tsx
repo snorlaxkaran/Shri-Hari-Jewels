@@ -150,21 +150,28 @@ export default function SettingsPage() {
       )}
 
       {isAdmin && (
-        <div className="surface-card p-5 mb-6 max-w-2xl">
+        <div className="surface-card settings-dropdown-options-card p-5 mb-6 max-w-2xl">
           <h2 className="text-sm font-semibold text-zinc-900 mb-1">Inventory admin</h2>
-          <p className="text-sm text-zinc-500 mb-3">
-            Rename catalog SKUs or manage dropdown lists used on stock entry (metal, purity,
-            sub-category, sizes).
+          <p className="text-sm text-zinc-600 mb-3">
+            Rename catalog SKUs, apply collection and SKU changes from an Excel sheet, or manage
+            all dropdown lists (metal, purity, sub-category, ring & bangle sizes). You can also use
+            the red <strong>+ Add</strong> buttons on stock entry.
           </p>
           <div className="flex flex-wrap gap-2">
             <Link href="/settings/sku-rename" className="btn-secondary inline-flex px-4 py-2 text-sm">
               Rename SKU
             </Link>
             <Link
-              href="/settings/dropdown-options"
+              href="/settings/bulk-updates"
               className="btn-secondary inline-flex px-4 py-2 text-sm"
             >
-              Dropdown options
+              Bulk updates from Excel
+            </Link>
+            <Link
+              href="/settings/dropdown-options"
+              className="dropdown-add-btn inline-flex items-center px-4 py-2 text-sm"
+            >
+              Manage dropdown options
             </Link>
           </div>
         </div>

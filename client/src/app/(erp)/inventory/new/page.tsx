@@ -8,7 +8,7 @@ import PageHeader from "@/app/(components)/PageHeader";
 import ImageUpload from "@/app/(components)/ImageUpload";
 import StockExcelImport from "@/app/(components)/inventory/StockExcelImport";
 import { useAuth } from "@/lib/auth/auth-context";
-import { canViewCostPrice, canWriteInventory } from "@/lib/auth/permissions";
+import { canManageSettings, canViewCostPrice, canWriteInventory } from "@/lib/auth/permissions";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import {
   HSN_OPTIONS,
@@ -119,6 +119,7 @@ export default function NewStockPage() {
   const { items, addProduct, refresh } = useInventory();
   const canAdd = user ? canWriteInventory(user.role) : false;
   const canSeeCostPrice = user ? canViewCostPrice(user.role) : false;
+  const isAdmin = user ? canManageSettings(user.role) : false;
 
   const [metal, setMetal] = useState<MetalType>("Silver");
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
@@ -140,6 +141,15 @@ export default function NewStockPage() {
   const [showSubCategoryForm, setShowSubCategoryForm] = useState(false);
   const [newSubCategory, setNewSubCategory] = useState("");
   const [subCategorySubmitting, setSubCategorySubmitting] = useState(false);
+  const [showMetalForm, setShowMetalForm] = useState(false);
+  const [newMetal, setNewMetal] = useState("");
+  const [metalSubmitting, setMetalSubmitting] = useState(false);
+  const [showPurityForm, setShowPurityForm] = useState(false);
+  const [newPurity, setNewPurity] = useState("");
+  const [puritySubmitting, setPuritySubmitting] = useState(false);
+  const [showCategorySizeForm, setShowCategorySizeForm] = useState(false);
+  const [newCategorySize, setNewCategorySize] = useState("");
+  const [categorySizeSubmitting, setCategorySizeSubmitting] = useState(false);
   const [dropdownOptions, setDropdownOptions] = useState<DropdownOption[]>([]);
   const [categorySize, setCategorySize] = useState("");
   const [collectionId, setCollectionId] = useState("");
@@ -286,6 +296,46 @@ export default function NewStockPage() {
       setError(getApiErrorMessage(err, "Failed to add sub category."));
     } finally {
       setSubCategorySubmitting(false);
+    }
+  };
+
+  const mergeDropdownOption = (created: DropdownOption) => {
+    setDropdownOptions((prev) =>
+      [...prev.filter((item) => item.id !== created.id), created].sort(
+        (a, b) =>
+          a.fieldKey.localeCompare(b.fieldKey) ||
+          a.sortOrder - b.sortOrder ||
+          a.value.localeCompare(b.value),
+      ),
+    );
+  };
+
+  const handleAddDropdownOption = async (
+    e: React.FormEvent,
+    fieldKey: string,
+    rawValue: string,
+    setSubmitting: (value: boolean) => void,
+    onAdded: (value: string) => void,
+    closeForm: () => void,
+    clearInput: () => void,
+    errorLabel: string,
+  ) => {
+    e.preventDefault();
+    const trimmed = rawValue.trim();
+    if (!trimmed) return;
+
+    setSubmitting(true);
+    setError("");
+    try {
+      const created = await createDropdownOption({ fieldKey, value: trimmed });
+      mergeDropdownOption(created);
+      onAdded(created.value);
+      clearInput();
+      closeForm();
+    } catch (err) {
+      setError(getApiErrorMessage(err, errorLabel));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -567,7 +617,51 @@ export default function NewStockPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
             <div>
-              <label className={labelClass}>Metal</label>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className={labelClass}>Metal</label>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowMetalForm((prev) => !prev)}
+                    className="dropdown-add-btn"
+                  >
+                    {showMetalForm ? "Cancel" : "+ Add metal"}
+                  </button>
+                )}
+              </div>
+              {showMetalForm && isAdmin && (
+                <form
+                  onSubmit={(e) =>
+                    void handleAddDropdownOption(
+                      e,
+                      DROPDOWN_FIELD_KEYS.metal,
+                      newMetal,
+                      setMetalSubmitting,
+                      (value) => setMetal(value as MetalType),
+                      () => setShowMetalForm(false),
+                      () => setNewMetal(""),
+                      "Failed to add metal type.",
+                    )
+                  }
+                  className="dropdown-add-panel"
+                >
+                  <input
+                    type="text"
+                    value={newMetal}
+                    onChange={(e) => setNewMetal(e.target.value)}
+                    placeholder="New metal type"
+                    className={fieldClass}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={metalSubmitting || !newMetal.trim()}
+                    className="dropdown-add-panel-save"
+                  >
+                    {metalSubmitting ? "Saving…" : "Save"}
+                  </button>
+                </form>
+              )}
               <select
                 value={metal}
                 onChange={(e) => setMetal(e.target.value as MetalType)}
@@ -779,14 +873,14 @@ export default function NewStockPage() {
                   <button
                     type="button"
                     onClick={() => setShowSubCategoryForm((prev) => !prev)}
-                    className="text-xs text-blue-600 hover:underline"
+                    className="dropdown-add-btn"
                   >
                     {showSubCategoryForm ? "Cancel" : "+ Add sub category"}
                   </button>
                 )}
               </div>
               {showSubCategoryForm && canAdd && (
-                <form onSubmit={handleAddSubCategory} className="mb-2 flex gap-2">
+                <form onSubmit={handleAddSubCategory} className="dropdown-add-panel">
                   <input
                     type="text"
                     value={newSubCategory}
@@ -798,7 +892,7 @@ export default function NewStockPage() {
                   <button
                     type="submit"
                     disabled={subCategorySubmitting || !newSubCategory.trim()}
-                    className="btn-primary px-3 py-2 text-sm whitespace-nowrap disabled:opacity-50"
+                    className="dropdown-add-panel-save"
                   >
                     {subCategorySubmitting ? "Saving…" : "Save"}
                   </button>
@@ -850,7 +944,51 @@ export default function NewStockPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
             {showCategorySize && (
               <div>
-                <label className={labelClass}>Category Size</label>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label className={labelClass}>Category Size</label>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCategorySizeForm((prev) => !prev)}
+                      className="dropdown-add-btn"
+                    >
+                      {showCategorySizeForm ? "Cancel" : "+ Add size"}
+                    </button>
+                  )}
+                </div>
+                {showCategorySizeForm && isAdmin && (
+                  <form
+                    onSubmit={(e) =>
+                      void handleAddDropdownOption(
+                        e,
+                        categorySizeFieldKey(category),
+                        newCategorySize,
+                        setCategorySizeSubmitting,
+                        setCategorySize,
+                        () => setShowCategorySizeForm(false),
+                        () => setNewCategorySize(""),
+                        "Failed to add size.",
+                      )
+                    }
+                    className="dropdown-add-panel"
+                  >
+                    <input
+                      type="text"
+                      value={newCategorySize}
+                      onChange={(e) => setNewCategorySize(e.target.value)}
+                      placeholder="New size value"
+                      className={fieldClass}
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      disabled={categorySizeSubmitting || !newCategorySize.trim()}
+                      className="dropdown-add-panel-save"
+                    >
+                      {categorySizeSubmitting ? "Saving…" : "Save"}
+                    </button>
+                  </form>
+                )}
                 <select
                   value={categorySize}
                   onChange={(e) => setCategorySize(e.target.value)}
@@ -960,7 +1098,51 @@ export default function NewStockPage() {
             }`}
           >
             <div>
-              <label className={labelClass}>Purity</label>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className={labelClass}>Purity</label>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPurityForm((prev) => !prev)}
+                    className="dropdown-add-btn"
+                  >
+                    {showPurityForm ? "Cancel" : "+ Add purity"}
+                  </button>
+                )}
+              </div>
+              {showPurityForm && isAdmin && (
+                <form
+                  onSubmit={(e) =>
+                    void handleAddDropdownOption(
+                      e,
+                      DROPDOWN_FIELD_KEYS.purity,
+                      newPurity,
+                      setPuritySubmitting,
+                      (value) => setPurity(value as Purity),
+                      () => setShowPurityForm(false),
+                      () => setNewPurity(""),
+                      "Failed to add purity grade.",
+                    )
+                  }
+                  className="dropdown-add-panel"
+                >
+                  <input
+                    type="text"
+                    value={newPurity}
+                    onChange={(e) => setNewPurity(e.target.value)}
+                    placeholder="New purity grade"
+                    className={fieldClass}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={puritySubmitting || !newPurity.trim()}
+                    className="dropdown-add-panel-save"
+                  >
+                    {puritySubmitting ? "Saving…" : "Save"}
+                  </button>
+                </form>
+              )}
               <select
                 value={purity}
                 onChange={(e) => setPurity(e.target.value as Purity)}

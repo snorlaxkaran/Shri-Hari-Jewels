@@ -320,6 +320,30 @@ export type BulkStockImportResult = {
   voucherCode?: string;
 };
 
+/** One sheet row of "Change Collection through SKU". */
+export type BulkCollectionChangeRow = {
+  sku: string;
+  /** Verified against the SKU's actual collection before applying. Accepts id or name. */
+  currentCollection?: string;
+  /** Target collection, accepts id or name. */
+  newCollection: string;
+};
+
+/** One sheet row of "Change SKU through Item Code". */
+export type BulkSkuChangeRow = {
+  itemCode: string;
+  newSku: string;
+};
+
+export type BulkUpdateResult = {
+  updated: number;
+  /** Rows that already matched the requested value, so nothing was written. */
+  unchanged: number;
+  /** SKUs created because the target did not exist yet (SKU change only). */
+  productsCreated: number;
+  errors: string[];
+};
+
 export type UpdateProductInput = {
   name?: string;
   category?: string;

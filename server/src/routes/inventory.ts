@@ -34,6 +34,10 @@ import { HallmarkError } from "../lib/hallmark/errors.js";
 import { canManageHallmark } from "../lib/auth/permissions.js";
 import { getItemCodeHistory } from "../lib/inventory/item-history-service.js";
 import { importLegacyStock } from "../lib/inventory/stock-import.js";
+import {
+  bulkChangeProductCollections,
+  bulkChangeUnitSkus,
+} from "../lib/inventory/bulk-updates.js";
 import { createDocumentShareToken } from "../lib/invoices/share-token.js";
 import {
   acceptStockTransfer,
@@ -61,6 +65,8 @@ import { attachOrganization } from "../middleware/organization.js";
 import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
 import { routeParam } from "../lib/route-param.js";
 import type {
+  BulkCollectionChangeRow,
+  BulkSkuChangeRow,
   CreateStockTransferInput,
   LegacyStockImportRow,
   NewProductInput,
@@ -231,6 +237,58 @@ inventoryRouter.post(
       }
       console.error("POST /api/inventory/import", error);
       res.status(500).json({ error: "Failed to import stock" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/bulk/collection-change",
+  requireRole((role) => role === "Admin"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const rows = Array.isArray(req.body?.rows)
+        ? (req.body.rows as BulkCollectionChangeRow[])
+        : [];
+
+      const result = await bulkChangeProductCollections(
+        rows.filter((row) => row?.sku?.trim() && row?.newCollection?.trim()),
+        req.organizationId!,
+        { id: req.user!.id, name: req.user!.name },
+      );
+      res.json(result);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/inventory/bulk/collection-change", error);
+      res.status(500).json({ error: "Failed to change collections" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/bulk/sku-change",
+  requireRole((role) => role === "Admin"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const rows = Array.isArray(req.body?.rows)
+        ? (req.body.rows as BulkSkuChangeRow[])
+        : [];
+
+      const result = await bulkChangeUnitSkus(
+        rows.filter((row) => row?.itemCode?.trim() && row?.newSku?.trim()),
+        req.organizationId!,
+        { id: req.user!.id, name: req.user!.name },
+      );
+      res.json(result);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/inventory/bulk/sku-change", error);
+      res.status(500).json({ error: "Failed to change SKUs" });
     }
   },
 );

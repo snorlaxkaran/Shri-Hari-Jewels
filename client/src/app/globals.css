@@ -648,6 +648,59 @@ select.filter-select:focus {
   cursor: not-allowed;
 }
 
+/* Inline “add dropdown option” controls — high visibility on stock entry */
+.dropdown-add-btn {
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #ffffff;
+  background-color: #dc2626;
+  border: 1px solid #b91c1c;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dropdown-add-btn:hover {
+  background-color: #b91c1c;
+}
+
+.dropdown-add-panel {
+  margin-bottom: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #fca5a5;
+  background-color: #fee2e2;
+  padding: 0.5rem;
+}
+
+.dropdown-add-panel-save {
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ffffff;
+  background-color: #dc2626;
+  border: 1px solid #b91c1c;
+  white-space: nowrap;
+}
+
+.dropdown-add-panel-save:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.dropdown-add-panel-save:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.settings-dropdown-options-card {
+  background-color: #fee2e2;
+  border-color: #fca5a5;
+}
+
 .btn-danger {
   background-color: var(--color-danger);
   color: #ffffff;

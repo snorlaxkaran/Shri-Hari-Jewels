@@ -1,5 +1,8 @@
 import type {
+  BulkCollectionChangeRow,
+  BulkSkuChangeRow,
   BulkStockImportResult,
+  BulkUpdateResult,
   InventoryItem,
   ItemCodeHistory,
   LegacyStockImportRow,
@@ -97,6 +100,30 @@ export const renameProductSku = async (
   const { data } = await api.patch<InventoryItem>(
     `/api/inventory/${productId}/sku`,
     { newSku },
+  );
+  return data;
+};
+
+const BULK_UPDATE_TIMEOUT_MS = 120000;
+
+export const bulkChangeCollections = async (
+  rows: BulkCollectionChangeRow[],
+): Promise<BulkUpdateResult> => {
+  const { data } = await api.post<BulkUpdateResult>(
+    "/api/inventory/bulk/collection-change",
+    { rows },
+    { timeout: BULK_UPDATE_TIMEOUT_MS },
+  );
+  return data;
+};
+
+export const bulkChangeUnitSkus = async (
+  rows: BulkSkuChangeRow[],
+): Promise<BulkUpdateResult> => {
+  const { data } = await api.post<BulkUpdateResult>(
+    "/api/inventory/bulk/sku-change",
+    { rows },
+    { timeout: BULK_UPDATE_TIMEOUT_MS },
   );
   return data;
 };
