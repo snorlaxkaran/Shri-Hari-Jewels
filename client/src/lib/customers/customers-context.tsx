@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -14,6 +13,7 @@ import {
   fetchCustomers,
   updateCustomer as updateCustomerApi,
 } from "@/lib/api/customers";
+import { useLazyProviderLoad } from "@/lib/use-lazy-provider-load";
 
 type CustomersContextValue = {
   customers: Customer[];
@@ -30,7 +30,7 @@ const CustomersContext = createContext<CustomersContextValue | null>(null);
 export function CustomersProvider({ children }: { children: React.ReactNode }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -46,10 +46,6 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
       setHydrated(true);
     }
   }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   const addCustomer = useCallback(async (input: NewCustomerInput) => {
     const customer = await createCustomerApi(input);
@@ -93,5 +89,8 @@ export const useCustomers = () => {
   if (!ctx) {
     throw new Error("useCustomers must be used within CustomersProvider");
   }
+  useLazyProviderLoad(() => {
+    void ctx.refresh();
+  });
   return ctx;
 };

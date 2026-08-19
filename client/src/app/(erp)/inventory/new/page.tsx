@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { LogOut } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import ImageUpload from "@/app/(components)/ImageUpload";
-import StockExcelImport from "@/app/(components)/inventory/StockExcelImport";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canManageSettings, canViewCostPrice, canWriteInventory } from "@/lib/auth/permissions";
 import { useInventory } from "@/lib/inventory/inventory-context";
@@ -54,6 +54,11 @@ import {
   resolveMakingChargesPct,
   resolveMarketRateForProduct,
 } from "@/lib/pricing/b2b-price";
+
+const StockExcelImport = dynamic(
+  () => import("@/app/(components)/inventory/StockExcelImport"),
+  { ssr: false, loading: () => null },
+);
 
 const fieldClass = "input-field w-full px-3 py-2 text-sm";
 const labelClass = "text-xs block mb-1 text-zinc-500 font-medium uppercase tracking-wide";

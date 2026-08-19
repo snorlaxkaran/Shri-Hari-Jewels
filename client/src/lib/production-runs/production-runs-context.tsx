@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -21,6 +20,7 @@ import {
   updateProductionRun as updateProductionRunApi,
   updateProductionRunItem as updateProductionRunItemApi,
 } from "@/lib/api/production-runs";
+import { useLazyProviderLoad } from "@/lib/use-lazy-provider-load";
 
 type ProductionRunsContextValue = {
   productionRuns: ProductionRun[];
@@ -51,7 +51,7 @@ export function ProductionRunsProvider({
 }) {
   const [productionRuns, setProductionRuns] = useState<ProductionRun[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -67,10 +67,6 @@ export function ProductionRunsProvider({
       setHydrated(true);
     }
   }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   const addProductionRun = useCallback(async (input: NewProductionRunInput) => {
     const run = await createProductionRunApi(input);
@@ -148,5 +144,8 @@ export const useProductionRuns = () => {
       "useProductionRuns must be used within ProductionRunsProvider",
     );
   }
+  useLazyProviderLoad(() => {
+    void ctx.refresh();
+  });
   return ctx;
 };

@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -20,6 +19,7 @@ import {
   fetchSalesAnalytics,
   recordSale as recordSaleApi,
 } from "@/lib/api/sales";
+import { useLazyProviderLoad } from "@/lib/use-lazy-provider-load";
 
 type SalesContextValue = {
   analytics: SalesAnalytics | null;
@@ -40,7 +40,7 @@ const SalesContext = createContext<SalesContextValue | null>(null);
 export function SalesProvider({ children }: { children: React.ReactNode }) {
   const [analytics, setAnalytics] = useState<SalesAnalytics | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -56,10 +56,6 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
       setHydrated(true);
     }
   }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   const recordSale = useCallback(
     async (input: RecordSaleInput) => {
@@ -118,5 +114,8 @@ export const useSales = () => {
   if (!ctx) {
     throw new Error("useSales must be used within SalesProvider");
   }
+  useLazyProviderLoad(() => {
+    void ctx.refresh();
+  });
   return ctx;
 };

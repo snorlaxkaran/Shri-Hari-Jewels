@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -14,6 +13,7 @@ import {
   fetchOrders,
   updateOrder as updateOrderApi,
 } from "@/lib/api/orders";
+import { useLazyProviderLoad } from "@/lib/use-lazy-provider-load";
 
 type OrdersContextValue = {
   orders: Order[];
@@ -30,7 +30,7 @@ const OrdersContext = createContext<OrdersContextValue | null>(null);
 export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -46,10 +46,6 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       setHydrated(true);
     }
   }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   const addOrder = useCallback(async (input: NewOrderInput) => {
     const order = await createOrderApi(input);
@@ -86,5 +82,8 @@ export const useOrders = () => {
   if (!ctx) {
     throw new Error("useOrders must be used within OrdersProvider");
   }
+  useLazyProviderLoad(() => {
+    void ctx.refresh();
+  });
   return ctx;
 };

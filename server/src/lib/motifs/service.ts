@@ -286,17 +286,7 @@ export const listMotifs = async (
     orderBy: [{ subCategory: "asc" }, { name: "asc" }],
   });
 
-  const motifs: Motif[] = [];
-  for (const row of rows) {
-    const price = await ensureMotifPriceCurrent(row, organizationId);
-    motifs.push(
-      toMotif({
-        ...row,
-        price: { toString: () => String(price) },
-      }),
-    );
-  }
-  return motifs;
+  return rows.map((row) => toMotif(row));
 };
 
 export const getMotif = async (id: string, organizationId: string): Promise<Motif> => {

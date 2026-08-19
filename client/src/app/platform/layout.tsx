@@ -1,11 +1,16 @@
 "use client";
 
 import AuthGuard from "@/app/(components)/AuthGuard";
+import { AuthShell } from "@/app/(components)/AuthShell";
 
 export default function PlatformLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AuthGuard>{children}</AuthGuard>;
+  return (
+    <AuthShell>
+      <AuthGuard>{children}</AuthGuard>
+    </AuthShell>
+  );
 }

@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -18,6 +17,7 @@ import {
   fetchWorkOrders,
   updateWorkOrder as updateWorkOrderApi,
 } from "@/lib/api/work-orders";
+import { useLazyProviderLoad } from "@/lib/use-lazy-provider-load";
 
 type WorkOrdersContextValue = {
   workOrders: WorkOrder[];
@@ -41,7 +41,7 @@ export function WorkOrdersProvider({
 }) {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -57,10 +57,6 @@ export function WorkOrdersProvider({
       setHydrated(true);
     }
   }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   const addWorkOrder = useCallback(async (input: NewWorkOrderInput) => {
     const workOrder = await createWorkOrderApi(input);
@@ -112,5 +108,8 @@ export const useWorkOrders = () => {
   if (!ctx) {
     throw new Error("useWorkOrders must be used within WorkOrdersProvider");
   }
+  useLazyProviderLoad(() => {
+    void ctx.refresh();
+  });
   return ctx;
 };

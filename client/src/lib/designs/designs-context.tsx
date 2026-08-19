@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -24,6 +23,7 @@ import {
   updateDesign as updateDesignApi,
   updateDesignElement as updateDesignElementApi,
 } from "@/lib/api/designs";
+import { useLazyProviderLoad } from "@/lib/use-lazy-provider-load";
 
 type DesignsContextValue = {
   designs: Design[];
@@ -51,7 +51,7 @@ const DesignsContext = createContext<DesignsContextValue | null>(null);
 export function DesignsProvider({ children }: { children: React.ReactNode }) {
   const [designs, setDesigns] = useState<Design[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -67,10 +67,6 @@ export function DesignsProvider({ children }: { children: React.ReactNode }) {
       setHydrated(true);
     }
   }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   const addDesign = useCallback(async (input: NewDesignInput) => {
     const design = await createDesignApi(input);
@@ -168,5 +164,8 @@ export const useDesigns = () => {
   if (!ctx) {
     throw new Error("useDesigns must be used within DesignsProvider");
   }
+  useLazyProviderLoad(() => {
+    void ctx.refresh();
+  });
   return ctx;
 };

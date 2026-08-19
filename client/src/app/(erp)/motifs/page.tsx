@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { Trash2 } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
-import MotifExcelImport from "@/app/(components)/motifs/MotifExcelImport";
 import MotifPriceDriftBanner from "@/app/(components)/motifs/MotifPriceDriftBanner";
 import MotifImageUpload from "@/app/(components)/motifs/MotifImageUpload";
 import MotifStoneRows, {
@@ -26,6 +26,11 @@ import {
   MOTIF_SUB_CATEGORIES,
   puritiesForMotifMetal,
 } from "@/lib/motifs/constants";
+
+const MotifExcelImport = dynamic(
+  () => import("@/app/(components)/motifs/MotifExcelImport"),
+  { ssr: false, loading: () => null },
+);
 import type {
   Motif,
   MotifMetal,

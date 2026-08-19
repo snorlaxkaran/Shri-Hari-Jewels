@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -36,6 +35,7 @@ import {
   updateCertifiedStoneLot as updateCertifiedStoneLotApi,
   updateMetalLot as updateMetalLotApi,
 } from "@/lib/api/raw-inventory";
+import { useLazyProviderLoad } from "@/lib/use-lazy-provider-load";
 
 type RawInventoryContextValue = {
   metalLots: MetalLot[];
@@ -81,7 +81,7 @@ export function RawInventoryProvider({ children }: { children: React.ReactNode }
   const [auditLogs, setAuditLogs] = useState<RawStockAuditLog[]>([]);
   const [summary, setSummary] = useState<RawInventorySummary | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refreshAudit = useCallback(
@@ -113,10 +113,6 @@ export function RawInventoryProvider({ children }: { children: React.ReactNode }
       setHydrated(true);
     }
   }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   const addMetalLot = useCallback(async (input: NewMetalLotInput) => {
     const lot = await createMetalLotApi(input);
@@ -253,5 +249,8 @@ export const useRawInventory = () => {
   if (!ctx) {
     throw new Error("useRawInventory must be used within RawInventoryProvider");
   }
+  useLazyProviderLoad(() => {
+    void ctx.refresh();
+  });
   return ctx;
 };

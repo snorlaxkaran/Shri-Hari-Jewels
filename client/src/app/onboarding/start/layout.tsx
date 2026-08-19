@@ -1,4 +1,5 @@
 import { buildPageMetadata } from "@/lib/seo/metadata";
+import { AuthShell } from "@/app/(components)/AuthShell";
 
 export const metadata = buildPageMetadata({
   title: "Start Free Trial — Jewellery ERP",
@@ -9,5 +10,5 @@ export const metadata = buildPageMetadata({
 });
 
 export default function TrialStartLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <AuthShell>{children}</AuthShell>;
 }

@@ -165,6 +165,10 @@ app.use(
 
 app.use(express.json({ limit: "10mb" }));
 
+app.get("/api/health/live", (_req, res) => {
+  res.status(200).json({ status: "ok", service: "shri-hari-jewels-api" });
+});
+
 app.get("/api/health", async (_req, res) => {
   const payload = await getHealthPayload();
   res.status(payload.database.persistent ? 200 : 503).json({
@@ -244,5 +248,8 @@ app.listen(port, () => {
   logger.info({ port }, "API running");
   startScheduledJobs();
   startLeadReminderJob();
-  void syncMotifPricesOnStartup();
+  // Defer motif price sync so cold-start API requests are not competing for DB pool.
+  setTimeout(() => {
+    void syncMotifPricesOnStartup();
+  }, 60_000);
 });

@@ -11,7 +11,6 @@ import MotifCard from "@/app/(components)/designs/MotifCard";
 import AddMotifCard from "@/app/(components)/designs/AddMotifCard";
 import SkuDesignList from "@/app/(components)/designs/SkuDesignList";
 import BomDiffModal from "@/app/(components)/designs/BomDiffModal";
-import DesignBomImport from "@/app/(components)/designs/DesignBomImport";
 import DesignPriceDriftPanel from "@/app/(components)/designs/DesignPriceDriftPanel";
 import DesignHistoryPanel from "@/app/(components)/designs/DesignHistoryPanel";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -41,6 +40,11 @@ import { getApiErrorMessage } from "@/lib/api/client";
 const AddMotifModal = dynamic(
   () => import("@/app/(components)/designs/AddMotifModal"),
   { ssr: false },
+);
+
+const DesignBomImport = dynamic(
+  () => import("@/app/(components)/designs/DesignBomImport"),
+  { ssr: false, loading: () => null },
 );
 
 const CATEGORIES: DesignCategory[] = [

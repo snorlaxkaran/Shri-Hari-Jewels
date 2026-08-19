@@ -24,6 +24,7 @@ import {
   transferInventoryUnits as transferInventoryUnitsApi,
   updateProduct as updateProductApi,
 } from "@/lib/api/inventory";
+import { useLazyProviderLoad } from "@/lib/use-lazy-provider-load";
 
 const AUTO_REFRESH_MS = 5 * 60_000;
 
@@ -93,7 +94,7 @@ const InventoryContext = createContext<InventoryContextValue | null>(null);
 export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hydratedRef = useRef(false);
 
@@ -118,10 +119,8 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (!hydrated) return;
 
-  useEffect(() => {
     const interval = window.setInterval(
       () => refresh({ silent: true }),
       AUTO_REFRESH_MS,
@@ -130,7 +129,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     return () => {
       window.clearInterval(interval);
     };
-  }, [refresh]);
+  }, [hydrated, refresh]);
 
   const markUnitsSold = useCallback((itemCodes: string[]) => {
     setItems((prev) => patchUnitsStatus(prev, itemCodes, "Sold"));
@@ -242,5 +241,8 @@ export const useInventory = () => {
   if (!ctx) {
     throw new Error("useInventory must be used within InventoryProvider");
   }
+  useLazyProviderLoad(() => {
+    void ctx.refresh();
+  });
   return ctx;
 };
