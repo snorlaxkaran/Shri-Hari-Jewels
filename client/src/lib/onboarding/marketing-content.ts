@@ -1,5 +1,11 @@
 export const ANNOUNCEMENTS = [
   {
+    id: "jaipur",
+    label: "Jaipur jewellers",
+    detail: "Best jewellery ERP for Rajasthan →",
+    href: "/onboarding/jewellery-erp-jaipur",
+  },
+  {
     id: "trial",
     label: "2-month free trial",
     detail: "No credit card · Start today",
@@ -255,6 +261,10 @@ export const FAQ_ITEMS = [
     q: "Can my CA still use Tally?",
     a: "Yes. Export purchase, sales, and GST summaries for Tally import. Many jewellers run daily operations here and hand monthly exports to their CA.",
   },
+  {
+    q: "Is this available for jewellers in Jaipur and Rajasthan?",
+    a: "Yes. Shri Hari Jewels is cloud-based and works anywhere in India. We have a dedicated page for Jaipur jewellers with local setup guidance — see our Jewellery ERP in Jaipur page.",
+  },
 ] as const;
 
 export const FOOTER_LINKS = {
@@ -269,6 +279,9 @@ export const FOOTER_LINKS = {
     { label: "Procurement", href: "/onboarding/modules/procurement" },
     { label: "Back office", href: "/onboarding/modules/backoffice" },
   ],
+  locations: [
+    { label: "Jewellery ERP in Jaipur", href: "/onboarding/jewellery-erp-jaipur" },
+  ],
   product: [
     { label: "Features", href: "#features" },
     { label: "Modules", href: "#modules" },
@@ -282,3 +295,70 @@ export const FOOTER_LINKS = {
     { label: "Request demo", href: "#request-demo" },
   ],
 } as const;
+
+export const JAIPUR_HERO = {
+  eyebrow: "Jaipur · Rajasthan · India",
+  title: "Best jewellery ERP software for Jaipur jewellers",
+  subtitle: "Built for Johari Bazaar showrooms, Sitapura manufacturers & multi-branch houses",
+  tagline:
+    "Piece-level inventory, HUID tracking, karigar production, GST billing, and a synced online store — cloud-based, Hindi-friendly setup, 2-month free trial.",
+} as const;
+
+export const JAIPUR_WHY = [
+  {
+    title: "Made for Jaipur's jewellery trade",
+    body: "Whether you run a retail counter on MI Road, a manufacturing unit in Sitapura, or a wholesale house serving Johari Bazaar — manage stock, billing, hallmark, and production in one system.",
+  },
+  {
+    title: "GST & Rajasthan compliance",
+    body: "Generate GST-compliant invoices with live gold rates, export summaries for your CA, and keep hallmark / HUID records audit-ready for BIS inspections.",
+  },
+  {
+    title: "Faster than Tally-only billing",
+    body: "Tally handles ledgers; Shri Hari Jewels handles piece-level stock, karigar settlements, branch transfers, and counter billing — then exports to Tally when your CA needs it.",
+  },
+  {
+    title: "Start in minutes, not months",
+    body: "No heavy ERP implementation. Sign up with your mobile, complete guided setup, and go live with inventory and billing — free for 2 months, no credit card.",
+  },
+] as const;
+
+export const JAIPUR_AREAS = [
+  "Johari Bazaar",
+  "MI Road",
+  "Sitapura Industrial Area",
+  "Raja Park",
+  "Mansarovar",
+  "Vaishali Nagar",
+  "Malviya Nagar",
+  "Bapu Bazaar",
+  "Chandpole",
+  "Tonk Road",
+] as const;
+
+export const JAIPUR_FAQ_ITEMS = [
+  {
+    q: "Which is the best jewellery ERP software in Jaipur?",
+    a: "Shri Hari Jewels is built specifically for Indian jewellers — piece-level inventory, HUID tracking, karigar production, GST billing, and an integrated online store. Unlike generic ERP software in Jaipur, it is designed for showroom counters, manufacturing floors, and multi-branch jewellery houses.",
+  },
+  {
+    q: "Is Shri Hari Jewels better than Tally for jewellery shops in Jaipur?",
+    a: "For daily jewellery operations — piece tracking, hallmark batches, live gold-rate billing, and production runs — yes. Tally remains excellent for accounting; many Jaipur jewellers run operations here and export monthly data for their CA's Tally books.",
+  },
+  {
+    q: "Do you support HUID and BIS hallmark tracking?",
+    a: "Yes. Link hallmark batches to individual pieces, run entry verification, and filter stock by HUID status — essential for Jaipur showrooms and manufacturers during audits.",
+  },
+  {
+    q: "Can manufacturers in Sitapura use the production module?",
+    a: "Yes. Track wax, casting, setting, polish, and QC on a live board. Work orders link customer orders to the shop floor; karigar settlements record labour and weight per stage.",
+  },
+  {
+    q: "How much does jewellery ERP cost in Jaipur?",
+    a: "Start with a 2-month free trial — full access to inventory, sales, production, reports, storefront, and multi-branch. No credit card required. Contact us for pricing after the trial.",
+  },
+  {
+    q: "Can I manage multiple showrooms across Rajasthan?",
+    a: "Yes. Create branches for Jaipur, Udaipur, Jodhpur, or Delhi; send scan-based stock transfers with proforma challans and verify incoming stock at each location.",
+  },
+] as const;

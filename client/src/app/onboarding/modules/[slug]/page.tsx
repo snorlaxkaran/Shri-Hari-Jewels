@@ -9,6 +9,7 @@ import {
   SHOWCASE_MODULES,
   getShowcaseModule,
 } from "@/lib/onboarding/modules-showcase";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -20,10 +21,17 @@ export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
   const mod = getShowcaseModule(slug);
   if (!mod) return { title: "Module not found" };
-  return {
-    title: `${mod.label} — Shri Hari Jewels`,
+  return buildPageMetadata({
+    title: `${mod.label} — Jewellery ERP Module`,
     description: mod.detail.intro,
-  };
+    path: `/onboarding/modules/${mod.id}`,
+    keywords: [
+      mod.label.toLowerCase(),
+      "jewellery ERP",
+      "jewellery software India",
+    ],
+    ogImage: mod.screenshot,
+  });
 }
 
 export default async function ModuleDetailPage({ params }: Props) {

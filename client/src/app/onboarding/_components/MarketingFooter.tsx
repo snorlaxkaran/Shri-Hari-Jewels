@@ -5,7 +5,7 @@ import { FOOTER_LINKS } from "@/lib/onboarding/marketing-content";
 export function MarketingFooter() {
   return (
     <footer className="mkt-footer">
-      <div className="mkt-shell-wide grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
+      <div className="mkt-shell-wide grid sm:grid-cols-2 lg:grid-cols-5 gap-10">
         <div>
           <Link href="/onboarding" className="mkt-brand">
             <span className="mkt-brand-mark">
@@ -39,6 +39,19 @@ export function MarketingFooter() {
                 <a href={link.href} className="mkt-footer-link">
                   {link.label}
                 </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <p className="mkt-eyebrow mb-3">Locations</p>
+          <ul className="space-y-2">
+            {FOOTER_LINKS.locations.map((link) => (
+              <li key={link.href}>
+                <Link href={link.href} className="mkt-footer-link">
+                  {link.label}
+                </Link>
               </li>
             ))}
           </ul>

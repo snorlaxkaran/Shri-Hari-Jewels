@@ -4,17 +4,29 @@ import { Minus, Plus } from "lucide-react";
 import { useState } from "react";
 import { FAQ_ITEMS } from "@/lib/onboarding/marketing-content";
 
-export function FAQSection() {
+type FaqItem = { q: string; a: string };
+
+type Props = {
+  items?: readonly FaqItem[];
+  title?: string;
+  eyebrow?: string;
+};
+
+export function FAQSection({
+  items = FAQ_ITEMS,
+  title = "Frequently asked questions",
+  eyebrow = "Got a query?",
+}: Props) {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
     <section className="mkt-section">
       <div className="mkt-shell max-w-2xl">
-        <p className="mkt-eyebrow text-center">Got a query?</p>
-        <h2 className="mkt-display mkt-section-title mt-3">Frequently asked questions</h2>
+        <p className="mkt-eyebrow text-center">{eyebrow}</p>
+        <h2 className="mkt-display mkt-section-title mt-3">{title}</h2>
 
         <div className="mkt-faq mt-10">
-          {FAQ_ITEMS.map((item, i) => {
+          {items.map((item, i) => {
             const isOpen = openIndex === i;
             return (
               <div key={item.q}>

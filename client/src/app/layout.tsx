@@ -2,13 +2,11 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import DashboardWrapper from "./dashboardWrapper";
+import { rootSiteMetadata } from "@/lib/seo/metadata";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
-export const metadata: Metadata = {
-  title: "Jewellery ERP",
-  description: "Multi-company jewellery inventory, orders, and business management",
-};
+export const metadata: Metadata = rootSiteMetadata;
 
 export default function RootLayout({
   children,

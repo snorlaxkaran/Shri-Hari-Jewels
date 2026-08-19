@@ -1,6 +1,8 @@
-import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
 
+import { buildPageMetadata } from "@/lib/seo/metadata";
+import { organizationSchema, softwareApplicationSchema } from "@/lib/seo/schemas";
+import { JsonLd } from "@/lib/seo/json-ld";
 import "@/styles/erpnext-auth.css";
 import "@/styles/marketing-premium.css";
 
@@ -16,11 +18,21 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "Shri Hari Jewels · Jewellery ERP + Online Store",
+export const metadata = buildPageMetadata({
+  title: "Jewellery ERP Software for Indian Jewellers",
   description:
-    "Piece-level inventory, production floor, GST billing, and a synced online store — built for Indian jewellers.",
-};
+    "Piece-level inventory, karigar production, GST billing, HUID tracking, and a synced online store — built for retail showrooms, manufacturers, and wholesalers across India.",
+  path: "/onboarding",
+  keywords: [
+    "jewellery ERP",
+    "jewellery software India",
+    "jewellery billing software",
+    "HUID tracking software",
+    "GST billing for jewellers",
+    "jewellery inventory management",
+    "karigar production software",
+  ],
+});
 
 export default function OnboardingLayout({
   children,
@@ -31,6 +43,7 @@ export default function OnboardingLayout({
     <div
       className={`${inter.variable} ${fraunces.variable} min-h-screen antialiased`}
     >
+      <JsonLd data={[softwareApplicationSchema(), organizationSchema()]} />
       {children}
     </div>
   );
