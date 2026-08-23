@@ -16,7 +16,7 @@ import {
   destroyIntegrationContext,
   type IntegrationContext,
 } from "./fixtures.js";
-import { ensureIntegrationSchema, integrationTestsReady, isIntegrationDbAvailable } from "./setup.js";
+import { integrationTestsReady, isIntegrationDbAvailable } from "./setup.js";
 
 describe.skipIf(!isIntegrationDbAvailable())(
   "integration: retail sale",
