@@ -9,12 +9,13 @@ export default function LiveSalesSummary() {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
   useEffect(() => {
+    if (!analytics) return;
     setUpdatedAt(new Date());
     const interval = setInterval(() => {
-      void refresh().then(() => setUpdatedAt(new Date()));
+      void refresh({ silent: true }).then(() => setUpdatedAt(new Date()));
     }, 120_000);
     return () => clearInterval(interval);
-  }, [refresh]);
+  }, [refresh, analytics]);
 
   const todaySales = analytics?.stats?.todaySalesCount ?? 0;
   const todayRevenue = analytics?.stats?.todaySales ?? 0;

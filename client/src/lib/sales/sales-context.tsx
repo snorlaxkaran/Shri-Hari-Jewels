@@ -4,7 +4,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type {
@@ -26,7 +28,8 @@ type SalesContextValue = {
   hydrated: boolean;
   loading: boolean;
   error: string | null;
-  refresh: () => Promise<void>;
+  refresh: (options?: { silent?: boolean }) => Promise<void>;
+  ensureLoaded: () => void;
   recordSale: (input: RecordSaleInput) => Promise<RecordSaleResult>;
   confirmSalePayment: (
     saleId: string,
@@ -42,9 +45,14 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hydratedRef = useRef(false);
+  const loadStartedRef = useRef(false);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent && hydratedRef.current;
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const data = await fetchSalesAnalytics();
@@ -52,10 +60,27 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
     } catch {
       setError("Could not load sales data. Is the backend running?");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
+      hydratedRef.current = true;
       setHydrated(true);
     }
   }, []);
+
+  const ensureLoaded = useCallback(() => {
+    if (loadStartedRef.current) return;
+    loadStartedRef.current = true;
+    void refresh();
+  }, [refresh]);
+
+  useEffect(
+    () => () => {
+      loadStartedRef.current = false;
+      hydratedRef.current = false;
+    },
+    [],
+  );
 
   const recordSale = useCallback(
     async (input: RecordSaleInput) => {
@@ -88,6 +113,7 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
       loading,
       error,
       refresh,
+      ensureLoaded,
       recordSale,
       confirmSalePayment,
       cancelPendingSale,
@@ -98,6 +124,7 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
       loading,
       error,
       refresh,
+      ensureLoaded,
       recordSale,
       confirmSalePayment,
       cancelPendingSale,
@@ -115,7 +142,7 @@ export const useSales = () => {
     throw new Error("useSales must be used within SalesProvider");
   }
   useLazyProviderLoad(() => {
-    void ctx.refresh();
+    ctx.ensureLoaded();
   });
   return ctx;
 };

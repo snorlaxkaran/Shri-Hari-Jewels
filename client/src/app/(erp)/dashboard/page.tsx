@@ -25,7 +25,7 @@ const DashboardCharts = dynamic(
 );
 
 export default function DashboardPage() {
-  const { analytics, hydrated, loading, error } = useSales();
+  const { analytics, hydrated, error } = useSales();
   const [hallmarkPending, setHallmarkPending] = useState<number | null>(null);
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function DashboardPage() {
       .catch(() => setHallmarkPending(null));
   }, []);
 
-  if (!hydrated || loading) {
+  if (!hydrated) {
     return <PageSkeleton />;
   }
 
