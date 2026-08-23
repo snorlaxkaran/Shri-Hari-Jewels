@@ -260,6 +260,16 @@ export type BulkSkuChangeRow = {
   newSku: string;
 };
 
+/** One sheet row of bulk item updates from Central Stock. Blank cells are skipped. */
+export type BulkItemUpdateRow = {
+  itemCode: string;
+  newSku?: string;
+  newPrice?: number;
+  newCost?: number;
+  newWeight?: number;
+  newDescription?: string;
+};
+
 export type BulkUpdateResult = {
   updated: number;
   unchanged: number;
@@ -1473,6 +1483,10 @@ export type StoneType = {
 
 export type NewStoneTypeInput = {
   name: string;
+};
+
+export type UpdateStoneTypeInput = {
+  isActive?: boolean;
 };
 
 export type StoneRateBasis = "Pcs" | "Carat";

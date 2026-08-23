@@ -1,6 +1,6 @@
 import { prisma } from "../db.js";
 import { DEFAULT_STONE_TYPE_NAMES } from "./defaults.js";
-import type { StoneType, NewStoneTypeInput } from "../../types.js";
+import type { StoneType, NewStoneTypeInput, UpdateStoneTypeInput } from "../../types.js";
 
 export class StoneTypeError extends Error {
   constructor(
@@ -93,6 +93,25 @@ export const createStoneType = async (
     },
   });
   return toStoneType(created);
+};
+
+export const updateStoneType = async (
+  id: string,
+  organizationId: string,
+  input: UpdateStoneTypeInput,
+): Promise<StoneType> => {
+  const existing = await prisma.stoneType.findFirst({
+    where: { id, organizationId },
+  });
+  if (!existing) throw new StoneTypeError("Stone type not found.", 404);
+
+  const updated = await prisma.stoneType.update({
+    where: { id },
+    data: {
+      ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+    },
+  });
+  return toStoneType(updated);
 };
 
 export const resolveStoneTypeIds = async (

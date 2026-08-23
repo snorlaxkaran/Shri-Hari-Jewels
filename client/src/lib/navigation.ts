@@ -10,6 +10,7 @@ import {
   Gem,
   Home,
   LayoutDashboard,
+  ListChecks,
   Package,
   PackageOpen,
   Palette,
@@ -59,6 +60,7 @@ export const navSections: NavSection[] = [
       { label: "Hallmark (HUID)", href: "/hallmark", icon: icon(Award) },
       { label: "Entry verification", href: "/entry-verification", icon: icon(ClipboardCheck) },
       { label: "Stock audit", href: "/inventory/audit", icon: icon(Scan) },
+      { label: "Stock entry options", href: "/inventory/stock-options", icon: icon(ListChecks) },
       { label: "Raw materials", href: "/raw-inventory", icon: icon(Gem) },
     ],
   },
@@ -222,6 +224,7 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname.match(/^\/inventory\/[^/]+\/edit$/)) return "Edit Product";
   if (pathname.startsWith("/inventory/audit/session/")) return "Scan Audit";
   if (pathname === "/inventory/audit") return "Stock Audit";
+  if (pathname === "/inventory/stock-options") return "Stock entry options";
   if (pathname.startsWith("/inventory/item/")) return "Item History";
   if (pathname.startsWith("/entry-verification/")) return "Entry Verification";
   if (pathname === "/entry-verification") return "Entry Verification";

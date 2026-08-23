@@ -1,5 +1,6 @@
 import type {
   BulkCollectionChangeRow,
+  BulkItemUpdateRow,
   BulkSkuChangeRow,
   BulkStockImportResult,
   BulkUpdateResult,
@@ -122,6 +123,17 @@ export const bulkChangeUnitSkus = async (
 ): Promise<BulkUpdateResult> => {
   const { data } = await api.post<BulkUpdateResult>(
     "/api/inventory/bulk/sku-change",
+    { rows },
+    { timeout: BULK_UPDATE_TIMEOUT_MS },
+  );
+  return data;
+};
+
+export const bulkUpdateInventoryItems = async (
+  rows: BulkItemUpdateRow[],
+): Promise<BulkUpdateResult> => {
+  const { data } = await api.post<BulkUpdateResult>(
+    "/api/inventory/bulk/item-update",
     { rows },
     { timeout: BULK_UPDATE_TIMEOUT_MS },
   );

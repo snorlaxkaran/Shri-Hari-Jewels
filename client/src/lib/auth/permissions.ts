@@ -66,6 +66,9 @@ export const canAccessRoute = (role: UserRole, pathname: string): boolean => {
   if (pathname.startsWith("/storefront/settings") && !canManageStorefront(role)) {
     return false;
   }
+  if (pathname.startsWith("/inventory/stock-options") && role !== "Admin") {
+    return false;
+  }
   const allowed = ROUTE_ACCESS[role];
   if (allowed.includes("*")) return true;
   return allowed.some(

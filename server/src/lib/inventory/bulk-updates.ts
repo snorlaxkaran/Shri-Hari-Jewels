@@ -6,9 +6,11 @@ import { InventoryError } from "./service.js";
 import { syncProductStockInTx } from "./stock-sync.js";
 import type {
   BulkCollectionChangeRow,
+  BulkItemUpdateRow,
   BulkSkuChangeRow,
   BulkUpdateResult,
 } from "../../types.js";
+import { moneyToNumber, toMoney } from "../money.js";
 
 const MAX_ROWS = 5000;
 
@@ -283,6 +285,204 @@ export const bulkChangeUnitSkus = async (
 
       if (createdTarget) productsCreated += 1;
       updated += 1;
+    } catch (error) {
+      errors.push(
+        `${label}: ${error instanceof Error ? error.message : "update failed."}`,
+      );
+    }
+  }
+
+  return { updated, unchanged, productsCreated, errors };
+};
+
+/**
+ * Updates one physical piece (item code) from a Central Stock Excel sheet.
+ * Blank columns are ignored. SKU moves reuse the same rules as bulk SKU change;
+ * weight and description apply to the SKU the piece ends up under.
+ */
+export const bulkUpdateInventoryItems = async (
+  rows: BulkItemUpdateRow[],
+  organizationId: string,
+  actor: AuditActor,
+): Promise<BulkUpdateResult> => {
+  assertRowCount(rows.length);
+
+  let updated = 0;
+  let unchanged = 0;
+  let productsCreated = 0;
+  const errors: string[] = [];
+
+  for (const row of rows) {
+    const itemCode = row.itemCode.trim();
+    const label = `Item code ${itemCode}`;
+    const newSku = row.newSku?.trim() ? normalizeSku(row.newSku) : undefined;
+    const newDescription = row.newDescription?.trim();
+
+    try {
+      const unit = await prisma.inventoryUnit.findUnique({
+        where: { organizationId_itemCode: { organizationId, itemCode } },
+        include: { product: true },
+      });
+
+      if (!unit) {
+        errors.push(`${label}: not found in inventory.`);
+        continue;
+      }
+      if (unit.status === InventoryUnitStatus.Sold) {
+        errors.push(
+          `${label}: already sold — its details are kept as a record of the sale and cannot be changed.`,
+        );
+        continue;
+      }
+
+      let rowChanged = false;
+      let skuCreated = false;
+      const previousValue: Record<string, unknown> = {};
+      const newValue: Record<string, unknown> = {};
+
+      await prisma.$transaction(async (tx) => {
+        let productId = unit.productId;
+        let sourceProduct = unit.product;
+
+        if (newSku && normalizeSku(sourceProduct.sku) !== newSku) {
+          const existingTarget = await tx.product.findUnique({
+            where: { organizationId_sku: { organizationId, sku: newSku } },
+            select: { id: true },
+          });
+          skuCreated = !existingTarget;
+
+          const target =
+            existingTarget ??
+            (await tx.product.create({
+              data: {
+                organizationId,
+                branchId: sourceProduct.branchId,
+                sku: newSku,
+                name: sourceProduct.name,
+                category: sourceProduct.category,
+                metal: sourceProduct.metal,
+                purity: sourceProduct.purity,
+                weightGrams: sourceProduct.weightGrams,
+                makingCharges: sourceProduct.makingCharges,
+                stoneCarat: sourceProduct.stoneCarat,
+                price: sourceProduct.price,
+                stock: 0,
+                status: ProductStockStatus.OutOfStock,
+                imageColor: sourceProduct.imageColor,
+                subCategory: sourceProduct.subCategory,
+                categorySize: sourceProduct.categorySize,
+                stoneInfo: sourceProduct.stoneInfo,
+                hsnCode: sourceProduct.hsnCode,
+                productCollectionId: sourceProduct.productCollectionId,
+              },
+              select: { id: true },
+            }));
+
+          await tx.inventoryUnit.update({
+            where: { id: unit.id },
+            data: { productId: target.id },
+          });
+
+          previousValue.sku = sourceProduct.sku;
+          newValue.sku = newSku;
+          if (skuCreated) newValue.productCreated = true;
+
+          productId = target.id;
+          await syncProductStockInTx(tx, sourceProduct.id);
+          await syncProductStockInTx(tx, target.id);
+          rowChanged = true;
+        }
+
+        const product = await tx.product.findUniqueOrThrow({
+          where: { id: productId },
+        });
+        const freshUnit = await tx.inventoryUnit.findUniqueOrThrow({
+          where: { id: unit.id },
+        });
+
+        const unitData: {
+          listPrice?: ReturnType<typeof toMoney>;
+          costPrice?: ReturnType<typeof toMoney>;
+        } = {};
+
+        if (row.newPrice !== undefined) {
+          const current =
+            freshUnit.listPrice != null
+              ? moneyToNumber(freshUnit.listPrice)
+              : null;
+          if (current !== row.newPrice) {
+            unitData.listPrice = toMoney(row.newPrice);
+            previousValue.price = current;
+            newValue.price = row.newPrice;
+            rowChanged = true;
+          }
+        }
+
+        if (row.newCost !== undefined) {
+          const current =
+            freshUnit.costPrice != null
+              ? moneyToNumber(freshUnit.costPrice)
+              : null;
+          if (current !== row.newCost) {
+            unitData.costPrice = toMoney(row.newCost);
+            previousValue.cost = current;
+            newValue.cost = row.newCost;
+            rowChanged = true;
+          }
+        }
+
+        const productData: { weightGrams?: number; name?: string } = {};
+
+        if (row.newWeight !== undefined && product.weightGrams !== row.newWeight) {
+          productData.weightGrams = row.newWeight;
+          previousValue.weightGrams = product.weightGrams;
+          newValue.weightGrams = row.newWeight;
+          rowChanged = true;
+        }
+
+        if (newDescription && product.name !== newDescription) {
+          productData.name = newDescription;
+          previousValue.name = product.name;
+          newValue.name = newDescription;
+          rowChanged = true;
+        }
+
+        if (Object.keys(unitData).length > 0) {
+          await tx.inventoryUnit.update({
+            where: { id: unit.id },
+            data: unitData,
+          });
+        }
+
+        if (Object.keys(productData).length > 0) {
+          await tx.product.update({
+            where: { id: productId },
+            data: productData,
+          });
+        }
+
+        if (rowChanged) {
+          await recordInventoryAuditInTx(tx, {
+            entityType: "InventoryUnit",
+            entityId: unit.id,
+            productId,
+            itemCode: unit.itemCode,
+            action: "BulkItemUpdated",
+            previousValue,
+            newValue,
+            reason: "bulk_item_update",
+            performedById: actor.id,
+            performedByName: actor.name,
+          });
+        }
+      });
+
+      if (rowChanged) {
+        updated += 1;
+        if (skuCreated) productsCreated += 1;
+      } else {
+        unchanged += 1;
+      }
     } catch (error) {
       errors.push(
         `${label}: ${error instanceof Error ? error.message : "update failed."}`,

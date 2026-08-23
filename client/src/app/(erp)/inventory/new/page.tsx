@@ -724,7 +724,7 @@ export default function NewStockPage() {
 
             <div>
               <div className="flex items-center justify-between gap-2 mb-1">
-                <label className={labelClass}>Stones (multiple)</label>
+                <label className={labelClass}>Stone name</label>
                 {canAdd && (
                   <button
                     type="button"
@@ -871,6 +871,68 @@ export default function NewStockPage() {
               </select>
             </div>
 
+            {showCategorySize && (
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label className={labelClass}>Category Size</label>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCategorySizeForm((prev) => !prev)}
+                      className="dropdown-add-btn"
+                    >
+                      {showCategorySizeForm ? "Cancel" : "+ Add size"}
+                    </button>
+                  )}
+                </div>
+                {showCategorySizeForm && isAdmin && (
+                  <form
+                    onSubmit={(e) =>
+                      void handleAddDropdownOption(
+                        e,
+                        categorySizeFieldKey(category),
+                        newCategorySize,
+                        setCategorySizeSubmitting,
+                        setCategorySize,
+                        () => setShowCategorySizeForm(false),
+                        () => setNewCategorySize(""),
+                        "Failed to add size.",
+                      )
+                    }
+                    className="dropdown-add-panel"
+                  >
+                    <input
+                      type="text"
+                      value={newCategorySize}
+                      onChange={(e) => setNewCategorySize(e.target.value)}
+                      placeholder="New size value"
+                      className={fieldClass}
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      disabled={categorySizeSubmitting || !newCategorySize.trim()}
+                      className="dropdown-add-panel-save"
+                    >
+                      {categorySizeSubmitting ? "Saving…" : "Save"}
+                    </button>
+                  </form>
+                )}
+                <select
+                  value={categorySize}
+                  onChange={(e) => setCategorySize(e.target.value)}
+                  className={fieldClass}
+                >
+                  <option value="">Choose …</option>
+                  {categorySizeOptions.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div>
               <div className="flex items-center justify-between gap-2 mb-1">
                 <label className={labelClass}>Sub Category</label>
@@ -947,68 +1009,6 @@ export default function NewStockPage() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-            {showCategorySize && (
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <label className={labelClass}>Category Size</label>
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => setShowCategorySizeForm((prev) => !prev)}
-                      className="dropdown-add-btn"
-                    >
-                      {showCategorySizeForm ? "Cancel" : "+ Add size"}
-                    </button>
-                  )}
-                </div>
-                {showCategorySizeForm && isAdmin && (
-                  <form
-                    onSubmit={(e) =>
-                      void handleAddDropdownOption(
-                        e,
-                        categorySizeFieldKey(category),
-                        newCategorySize,
-                        setCategorySizeSubmitting,
-                        setCategorySize,
-                        () => setShowCategorySizeForm(false),
-                        () => setNewCategorySize(""),
-                        "Failed to add size.",
-                      )
-                    }
-                    className="dropdown-add-panel"
-                  >
-                    <input
-                      type="text"
-                      value={newCategorySize}
-                      onChange={(e) => setNewCategorySize(e.target.value)}
-                      placeholder="New size value"
-                      className={fieldClass}
-                      autoFocus
-                    />
-                    <button
-                      type="submit"
-                      disabled={categorySizeSubmitting || !newCategorySize.trim()}
-                      className="dropdown-add-panel-save"
-                    >
-                      {categorySizeSubmitting ? "Saving…" : "Save"}
-                    </button>
-                  </form>
-                )}
-                <select
-                  value={categorySize}
-                  onChange={(e) => setCategorySize(e.target.value)}
-                  className={fieldClass}
-                >
-                  <option value="">Choose …</option>
-                  {categorySizeOptions.map((size) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             <div>
               <div className="flex items-center justify-between gap-2 mb-1">
                 <label className={labelClass}>Collection</label>
@@ -1056,7 +1056,7 @@ export default function NewStockPage() {
             </div>
 
             <div>
-              <label className={labelClass}>Net Weight (g)</label>
+              <label className={labelClass}>Net Wt (g)</label>
               <input
                 type="number"
                 step="0.01"

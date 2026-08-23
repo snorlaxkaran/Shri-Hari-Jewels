@@ -154,8 +154,11 @@ export default function SettingsPage() {
           <h2 className="text-sm font-semibold text-zinc-900 mb-1">Inventory admin</h2>
           <p className="text-sm text-zinc-600 mb-3">
             Rename catalog SKUs, apply collection and SKU changes from an Excel sheet, or manage
-            all dropdown lists (metal, purity, sub-category, ring & bangle sizes). You can also use
-            the red <strong>+ Add</strong> buttons on stock entry.
+            all dropdown lists (metal, purity, sub-category, ring & bangle sizes). Use{" "}
+            <Link href="/inventory/stock-options" className="text-blue-600 hover:underline">
+              Stock entry options
+            </Link>{" "}
+            in the sidebar, or the red <strong>+ Add</strong> buttons on stock entry.
           </p>
           <div className="flex flex-wrap gap-2">
             <Link href="/settings/sku-rename" className="btn-secondary inline-flex px-4 py-2 text-sm">

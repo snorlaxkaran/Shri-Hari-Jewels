@@ -3,11 +3,17 @@ import {
   StoneTypeError,
   createStoneType,
   listStoneTypes,
+  updateStoneType,
 } from "../lib/stone-types/service.js";
-import { canReadInventory, canWriteInventory } from "../lib/auth/permissions.js";
+import {
+  canManageSettings,
+  canReadInventory,
+  canWriteInventory,
+} from "../lib/auth/permissions.js";
 import { authenticate, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
 import { attachOrganization } from "../middleware/organization.js";
-import type { NewStoneTypeInput } from "../types.js";
+import { routeParam } from "../lib/route-param.js";
+import type { NewStoneTypeInput, UpdateStoneTypeInput } from "../types.js";
 
 export const stoneTypesRouter = Router();
 
@@ -42,3 +48,25 @@ stoneTypesRouter.post("/", requireRole(canWriteInventory), async (req: Authentic
     res.status(500).json({ error: "Failed to create stone type" });
   }
 });
+
+stoneTypesRouter.patch(
+  "/:id",
+  requireRole(canManageSettings),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const type = await updateStoneType(
+        routeParam(req.params.id),
+        req.organizationId!,
+        req.body as UpdateStoneTypeInput,
+      );
+      res.json(type);
+    } catch (error) {
+      if (error instanceof StoneTypeError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("PATCH /api/stone-types/:id", error);
+      res.status(500).json({ error: "Failed to update stone type" });
+    }
+  },
+);

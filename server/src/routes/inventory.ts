@@ -37,6 +37,7 @@ import { importLegacyStock } from "../lib/inventory/stock-import.js";
 import {
   bulkChangeProductCollections,
   bulkChangeUnitSkus,
+  bulkUpdateInventoryItems,
 } from "../lib/inventory/bulk-updates.js";
 import { createDocumentShareToken } from "../lib/invoices/share-token.js";
 import {
@@ -66,6 +67,7 @@ import { getBranchScope, getUserBranch } from "../lib/branches/access.js";
 import { routeParam } from "../lib/route-param.js";
 import type {
   BulkCollectionChangeRow,
+  BulkItemUpdateRow,
   BulkSkuChangeRow,
   CreateStockTransferInput,
   LegacyStockImportRow,
@@ -289,6 +291,32 @@ inventoryRouter.post(
       }
       console.error("POST /api/inventory/bulk/sku-change", error);
       res.status(500).json({ error: "Failed to change SKUs" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/bulk/item-update",
+  requireRole((role) => role === "Admin"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const rows = Array.isArray(req.body?.rows)
+        ? (req.body.rows as BulkItemUpdateRow[])
+        : [];
+
+      const result = await bulkUpdateInventoryItems(
+        rows.filter((row) => row?.itemCode?.trim()),
+        req.organizationId!,
+        { id: req.user!.id, name: req.user!.name },
+      );
+      res.json(result);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/inventory/bulk/item-update", error);
+      res.status(500).json({ error: "Failed to update items" });
     }
   },
 );

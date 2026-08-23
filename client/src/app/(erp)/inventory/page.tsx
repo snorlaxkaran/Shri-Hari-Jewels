@@ -9,7 +9,7 @@ import PageSkeleton from "@/app/(components)/PageSkeleton";
 import StatCard from "@/app/(components)/StatCard";
 import IncomingTransfersPanel from "@/app/(components)/stock-transfer/IncomingTransfersPanel";
 import { useAuth } from "@/lib/auth/auth-context";
-import { canManageHallmark, canWriteInventory } from "@/lib/auth/permissions";
+import { canManageHallmark, canManageSettings, canWriteInventory } from "@/lib/auth/permissions";
 import { fetchBranches, fetchUserBranches } from "@/lib/api/branches";
 import { useInventory } from "@/lib/inventory/inventory-context";
 import {
@@ -45,7 +45,7 @@ import {
 } from "@/lib/inventory/hallmark-filter";
 import type { Branch } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
-import { Diamond, Download, Gem, PackagePlus, Plus, Search } from "lucide-react";
+import { Diamond, Download, Gem, PackagePlus, Plus, Search, Upload } from "lucide-react";
 
 const SetAsideModal = dynamic(
   () => import("@/app/(components)/inventory/SetAsideModal"),
@@ -54,6 +54,11 @@ const SetAsideModal = dynamic(
 
 const UpdateHallmarkModal = dynamic(
   () => import("@/app/(components)/hallmark/UpdateHallmarkModal"),
+  { ssr: false },
+);
+
+const StockBulkItemUpdateModal = dynamic(
+  () => import("@/app/(components)/inventory/StockBulkItemUpdateModal"),
   { ssr: false },
 );
 
@@ -71,9 +76,10 @@ export default function InventoryPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { items, hydrated, loading, error, refresh } = useInventory();
-  const canAdd = user ? canWriteInventory(user.role) : false;
-  const canRecordHallmark = user ? canManageHallmark(user.role) : false;
   const isBranchView = user?.role === "Store";
+  const canAdd = user ? canWriteInventory(user.role) : false;
+  const canBulkUpdateItems = user ? canManageSettings(user.role) && !isBranchView : false;
+  const canRecordHallmark = user ? canManageHallmark(user.role) : false;
   const [search, setSearch] = useState("");
   const [metalTab, setMetalTab] = useState<ProductMetalTab>("all");
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -84,6 +90,7 @@ export default function InventoryPage() {
   const [hallmarkFilter, setHallmarkFilter] = useState<HallmarkFilter>("");
   const [setAsideRow, setSetAsideRow] = useState<InventoryUnitRow | null>(null);
   const [hallmarkRow, setHallmarkRow] = useState<InventoryUnitRow | null>(null);
+  const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
 
   useEffect(() => {
     fetchBranches()
@@ -214,6 +221,16 @@ export default function InventoryPage() {
               <Download size={16} />
               Download Stock
             </button>
+            {canBulkUpdateItems && (
+              <button
+                type="button"
+                onClick={() => setBulkUpdateOpen(true)}
+                className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm"
+              >
+                <Upload size={16} />
+                Bulk Update from Excel
+              </button>
+            )}
             {canAdd && (
               <>
                 <Link
@@ -338,6 +355,12 @@ export default function InventoryPage() {
         unitId={hallmarkRow?.unitId ?? ""}
         onClose={() => setHallmarkRow(null)}
         onSaved={() => void refresh()}
+      />
+
+      <StockBulkItemUpdateModal
+        open={bulkUpdateOpen}
+        onClose={() => setBulkUpdateOpen(false)}
+        onComplete={() => void refresh()}
       />
     </div>
   );
