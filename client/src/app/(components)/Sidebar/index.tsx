@@ -273,7 +273,7 @@ const SidebarContent = ({
               <div
                 style={{
                   height: 1,
-                  background: "var(--border)",
+                  background: "var(--sidebar-border)",
                   margin: "8px 0",
                 }}
               />
@@ -304,7 +304,7 @@ const SidebarContent = ({
                   fontWeight: 600,
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
-                  color: "#525252",
+                  color: "var(--sidebar-text)",
                   padding: "12px 16px 4px",
                 }}
               >
