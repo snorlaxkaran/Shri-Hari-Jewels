@@ -28,14 +28,8 @@ services:
         value: https://shri-hari-jewels.vercel.app
       - key: JWT_SECRET
         generateValue: true
-      # Trial OTP SMS via Twilio (trial account: sms_2fa template)
-      - key: SMS_PROVIDER
-        value: twilio
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      - key: TWILIO_SMS_FROM
-        value: "+17372212163"
-      - key: TWILIO_SMS_TEMPLATE
-        value: sms_2fa
+      # Trial renewal contact (shown when 2-month trial ends)
+      - key: PLATFORM_CONTACT_PHONE
+        value: "+91-9971692727"
+      - key: PLATFORM_CONTACT_WHATSAPP
+        value: "+91-9971692727"

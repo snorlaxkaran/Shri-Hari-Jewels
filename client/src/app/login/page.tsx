@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, Smartphone } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import ErpNextAuthShell from "@/app/(components)/auth/ErpNextAuthShell";
 import { useAuth } from "@/lib/auth/auth-context";
 import { consumeInactivityLogoutFlag } from "@/lib/auth/use-idle-logout";
@@ -12,7 +12,7 @@ import { getApiErrorMessage } from "@/lib/api/client";
 export default function LoginPage() {
   const router = useRouter();
   const { login, verify2FA, loading, user } = useAuth();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [tempToken, setTempToken] = useState<string | null>(null);
@@ -20,7 +20,6 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [inactivityNotice, setInactivityNotice] = useState(false);
-  const needsMobileSetup = error.toLowerCase().includes("verify mobile");
 
   useEffect(() => {
     if (consumeInactivityLogoutFlag()) {
@@ -47,12 +46,12 @@ export default function LoginPage() {
         await verify2FA(tempToken, totpCode);
         return;
       }
-      const result = await login({ email, password });
+      const result = await login({ email: identifier, password });
       if ("requires2FA" in result && result.requires2FA) {
         setTempToken(result.tempToken);
       }
     } catch (err) {
-      setError(getApiErrorMessage(err, "Login failed. Check your credentials."));
+      setError(getApiErrorMessage(err, "Login failed. Check your user ID and password."));
     } finally {
       setSubmitting(false);
     }
@@ -64,7 +63,7 @@ export default function LoginPage() {
       subtitle={
         tempToken
           ? "Enter the 6-digit code from your authenticator app."
-          : "Use mobile OTP if you have not set your login email yet."
+          : "Use your user ID, login email, or 10-digit mobile number."
       }
       navAction={
         <Link href="/onboarding/start" className="erp-auth-nav-link">
@@ -81,67 +80,21 @@ export default function LoginPage() {
         </p>
       ) : null}
 
-      {!tempToken ? (
-        <>
-          <div
-            className="rounded-lg border border-[#fecaca] bg-[#fff5f4] p-4 mb-5"
-            style={{ borderColor: "#f5c6c0" }}
-          >
-            <p className="text-sm font-medium text-[#171717] m-0">
-              Started a trial but never set email &amp; password?
-            </p>
-            <p className="text-xs text-[#525252] mt-1.5 mb-3 leading-relaxed">
-              You cannot sign in with email until you complete that step. Verify your mobile
-              number — we&apos;ll take you straight to the login setup screen.
-            </p>
-            <Link
-              href="/onboarding/start"
-              className="erp-btn-primary w-full no-underline"
-              style={{ textDecoration: "none" }}
-            >
-              <Smartphone size={16} />
-              Verify mobile &amp; continue
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-3 mb-5">
-            <div className="flex-1 h-px bg-[#e5e7eb]" />
-            <span className="text-xs text-[#9ca3af] whitespace-nowrap">
-              Already set login email
-            </span>
-            <div className="flex-1 h-px bg-[#e5e7eb]" />
-          </div>
-        </>
-      ) : null}
-
-      {error ? (
-        <div className="erp-alert-error">
-          {error}
-          {needsMobileSetup ? (
-            <Link
-              href="/onboarding/start"
-              className="erp-btn-primary w-full mt-3 no-underline"
-              style={{ textDecoration: "none" }}
-            >
-              Verify mobile &amp; continue
-            </Link>
-          ) : null}
-        </div>
-      ) : null}
+      {error ? <div className="erp-alert-error">{error}</div> : null}
 
       <form onSubmit={handleSubmit}>
         {!tempToken ? (
           <>
             <div className="erp-form-group">
-              <label htmlFor="login_email">Login email</label>
+              <label htmlFor="login_identifier">User ID, email, or mobile</label>
               <input
-                id="login_email"
+                id="login_identifier"
                 type="text"
                 autoComplete="username"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@yourjewellery.com"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="user id, email, or 9876543210"
               />
             </div>
 
@@ -185,7 +138,7 @@ export default function LoginPage() {
 
         <button type="submit" className="erp-btn-primary" disabled={submitting}>
           {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
-          {submitting ? "Please wait…" : tempToken ? "Verify" : "Sign in with email"}
+          {submitting ? "Please wait…" : tempToken ? "Verify" : "Sign in"}
         </button>
       </form>
 

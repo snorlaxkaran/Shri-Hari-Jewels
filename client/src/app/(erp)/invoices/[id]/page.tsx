@@ -92,12 +92,20 @@ export default function InvoiceDetailPage() {
     };
   }, [eInvoice?.id, eInvoice?.qrCodeData]);
 
-  const canCancel = useMemo(() => {
+  const [canCancel, setCanCancel] = useState(false);
+
+  useEffect(() => {
     if (!eInvoice || eInvoice.status !== "Generated" || !eInvoice.ackDate) {
-      return false;
+      setCanCancel(false);
+      return;
     }
     const ackTime = new Date(eInvoice.ackDate).getTime();
-    return Date.now() - ackTime <= 24 * 60 * 60 * 1000;
+    const update = () => {
+      setCanCancel(Date.now() - ackTime <= 24 * 60 * 60 * 1000);
+    };
+    update();
+    const timer = window.setInterval(update, 60_000);
+    return () => window.clearInterval(timer);
   }, [eInvoice]);
 
   const copyIrn = async () => {

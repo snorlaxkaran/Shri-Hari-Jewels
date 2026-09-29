@@ -23,7 +23,7 @@ function LockoutContent({ payload, contact }: SubscriptionLockoutProps) {
   const wasActive = payload.status === "Active" || payload.status === "Past Due";
   const heading = wasActive
     ? "Your subscription payment is due"
-    : "Your trial period has ended";
+    : "Your 2-month trial has ended";
 
   return (
     <div
@@ -77,7 +77,7 @@ function LockoutContent({ payload, contact }: SubscriptionLockoutProps) {
         {(contact?.phone || contact?.email || contact?.whatsapp) && (
           <div className="border-t pt-5 space-y-2" style={{ borderColor: "var(--border)" }}>
             <p className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">
-              Contact us to renew
+              Main account holder — contact us to renew
             </p>
             {contact.phone && (
               <a

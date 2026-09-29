@@ -17,7 +17,7 @@ const SalesCharts = dynamic(
 );
 
 export default function SalesAnalyticsPage() {
-  const { analytics, hydrated, loading, error } = useSales();
+  const { analytics, hydrated, error } = useSales();
 
   if (!hydrated) {
     return <PageSkeleton />;

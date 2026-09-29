@@ -6,7 +6,7 @@ export function CTASection() {
       <div className="mkt-shell">
         <h2 className="mkt-display text-3xl sm:text-4xl">Ready to run a calmer counter?</h2>
         <p className="max-w-lg mx-auto">
-          Verify your mobile once, set your login email in setup, and start managing inventory the
+          Register with mobile, user ID, and password, and start managing inventory the
           same day — or request a demo for multi-branch setups.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">

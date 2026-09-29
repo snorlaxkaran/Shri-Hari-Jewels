@@ -15,7 +15,7 @@ import type {
   UpdateProductInput,
   UpdateUnitHallmarkInput,
 } from "@/lib/types";
-import { openShareUrlInTab, preparePdfViewerTab } from "@/lib/open-pdf";
+import { openShareUrlInTab } from "@/lib/open-pdf";
 import { api, API_BASE_URL, getAuthToken } from "./client";
 
 export const fetchInventory = async (options?: {
