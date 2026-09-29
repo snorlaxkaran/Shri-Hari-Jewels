@@ -119,7 +119,7 @@ export const login = async (input: LoginInput): Promise<LoginResult> => {
   }
 
   if (!user || !user.active) {
-    throw new AuthError("Invalid email or password.");
+    throw new AuthError("Invalid user ID or password.");
   }
 
   if (!hasConfiguredLogin(user)) {
@@ -140,7 +140,7 @@ export const login = async (input: LoginInput): Promise<LoginResult> => {
   const valid = await verifyPassword(password, user.password);
   if (!valid) {
     await recordFailedLogin(user.id);
-    throw new AuthError("Invalid email or password.");
+    throw new AuthError("Invalid user ID or password.");
   }
 
   if (!isAuthenticatedRole(user.role)) {

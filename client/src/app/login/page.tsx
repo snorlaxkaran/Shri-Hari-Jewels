@@ -63,7 +63,7 @@ export default function LoginPage() {
       subtitle={
         tempToken
           ? "Enter the 6-digit code from your authenticator app."
-          : "Use your user ID, login email, or 10-digit mobile number."
+          : "Sign in with your user ID and password. Your login email or mobile number also works."
       }
       navAction={
         <Link href="/onboarding/start" className="erp-auth-nav-link">
@@ -86,7 +86,7 @@ export default function LoginPage() {
         {!tempToken ? (
           <>
             <div className="erp-form-group">
-              <label htmlFor="login_identifier">User ID, email, or mobile</label>
+              <label htmlFor="login_identifier">User ID (or email/mobile)</label>
               <input
                 id="login_identifier"
                 type="text"
