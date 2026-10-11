@@ -60,13 +60,10 @@ export default function InvoicesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = useMemo(
-    () =>
-      statusFilter === "All"
-        ? invoices
-        : invoices.filter((i) => i.status === statusFilter),
-    [invoices, statusFilter],
-  );
+  const filtered =
+    statusFilter === "All"
+      ? invoices
+      : invoices.filter((i) => i.status === statusFilter);
 
   const allSelected =
     filtered.length > 0 && filtered.every((inv) => selected.has(inv.id));

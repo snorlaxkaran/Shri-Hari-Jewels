@@ -406,10 +406,12 @@ export type PlatformContactInfo = {
   whatsapp: string | null;
 };
 
+const DEFAULT_PLATFORM_PHONE = "+91-9971692727";
+
 export const getPlatformContactInfo = (): PlatformContactInfo => ({
-  phone: process.env.PLATFORM_CONTACT_PHONE?.trim() || null,
+  phone: process.env.PLATFORM_CONTACT_PHONE?.trim() || DEFAULT_PLATFORM_PHONE,
   email: process.env.PLATFORM_CONTACT_EMAIL?.trim() || null,
-  whatsapp: process.env.PLATFORM_CONTACT_WHATSAPP?.trim() || null,
+  whatsapp: process.env.PLATFORM_CONTACT_WHATSAPP?.trim() || DEFAULT_PLATFORM_PHONE,
 });
 
 export const isBillingRoute = (originalUrl: string): boolean =>

@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { Download, ExternalLink, FileSpreadsheet } from "lucide-react";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import {
   bulkPublishProducts,
+  fetchAdminCollections,
   fetchPublishableProducts,
   fetchRelatedProductIds,
   fetchStorefrontAdminSettings,
@@ -14,13 +15,25 @@ import {
   setProductPublished,
 } from "@/lib/api/storefront-admin";
 import { formatCurrency } from "@/lib/format";
+import {
+  downloadProductListingWorkbook,
+  parseListingSkus,
+} from "@/lib/storefront/product-listing-template";
 import { storefrontProductPath } from "@/lib/storefront/urls";
-import type { PublishableProduct, StorefrontAdminSettings } from "@/lib/storefront/types";
+import type {
+  PublishableProduct,
+  StorefrontAdminSettings,
+  StorefrontCollection,
+} from "@/lib/storefront/types";
 
 export default function StorefrontProductsPage() {
   const [products, setProducts] = useState<PublishableProduct[]>([]);
+  const [collections, setCollections] = useState<StorefrontCollection[]>([]);
   const [settings, setSettings] = useState<StorefrontAdminSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [listingSkus, setListingSkus] = useState("");
+  const [listingFeedback, setListingFeedback] = useState("");
+  const [listingError, setListingError] = useState("");
   const [filter, setFilter] = useState<"all" | "published" | "unpublished">("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingRelatedId, setEditingRelatedId] = useState<string | null>(null);
@@ -29,10 +42,15 @@ export default function StorefrontProductsPage() {
 
   const load = () => {
     setLoading(true);
-    Promise.all([fetchPublishableProducts(), fetchStorefrontAdminSettings()])
-      .then(([prods, storeSettings]) => {
+    Promise.all([
+      fetchPublishableProducts(),
+      fetchStorefrontAdminSettings(),
+      fetchAdminCollections(),
+    ])
+      .then(([prods, storeSettings, storeCollections]) => {
         setProducts(prods);
         setSettings(storeSettings);
+        setCollections(storeCollections);
       })
       .finally(() => setLoading(false));
   };
@@ -57,6 +75,27 @@ export default function StorefrontProductsPage() {
     await bulkPublishProducts([...selected], published);
     setSelected(new Set());
     load();
+  };
+
+  const downloadListingWorkbook = () => {
+    setListingError("");
+    setListingFeedback("");
+    const skus = parseListingSkus(listingSkus);
+    if (skus.length === 0) {
+      setListingError("Enter at least one SKU, separated by commas.");
+      return;
+    }
+
+    const result = downloadProductListingWorkbook(skus, products, collections);
+    if (result.unmatchedSkus.length > 0) {
+      const preview = result.unmatchedSkus.slice(0, 5).join(", ");
+      const more = result.unmatchedSkus.length > 5 ? "…" : "";
+      setListingFeedback(
+        `Downloaded ${result.skuCount} listing rows. ${result.matchedCount} matched central stock; check these SKUs: ${preview}${more}`,
+      );
+      return;
+    }
+    setListingFeedback(`Downloaded a listing workbook with ${result.skuCount} matched SKUs.`);
   };
 
   const startEditRelated = async (productId: string) => {
@@ -108,6 +147,40 @@ export default function StorefrontProductsPage() {
           ← Back to Online Store
         </Link>
       </div>
+
+      <section className="surface-card mb-6 p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <FileSpreadsheet size={18} className="text-zinc-600" />
+          <h2 className="font-semibold">Prepare a product listing workbook</h2>
+        </div>
+        <p className="mb-3 max-w-3xl text-sm text-zinc-500">
+          Enter only the SKUs you want to prepare for the website. The workbook includes product details where a SKU matches central stock, plus editable SEO, dimensions, international price, and collection fields. Downloading the sheet does not publish anything.
+        </p>
+        <label htmlFor="listing-skus" className="mb-1 block text-sm font-medium">
+          SKUs to list
+        </label>
+        <textarea
+          id="listing-skus"
+          value={listingSkus}
+          onChange={(event) => setListingSkus(event.target.value)}
+          rows={3}
+          className="input-field w-full max-w-3xl px-3 py-2 text-sm"
+          placeholder="e.g. SHJ-1001, SHJ-1002, SHJ-1003"
+        />
+        <p className="mt-1 text-xs text-zinc-500">
+          Separate SKUs with commas. New lines and semicolons are also accepted. Existing collections: {collections.length}.
+        </p>
+        {listingError && <p className="mt-2 text-sm text-red-700">{listingError}</p>}
+        {listingFeedback && <p className="mt-2 text-sm text-blue-800">{listingFeedback}</p>}
+        <button
+          type="button"
+          onClick={downloadListingWorkbook}
+          className="btn-primary mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm"
+        >
+          <Download size={15} />
+          Download listing workbook
+        </button>
+      </section>
 
       <div className="mb-4 flex flex-wrap gap-3 items-center">
         {(["all", "published", "unpublished"] as const).map((f) => (

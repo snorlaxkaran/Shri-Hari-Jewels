@@ -29,7 +29,11 @@ import {
 } from "./totp.js";
 import { writeAuditLog } from "../audit/service.js";
 import { logBusinessEvent } from "../logger.js";
-import { normalizeIndianPhone, hasConfiguredLogin } from "../trial/phone.js";
+import {
+  normalizeIndianPhone,
+  hasConfiguredLogin,
+  resolveLoginEmail,
+} from "../trial/phone.js";
 
 export class AuthError extends Error {
   constructor(
@@ -42,11 +46,6 @@ export class AuthError extends Error {
 }
 
 const ADMIN_ROLES = new Set(["Admin", "SuperAdmin"]);
-
-const resolveLoginEmail = (identifier: string): string => {
-  if (identifier.includes("@")) return identifier;
-  return `${identifier}@shreehari.com`;
-};
 
 const toAuthUser = (user: {
   id: string;
@@ -120,12 +119,12 @@ export const login = async (input: LoginInput): Promise<LoginResult> => {
   }
 
   if (!user || !user.active) {
-    throw new AuthError("Invalid email or password.");
+    throw new AuthError("Invalid user ID or password.");
   }
 
   if (!hasConfiguredLogin(user)) {
     throw new AuthError(
-      "You have not set a login email and password yet. Use “Verify mobile & continue” on the sign-in page, enter your phone number, and complete the login setup step.",
+      "Login is not set up for this account. Finish registration at Start free trial, or contact +91 9971692727.",
       403,
     );
   }
@@ -141,7 +140,7 @@ export const login = async (input: LoginInput): Promise<LoginResult> => {
   const valid = await verifyPassword(password, user.password);
   if (!valid) {
     await recordFailedLogin(user.id);
-    throw new AuthError("Invalid email or password.");
+    throw new AuthError("Invalid user ID or password.");
   }
 
   if (!isAuthenticatedRole(user.role)) {

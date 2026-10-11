@@ -115,6 +115,7 @@ export type PublishableProduct = {
   sku: string;
   name: string;
   category: string;
+  weightGrams: number;
   price: number;
   stock: number;
   publishedToStorefront: boolean;

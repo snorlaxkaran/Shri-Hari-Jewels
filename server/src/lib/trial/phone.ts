@@ -10,6 +10,13 @@ export const normalizeIndianPhone = (raw: string): string | null => {
 export const phoneToLoginEmail = (phone: string): string =>
   `${normalizeIndianPhone(phone) ?? phone}@shreehari.com`;
 
+/** Login identifier: full email or short user id (stored as id@shreehari.com). */
+export const resolveLoginEmail = (identifier: string): string => {
+  const trimmed = identifier.trim().toLowerCase();
+  if (trimmed.includes("@")) return trimmed;
+  return `${trimmed}@shreehari.com`;
+};
+
 export const phoneToOrgSlug = (phone: string): string => {
   const digits = normalizeIndianPhone(phone) ?? phone.replace(/\D/g, "");
   return `jew-${digits}`;

@@ -3,13 +3,13 @@ import Link from "next/link";
 const STEPS = [
   {
     n: "1",
-    title: "Verify mobile (once)",
-    desc: "One-time OTP on SMS — takes under a minute.",
+    title: "Add your business mobile",
+    desc: "Add a contact number to your account. No SMS code or phone verification is required.",
   },
   {
     n: "2",
-    title: "Choose login email & password",
-    desc: "Set credentials in setup — no extra verification.",
+    title: "Choose a user ID & password",
+    desc: "Create your sign-in details during registration and use them to log in anytime.",
   },
   {
     n: "3",

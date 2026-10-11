@@ -8,17 +8,14 @@ export type TrialSession = {
   needsSetup: boolean;
 };
 
-export const sendTrialOtp = async (
-  phone: string,
-): Promise<{ phone: string }> => {
-  const { data } = await api.post("/api/trial/send-otp", { phone });
-  return data;
+export type RegisterTrialInput = {
+  phone: string;
+  userId: string;
+  password: string;
+  name?: string;
 };
 
-export const verifyTrialOtp = async (
-  phone: string,
-  code: string,
-): Promise<TrialSession> => {
-  const { data } = await api.post("/api/trial/verify-otp", { phone, code });
+export const registerTrial = async (input: RegisterTrialInput): Promise<TrialSession> => {
+  const { data } = await api.post("/api/trial/register", input);
   return data;
 };

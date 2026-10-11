@@ -161,7 +161,7 @@ export const IMPLEMENTATION_PATHS = [
     title: "Start free trial",
     subtitle: "For owners who want to explore",
     description:
-      "Verify your mobile once, set login credentials, and run guided checklists inside each workspace. Most showrooms add their first SKU and bill a sale the same day.",
+      "Register with mobile, user ID, and password, then run guided checklists inside each workspace. Most showrooms add their first SKU and bill a sale the same day.",
     cta: "Start 2-month trial",
     href: "/onboarding/start",
     primary: true,

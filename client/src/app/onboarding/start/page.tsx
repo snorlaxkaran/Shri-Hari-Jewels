@@ -1,26 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { FormEvent, useLayoutEffect, useRef, useState } from "react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import ErpNextAuthShell from "@/app/(components)/auth/ErpNextAuthShell";
-import { sendTrialOtp, verifyTrialOtp } from "@/lib/api/trial";
+import { registerTrial } from "@/lib/api/trial";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/auth-context";
-
-type Step = "phone" | "otp";
 
 export default function TrialStartPage() {
   const { signInWithSession, clearSession, loading: authLoading } = useAuth();
   const [sessionCleared, setSessionCleared] = useState(false);
-  const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
-  const [verifiedPhone, setVerifiedPhone] = useState("");
-  const [otp, setOtp] = useState("");
+  const [userId, setUserId] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [resendIn, setResendIn] = useState(0);
-  const otpRef = useRef<HTMLInputElement>(null);
   const didClear = useRef(false);
 
   useLayoutEffect(() => {
@@ -30,39 +28,23 @@ export default function TrialStartPage() {
     setSessionCleared(true);
   }, [clearSession]);
 
-  useEffect(() => {
-    if (resendIn <= 0) return;
-    const timer = setTimeout(() => setResendIn((s) => s - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [resendIn]);
-
-  useEffect(() => {
-    if (step === "otp") otpRef.current?.focus();
-  }, [step]);
-
-  const handleSendOtp = async (event: FormEvent) => {
+  const handleRegister = async (event: FormEvent) => {
     event.preventDefault();
-    setSubmitting(true);
     setError("");
-    try {
-      const result = await sendTrialOtp(phone);
-      setVerifiedPhone(result.phone);
-      setStep("otp");
-      setResendIn(15);
-      setOtp("");
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Could not send code."));
-    } finally {
-      setSubmitting(false);
+
+    if (password !== passwordConfirm) {
+      setError("Passwords do not match.");
+      return;
     }
-  };
 
-  const handleVerify = async (event: FormEvent) => {
-    event.preventDefault();
     setSubmitting(true);
-    setError("");
     try {
-      const session = await verifyTrialOtp(verifiedPhone, otp);
+      const session = await registerTrial({
+        phone,
+        userId,
+        password,
+        name: name.trim() || undefined,
+      });
       signInWithSession(
         session.token,
         session.refreshToken,
@@ -70,22 +52,8 @@ export default function TrialStartPage() {
         session.needsSetup ? "/setup" : "/dashboard",
       );
     } catch (err) {
-      const message = getApiErrorMessage(err, "Verification failed.");
+      const message = getApiErrorMessage(err, "Could not start trial.");
       setError(message);
-      setSubmitting(false);
-    }
-  };
-
-  const handleResend = async () => {
-    if (resendIn > 0) return;
-    setSubmitting(true);
-    setError("");
-    try {
-      await sendTrialOtp(verifiedPhone);
-      setResendIn(15);
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Could not resend code."));
-    } finally {
       setSubmitting(false);
     }
   };
@@ -100,13 +68,9 @@ export default function TrialStartPage() {
 
   return (
     <ErpNextAuthShell
-      title={step === "phone" ? "Start your free trial" : "Verify your mobile"}
-      subtitle={
-        step === "phone"
-          ? "One-time phone verification. After setup you'll sign in with email and password."
-          : `Enter the 6-digit code sent to +91 ${verifiedPhone.slice(0, 5)} ${verifiedPhone.slice(5)}.`
-      }
-      backHref={step === "phone" ? "/onboarding" : undefined}
+      title="Start your free trial"
+      subtitle="Register with mobile, user ID, and password. Sign in anytime with your user ID or mobile number."
+      backHref="/onboarding"
       backLabel="Back"
       navAction={
         <Link href="/login" className="erp-auth-nav-link">
@@ -127,84 +91,100 @@ export default function TrialStartPage() {
         </div>
       ) : null}
 
-      {step === "phone" ? (
-        <form onSubmit={handleSendOtp}>
-          <div className="erp-form-group">
-            <label htmlFor="trial_phone">Mobile number</label>
-            <div className="erp-input-row">
-              <span className="erp-input-prefix">+91</span>
-              <input
-                id="trial_phone"
-                required
-                type="tel"
-                inputMode="numeric"
-                autoComplete="tel"
-                placeholder="98765 43210"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <button type="submit" className="erp-btn-primary" disabled={submitting}>
-            {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
-            {submitting ? "Sending…" : "Send verification code"}
-          </button>
-        </form>
-      ) : (
-        <form onSubmit={handleVerify}>
-          <div className="erp-form-group">
-            <label htmlFor="trial_otp">6-digit code</label>
+      <form onSubmit={handleRegister}>
+        <div className="erp-form-group">
+          <label htmlFor="trial_phone">Mobile number</label>
+          <div className="erp-input-row">
+            <span className="erp-input-prefix">+91</span>
             <input
-              ref={otpRef}
-              id="trial_otp"
+              id="trial_phone"
               required
-              type="text"
+              type="tel"
               inputMode="numeric"
-              maxLength={6}
-              pattern="\d{6}"
-              autoComplete="one-time-code"
-              className="text-center tracking-[0.3em] font-mono"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              autoComplete="tel"
+              placeholder="98765 43210"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
             />
           </div>
+        </div>
 
-          <button
-            type="submit"
-            className="erp-btn-primary"
-            disabled={submitting || otp.length !== 6}
-          >
-            {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
-            {submitting ? "Verifying…" : "Verify & continue"}
-          </button>
+        <div className="erp-form-group">
+          <label htmlFor="trial_user_id">User ID</label>
+          <input
+            id="trial_user_id"
+            required
+            type="text"
+            autoComplete="username"
+            placeholder="e.g. rajesh or you@yourshop.com"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+          />
+          <p className="text-xs text-[#737373] mt-1 mb-0">
+            Letters and numbers, or your business email. Used with password to sign in.
+          </p>
+        </div>
 
-          <div className="erp-auth-footer mt-3 space-y-2">
+        <div className="erp-form-group">
+          <label htmlFor="trial_name">Your name (optional)</label>
+          <input
+            id="trial_name"
+            type="text"
+            autoComplete="name"
+            placeholder="Owner name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+
+        <div className="erp-form-group">
+          <label htmlFor="trial_password">Password</label>
+          <div className="erp-password-wrap">
+            <input
+              id="trial_password"
+              required
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
             <button
               type="button"
-              disabled={resendIn > 0 || submitting}
-              onClick={() => void handleResend()}
-              className="block w-full text-sm bg-transparent border-none cursor-pointer disabled:opacity-50"
+              className="erp-toggle-password"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
             >
-              {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
-            </button>
-            <button
-              type="button"
-              className="block w-full text-sm bg-transparent border-none cursor-pointer text-[#737373]"
-              onClick={() => {
-                setStep("phone");
-                setError("");
-                setOtp("");
-              }}
-            >
-              Change number
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
-        </form>
-      )}
+        </div>
+
+        <div className="erp-form-group">
+          <label htmlFor="trial_password_confirm">Confirm password</label>
+          <input
+            id="trial_password_confirm"
+            required
+            type={showPassword ? "text" : "password"}
+            autoComplete="new-password"
+            minLength={6}
+            value={passwordConfirm}
+            onChange={(e) => setPasswordConfirm(e.target.value)}
+          />
+        </div>
+
+        <button type="submit" className="erp-btn-primary" disabled={submitting}>
+          {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
+          {submitting ? "Creating account…" : "Start 2-month free trial"}
+        </button>
+      </form>
 
       <p className="mt-6 text-xs text-[#737373] leading-relaxed text-center">
-        2-month free trial · No credit card · Phone verification is only needed once
+        2-month free trial · No credit card · After trial, contact{" "}
+        <a href="tel:+919971692727" className="text-[#525252] underline">
+          +91 99716 92727
+        </a>{" "}
+        to continue
       </p>
     </ErpNextAuthShell>
   );

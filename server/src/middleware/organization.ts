@@ -30,7 +30,7 @@ export const attachOrganization = async (
         res.status(402).json({
           error: "subscription_expired",
           message:
-            "Your subscription period has ended. Please complete payment to continue.",
+            "Your 2-month trial has ended. The main account holder should contact +91 9971692727 to renew access.",
           status: access.subscription.status,
           trialEndsAt: access.subscription.trialEndsAt,
           currentPeriodEnd: access.subscription.currentPeriodEnd,

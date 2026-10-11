@@ -161,6 +161,7 @@ export type PublishableProduct = {
   sku: string;
   name: string;
   category: string;
+  weightGrams: number;
   price: number;
   stock: number;
   publishedToStorefront: boolean;
@@ -188,6 +189,7 @@ export const listPublishableProducts = async (
     sku: p.sku,
     name: p.name,
     category: p.category,
+    weightGrams: p.weightGrams,
     price: Number(p.price),
     stock: p.units.length,
     publishedToStorefront: p.publishedToStorefront,
