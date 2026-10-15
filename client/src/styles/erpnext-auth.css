@@ -19,10 +19,17 @@
   background: var(--erp-bg);
   font-family: var(--erp-font);
   color: var(--erp-text);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.erp-auth-page :where(.text-xs) {
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 .erp-auth-navbar {
-  height: 48px;
+  height: 52px;
   background: var(--erp-surface);
   border-bottom: 1px solid var(--erp-border);
   display: flex;
@@ -40,7 +47,7 @@
 }
 
 .erp-auth-nav-link {
-  font-size: 14px;
+  font-size: 15px;
   color: #525252;
   text-decoration: none;
   white-space: nowrap;
@@ -55,7 +62,7 @@
   align-items: center;
   gap: 10px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--erp-text);
   text-decoration: none;
 }
@@ -81,12 +88,12 @@
 
 .erp-page-card {
   width: 100%;
-  max-width: 400px;
+  max-width: 440px;
   background: var(--erp-surface);
   border: 1px solid var(--erp-border);
   border-radius: var(--erp-radius-lg);
   box-shadow: var(--erp-shadow);
-  padding: 24px;
+  padding: 28px 28px 32px;
 }
 
 /* Marketing / portfolio sections — full width within grid */
@@ -123,26 +130,27 @@
 }
 
 .erp-page-card-title {
-  font-size: 20px;
+  font-size: 1.5rem;
   font-weight: 600;
   line-height: 1.3;
   margin: 0;
 }
 
 .erp-page-card-subtitle {
-  margin: 8px 0 0;
-  font-size: 13px;
+  margin: 10px 0 0;
+  font-size: 0.9375rem;
   color: var(--erp-text-muted);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .erp-form-group {
   margin-bottom: 14px;
 }
 
-.erp-form-group label {
+.erp-form-group label,
+.erp-form-group > span {
   display: block;
-  font-size: 12px;
+  font-size: 0.875rem;
   font-weight: 500;
   color: var(--erp-text);
   margin-bottom: 6px;
@@ -151,12 +159,12 @@
 .erp-form-group input,
 .erp-form-group select {
   width: 100%;
-  height: 36px;
-  padding: 6px 10px;
+  height: 44px;
+  padding: 8px 12px;
   border: 1px solid var(--erp-outline);
   border-radius: var(--erp-radius);
   background: var(--erp-surface);
-  font-size: 14px;
+  font-size: 1rem;
   color: var(--erp-text);
   outline: none;
 }
@@ -184,12 +192,12 @@
 }
 
 .erp-input-prefix {
-  padding: 0 10px;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   background: #f9fafb;
   border-right: 1px solid var(--erp-outline);
-  font-size: 13px;
+  font-size: 0.9375rem;
   color: var(--erp-text-muted);
 }
 
@@ -197,7 +205,7 @@
   border: none;
   box-shadow: none;
   flex: 1;
-  height: 36px;
+  height: 44px;
 }
 
 .erp-input-row input:focus {
@@ -227,12 +235,12 @@
 
 .erp-btn-primary {
   width: 100%;
-  height: 36px;
+  height: 44px;
   border: none;
   border-radius: var(--erp-radius);
   background: var(--erp-primary);
   color: white;
-  font-size: 14px;
+  font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
   display: inline-flex;
@@ -254,12 +262,13 @@
 
 .erp-alert-error {
   margin-bottom: 14px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-radius: var(--erp-radius);
   background: #fef2f2;
   border: 1px solid #fecaca;
   color: #b91c1c;
-  font-size: 13px;
+  font-size: 0.9375rem;
+  line-height: 1.5;
 }
 
 .erp-auth-footer {
@@ -283,7 +292,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: var(--erp-text-muted);
   text-decoration: none;
   margin-bottom: 16px;
@@ -315,17 +324,29 @@
   min-height: 100svh;
   background: var(--erp-bg);
   font-family: var(--erp-font);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.erp-setup-shell :where(.text-xs) {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.erp-setup-shell :where(.text-sm) {
+  font-size: 1rem;
+  line-height: 1.55;
 }
 
 .erp-setup-header {
-  height: 48px;
+  height: 52px;
   background: var(--erp-surface);
   border-bottom: 1px solid var(--erp-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  font-size: 13px;
+  font-size: 0.9375rem;
 }
 
 .erp-setup-progress {
@@ -347,25 +368,26 @@
 
 .erp-setup-card {
   width: 100%;
-  max-width: 560px;
+  max-width: 600px;
   background: var(--erp-surface);
   border: 1px solid var(--erp-border);
   border-radius: var(--erp-radius-lg);
   box-shadow: var(--erp-shadow);
-  padding: 28px;
+  padding: 32px;
 }
 
 .erp-setup-title {
-  font-size: 22px;
+  font-size: 1.625rem;
   font-weight: 600;
   margin: 0;
+  line-height: 1.25;
 }
 
 .erp-setup-help {
-  margin: 8px 0 24px;
-  font-size: 13px;
+  margin: 10px 0 24px;
+  font-size: 1rem;
   color: var(--erp-text-muted);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .erp-setup-actions {
@@ -377,12 +399,12 @@
 }
 
 .erp-btn-secondary {
-  height: 36px;
-  padding: 0 16px;
+  height: 44px;
+  padding: 0 18px;
   border: 1px solid var(--erp-outline);
   border-radius: var(--erp-radius);
   background: white;
-  font-size: 14px;
+  font-size: 1rem;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -397,18 +419,20 @@
 
 .erp-module-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
 }
 
 .erp-module-tile {
   border: 1px solid var(--erp-border);
   border-radius: var(--erp-radius);
-  padding: 12px;
+  padding: 14px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  font-size: 0.9375rem;
+  line-height: 1.45;
 }
 
 .erp-module-tile-active {

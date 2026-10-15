@@ -283,7 +283,7 @@ export default function SetupWizardPage() {
   if (loadingStatus) {
     return (
       <div className="erp-setup-shell flex items-center justify-center min-h-[50vh]">
-        <p className="text-sm text-[#6b7280]">Loading setup…</p>
+        <p className="text-base text-[#6b7280]">Loading setup…</p>
       </div>
     );
   }

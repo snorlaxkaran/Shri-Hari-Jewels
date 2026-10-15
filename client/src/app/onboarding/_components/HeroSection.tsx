@@ -17,7 +17,7 @@ export function HeroSection() {
           <span className="mkt-brand-mark">
             <Gem size={18} />
           </span>
-          <p className="mt-3 text-sm font-semibold tracking-tight">Shri Hari Jewels</p>
+          <p className="mt-3 text-base font-semibold tracking-tight">Shri Hari Jewels</p>
         </div>
 
         <h1 className="mkt-display mkt-hero-title mt-6">

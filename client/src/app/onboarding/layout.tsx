@@ -41,7 +41,7 @@ export default function OnboardingLayout({
 }) {
   return (
     <div
-      className={`${inter.variable} ${fraunces.variable} min-h-screen antialiased`}
+      className={`${inter.variable} ${fraunces.variable} min-h-screen antialiased text-base leading-relaxed`}
     >
       <JsonLd data={[softwareApplicationSchema(), organizationSchema()]} />
       {children}

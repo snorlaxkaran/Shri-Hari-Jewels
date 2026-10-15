@@ -120,7 +120,7 @@ export default function TrialStartPage() {
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
           />
-          <p className="text-xs text-[#737373] mt-1 mb-0">
+          <p className="text-sm text-[#525252] mt-1.5 mb-0 leading-relaxed">
             Letters and numbers, or your business email. Used with password to sign in.
           </p>
         </div>
@@ -179,7 +179,7 @@ export default function TrialStartPage() {
         </button>
       </form>
 
-      <p className="mt-6 text-xs text-[#737373] leading-relaxed text-center">
+      <p className="mt-6 text-sm text-[#525252] leading-relaxed text-center">
         2-month free trial · No credit card · After trial, contact{" "}
         <a href="tel:+919971692727" className="text-[#525252] underline">
           +91 99716 92727
