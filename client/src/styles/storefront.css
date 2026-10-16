@@ -13,6 +13,8 @@
   background: var(--sf-bg);
   color: var(--sf-text);
   font-family: var(--sf-sans);
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
 .sf-shell {
@@ -36,7 +38,7 @@
 }
 
 .sf-eyebrow {
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -46,7 +48,7 @@
 .sf-trust-strip {
   background: var(--sf-dark);
   color: #e8e4df;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   border-bottom: 1px solid rgb(255 255 255 / 0.08);
 }
 

@@ -1,0 +1,48 @@
+/* Whole-app readable type — ERP desk, forms, tables (not marketing/auth; those have own sheets) */
+
+.app-shell {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.app-shell :where(.text-xs) {
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.app-shell :where(.text-sm) {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.app-shell :where(.text-base) {
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.app-shell select,
+.app-shell textarea,
+.app-shell input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([class*="h-"]) {
+  font-size: 1rem;
+}
+
+.app-shell input[type="checkbox"],
+.app-shell input[type="radio"] {
+  width: 1rem;
+  height: 1rem;
+}
+
+.sf-page {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.sf-page :where(.text-xs) {
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.sf-page :where(.text-sm) {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
