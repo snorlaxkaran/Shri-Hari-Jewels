@@ -119,9 +119,9 @@ export const navSections: NavSection[] = [
     title: "Online Store",
     workspaceHref: "/workspace/storefront",
     items: [
-      { label: "Store dashboard", href: "/workspace/storefront", icon: icon(Globe) },
-      { label: "Store settings", href: "/storefront/settings", icon: icon(Settings) },
-      { label: "Publish products", href: "/storefront/products", icon: icon(Package) },
+      { label: "Store overview", href: "/workspace/storefront", icon: icon(Globe) },
+      { label: "Banners & branding", href: "/storefront/settings", icon: icon(Settings) },
+      { label: "Product listing", href: "/storefront/products", icon: icon(Package) },
       { label: "Collections", href: "/storefront/collections", icon: icon(Palette) },
       { label: "Web orders", href: "/storefront/orders", icon: icon(ShoppingBag) },
     ],
@@ -270,8 +270,8 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname.match(/^\/production-runs\/[^/]+\/[^/]+$/)) {
     return "Production Run";
   }
-  if (pathname === "/storefront/settings") return "Store Settings";
-  if (pathname === "/storefront/products") return "Publish Products";
+  if (pathname === "/storefront/settings") return "Banners & branding";
+  if (pathname === "/storefront/products") return "Product listing";
   if (pathname === "/storefront/collections") return "Collections";
   if (pathname === "/storefront/orders") return "Web Orders";
   if (pathname === "/storefront") return "Online Store";

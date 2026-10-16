@@ -2,7 +2,7 @@
 
 import { X, Home } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import SidebarNavSearch, {
   filterNavSectionsByQuery,
@@ -11,23 +11,9 @@ import SidebarNavSearch, {
   SidebarNavSearchResults,
 } from "@/app/(components)/Sidebar/SidebarNavSearch";
 import { useAuth } from "@/lib/auth/auth-context";
-import {
-  canAccessRoute,
-  canManageCustomers,
-  canManageExpenses,
-  canViewRepairs,
-  canViewHallmark,
-  canViewStockTransfers,
-  isMasterAdmin,
-} from "@/lib/auth/permissions";
-import { filterNavSections, primaryNavItems } from "@/lib/navigation";
-import { fetchIncomingTransferCount } from "@/lib/api/inventory";
-import { fetchFollowUpsDueCount } from "@/lib/api/leads";
-import { fetchReadyForPickupCount } from "@/lib/api/repairs";
-import { fetchHallmarkPendingCount } from "@/lib/api/hallmark";
-import { fetchExpensesPendingCount } from "@/lib/api/expenses";
-import { fetchOrganizationModules } from "@/lib/api/modules";
-import type { JewelleryModuleId } from "@/lib/onboarding/config";
+import { canAccessRoute, isMasterAdmin } from "@/lib/auth/permissions";
+import { primaryNavItems } from "@/lib/navigation";
+import { useEnrichedNavSections } from "@/lib/navigation/use-enriched-nav-sections";
 
 type SidebarContentProps = {
   pathname: string;
@@ -43,49 +29,8 @@ const SidebarContent = ({
   const router = useRouter();
   const prefetchedRoutes = useRef(new Set<string>());
   const { user } = useAuth();
-  const [incomingCount, setIncomingCount] = useState<number | undefined>();
-  const [followUpsDueCount, setFollowUpsDueCount] = useState<number | undefined>();
-  const [readyForPickupCount, setReadyForPickupCount] = useState<number | undefined>();
-  const [hallmarkPendingCount, setHallmarkPendingCount] = useState<number | undefined>();
-  const [expensesPendingCount, setExpensesPendingCount] = useState<number | undefined>();
   const [navQuery, setNavQuery] = useState("");
-  const [enabledModules, setEnabledModules] = useState<JewelleryModuleId[] | undefined>();
-
-  useEffect(() => {
-    if (!user) return;
-    fetchOrganizationModules()
-      .then((data) => setEnabledModules(data.enabledModules))
-      .catch(() => setEnabledModules(undefined));
-  }, [user]);
-
-  const sections = useMemo(() => {
-    if (!user) return [];
-    const base = filterNavSections(
-      (href) => canAccessRoute(user.role, href),
-      enabledModules,
-    );
-    return base.map((section) => ({
-      ...section,
-      items: section.items.map((item) => {
-        if (item.href === "/stock-transfer/incoming" && incomingCount != null && incomingCount > 0) {
-          return { ...item, badge: incomingCount };
-        }
-        if (item.href === "/leads" && followUpsDueCount != null && followUpsDueCount > 0) {
-          return { ...item, badge: followUpsDueCount };
-        }
-        if (item.href === "/repairs" && readyForPickupCount != null && readyForPickupCount > 0) {
-          return { ...item, badge: readyForPickupCount };
-        }
-        if (item.href === "/hallmark" && hallmarkPendingCount != null && hallmarkPendingCount > 0) {
-          return { ...item, badge: hallmarkPendingCount };
-        }
-        if (item.href === "/expenses" && expensesPendingCount != null && expensesPendingCount > 0) {
-          return { ...item, badge: expensesPendingCount };
-        }
-        return item;
-      }),
-    }));
-  }, [user, incomingCount, followUpsDueCount, readyForPickupCount, hallmarkPendingCount, expensesPendingCount, enabledModules]);
+  const sections = useEnrichedNavSections();
 
   const setupNavItem = useMemo(
     () =>
@@ -112,41 +57,6 @@ const SidebarContent = ({
   }, [sections, accessiblePrimary, setupNavItem, navQuery]);
 
   const isFiltering = navQuery.trim().length > 0;
-
-  useEffect(() => {
-    if (!user || !canViewStockTransfers(user.role)) return;
-    fetchIncomingTransferCount()
-      .then(setIncomingCount)
-      .catch(() => setIncomingCount(undefined));
-  }, [user]);
-
-  useEffect(() => {
-    if (!user || !canManageCustomers(user.role)) return;
-    fetchFollowUpsDueCount()
-      .then(setFollowUpsDueCount)
-      .catch(() => setFollowUpsDueCount(undefined));
-  }, [user]);
-
-  useEffect(() => {
-    if (!user || !canViewRepairs(user.role)) return;
-    fetchReadyForPickupCount()
-      .then(setReadyForPickupCount)
-      .catch(() => setReadyForPickupCount(undefined));
-  }, [user]);
-
-  useEffect(() => {
-    if (!user || !canViewHallmark(user.role)) return;
-    fetchHallmarkPendingCount()
-      .then(setHallmarkPendingCount)
-      .catch(() => setHallmarkPendingCount(undefined));
-  }, [user]);
-
-  useEffect(() => {
-    if (!user || !canManageExpenses(user.role)) return;
-    fetchExpensesPendingCount()
-      .then(setExpensesPendingCount)
-      .catch(() => setExpensesPendingCount(undefined));
-  }, [user]);
 
   const prefetchRoute = useCallback(
     (href: string) => {
