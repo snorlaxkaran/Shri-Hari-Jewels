@@ -11,7 +11,11 @@ import type {
 const publicApi = axios.create({
   baseURL: API_BASE_URL,
   timeout: 20000,
-  headers: { "Content-Type": "application/json" },
+  headers: {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
+  },
 });
 
 export const fetchStorefrontStatus = async (

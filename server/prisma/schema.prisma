@@ -605,6 +605,13 @@ model Product {
   imageColor              String   @default("#a1a1aa")
   publishedToStorefront   Boolean  @default(false)
   storefrontDescription   String?  @db.Text
+  storefrontSellingPrice  Decimal? @db.Decimal(12, 2)
+  storefrontComposition   String?  @db.Text
+  storefrontSeoUrlKey     String?
+  storefrontMetaTitle     String?
+  storefrontMetaKeywords  String?  @db.Text
+  storefrontMetaDescription String? @db.Text
+  storefrontSortKey       String?
   productionRunId         String?  @unique
   productCollectionId     String?
   subCategory             String?

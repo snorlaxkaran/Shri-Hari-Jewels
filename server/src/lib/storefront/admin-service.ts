@@ -12,6 +12,7 @@ import {
   type StorefrontConfigDto,
   type WebOrderDto,
 } from "./mappers.js";
+import { assertCanPublishProduct } from "./listing-import.js";
 import { StorefrontError } from "./resolve-tenant.js";
 
 export type UpdateStorefrontSettingsInput = {
@@ -66,11 +67,15 @@ export const getAdminStorefrontSettings = async (
     prisma.shopSettings.findUnique({ where: { organizationId } }),
   ]);
 
-  if (!settings) {
-    throw new StorefrontError("Storefront settings not found.", 404);
-  }
+  const resolved =
+    settings ??
+    (await prisma.storefrontSettings.upsert({
+      where: { organizationId },
+      create: { organizationId },
+      update: {},
+    }));
 
-  const base = toStorefrontConfig(org.slug, settings, shop);
+  const base = toStorefrontConfig(org.slug, resolved, shop);
   const clientUrl = process.env.CLIENT_URL?.split(",")[0]?.trim() ?? "http://localhost:3000";
 
   return {
@@ -161,9 +166,15 @@ export type PublishableProduct = {
   sku: string;
   name: string;
   category: string;
+  metal: string;
+  purity: string;
   weightGrams: number;
   price: number;
   stock: number;
+  status: string;
+  stockItemCode: string | null;
+  hsnCode: string | null;
+  imageCount: number;
   publishedToStorefront: boolean;
   storefrontDescription: string | null;
   imageUrl: string | null;
@@ -175,10 +186,11 @@ export const listPublishableProducts = async (
   const products = await prisma.product.findMany({
     where: { organizationId },
     include: {
-      images: { orderBy: { sortOrder: "asc" }, take: 1 },
+      images: { orderBy: { sortOrder: "asc" } },
       units: {
         where: { status: "Available" },
-        select: { id: true },
+        select: { id: true, itemCode: true },
+        orderBy: { createdAt: "asc" },
       },
     },
     orderBy: { name: "asc" },
@@ -189,9 +201,15 @@ export const listPublishableProducts = async (
     sku: p.sku,
     name: p.name,
     category: p.category,
+    metal: p.metal,
+    purity: p.purity,
     weightGrams: p.weightGrams,
     price: Number(p.price),
     stock: p.units.length,
+    status: p.status,
+    stockItemCode: p.units[0]?.itemCode ?? null,
+    hsnCode: p.hsnCode,
+    imageCount: p.images.length,
     publishedToStorefront: p.publishedToStorefront,
     storefrontDescription: p.storefrontDescription,
     imageUrl: p.images[0]?.url ?? null,
@@ -209,6 +227,10 @@ export const setProductPublished = async (
   });
   if (!product) throw new StorefrontError("Product not found.", 404);
 
+  if (published) {
+    await assertCanPublishProduct(organizationId, productId);
+  }
+
   await prisma.product.update({
     where: { id: productId },
     data: {
@@ -225,6 +247,11 @@ export const bulkSetProductsPublished = async (
   productIds: string[],
   published: boolean,
 ): Promise<number> => {
+  if (published) {
+    for (const productId of productIds) {
+      await assertCanPublishProduct(organizationId, productId);
+    }
+  }
   const result = await prisma.product.updateMany({
     where: { organizationId, id: { in: productIds } },
     data: { publishedToStorefront: published },

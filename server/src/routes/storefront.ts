@@ -58,6 +58,7 @@ const resolveTenant = async (
 
 storefrontRouter.get("/:slug/status", async (req, res) => {
   try {
+    res.setHeader("Cache-Control", "no-store, max-age=0");
     const status = await getStorefrontStatus(routeParam(req.params.slug));
     res.json(status);
   } catch (error) {
@@ -77,6 +78,7 @@ storefrontRouter.get("/:slug/config", async (req, res) => {
       return;
     }
 
+    res.setHeader("Cache-Control", "no-store, max-age=0");
     const config = await getStorefrontConfig(tenant.organizationId);
     res.json(config);
   } catch (error) {

@@ -163,7 +163,7 @@ app.use(
   paymentsRouter,
 );
 
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "30mb" }));
 
 app.get("/api/health/live", (_req, res) => {
   res.status(200).json({ status: "ok", service: "shri-hari-jewels-api" });

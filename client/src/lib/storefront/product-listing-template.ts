@@ -1,17 +1,21 @@
 import * as XLSX from "xlsx";
-import type { PublishableProduct, StorefrontCollection } from "./types";
+import type { PublishableProduct } from "./types";
 
 export const PRODUCT_LISTING_HEADERS = [
-  "Design No. (SKU)",
-  "Product name",
-  "Meta title",
-  "Meta keywords",
-  "Meta description",
-  "Dimensions",
-  "Weight (g)",
-  "Price",
-  "International price",
-  "Collection name",
+  "STOCK ID",
+  "SKU",
+  "PRODUCT NAME",
+  "WEIGHT",
+  "PRICE",
+  "SELLING PRICE",
+  "DESC",
+  "COMPOSITION",
+  "SEO URL KEY",
+  "META TITLE",
+  "META KEYWORD",
+  "META DESC",
+  "SORTING NO",
+  "HSN",
 ] as const;
 
 export const parseListingSkus = (input: string): string[] => {
@@ -28,85 +32,92 @@ export const parseListingSkus = (input: string): string[] => {
     });
 };
 
+/** Active in central = has available stock and not marked out of stock. */
+export const isListingActiveProduct = (product: PublishableProduct): boolean =>
+  product.stock > 0 && product.status !== "Out of Stock";
+
+const todaySortKey = (): string => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}${m}${day}`;
+};
+
+const defaultComposition = (product: PublishableProduct): string =>
+  [product.metal, product.purity].filter(Boolean).join(" ").trim();
+
 export type ListingWorkbookResult = {
-  skuCount: number;
-  matchedCount: number;
-  unmatchedSkus: string[];
+  requestedCount: number;
+  exportedCount: number;
+  omittedSkus: string[];
 };
 
 export const buildProductListingWorkbook = (
   skus: string[],
   products: PublishableProduct[],
-  collections: StorefrontCollection[],
 ): { workbook: XLSX.WorkBook; result: ListingWorkbookResult } => {
   const productBySku = new Map(
     products.map((product) => [product.sku.trim().toLocaleLowerCase(), product]),
   );
-  const matched = skus.map((sku) => productBySku.get(sku.toLocaleLowerCase()));
-  const productRows = skus.map((sku, index) => {
-    const product = matched[index];
-    return [
-      sku,
-      product?.name ?? "",
-      "",
-      "",
-      "",
-      "",
-      product?.weightGrams ?? "",
-      product?.price ?? "",
-      "",
-      "",
-    ];
-  });
+
+  const omittedSkus: string[] = [];
+  const activeRows: PublishableProduct[] = [];
+
+  for (const sku of skus) {
+    const product = productBySku.get(sku.toLocaleLowerCase());
+    if (!product || !isListingActiveProduct(product)) {
+      omittedSkus.push(sku);
+      continue;
+    }
+    activeRows.push(product);
+  }
+
+  const sortDefault = todaySortKey();
+  const productRows = activeRows.map((product) => [
+    product.stockItemCode ?? product.id,
+    product.sku,
+    product.name,
+    product.weightGrams,
+    product.price,
+    product.price,
+    product.storefrontDescription ?? "",
+    defaultComposition(product),
+    product.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    product.name,
+    product.category,
+    product.storefrontDescription ?? "",
+    sortDefault,
+    product.hsnCode ?? "",
+  ]);
 
   const workbook = XLSX.utils.book_new();
   const productSheet = XLSX.utils.aoa_to_sheet([
     [...PRODUCT_LISTING_HEADERS],
     ...productRows,
   ]);
-  productSheet["!cols"] = [
-    { wch: 23 },
-    { wch: 32 },
-    { wch: 32 },
-    { wch: 34 },
-    { wch: 42 },
-    { wch: 24 },
-    { wch: 15 },
-    { wch: 16 },
-    { wch: 21 },
-    { wch: 24 },
-  ];
+  productSheet["!cols"] = PRODUCT_LISTING_HEADERS.map(() => ({ wch: 18 }));
   if (productSheet["!ref"]) productSheet["!autofilter"] = { ref: productSheet["!ref"] };
-  XLSX.utils.book_append_sheet(workbook, productSheet, "Product Listings");
-
-  const collectionRows = collections.length
-    ? collections.map((collection) => [collection.name, collection.slug, collection.productCount])
-    : [["No collections yet", "Create collections in Online Store → Collections", ""]];
-  const collectionSheet = XLSX.utils.aoa_to_sheet([
-    ["Collection name", "Website URL slug", "Products currently assigned"],
-    ...collectionRows,
-  ]);
-  collectionSheet["!cols"] = [{ wch: 30 }, { wch: 36 }, { wch: 32 }];
-  XLSX.utils.book_append_sheet(workbook, collectionSheet, "Collections");
+  XLSX.utils.book_append_sheet(workbook, productSheet, "Listings");
 
   const instructionSheet = XLSX.utils.aoa_to_sheet([
-    ["Product listing workbook", "Instructions"],
-    ["1. Product Listings", "Complete the SEO, dimensions, international price, and collection name columns. Existing product name, weight, and price are prefilled when the SKU is found in central stock."],
-    ["2. Design No. (SKU)", "This is the exact SKU you entered. Only the SKUs supplied for this workbook are included; other central-stock products are not added or published."],
-    ["3. Collection name", "Use an exact collection name from the Collections sheet. Create collections in Online Store → Collections before using a new collection."],
-    ["4. Missing SKU matches", "If a SKU is not in this company’s central stock, it is still included with blank product details so you can identify and correct it."],
-    ["5. Publishing", "This workbook is a listing-preparation template only. Downloading it does not publish or change any products."],
+    ["Website listing workbook", "Instructions"],
+    ["Download", "Only SKUs that are active in central stock are included. Inactive or missing SKUs are omitted."],
+    ["WEIGHT & PRICE", "Must match central ERP values. Upload is rejected if they differ."],
+    ["SELLING PRICE", "Website price shown to customers. Can differ from central PRICE."],
+    ["SORTING NO", "Use YYYYMMDD. Newest sort keys appear first on the shop."],
+    ["Photos", "Upload images named SKU_1 … SKU_8 (jpg/png). Minimum 1 photo required to go live."],
+    ["Upload", "Fill this sheet, upload it on Product listing, then upload photos."],
   ]);
-  instructionSheet["!cols"] = [{ wch: 28 }, { wch: 110 }];
+  instructionSheet["!cols"] = [{ wch: 28 }, { wch: 90 }];
   XLSX.utils.book_append_sheet(workbook, instructionSheet, "Instructions");
 
-  const unmatchedSkus = skus.filter((_, index) => !matched[index]);
   return {
     workbook,
     result: {
-      skuCount: skus.length,
-      matchedCount: skus.length - unmatchedSkus.length,
-      unmatchedSkus,
+      requestedCount: skus.length,
+      exportedCount: activeRows.length,
+      omittedSkus,
     },
   };
 };
@@ -114,10 +125,91 @@ export const buildProductListingWorkbook = (
 export const downloadProductListingWorkbook = (
   skus: string[],
   products: PublishableProduct[],
-  collections: StorefrontCollection[],
 ): ListingWorkbookResult => {
-  const { workbook, result } = buildProductListingWorkbook(skus, products, collections);
+  const { workbook, result } = buildProductListingWorkbook(skus, products);
   const date = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(workbook, `product-listing-${date}.xlsx`);
+  XLSX.writeFile(workbook, `website-listing-${date}.xlsx`);
   return result;
+};
+
+const headerAliases: Record<string, keyof ParsedListingRow> = {
+  "stock id": "stockId",
+  sku: "sku",
+  "product name": "productName",
+  weight: "weight",
+  price: "price",
+  "selling price": "sellingPrice",
+  desc: "desc",
+  description: "desc",
+  composition: "composition",
+  "seo url key": "seoUrlKey",
+  "meta title": "metaTitle",
+  "meta keyword": "metaKeyword",
+  "meta keywords": "metaKeyword",
+  "meta desc": "metaDesc",
+  "meta description": "metaDesc",
+  "sorting no": "sortingNo",
+  hsn: "hsn",
+};
+
+export type ParsedListingRow = {
+  stockId?: string;
+  sku: string;
+  productName?: string;
+  weight?: string | number;
+  price?: string | number;
+  sellingPrice?: string | number;
+  desc?: string;
+  composition?: string;
+  seoUrlKey?: string;
+  metaTitle?: string;
+  metaKeyword?: string;
+  metaDesc?: string;
+  sortingNo?: string;
+  hsn?: string;
+};
+
+const normalizeHeader = (value: unknown): string =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase();
+
+export const parseListingWorkbook = (file: ArrayBuffer): ParsedListingRow[] => {
+  const workbook = XLSX.read(file, { type: "array" });
+  const sheet = workbook.Sheets.Listings ?? workbook.Sheets[workbook.SheetNames[0]];
+  if (!sheet) return [];
+
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    defval: "",
+    raw: false,
+  });
+
+  if (rows.length === 0) {
+    const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" }) as unknown[][];
+    if (matrix.length < 2) return [];
+    const headers = (matrix[0] as unknown[]).map(normalizeHeader);
+    return matrix.slice(1).flatMap((row) => {
+      const record: Partial<ParsedListingRow> = {};
+      headers.forEach((header, index) => {
+        const key = headerAliases[header];
+        if (!key) return;
+        record[key] = String((row as unknown[])[index] ?? "").trim();
+      });
+      const sku = record.sku?.trim();
+      if (!sku) return [];
+      return [record as ParsedListingRow];
+    });
+  }
+
+  return rows.flatMap((row) => {
+    const mapped: Partial<ParsedListingRow> = {};
+    for (const [header, value] of Object.entries(row)) {
+      const key = headerAliases[normalizeHeader(header)];
+      if (!key) continue;
+      mapped[key] = String(value ?? "").trim();
+    }
+    const sku = mapped.sku?.trim();
+    if (!sku) return [];
+    return [mapped as ParsedListingRow];
+  });
 };

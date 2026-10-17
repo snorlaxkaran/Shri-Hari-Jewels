@@ -115,9 +115,15 @@ export type PublishableProduct = {
   sku: string;
   name: string;
   category: string;
+  metal: string;
+  purity: string;
   weightGrams: number;
   price: number;
   stock: number;
+  status: string;
+  stockItemCode: string | null;
+  hsnCode: string | null;
+  imageCount: number;
   publishedToStorefront: boolean;
   storefrontDescription: string | null;
   imageUrl: string | null;

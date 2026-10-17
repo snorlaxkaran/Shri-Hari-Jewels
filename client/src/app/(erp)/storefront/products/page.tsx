@@ -2,38 +2,48 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, ExternalLink, FileSpreadsheet } from "lucide-react";
+import { Download, ExternalLink, FileSpreadsheet, ImagePlus, Upload } from "lucide-react";
+import { getApiErrorMessage } from "@/lib/api/client";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
 import {
   bulkPublishProducts,
-  fetchAdminCollections,
   fetchPublishableProducts,
   fetchRelatedProductIds,
   fetchStorefrontAdminSettings,
+  importProductListing,
   setAdminRelatedProducts,
   setProductPublished,
+  uploadListingImages,
 } from "@/lib/api/storefront-admin";
 import { formatCurrency } from "@/lib/format";
 import {
+  buildListingImagePayload,
+  groupListingImageFiles,
+  MAX_LISTING_IMAGES_PER_SKU,
+} from "@/lib/storefront/listing-images";
+import {
   downloadProductListingWorkbook,
   parseListingSkus,
+  parseListingWorkbook,
 } from "@/lib/storefront/product-listing-template";
+import { readExcelFileWithGuard } from "@/lib/excel-import-guard";
 import { storefrontProductPath } from "@/lib/storefront/urls";
 import type {
   PublishableProduct,
   StorefrontAdminSettings,
-  StorefrontCollection,
 } from "@/lib/storefront/types";
 
 export default function StorefrontProductsPage() {
   const [products, setProducts] = useState<PublishableProduct[]>([]);
-  const [collections, setCollections] = useState<StorefrontCollection[]>([]);
   const [settings, setSettings] = useState<StorefrontAdminSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [listingSkus, setListingSkus] = useState("");
   const [listingFeedback, setListingFeedback] = useState("");
   const [listingError, setListingError] = useState("");
+  const [importingListing, setImportingListing] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [publishError, setPublishError] = useState("");
   const [filter, setFilter] = useState<"all" | "published" | "unpublished">("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingRelatedId, setEditingRelatedId] = useState<string | null>(null);
@@ -45,12 +55,10 @@ export default function StorefrontProductsPage() {
     Promise.all([
       fetchPublishableProducts(),
       fetchStorefrontAdminSettings(),
-      fetchAdminCollections(),
     ])
-      .then(([prods, storeSettings, storeCollections]) => {
+      .then(([prods, storeSettings]) => {
         setProducts(prods);
         setSettings(storeSettings);
-        setCollections(storeCollections);
       })
       .finally(() => setLoading(false));
   };
@@ -66,15 +74,25 @@ export default function StorefrontProductsPage() {
   });
 
   const togglePublish = async (product: PublishableProduct) => {
-    await setProductPublished(product.id, !product.publishedToStorefront);
-    load();
+    setPublishError("");
+    try {
+      await setProductPublished(product.id, !product.publishedToStorefront);
+      load();
+    } catch (err) {
+      setPublishError(getApiErrorMessage(err, "Could not update publish status."));
+    }
   };
 
   const bulkPublish = async (published: boolean) => {
     if (selected.size === 0) return;
-    await bulkPublishProducts([...selected], published);
-    setSelected(new Set());
-    load();
+    setPublishError("");
+    try {
+      await bulkPublishProducts([...selected], published);
+      setSelected(new Set());
+      load();
+    } catch (err) {
+      setPublishError(getApiErrorMessage(err, "Could not bulk publish."));
+    }
   };
 
   const downloadListingWorkbook = () => {
@@ -86,16 +104,80 @@ export default function StorefrontProductsPage() {
       return;
     }
 
-    const result = downloadProductListingWorkbook(skus, products, collections);
-    if (result.unmatchedSkus.length > 0) {
-      const preview = result.unmatchedSkus.slice(0, 5).join(", ");
-      const more = result.unmatchedSkus.length > 5 ? "…" : "";
-      setListingFeedback(
-        `Downloaded ${result.skuCount} listing rows. ${result.matchedCount} matched central stock; check these SKUs: ${preview}${more}`,
+    const result = downloadProductListingWorkbook(skus, products);
+    if (result.exportedCount === 0) {
+      setListingError(
+        "No active SKUs to export. SKUs must exist in central stock with available quantity.",
       );
       return;
     }
-    setListingFeedback(`Downloaded a listing workbook with ${result.skuCount} matched SKUs.`);
+    if (result.omittedSkus.length > 0) {
+      const preview = result.omittedSkus.slice(0, 6).join(", ");
+      const more = result.omittedSkus.length > 6 ? "…" : "";
+      setListingFeedback(
+        `Downloaded ${result.exportedCount} active SKU(s). Omitted (inactive or missing): ${preview}${more}`,
+      );
+      return;
+    }
+    setListingFeedback(`Downloaded listing workbook with ${result.exportedCount} active SKU(s).`);
+  };
+
+  const handleListingUpload = async (file: File) => {
+    setListingError("");
+    setListingFeedback("");
+    setImportingListing(true);
+    try {
+      const buffer = await readExcelFileWithGuard(file);
+      const rows = parseListingWorkbook(buffer);
+      if (rows.length === 0) {
+        setListingError("No product rows found in the workbook.");
+        return;
+      }
+      const result = await importProductListing(rows);
+      const failed = result.errors.length;
+      setListingFeedback(
+        `Imported ${result.updated} SKU(s). ${result.published} live on website. ${failed} row(s) failed validation.`,
+      );
+      if (failed > 0) {
+        const sample = result.errors
+          .slice(0, 3)
+          .map((e) => `${e.sku}: ${e.message}`)
+          .join(" · ");
+        setListingError(sample);
+      }
+      load();
+    } catch (err) {
+      setListingError(getApiErrorMessage(err, "Could not import listing workbook."));
+    } finally {
+      setImportingListing(false);
+    }
+  };
+
+  const handleListingImagesUpload = async (fileList: FileList | null) => {
+    if (!fileList?.length) return;
+    setListingError("");
+    setListingFeedback("");
+    setUploadingImages(true);
+    try {
+      const { parsed, invalid } = groupListingImageFiles([...fileList]);
+      if (invalid.length > 0) {
+        setListingError(
+          `Invalid names (use SKU_1.jpg … SKU_${MAX_LISTING_IMAGES_PER_SKU}.png): ${invalid.slice(0, 5).join(", ")}`,
+        );
+        if (parsed.length === 0) return;
+      }
+      const payload = await buildListingImagePayload(parsed);
+      const result = await uploadListingImages(payload);
+      setListingFeedback(`Uploaded ${result.applied} image(s) for website listing.`);
+      if (result.errors.length > 0) {
+        setListingError(result.errors.slice(0, 4).join(" · "));
+      }
+      load();
+    } catch (err) {
+      setListingError(getApiErrorMessage(err, "Could not upload listing images."));
+    } finally {
+      setUploadingImages(false);
+    }
   };
 
   const startEditRelated = async (productId: string) => {
@@ -126,8 +208,8 @@ export default function StorefrontProductsPage() {
   return (
     <div className="page-content">
       <PageHeader
-        title="Publish Products"
-        subtitle="Choose which inventory items appear on your online store"
+        title="Product listing"
+        subtitle="Download listing Excel from central SKUs, fill SEO fields, upload, then add photos to go live"
         action={
           settings?.storeUrl ? (
             <a
@@ -151,10 +233,12 @@ export default function StorefrontProductsPage() {
       <section className="surface-card mb-6 p-5">
         <div className="mb-3 flex items-center gap-2">
           <FileSpreadsheet size={18} className="text-zinc-600" />
-          <h2 className="font-semibold">Prepare a product listing workbook</h2>
+          <h2 className="font-semibold">1. Download listing Excel (central SKUs)</h2>
         </div>
         <p className="mb-3 max-w-3xl text-sm text-zinc-500">
-          Enter only the SKUs you want to prepare for the website. The workbook includes product details where a SKU matches central stock, plus editable SEO, dimensions, international price, and collection fields. Downloading the sheet does not publish anything.
+          Enter comma-separated SKUs. Only SKUs that are <strong>active in central stock</strong> are
+          included in the Excel. Columns: stock id, weight, price, selling price, description, SEO,
+          sorting (YYYYMMDD — newest sorts first on the shop), HSN, and more.
         </p>
         <label htmlFor="listing-skus" className="mb-1 block text-sm font-medium">
           SKUs to list
@@ -165,22 +249,78 @@ export default function StorefrontProductsPage() {
           onChange={(event) => setListingSkus(event.target.value)}
           rows={3}
           className="input-field w-full max-w-3xl px-3 py-2 text-sm"
-          placeholder="e.g. SHJ-1001, SHJ-1002, SHJ-1003"
+          placeholder="e.g. TSER0220, SHJ-1002, SHJ-1003"
         />
         <p className="mt-1 text-xs text-zinc-500">
-          Separate SKUs with commas. New lines and semicolons are also accepted. Existing collections: {collections.length}.
+          Separate SKUs with commas, new lines, or semicolons. Inactive or unknown SKUs are skipped in
+          the file.
         </p>
-        {listingError && <p className="mt-2 text-sm text-red-700">{listingError}</p>}
-        {listingFeedback && <p className="mt-2 text-sm text-blue-800">{listingFeedback}</p>}
         <button
           type="button"
           onClick={downloadListingWorkbook}
           className="btn-primary mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm"
         >
           <Download size={15} />
-          Download listing workbook
+          Download Excel
         </button>
       </section>
+
+      <section className="surface-card mb-6 p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <Upload size={18} className="text-zinc-600" />
+          <h2 className="font-semibold">2. Upload filled Excel</h2>
+        </div>
+        <p className="mb-3 max-w-3xl text-sm text-zinc-500">
+          Weight and price must match central ERP or the row is rejected. Products go live only when
+          they have at least one photo (step 3).
+        </p>
+        <label className="btn-secondary inline-flex cursor-pointer items-center gap-2 px-4 py-2 text-sm">
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            disabled={importingListing}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleListingUpload(file);
+              e.target.value = "";
+            }}
+          />
+          {importingListing ? "Importing…" : "Choose Excel file"}
+        </label>
+      </section>
+
+      <section className="surface-card mb-6 p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <ImagePlus size={18} className="text-zinc-600" />
+          <h2 className="font-semibold">3. Upload product photos</h2>
+        </div>
+        <p className="mb-3 max-w-3xl text-sm text-zinc-500">
+          Name files <code className="text-xs bg-zinc-100 px-1 rounded">SKU_1.jpg</code> through{" "}
+          <code className="text-xs bg-zinc-100 px-1 rounded">SKU_8.png</code> (e.g.{" "}
+          <code className="text-xs bg-zinc-100 px-1 rounded">TSER0220_1.jpeg</code>). Minimum 1, maximum
+          8 photos per SKU required to publish on the website.
+        </p>
+        <label className="btn-secondary inline-flex cursor-pointer items-center gap-2 px-4 py-2 text-sm">
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/jpg"
+            multiple
+            className="hidden"
+            disabled={uploadingImages}
+            onChange={(e) => void handleListingImagesUpload(e.target.files)}
+          />
+          {uploadingImages ? "Uploading…" : "Choose images"}
+        </label>
+      </section>
+
+      {(listingError || listingFeedback || publishError) && (
+        <div className="mb-4 space-y-2">
+          {listingError && <p className="text-sm text-red-700">{listingError}</p>}
+          {publishError && <p className="text-sm text-red-700">{publishError}</p>}
+          {listingFeedback && <p className="text-sm text-blue-800">{listingFeedback}</p>}
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap gap-3 items-center">
         {(["all", "published", "unpublished"] as const).map((f) => (
@@ -231,6 +371,7 @@ export default function StorefrontProductsPage() {
               <th className="p-3">Category</th>
               <th className="p-3">Price</th>
               <th className="p-3">Stock</th>
+              <th className="p-3">Photos</th>
               <th className="p-3">Online</th>
               <th className="p-3">Related</th>
               <th className="p-3">Website</th>
@@ -263,9 +404,24 @@ export default function StorefrontProductsPage() {
                   <td className="p-3">{formatCurrency(product.price)}</td>
                   <td className="p-3">{product.stock}</td>
                   <td className="p-3">
+                    <span
+                      className={
+                        product.imageCount >= 1 ? "text-green-700" : "text-amber-700"
+                      }
+                    >
+                      {product.imageCount}/8
+                    </span>
+                  </td>
+                  <td className="p-3">
                     <button
                       type="button"
                       onClick={() => togglePublish(product)}
+                      disabled={!product.publishedToStorefront && product.imageCount < 1}
+                      title={
+                        product.imageCount < 1
+                          ? "Upload at least one SKU_N photo first"
+                          : undefined
+                      }
                       className={`rounded px-2 py-1 text-xs font-medium ${
                         product.publishedToStorefront
                           ? "bg-green-100 text-green-800"

@@ -4,6 +4,11 @@ import * as XLSX from "xlsx";
 export const MAX_EXCEL_FILE_BYTES = 5 * 1024 * 1024;
 export const EXCEL_PARSE_TIMEOUT_MS = 10_000;
 
+export async function readExcelFileWithGuard(file: File): Promise<ArrayBuffer> {
+  assertExcelFileSize(file);
+  return file.arrayBuffer();
+}
+
 export function assertExcelFileSize(file: File): void {
   if (file.size > MAX_EXCEL_FILE_BYTES) {
     throw new Error(

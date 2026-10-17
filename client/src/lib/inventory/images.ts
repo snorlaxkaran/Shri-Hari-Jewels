@@ -1,4 +1,4 @@
-export const MAX_PRODUCT_IMAGES = 6;
+export const MAX_PRODUCT_IMAGES = 8;
 export const MAX_IMAGE_SIZE_MB = 5;
 export const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",

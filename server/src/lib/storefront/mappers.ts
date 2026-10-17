@@ -105,7 +105,7 @@ export const toStorefrontProduct = (
   metal: product.metal,
   purity: product.purity,
   weightGrams: product.weightGrams,
-  price: moneyToNumber(product.price),
+  price: moneyToNumber(product.storefrontSellingPrice ?? product.price),
   stock: availableStock,
   status: availableStock > 0 ? "In Stock" : "Out of Stock",
   imageColor: product.imageColor,

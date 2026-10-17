@@ -154,6 +154,34 @@ export const fetchRelatedProductIds = async (productId: string): Promise<string[
   return data.productIds;
 };
 
+export type ListingImportResult = {
+  updated: number;
+  published: number;
+  skipped: number;
+  errors: Array<{ sku: string; status: string; published: boolean; message?: string }>;
+  rows: Array<{ sku: string; status: string; published: boolean; message?: string }>;
+};
+
+export const importProductListing = async (
+  rows: Record<string, unknown>[],
+): Promise<ListingImportResult> => {
+  const { data } = await api.post<ListingImportResult>(
+    "/api/storefront-admin/products/import-listing",
+    { rows },
+  );
+  return data;
+};
+
+export const uploadListingImages = async (
+  images: Array<{ sku: string; slot: number; url: string; name: string }>,
+): Promise<{ applied: number; errors: string[] }> => {
+  const { data } = await api.post<{ applied: number; errors: string[] }>(
+    "/api/storefront-admin/products/listing-images",
+    { images },
+  );
+  return data;
+};
+
 export const setAdminRelatedProducts = async (
   productId: string,
   productIds: string[],

@@ -10,6 +10,9 @@ import CollectionCard from "./(components)/CollectionCard";
 import HeroCarousel from "./(components)/HeroCarousel";
 import ProductCard from "./(components)/ProductCard";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type Props = { params: Promise<{ slug: string }> };
 
 export default async function StorefrontHomePage({ params }: Props) {

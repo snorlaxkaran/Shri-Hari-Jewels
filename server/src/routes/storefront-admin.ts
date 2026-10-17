@@ -21,6 +21,12 @@ import {
   type UpdateStorefrontSettingsInput,
   type UpdateWebOrderInput,
 } from "../lib/storefront/admin-service.js";
+import {
+  applyBulkListingImages,
+  importProductListingRows,
+  type BulkListingImageInput,
+  type ListingImportRowInput,
+} from "../lib/storefront/listing-import.js";
 import { StorefrontError } from "../lib/storefront/resolve-tenant.js";
 import {
   authenticate,
@@ -129,6 +135,48 @@ storefrontAdminRouter.patch(
       }
       console.error("PATCH /api/storefront-admin/products/:id/publish", error);
       res.status(500).json({ error: "Failed to update product." });
+    }
+  },
+);
+
+storefrontAdminRouter.post(
+  "/products/import-listing",
+  requireRole(canManageStorefront),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { rows } = req.body as { rows?: ListingImportRowInput[] };
+      if (!Array.isArray(rows) || rows.length === 0) {
+        res.status(400).json({ error: "No listing rows to import." });
+        return;
+      }
+      const result = await importProductListingRows(req.organizationId!, rows);
+      res.json(result);
+    } catch (error) {
+      if (error instanceof StorefrontError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/storefront-admin/products/import-listing", error);
+      res.status(500).json({ error: "Failed to import listing workbook." });
+    }
+  },
+);
+
+storefrontAdminRouter.post(
+  "/products/listing-images",
+  requireRole(canManageStorefront),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { images } = req.body as { images?: BulkListingImageInput[] };
+      if (!Array.isArray(images) || images.length === 0) {
+        res.status(400).json({ error: "No images to upload." });
+        return;
+      }
+      const result = await applyBulkListingImages(req.organizationId!, images);
+      res.json(result);
+    } catch (error) {
+      console.error("POST /api/storefront-admin/products/listing-images", error);
+      res.status(500).json({ error: "Failed to upload listing images." });
     }
   },
 );

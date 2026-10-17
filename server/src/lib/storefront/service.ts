@@ -26,7 +26,7 @@ import {
 import { generateWebOrderNo } from "./web-order-no.js";
 
 const productInclude = {
-  images: { orderBy: { sortOrder: "asc" as const }, take: 1 },
+  images: { orderBy: { sortOrder: "asc" as const }, take: 8 },
 };
 
 const batchCountAvailableUnits = async (
@@ -139,28 +139,43 @@ export const listStorefrontProducts = async (
 
   const sortBy = filters.sortBy ?? "newest";
   const sortOrder = filters.sortOrder ?? "desc";
-  const orderBy =
-    sortBy === "price"
-      ? { price: sortOrder }
-      : sortBy === "name"
-        ? { name: sortOrder }
-        : { createdAt: sortOrder };
 
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where,
       include: productInclude,
-      orderBy,
-      skip,
-      take: limit,
+      ...(sortBy === "price" || sortBy === "name"
+        ? {
+            orderBy:
+              sortBy === "price"
+                ? { price: sortOrder }
+                : { name: sortOrder },
+          }
+        : {}),
+      skip: sortBy === "price" || sortBy === "name" ? skip : 0,
+      take: sortBy === "price" || sortBy === "name" ? limit : 500,
     }),
     prisma.product.count({ where }),
   ]);
 
+  const sortedProducts =
+    sortBy === "newest"
+      ? [...products].sort((a, b) => {
+          const aKey = a.storefrontSortKey ?? "";
+          const bKey = b.storefrontSortKey ?? "";
+          if (aKey !== bKey) {
+            return sortOrder === "desc" ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
+          }
+          return sortOrder === "desc"
+            ? b.createdAt.getTime() - a.createdAt.getTime()
+            : a.createdAt.getTime() - b.createdAt.getTime();
+        }).slice(skip, skip + limit)
+      : products;
+
   const stockCounts = await batchCountAvailableUnits(products, organizationId);
 
   return {
-    products: products.map((p) => toStorefrontProduct(p, stockCounts.get(p.id) ?? 0)),
+    products: sortedProducts.map((p) => toStorefrontProduct(p, stockCounts.get(p.id) ?? 0)),
     total,
   };
 };
