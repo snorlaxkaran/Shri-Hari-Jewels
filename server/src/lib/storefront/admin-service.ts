@@ -40,6 +40,7 @@ export type CreateCollectionInput = {
   slug?: string;
   description?: string;
   imageUrl?: string;
+  bannerUrls?: string[] | null;
   sortOrder?: number;
   active?: boolean;
 };
@@ -273,7 +274,7 @@ export const listAdminCollections = async (
     orderBy: { sortOrder: "asc" },
   });
 
-  return collections.map((c) => toStorefrontCollection(c, false));
+  return collections.map((c) => toStorefrontCollection(c, false, true));
 };
 
 export const createCollection = async (
@@ -291,20 +292,27 @@ export const createCollection = async (
   });
   if (existing) throw new StorefrontError("Collection slug already exists.");
 
+  const bannerUrls =
+    input.bannerUrls !== undefined ? normalizeBannerUrlsInput(input.bannerUrls) : [];
+  const bannerUrl = bannerUrls[0] ?? null;
+  const imageUrl = input.imageUrl?.trim() || bannerUrl;
+
   const collection = await prisma.storefrontCollection.create({
     data: {
       organizationId,
       name,
       slug,
       description: input.description?.trim() || null,
-      imageUrl: input.imageUrl?.trim() || null,
+      imageUrl,
+      bannerUrl,
+      bannerUrls,
       sortOrder: input.sortOrder ?? 0,
       active: input.active ?? true,
     },
     include: { products: { include: { product: { include: { images: true } } } } },
   });
 
-  return toStorefrontCollection(collection, false);
+  return toStorefrontCollection(collection, false, true);
 };
 
 export const updateCollection = async (
@@ -326,6 +334,11 @@ export const updateCollection = async (
     if (conflict) throw new StorefrontError("Collection slug already exists.");
   }
 
+  const bannerUrls =
+    input.bannerUrls !== undefined ? normalizeBannerUrlsInput(input.bannerUrls) : undefined;
+  const bannerUrl =
+    bannerUrls !== undefined ? (bannerUrls[0] ?? null) : undefined;
+
   const collection = await prisma.storefrontCollection.update({
     where: { id: collectionId },
     data: {
@@ -337,13 +350,17 @@ export const updateCollection = async (
       ...(input.imageUrl !== undefined && {
         imageUrl: input.imageUrl?.trim() || null,
       }),
+      ...(bannerUrls !== undefined && { bannerUrls, bannerUrl }),
+      ...(bannerUrls !== undefined && {
+        imageUrl: bannerUrls[0] ?? input.imageUrl?.trim() ?? existing.imageUrl,
+      }),
       ...(input.sortOrder !== undefined && { sortOrder: input.sortOrder }),
       ...(input.active !== undefined && { active: input.active }),
     },
     include: { products: { include: { product: { include: { images: true } } } } },
   });
 
-  return toStorefrontCollection(collection, false);
+  return toStorefrontCollection(collection, false, true);
 };
 
 export const deleteCollection = async (
@@ -395,7 +412,7 @@ export const setCollectionProducts = async (
     include: { products: { include: { product: { include: { images: true } } } } },
   });
 
-  return toStorefrontCollection(updated, false);
+  return toStorefrontCollection(updated, false, true);
 };
 
 export const listWebOrders = async (

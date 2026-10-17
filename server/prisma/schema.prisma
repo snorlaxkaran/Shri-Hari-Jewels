@@ -342,6 +342,8 @@ model StorefrontCollection {
   slug           String
   description    String?  @db.Text
   imageUrl       String?
+  bannerUrl      String?
+  bannerUrls     String[] @default([])
   sortOrder      Int      @default(0)
   active         Boolean  @default(true)
   createdAt      DateTime @default(now())

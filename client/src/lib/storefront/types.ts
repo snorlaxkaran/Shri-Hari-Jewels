@@ -48,7 +48,9 @@ export type StorefrontCollection = {
   slug: string;
   description: string | null;
   imageUrl: string | null;
+  bannerUrls: string[];
   productCount: number;
+  productIds?: string[];
   products?: StorefrontProduct[];
 };
 

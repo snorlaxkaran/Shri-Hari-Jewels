@@ -14,6 +14,8 @@ type BannerCarouselEditorProps = {
   onChange: (banners: string[]) => void;
   heroTitle?: string;
   heroSubtitle?: string;
+  /** Where banners appear on the public store */
+  placement?: "home" | "collection";
 };
 
 export default function BannerCarouselEditor({
@@ -21,6 +23,7 @@ export default function BannerCarouselEditor({
   onChange,
   heroTitle,
   heroSubtitle,
+  placement = "home",
 }: BannerCarouselEditorProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
@@ -88,8 +91,11 @@ export default function BannerCarouselEditor({
       />
 
       <p className="text-xs text-zinc-500 mb-3">
-        Upload up to {BANNER_SLOT_COUNT} hero banners. Each image can be repositioned and cropped
-        with a live store preview before saving.
+        Upload up to {BANNER_SLOT_COUNT} hero banners
+        {placement === "collection"
+          ? " for this collection page"
+          : " for your store homepage"}
+        . Each image can be repositioned and cropped with a live preview before saving.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -168,7 +174,8 @@ export default function BannerCarouselEditor({
 
       {filledCount > 0 && (
         <p className="text-xs text-zinc-500 mt-3">
-          {filledCount} banner{filledCount === 1 ? "" : "s"} will rotate on your store homepage.
+          {filledCount} banner{filledCount === 1 ? "" : "s"} will show on your store
+          {placement === "collection" ? " collection page" : " homepage"}.
         </p>
       )}
 

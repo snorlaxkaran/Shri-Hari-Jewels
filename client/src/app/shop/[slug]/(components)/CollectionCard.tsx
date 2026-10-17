@@ -9,11 +9,15 @@ export default function CollectionCard({
   slug: string;
   collection: StorefrontCollection;
 }) {
+  const thumb =
+    collection.imageUrl ??
+    (collection.bannerUrls?.length ? collection.bannerUrls[0] : null);
+
   return (
     <Link href={`/shop/${slug}/collections/${collection.slug}`} className="sf-collection-card">
-      {collection.imageUrl ? (
+      {thumb ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={collection.imageUrl} alt={collection.name} />
+        <img src={thumb} alt={collection.name} />
       ) : (
         <div className="sf-collection-card-placeholder">
           <Layers size={36} strokeWidth={1} />

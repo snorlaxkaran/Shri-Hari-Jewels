@@ -94,6 +94,7 @@ export type CreateCollectionInput = {
   slug?: string;
   description?: string;
   imageUrl?: string;
+  bannerUrls?: string[] | null;
   sortOrder?: number;
   active?: boolean;
 };

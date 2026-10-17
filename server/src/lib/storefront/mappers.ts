@@ -33,7 +33,9 @@ export type StorefrontCollectionDto = {
   slug: string;
   description: string | null;
   imageUrl: string | null;
+  bannerUrls: string[];
   productCount: number;
+  productIds?: string[];
   products?: StorefrontProductDto[];
 };
 
@@ -125,18 +127,48 @@ type CollectionWithProducts = StorefrontCollection & {
   >;
 };
 
+const MAX_BANNER_SLIDES = 4;
+
+export const parseCollectionBannerUrls = (
+  collection: Pick<
+    StorefrontCollection,
+    "bannerUrls" | "bannerUrl" | "imageUrl"
+  >,
+): string[] => {
+  const raw = collection.bannerUrls;
+  if (Array.isArray(raw)) {
+    const urls = raw
+      .filter((url): url is string => typeof url === "string" && url.trim().length > 0)
+      .map((url) => url.trim())
+      .slice(0, MAX_BANNER_SLIDES);
+    if (urls.length > 0) return urls;
+  }
+  if (collection.bannerUrl?.trim()) return [collection.bannerUrl.trim()];
+  if (collection.imageUrl?.trim()) return [collection.imageUrl.trim()];
+  return [];
+};
+
 export const toStorefrontCollection = (
   collection: CollectionWithProducts,
   includeProducts = false,
+  includeProductIds = false,
 ): StorefrontCollectionDto => {
+  const bannerUrls = parseCollectionBannerUrls(collection);
   const dto: StorefrontCollectionDto = {
     id: collection.id,
     name: collection.name,
     slug: collection.slug,
     description: collection.description,
-    imageUrl: collection.imageUrl,
+    imageUrl: collection.imageUrl ?? bannerUrls[0] ?? null,
+    bannerUrls,
     productCount: collection.products.length,
   };
+
+  if (includeProductIds) {
+    dto.productIds = collection.products
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((link) => link.productId);
+  }
 
   if (includeProducts) {
     dto.products = collection.products
@@ -151,8 +183,6 @@ export const toStorefrontCollection = (
 
   return dto;
 };
-
-const MAX_BANNER_SLIDES = 4;
 
 export const parseBannerUrls = (
   settings: Pick<StorefrontSettings, "bannerUrls" | "bannerUrl">,

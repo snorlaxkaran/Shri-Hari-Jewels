@@ -940,6 +940,31 @@ const ensureStorefrontTables = async () => {
   );
 
   await run(
+    "Ensure StorefrontCollection.bannerUrl column…",
+    `ALTER TABLE "StorefrontCollection" ADD COLUMN IF NOT EXISTS "bannerUrl" TEXT`,
+  );
+
+  await run(
+    "Ensure StorefrontCollection.bannerUrls column…",
+    `ALTER TABLE "StorefrontCollection" ADD COLUMN IF NOT EXISTS "bannerUrls" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`,
+  );
+
+  await run(
+    "Backfill StorefrontCollection.bannerUrls from imageUrl…",
+    `
+    UPDATE "StorefrontCollection"
+    SET
+      "bannerUrl" = COALESCE("bannerUrl", "imageUrl"),
+      "bannerUrls" = CASE
+        WHEN COALESCE(array_length("bannerUrls", 1), 0) > 0 THEN "bannerUrls"
+        WHEN "imageUrl" IS NOT NULL AND TRIM("imageUrl") <> '' THEN ARRAY["imageUrl"]
+        ELSE "bannerUrls"
+      END
+    WHERE "imageUrl" IS NOT NULL AND TRIM("imageUrl") <> ''
+    `,
+  );
+
+  await run(
     "Ensure StorefrontCollectionProduct table…",
     `
     CREATE TABLE IF NOT EXISTS "StorefrontCollectionProduct" (
