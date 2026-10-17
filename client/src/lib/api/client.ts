@@ -76,8 +76,14 @@ export const getApiErrorMessage = (
   fallback = "Failed to save product. Please try again.",
 ): string => {
   if (isAxiosError(error)) {
-    const message = error.response?.data?.error;
-    if (typeof message === "string") return message;
+    const data = error.response?.data as { error?: string; message?: string } | undefined;
+    if (typeof data?.message === "string" && data.message.trim()) {
+      return data.message;
+    }
+    if (data?.error === "module_not_enabled") {
+      return "Online Store is not enabled for your plan. Open Billing and turn on the Online Store module, or contact support.";
+    }
+    if (typeof data?.error === "string") return data.error;
     if (error.response?.status === 404) {
       return "API route not found. Restart or redeploy the backend server (Render → Manual Deploy).";
     }

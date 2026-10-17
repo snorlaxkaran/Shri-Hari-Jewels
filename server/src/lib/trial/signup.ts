@@ -193,6 +193,7 @@ export const registerTrialTenant = async (input: RegisterTrialInput): Promise<Tr
         name: "My Jewellery Business",
         slug,
         active: true,
+        enabledModules: ["inventory", "sales", "storefront"],
       },
     });
 

@@ -140,7 +140,10 @@ export const enforceModuleAccessForRequest = async (
   const required = getRequiredModuleForPath(req.originalUrl);
   if (!required) return true;
 
-  const enabled = await getOrganizationModules(req.organizationId);
+  let enabled = await getOrganizationModules(req.organizationId);
+  if (!enabled.includes(required) && required === "storefront") {
+    enabled = await ensureOrganizationHasModules(req.organizationId, ["storefront"]);
+  }
   if (enabled.includes(required)) return true;
 
   res.status(403).json({
@@ -150,6 +153,17 @@ export const enforceModuleAccessForRequest = async (
     enabledModules: enabled,
   });
   return false;
+};
+
+/** Add modules if missing (e.g. Online Store when opening shop settings). Keeps existing modules. */
+export const ensureOrganizationHasModules = async (
+  organizationId: string,
+  moduleIds: JewelleryModuleId[],
+): Promise<JewelleryModuleId[]> => {
+  const current = await getOrganizationModules(organizationId);
+  const toAdd = moduleIds.filter((id) => !current.includes(id));
+  if (toAdd.length === 0) return current;
+  return updateOrganizationModules(organizationId, [...current, ...toAdd]);
 };
 
 export const updateOrganizationModules = async (
