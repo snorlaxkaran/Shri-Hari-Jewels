@@ -49,6 +49,7 @@ export const ROUTE_ACCESS: Record<UserRole, string[]> = {
     "/motifs",
     "/production-runs",
     "/storefront",
+    "/online-orders",
     "/expenses",
   ],
   Store: ["/dashboard", "/setup", "/workspace", "/inventory", "/products", "/stock-transfer", "/inventory/audit", "/sales", "/customers", "/repairs", "/expenses"],

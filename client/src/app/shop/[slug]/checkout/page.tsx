@@ -55,7 +55,7 @@ export default function CheckoutPage() {
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       });
       clearCart();
-      router.push(`/shop/${slug}/order/${order.orderNo}`);
+      router.push(`/shop/${slug}/order/${order.orderNo}/payment`);
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to place order."));
     } finally {
@@ -137,10 +137,10 @@ export default function CheckoutPage() {
                 <p className="mt-4 text-xs text-[var(--sf-muted)]">{config.shippingNote}</p>
               )}
               <button type="submit" disabled={submitting} className="sf-btn sf-btn-primary sf-btn-block mt-6">
-                {submitting ? "Placing order…" : "Place order"}
+                {submitting ? "Placing order…" : "Continue to payment"}
               </button>
               <p className="mt-3 text-center text-xs text-[var(--sf-muted)]">
-                Payment on delivery or bank transfer as arranged with the store.
+                You&apos;ll review the total and complete payment on the next step.
               </p>
             </div>
           </div>

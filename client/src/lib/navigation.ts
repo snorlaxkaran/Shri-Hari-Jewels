@@ -123,7 +123,14 @@ export const navSections: NavSection[] = [
       { label: "Banners & branding", href: "/storefront/settings", icon: icon(Settings) },
       { label: "Product listing", href: "/storefront/products", icon: icon(Package) },
       { label: "Collections", href: "/storefront/collections", icon: icon(Palette) },
-      { label: "Web orders", href: "/storefront/orders", icon: icon(ShoppingBag) },
+    ],
+  },
+  {
+    title: "Online orders",
+    workspaceHref: "/online-orders",
+    items: [
+      { label: "Dashboard", href: "/online-orders", icon: icon(LayoutDashboard) },
+      { label: "Orders", href: "/storefront/orders", icon: icon(ShoppingBag) },
     ],
   },
   {
@@ -273,7 +280,9 @@ export const getPageTitle = (pathname: string): string => {
   if (pathname === "/storefront/settings") return "Banners & branding";
   if (pathname === "/storefront/products") return "Product listing";
   if (pathname === "/storefront/collections") return "Collections";
-  if (pathname === "/storefront/orders") return "Web Orders";
+  if (pathname === "/online-orders") return "Online orders";
+  if (pathname.startsWith("/storefront/orders/")) return "Order details";
+  if (pathname === "/storefront/orders") return "Orders";
   if (pathname === "/storefront") return "Online Store";
   for (const section of navSections) {
     const match = section.items.find((item) => item.href === pathname);

@@ -123,6 +123,16 @@ export const fetchStorefrontOrder = async (
   return data;
 };
 
+export const simulateStorefrontPayment = async (
+  slug: string,
+  orderNo: string,
+): Promise<WebOrder> => {
+  const { data } = await publicApi.post<WebOrder>(
+    `/api/storefront/${slug}/orders/${orderNo}/pay`,
+  );
+  return data;
+};
+
 export const resolveStorefrontByHost = async (
   host: string,
 ): Promise<{ slug: string; name: string } | null> => {

@@ -6,6 +6,7 @@ import type {
   StorefrontSettings,
   ShopSettings,
   WebOrder,
+  WebOrderEvent,
   WebOrderItem,
 } from "@prisma/client";
 import { moneyToNumber } from "../money.js";
@@ -66,6 +67,14 @@ export type StorefrontConfigDto = {
   gstNumber: string | null;
 };
 
+export type WebOrderEventDto = {
+  id: string;
+  type: string;
+  message: string;
+  createdAt: string;
+  meta?: Record<string, unknown> | null;
+};
+
 export type WebOrderDto = {
   id: string;
   orderNo: string;
@@ -92,6 +101,8 @@ export type WebOrderDto = {
     lineTotal: number;
   }>;
   createdAt: string;
+  updatedAt: string;
+  events?: WebOrderEventDto[];
 };
 
 type ProductWithImages = Product & { images: ProductImage[] };
@@ -243,31 +254,60 @@ export const toStorefrontConfig = (
 });
 
 type WebOrderWithItems = WebOrder & { items: WebOrderItem[] };
+type WebOrderWithItemsAndEvents = WebOrderWithItems & {
+  events?: WebOrderEvent[];
+};
 
-export const toWebOrderDto = (order: WebOrderWithItems): WebOrderDto => ({
-  id: order.id,
-  orderNo: order.orderNo,
-  customerName: order.customerName,
-  customerEmail: order.customerEmail,
-  customerMobile: order.customerMobile,
-  addressLine1: order.addressLine1,
-  addressLine2: order.addressLine2,
-  city: order.city,
-  state: order.state,
-  pincode: order.pincode,
-  country: order.country,
-  status: order.status,
-  paymentStatus: order.paymentStatus,
-  totalAmount: moneyToNumber(order.totalAmount),
-  notes: order.notes,
-  items: order.items.map((item) => ({
-    id: item.id,
-    productId: item.productId,
-    productSku: item.productSku,
-    productName: item.productName,
-    quantity: item.quantity,
-    unitPrice: moneyToNumber(item.unitPrice),
-    lineTotal: moneyToNumber(item.lineTotal),
-  })),
-  createdAt: order.createdAt.toISOString(),
+const toWebOrderEventDto = (event: WebOrderEvent): WebOrderEventDto => ({
+  id: event.id,
+  type: event.type,
+  message: event.message,
+  createdAt: event.createdAt.toISOString(),
+  meta:
+    event.meta && typeof event.meta === "object" && !Array.isArray(event.meta)
+      ? (event.meta as Record<string, unknown>)
+      : null,
 });
+
+export const toWebOrderDto = (
+  order: WebOrderWithItemsAndEvents,
+  includeEvents = false,
+): WebOrderDto => {
+  const dto: WebOrderDto = {
+    id: order.id,
+    orderNo: order.orderNo,
+    customerName: order.customerName,
+    customerEmail: order.customerEmail,
+    customerMobile: order.customerMobile,
+    addressLine1: order.addressLine1,
+    addressLine2: order.addressLine2,
+    city: order.city,
+    state: order.state,
+    pincode: order.pincode,
+    country: order.country,
+    status: order.status,
+    paymentStatus: order.paymentStatus,
+    totalAmount: moneyToNumber(order.totalAmount),
+    notes: order.notes,
+    items: order.items.map((item) => ({
+      id: item.id,
+      productId: item.productId,
+      productSku: item.productSku,
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: moneyToNumber(item.unitPrice),
+      lineTotal: moneyToNumber(item.lineTotal),
+    })),
+    createdAt: order.createdAt.toISOString(),
+    updatedAt: order.updatedAt.toISOString(),
+  };
+
+  if (includeEvents && order.events) {
+    dto.events = order.events
+      .slice()
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .map(toWebOrderEventDto);
+  }
+
+  return dto;
+};

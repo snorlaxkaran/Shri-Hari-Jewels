@@ -411,6 +411,7 @@ model WebOrder {
   branch       Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
   customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   items        WebOrderItem[]
+  events       WebOrderEvent[]
 
   @@unique([organizationId, orderNo])
   @@index([organizationId])
@@ -435,6 +436,20 @@ model WebOrderItem {
 
   @@index([webOrderId])
   @@index([productId])
+}
+
+model WebOrderEvent {
+  id         String   @id @default(uuid())
+  webOrderId String
+  type       String
+  message    String
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  webOrder WebOrder @relation(fields: [webOrderId], references: [id], onDelete: Cascade)
+
+  @@index([webOrderId])
+  @@index([createdAt])
 }
 
 model Branch {

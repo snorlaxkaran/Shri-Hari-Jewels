@@ -138,4 +138,5 @@ export const NAV_SECTION_MODULES: Record<string, JewelleryModuleId> = {
   Sales: "sales",
   Production: "production",
   "Online Store": "storefront",
+  "Online orders": "storefront",
 };

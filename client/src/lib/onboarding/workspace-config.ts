@@ -116,8 +116,8 @@ export const WORKSPACE_CONFIG: Record<JewelleryModuleId, WorkspaceConfig> = {
     shortcuts: [
       { label: "Store settings", href: "/storefront/settings" },
       { label: "Publish products", href: "/storefront/products" },
-      { label: "Web orders", href: "/storefront/orders" },
       { label: "Collections", href: "/storefront/collections" },
+      { label: "Online orders", href: "/online-orders" },
     ],
     cards: [
       {
@@ -131,7 +131,7 @@ export const WORKSPACE_CONFIG: Record<JewelleryModuleId, WorkspaceConfig> = {
       {
         title: "Operations",
         links: [
-          { label: "Web orders inbox", href: "/storefront/orders", onboard: true },
+          { label: "Online orders dashboard", href: "/online-orders", onboard: true },
           { label: "Counter stock", href: "/inventory" },
         ],
       },

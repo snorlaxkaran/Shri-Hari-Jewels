@@ -14,6 +14,7 @@ import {
 } from "./mappers.js";
 import { assertCanPublishProduct } from "./listing-import.js";
 import { StorefrontError } from "./resolve-tenant.js";
+import { recordWebOrderEvent, WEB_ORDER_EVENT } from "./web-order-events.js";
 
 export type UpdateStorefrontSettingsInput = {
   enabled?: boolean;
@@ -424,7 +425,19 @@ export const listWebOrders = async (
     orderBy: { createdAt: "desc" },
   });
 
-  return orders.map(toWebOrderDto);
+  return orders.map((o) => toWebOrderDto(o));
+};
+
+export const getWebOrderById = async (
+  organizationId: string,
+  orderId: string,
+): Promise<WebOrderDto> => {
+  const order = await prisma.webOrder.findFirst({
+    where: { id: orderId, organizationId },
+    include: { items: true, events: true },
+  });
+  if (!order) throw new StorefrontError("Order not found.", 404);
+  return toWebOrderDto(order, true);
 };
 
 export type UpdateWebOrderInput = {
@@ -505,10 +518,38 @@ export const updateWebOrder = async (
       }
     }
 
+    if (input.status !== undefined && input.status !== existing.status) {
+      await recordWebOrderEvent(
+        tx,
+        orderId,
+        WEB_ORDER_EVENT.STATUS_UPDATED,
+        `Order status updated to ${input.status}`,
+        { from: existing.status, to: input.status },
+      );
+    }
+
+    if (
+      input.paymentStatus !== undefined &&
+      input.paymentStatus !== existing.paymentStatus
+    ) {
+      await recordWebOrderEvent(
+        tx,
+        orderId,
+        WEB_ORDER_EVENT.PAYMENT_STATUS_UPDATED,
+        `Payment status updated to ${input.paymentStatus}`,
+        { from: existing.paymentStatus, to: input.paymentStatus },
+      );
+    }
+
     return updated;
   });
 
-  return toWebOrderDto(order);
+  const withEvents = await prisma.webOrder.findUniqueOrThrow({
+    where: { id: orderId },
+    include: { items: true, events: true },
+  });
+
+  return toWebOrderDto(withEvents, true);
 };
 
 export const ensureStorefrontSettings = async (

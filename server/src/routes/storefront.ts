@@ -7,6 +7,7 @@ import {
   getStorefrontProduct,
   getStorefrontStatus,
   getWebOrderByNo,
+  simulateWebOrderPayment,
   listStorefrontCollections,
   listStorefrontProducts,
   placeWebOrder,
@@ -246,6 +247,7 @@ storefrontRouter.get("/:slug/orders/:orderNo", async (req, res) => {
     const order = await getWebOrderByNo(
       tenant.organizationId,
       routeParam(req.params.orderNo),
+      true,
     );
     res.json(order);
   } catch (error) {
@@ -257,6 +259,33 @@ storefrontRouter.get("/:slug/orders/:orderNo", async (req, res) => {
     res.status(500).json({ error: "Failed to load order." });
   }
 });
+
+storefrontRouter.post(
+  "/:slug/orders/:orderNo/pay",
+  checkoutLimiter,
+  async (req, res) => {
+    try {
+      const tenant = await resolveTenant(routeParam(req.params.slug));
+      if (!tenant) {
+        res.status(404).json({ error: "Store not found." });
+        return;
+      }
+
+      const order = await simulateWebOrderPayment(
+        tenant.organizationId,
+        routeParam(req.params.orderNo),
+      );
+      res.json(order);
+    } catch (error) {
+      if (error instanceof StorefrontError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/storefront/:slug/orders/:orderNo/pay", error);
+      res.status(500).json({ error: "Failed to process payment." });
+    }
+  },
+);
 
 storefrontRouter.get("/resolve", async (req, res) => {
   try {

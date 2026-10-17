@@ -4,86 +4,85 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
-import { fetchWebOrders, updateWebOrder } from "@/lib/api/storefront-admin";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { fetchWebOrders } from "@/lib/api/storefront-admin";
+import { formatCurrency, formatDateTime } from "@/lib/format";
 import type { WebOrder } from "@/lib/storefront/types";
 
-const STATUSES = ["Pending", "Confirmed", "Processing", "Shipped", "Delivered", "Cancelled"] as const;
-const PAYMENT_STATUSES = ["Unpaid", "Paid", "Refunded"] as const;
+const statusPill = (value: string) => {
+  const base = "inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium";
+  if (value === "Paid") return `${base} bg-emerald-50 text-emerald-800`;
+  if (value === "Unpaid") return `${base} bg-amber-50 text-amber-800`;
+  if (value === "Cancelled") return `${base} bg-red-50 text-red-700`;
+  return `${base} bg-zinc-100 text-zinc-700`;
+};
 
 export default function StorefrontOrdersPage() {
   const [orders, setOrders] = useState<WebOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = () => {
-    setLoading(true);
+  useEffect(() => {
     fetchWebOrders()
       .then(setOrders)
       .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const handleStatusChange = async (order: WebOrder, status: string) => {
-    await updateWebOrder(order.id, { status });
-    load();
-  };
-
-  const handlePaymentChange = async (order: WebOrder, paymentStatus: string) => {
-    await updateWebOrder(order.id, { paymentStatus });
-    load();
-  };
+  }, []);
 
   if (loading) return <PageSkeleton />;
 
   return (
     <div className="page-content">
-      <PageHeader title="Web Orders" subtitle="Orders placed through your online store" />
-      <div className="mb-4"><Link href="/storefront" className="text-sm text-zinc-500 hover:underline">← Back to Online Store</Link></div>
+      <PageHeader title="Orders" subtitle="All orders placed through your online store" />
+      <div className="mb-4 flex flex-wrap gap-4 text-sm">
+        <Link href="/online-orders" className="text-zinc-500 hover:underline">
+          ← Online orders dashboard
+        </Link>
+      </div>
 
       {orders.length === 0 ? (
         <p className="text-center text-zinc-500 py-12">No web orders yet.</p>
       ) : (
-        <div className="space-y-4">
-          {orders.map((order) => (
-            <div key={order.id} className="surface-card p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="font-semibold">{order.orderNo}</p>
-                  <p className="text-sm text-zinc-600">{order.customerName} · {order.customerMobile}</p>
-                  <p className="text-xs text-zinc-400 mt-1">{formatDate(order.createdAt)}</p>
-                </div>
-                <p className="text-lg font-semibold">{formatCurrency(order.totalAmount)}</p>
-              </div>
-
-              <ul className="mt-3 text-sm text-zinc-600 space-y-1">
-                {order.items.map((item) => (
-                  <li key={item.id}>{item.productName} × {item.quantity} — {formatCurrency(item.lineTotal)}</li>
-                ))}
-              </ul>
-
-              <p className="mt-2 text-xs text-zinc-500">
-                Ship to: {order.addressLine1}, {order.city}, {order.state} {order.pincode}
-              </p>
-
-              <div className="mt-4 flex flex-wrap gap-3">
-                <select
-                  value={order.status}
-                  onChange={(e) => handleStatusChange(order, e.target.value)}
-                  className="rounded border px-2 py-1 text-xs"
-                >
-                  {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <select
-                  value={order.paymentStatus}
-                  onChange={(e) => handlePaymentChange(order, e.target.value)}
-                  className="rounded border px-2 py-1 text-xs"
-                >
-                  {PAYMENT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            </div>
-          ))}
+        <div className="surface-card overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 bg-zinc-50/80 text-left text-xs text-zinc-500">
+                <th className="px-4 py-3 font-medium">Order</th>
+                <th className="px-4 py-3 font-medium">Customer</th>
+                <th className="px-4 py-3 font-medium">Placed</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Payment</th>
+                <th className="px-4 py-3 font-medium text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => (
+                <tr key={order.id} className="border-b border-zinc-100 hover:bg-zinc-50/50">
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/storefront/orders/${order.id}`}
+                      className="font-medium text-blue-600 hover:underline"
+                    >
+                      {order.orderNo}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-zinc-600">
+                    <div>{order.customerName}</div>
+                    <div className="text-xs text-zinc-400">{order.customerMobile}</div>
+                  </td>
+                  <td className="px-4 py-3 text-zinc-600 whitespace-nowrap">
+                    {formatDateTime(order.createdAt)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={statusPill(order.status)}>{order.status}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={statusPill(order.paymentStatus)}>{order.paymentStatus}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium">
+                    {formatCurrency(order.totalAmount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

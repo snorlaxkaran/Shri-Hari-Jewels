@@ -1215,6 +1215,65 @@ const ensureTenantStorefront = async () => {
   }
 
   await run(
+    "Ensure WebOrderEvent table…",
+    `
+    CREATE TABLE IF NOT EXISTS "WebOrderEvent" (
+      "id" TEXT NOT NULL,
+      "webOrderId" TEXT NOT NULL,
+      "type" TEXT NOT NULL,
+      "message" TEXT NOT NULL,
+      "meta" JSONB,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "WebOrderEvent_pkey" PRIMARY KEY ("id")
+    )
+    `,
+  );
+
+  await run(
+    "Ensure WebOrderEvent indexes…",
+    `CREATE INDEX IF NOT EXISTS "WebOrderEvent_webOrderId_idx" ON "WebOrderEvent"("webOrderId")`,
+  );
+  await run(
+    "Ensure WebOrderEvent createdAt index…",
+    `CREATE INDEX IF NOT EXISTS "WebOrderEvent_createdAt_idx" ON "WebOrderEvent"("createdAt")`,
+  );
+
+  await run(
+    "Ensure WebOrderEvent foreign key…",
+    `
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'WebOrderEvent_webOrderId_fkey') THEN
+        ALTER TABLE "WebOrderEvent"
+          ADD CONSTRAINT "WebOrderEvent_webOrderId_fkey"
+          FOREIGN KEY ("webOrderId") REFERENCES "WebOrder"("id")
+          ON DELETE CASCADE ON UPDATE CASCADE;
+      END IF;
+    END $$;
+    `,
+  );
+
+  if (await tableExists("WebOrder")) {
+    await run(
+      "Backfill WebOrderEvent order_placed rows…",
+      `
+      INSERT INTO "WebOrderEvent" ("id", "webOrderId", "type", "message", "createdAt")
+      SELECT
+        gen_random_uuid()::text,
+        w."id",
+        'order_placed',
+        'Order ' || w."orderNo" || ' placed online',
+        w."createdAt"
+      FROM "WebOrder" w
+      WHERE NOT EXISTS (
+        SELECT 1 FROM "WebOrderEvent" e
+        WHERE e."webOrderId" = w."id" AND e."type" = 'order_placed'
+      )
+      `,
+    );
+  }
+
+  await run(
     "Backfill StorefrontSettings rows…",
     `
     INSERT INTO "StorefrontSettings" ("id", "organizationId", "enabled", "primaryColor", "accentColor", "updatedAt")

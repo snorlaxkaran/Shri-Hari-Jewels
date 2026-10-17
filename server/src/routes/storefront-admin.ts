@@ -9,6 +9,7 @@ import {
   getStorefrontStats,
   listAdminCollections,
   listPublishableProducts,
+  getWebOrderById,
   listWebOrders,
   setCollectionProducts,
   setProductPublished,
@@ -345,6 +346,26 @@ storefrontAdminRouter.get("/orders", async (req: AuthenticatedRequest, res) => {
     res.status(500).json({ error: "Failed to load web orders." });
   }
 });
+
+storefrontAdminRouter.get(
+  "/orders/:id",
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const order = await getWebOrderById(
+        req.organizationId!,
+        routeParam(req.params.id),
+      );
+      res.json(order);
+    } catch (error) {
+      if (error instanceof StorefrontError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("GET /api/storefront-admin/orders/:id", error);
+      res.status(500).json({ error: "Failed to load order." });
+    }
+  },
+);
 
 storefrontAdminRouter.patch(
   "/orders/:id",

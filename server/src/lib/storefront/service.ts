@@ -24,6 +24,7 @@ import {
   type WebOrderDto,
 } from "./mappers.js";
 import { generateWebOrderNo } from "./web-order-no.js";
+import { recordWebOrderEvent, WEB_ORDER_EVENT } from "./web-order-events.js";
 
 const productInclude = {
   images: { orderBy: { sortOrder: "asc" as const }, take: 8 },
@@ -554,9 +555,17 @@ export const placeWebOrder = async (
       data: { erpOrderId: erpOrder.id },
     });
 
+    await recordWebOrderEvent(
+      tx,
+      webOrder.id,
+      WEB_ORDER_EVENT.ORDER_PLACED,
+      `Order ${orderNo} placed online`,
+      { orderNo, totalAmount: moneyToNumber(totalAmount) },
+    );
+
     return tx.webOrder.findUniqueOrThrow({
       where: { id: webOrder.id },
-      include: { items: true },
+      include: { items: true, events: true },
     });
   });
 
@@ -566,19 +575,89 @@ export const placeWebOrder = async (
 export const getWebOrderByNo = async (
   organizationId: string,
   orderNo: string,
+  includeEvents = false,
 ): Promise<WebOrderDto> => {
   await requireActiveStorefront(organizationId);
 
   const order = await prisma.webOrder.findFirst({
     where: { organizationId, orderNo },
-    include: { items: true },
+    include: {
+      items: true,
+      ...(includeEvents ? { events: true } : {}),
+    },
   });
 
   if (!order) {
     throw new StorefrontError("Order not found.", 404);
   }
 
-  return toWebOrderDto(order);
+  return toWebOrderDto(order, includeEvents);
+};
+
+export const simulateWebOrderPayment = async (
+  organizationId: string,
+  orderNo: string,
+): Promise<WebOrderDto> => {
+  await requireActiveStorefront(organizationId);
+
+  const existing = await prisma.webOrder.findFirst({
+    where: { organizationId, orderNo },
+    include: { items: true },
+  });
+
+  if (!existing) {
+    throw new StorefrontError("Order not found.", 404);
+  }
+
+  if (existing.paymentStatus === "Paid") {
+    throw new StorefrontError("This order is already paid.");
+  }
+
+  if (existing.status === "Cancelled") {
+    throw new StorefrontError("Cannot pay for a cancelled order.");
+  }
+
+  const order = await prisma.$transaction(async (tx) => {
+    const nextStatus =
+      existing.status === "Pending" ? "Confirmed" : existing.status;
+
+    const updated = await tx.webOrder.update({
+      where: { id: existing.id },
+      data: {
+        paymentStatus: "Paid",
+        status: nextStatus,
+      },
+      include: { items: true },
+    });
+
+    await recordWebOrderEvent(
+      tx,
+      existing.id,
+      WEB_ORDER_EVENT.PAYMENT_RECEIVED,
+      `Payment received (demo checkout) · ₹${moneyToNumber(existing.totalAmount).toLocaleString("en-IN")}`,
+      {
+        amount: moneyToNumber(existing.totalAmount),
+        method: "demo",
+      },
+    );
+
+    if (nextStatus !== existing.status) {
+      await recordWebOrderEvent(
+        tx,
+        existing.id,
+        WEB_ORDER_EVENT.STATUS_UPDATED,
+        `Order status updated to ${nextStatus}`,
+        { from: existing.status, to: nextStatus },
+      );
+    }
+
+    return tx.webOrder.findUniqueOrThrow({
+      where: { id: existing.id },
+      include: { items: true, events: true },
+    });
+  });
+
+  return toWebOrderDto(order, true);
 };
 
 export const getStorefrontStatus = async (

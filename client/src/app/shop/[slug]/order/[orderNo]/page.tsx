@@ -49,8 +49,18 @@ export default function OrderConfirmationPage() {
           Order <strong className="text-[var(--sf-dark)]">{order.orderNo}</strong> placed successfully.
         </p>
         <p className="mt-1 text-sm text-[var(--sf-muted)]">
-          We&apos;ll contact you at {order.customerMobile} to confirm payment and delivery.
+          {order.paymentStatus === "Paid"
+            ? `Payment received. We'll contact you at ${order.customerMobile} about delivery.`
+            : `We'll contact you at ${order.customerMobile} to confirm payment and delivery.`}
         </p>
+        {order.paymentStatus !== "Paid" && (
+          <Link
+            href={`/shop/${slug}/order/${orderNo}/payment`}
+            className="sf-btn sf-btn-outline mt-6 inline-flex"
+          >
+            Complete payment
+          </Link>
+        )}
 
         <div className="sf-summary-card mt-10 text-left">
           <h2 className="font-semibold mb-4">Order details</h2>

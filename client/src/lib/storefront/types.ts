@@ -65,6 +65,14 @@ export type CartItem = {
   maxStock: number;
 };
 
+export type WebOrderEvent = {
+  id: string;
+  type: string;
+  message: string;
+  createdAt: string;
+  meta?: Record<string, unknown> | null;
+};
+
 export type WebOrder = {
   id: string;
   orderNo: string;
@@ -91,6 +99,8 @@ export type WebOrder = {
     lineTotal: number;
   }>;
   createdAt: string;
+  updatedAt: string;
+  events?: WebOrderEvent[];
 };
 
 export type CheckoutInput = {

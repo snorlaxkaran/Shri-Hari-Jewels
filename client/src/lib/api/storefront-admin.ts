@@ -140,6 +140,11 @@ export const fetchWebOrders = async (): Promise<WebOrder[]> => {
   return data;
 };
 
+export const fetchWebOrder = async (id: string): Promise<WebOrder> => {
+  const { data } = await api.get<WebOrder>(`/api/storefront-admin/orders/${id}`);
+  return data;
+};
+
 export const updateWebOrder = async (
   id: string,
   input: { status?: string; paymentStatus?: string },

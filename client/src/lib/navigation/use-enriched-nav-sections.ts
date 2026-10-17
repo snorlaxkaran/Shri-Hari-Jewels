@@ -16,6 +16,7 @@ import { fetchReadyForPickupCount } from "@/lib/api/repairs";
 import { fetchHallmarkPendingCount } from "@/lib/api/hallmark";
 import { fetchExpensesPendingCount } from "@/lib/api/expenses";
 import { fetchOrganizationModules } from "@/lib/api/modules";
+import { fetchStorefrontStats } from "@/lib/api/storefront-admin";
 import type { JewelleryModuleId } from "@/lib/onboarding/config";
 import { filterNavSections, type NavSection } from "@/lib/navigation";
 
@@ -27,6 +28,7 @@ export function useEnrichedNavSections(): NavSection[] {
   const [hallmarkPendingCount, setHallmarkPendingCount] = useState<number | undefined>();
   const [expensesPendingCount, setExpensesPendingCount] = useState<number | undefined>();
   const [enabledModules, setEnabledModules] = useState<JewelleryModuleId[] | undefined>();
+  const [pendingWebOrders, setPendingWebOrders] = useState<number | undefined>();
 
   useEffect(() => {
     if (!user) return;
@@ -70,6 +72,13 @@ export function useEnrichedNavSections(): NavSection[] {
       .catch(() => setExpensesPendingCount(undefined));
   }, [user]);
 
+  useEffect(() => {
+    if (!user || !canAccessRoute(user.role, "/storefront/orders")) return;
+    fetchStorefrontStats()
+      .then((s) => setPendingWebOrders(s.pendingOrders))
+      .catch(() => setPendingWebOrders(undefined));
+  }, [user]);
+
   return useMemo(() => {
     if (!user) return [];
     const base = filterNavSections(
@@ -94,6 +103,13 @@ export function useEnrichedNavSections(): NavSection[] {
         if (item.href === "/expenses" && expensesPendingCount != null && expensesPendingCount > 0) {
           return { ...item, badge: expensesPendingCount };
         }
+        if (
+          item.href === "/storefront/orders" &&
+          pendingWebOrders != null &&
+          pendingWebOrders > 0
+        ) {
+          return { ...item, badge: pendingWebOrders };
+        }
         return item;
       }),
     }));
@@ -105,5 +121,6 @@ export function useEnrichedNavSections(): NavSection[] {
     hallmarkPendingCount,
     expensesPendingCount,
     enabledModules,
+    pendingWebOrders,
   ]);
 }
