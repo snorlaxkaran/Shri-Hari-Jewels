@@ -30,6 +30,25 @@ type BulkUpdateCardProps<TRow> = {
   onApply: (rows: TRow[]) => Promise<BulkUpdateResult>;
   applyLabel: string;
   disabled?: boolean;
+  /** Prefer these sheet names (case-insensitive), e.g. "Merchandising" in the listing workbook. */
+  sheetNames?: string[];
+};
+
+const pickWorksheet = (
+  workbook: XLSX.WorkBook,
+  preferredNames?: string[],
+): XLSX.WorkSheet | undefined => {
+  if (preferredNames?.length) {
+    for (const preferred of preferredNames) {
+      const key = workbook.SheetNames.find(
+        (name) => name.trim().toLowerCase() === preferred.trim().toLowerCase(),
+      );
+      if (key) return workbook.Sheets[key];
+    }
+    return undefined;
+  }
+  const first = workbook.SheetNames[0];
+  return first ? workbook.Sheets[first] : undefined;
 };
 
 export default function BulkUpdateCard<TRow>({
@@ -43,6 +62,7 @@ export default function BulkUpdateCard<TRow>({
   onApply,
   applyLabel,
   disabled = false,
+  sheetNames,
 }: BulkUpdateCardProps<TRow>) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState("");
@@ -66,9 +86,13 @@ export default function BulkUpdateCard<TRow>({
     try {
       assertExcelFileSize(file);
       const workbook = await readExcelWorkbook(await file.arrayBuffer());
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const sheet = pickWorksheet(workbook, sheetNames);
       if (!sheet) {
-        setValidationErrors(["That file has no sheets."]);
+        setValidationErrors([
+          sheetNames?.length
+            ? `Could not find a sheet named ${sheetNames.map((n) => `"${n}"`).join(" or ")}.`
+            : "That file has no sheets.",
+        ]);
         return;
       }
       const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {

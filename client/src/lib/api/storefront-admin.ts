@@ -6,6 +6,8 @@ import type {
   StorefrontStats,
   WebOrder,
 } from "@/lib/storefront/types";
+import type { BulkUpdateResult } from "@/lib/types";
+import type { StorefrontMerchandisingRow } from "@/lib/storefront/merchandising-import";
 
 export const fetchStorefrontAdminSettings = async (): Promise<StorefrontAdminSettings> => {
   const { data } = await api.get<StorefrontAdminSettings>("/api/storefront-admin/settings");
@@ -197,4 +199,15 @@ export const setAdminRelatedProducts = async (
     { productIds },
   );
   return data.productIds;
+};
+
+export const importStorefrontMerchandising = async (
+  rows: StorefrontMerchandisingRow[],
+): Promise<BulkUpdateResult> => {
+  const { data } = await api.post<BulkUpdateResult>(
+    "/api/storefront-admin/merchandising/import",
+    { rows },
+    { timeout: 120000 },
+  );
+  return data;
 };

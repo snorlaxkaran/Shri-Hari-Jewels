@@ -39,6 +39,11 @@ import {
   bulkChangeUnitSkus,
   bulkUpdateInventoryItems,
 } from "../lib/inventory/bulk-updates.js";
+import {
+  bulkImportProductImages,
+  type BulkProductImageInput,
+  type BulkProductImageMode,
+} from "../lib/inventory/bulk-product-images.js";
 import { createDocumentShareToken } from "../lib/invoices/share-token.js";
 import {
   acceptStockTransfer,
@@ -239,6 +244,35 @@ inventoryRouter.post(
       }
       console.error("POST /api/inventory/import", error);
       res.status(500).json({ error: "Failed to import stock" });
+    }
+  },
+);
+
+inventoryRouter.post(
+  "/bulk/product-images",
+  requireRole(canWriteInventory),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const images = Array.isArray(req.body?.images)
+        ? (req.body.images as BulkProductImageInput[])
+        : [];
+      const mode = (req.body?.mode === "merge" ? "merge" : "replace") as BulkProductImageMode;
+
+      const result = await bulkImportProductImages(
+        req.organizationId!,
+        images.filter(
+          (row) => row?.sku?.trim() && row?.url?.trim() && Number(row?.index),
+        ),
+        mode,
+      );
+      res.json(result);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/inventory/bulk/product-images", error);
+      res.status(500).json({ error: "Failed to import product images." });
     }
   },
 );

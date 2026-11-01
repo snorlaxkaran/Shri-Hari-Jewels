@@ -12,10 +12,16 @@ import {
   fetchRelatedProductIds,
   fetchStorefrontAdminSettings,
   importProductListing,
+  importStorefrontMerchandising,
   setAdminRelatedProducts,
   setProductPublished,
   uploadListingImages,
 } from "@/lib/api/storefront-admin";
+import BulkUpdateCard from "@/app/(components)/settings/BulkUpdateCard";
+import {
+  MERCHANDISING_HEADERS,
+  mapMerchandisingRows,
+} from "@/lib/storefront/merchandising-import";
 import { formatCurrency } from "@/lib/format";
 import {
   buildListingImagePayload,
@@ -321,6 +327,24 @@ export default function StorefrontProductsPage() {
           {listingFeedback && <p className="text-sm text-blue-800">{listingFeedback}</p>}
         </div>
       )}
+
+      <section className="surface-card mb-8 p-5">
+        <BulkUpdateCard
+          title="4. Import collection & sort order (Excel)"
+          description="Optional: upload a sheet with SKU, Collection name, and Sorting number. Higher numbers appear nearer the top of the shop. New collection names are created automatically."
+          headers={MERCHANDISING_HEADERS}
+          sampleRow={["SKU0001", "Bridal", "100"]}
+          templateFileName="storefront-merchandising-template"
+          columns={[
+            { label: "SKU", value: (row) => row.sku },
+            { label: "Collection", value: (row) => row.collectionName },
+            { label: "Sort", value: (row) => String(row.sortingNumber) },
+          ]}
+          parse={mapMerchandisingRows}
+          onApply={importStorefrontMerchandising}
+          applyLabel="Apply merchandising"
+        />
+      </section>
 
       <div className="mb-4 flex flex-wrap gap-3 items-center">
         {(["all", "published", "unpublished"] as const).map((f) => (

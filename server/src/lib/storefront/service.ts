@@ -98,7 +98,7 @@ export type StorefrontProductFilters = {
   metal?: string;
   search?: string;
   collection?: string;
-  sortBy?: "price" | "name" | "newest";
+  sortBy?: "price" | "name" | "newest" | "featured";
   sortOrder?: "asc" | "desc";
   page?: number;
   limit?: number;
@@ -138,8 +138,54 @@ export const listStorefrontProducts = async (
     }),
   };
 
-  const sortBy = filters.sortBy ?? "newest";
+  const sortBy = filters.sortBy ?? "featured";
   const sortOrder = filters.sortOrder ?? "desc";
+
+  const collectionSlug = filters.collection?.trim();
+
+  if (collectionSlug && (sortBy === "featured" || !filters.sortBy)) {
+    const collection = await prisma.storefrontCollection.findFirst({
+      where: { organizationId, slug: collectionSlug, active: true },
+      select: { id: true },
+    });
+
+    if (collection) {
+      const links = await prisma.storefrontCollectionProduct.findMany({
+        where: {
+          collectionId: collection.id,
+          product: {
+            organizationId,
+            publishedToStorefront: true,
+            ...(filters.category && { category: filters.category }),
+            ...(filters.metal && { metal: filters.metal }),
+            ...(filters.search && {
+              OR: [
+                { name: { contains: filters.search, mode: "insensitive" as const } },
+                { sku: { contains: filters.search, mode: "insensitive" as const } },
+                { category: { contains: filters.search, mode: "insensitive" as const } },
+              ],
+            }),
+          },
+        },
+        include: {
+          product: { include: productInclude },
+        },
+        orderBy: { sortOrder: "desc" },
+      });
+
+      const all = links.map((link) => link.product);
+      const total = all.length;
+      const pageSlice = all.slice(skip, skip + limit);
+      const stockCounts = await batchCountAvailableUnits(pageSlice, organizationId);
+
+      return {
+        products: pageSlice.map((p) =>
+          toStorefrontProduct(p, stockCounts.get(p.id) ?? 0),
+        ),
+        total,
+      };
+    }
+  }
 
   const [products, total] = await Promise.all([
     prisma.product.findMany({
@@ -160,7 +206,19 @@ export const listStorefrontProducts = async (
   ]);
 
   const sortedProducts =
-    sortBy === "newest"
+    sortBy === "featured"
+      ? [...products]
+          .sort((a, b) => {
+            const sortDiff =
+              (b.storefrontDisplaySort ?? 0) - (a.storefrontDisplaySort ?? 0);
+            if (sortDiff !== 0) return sortDiff;
+            const aKey = a.storefrontSortKey ?? "";
+            const bKey = b.storefrontSortKey ?? "";
+            if (aKey !== bKey) return bKey.localeCompare(aKey);
+            return b.createdAt.getTime() - a.createdAt.getTime();
+          })
+          .slice(skip, skip + limit)
+      : sortBy === "newest"
       ? [...products].sort((a, b) => {
           const aKey = a.storefrontSortKey ?? "";
           const bKey = b.storefrontSortKey ?? "";
@@ -173,7 +231,10 @@ export const listStorefrontProducts = async (
         }).slice(skip, skip + limit)
       : products;
 
-  const stockCounts = await batchCountAvailableUnits(products, organizationId);
+  const stockCounts = await batchCountAvailableUnits(
+    sortBy === "featured" || sortBy === "newest" ? sortedProducts : products,
+    organizationId,
+  );
 
   return {
     products: sortedProducts.map((p) => toStorefrontProduct(p, stockCounts.get(p.id) ?? 0)),
@@ -275,7 +336,7 @@ export const listStorefrontCollections = async (
         include: {
           product: { include: productInclude },
         },
-        orderBy: { sortOrder: "asc" },
+        orderBy: { sortOrder: "desc" },
       },
     },
     orderBy: { sortOrder: "asc" },
@@ -300,7 +361,7 @@ export const getStorefrontCollection = async (
         include: {
           product: { include: productInclude },
         },
-        orderBy: { sortOrder: "asc" },
+        orderBy: { sortOrder: "desc" },
       },
     },
   });

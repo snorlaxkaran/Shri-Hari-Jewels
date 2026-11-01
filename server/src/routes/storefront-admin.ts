@@ -28,7 +28,12 @@ import {
   type BulkListingImageInput,
   type ListingImportRowInput,
 } from "../lib/storefront/listing-import.js";
+import { InventoryError } from "../lib/inventory/service.js";
 import { StorefrontError } from "../lib/storefront/resolve-tenant.js";
+import {
+  importStorefrontMerchandising,
+  type StorefrontMerchandisingRow,
+} from "../lib/storefront/merchandising-import.js";
 import {
   authenticate,
   requireRole,
@@ -333,6 +338,31 @@ storefrontAdminRouter.get(
     } catch (error) {
       console.error("GET /api/storefront-admin/products/:id/related-products", error);
       res.status(500).json({ error: "Failed to load related products." });
+    }
+  },
+);
+
+storefrontAdminRouter.post(
+  "/merchandising/import",
+  requireRole(canManageStorefront),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const rows = Array.isArray(req.body?.rows)
+        ? (req.body.rows as StorefrontMerchandisingRow[])
+        : [];
+      const result = await importStorefrontMerchandising(rows, req.organizationId!);
+      res.json(result);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      if (error instanceof StorefrontError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/storefront-admin/merchandising/import", error);
+      res.status(500).json({ error: "Failed to import merchandising sheet." });
     }
   },
 );

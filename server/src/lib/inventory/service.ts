@@ -60,7 +60,7 @@ const productInclude = {
     include: { branch: true, sale: true },
     orderBy: { createdAt: "asc" as const },
   },
-  images: { orderBy: { sortOrder: "asc" as const }, take: 1 },
+  images: { orderBy: { sortOrder: "asc" as const }, take: 8 },
 };
 
 export type InventorySortField =

@@ -6,7 +6,9 @@ export type LoginResponse =
   | { token: string; refreshToken: string; user: AuthUser };
 
 export const login = async (input: LoginInput): Promise<LoginResponse> => {
-  const { data } = await api.post<LoginResponse>("/api/auth/login", input);
+  const { data } = await api.post<LoginResponse>("/api/auth/login", input, {
+    timeout: 60000,
+  });
   return data;
 };
 

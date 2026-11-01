@@ -21,7 +21,7 @@ export default function ProductsPageContent() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(searchParams.get("search") ?? "");
   const [category, setCategory] = useState(searchParams.get("category") ?? "");
-  const [sortBy, setSortBy] = useState<"price" | "name" | "newest">("newest");
+  const [sortBy, setSortBy] = useState<"price" | "name" | "newest" | "featured">("featured");
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -100,6 +100,7 @@ export default function ProductsPageContent() {
               className="sf-select"
               aria-label="Sort products"
             >
+              <option value="featured">Featured (sort order)</option>
               <option value="newest">Newest first</option>
               <option value="price">Price</option>
               <option value="name">Name</option>

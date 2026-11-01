@@ -45,7 +45,7 @@ export type ProductListParams = {
   metal?: string;
   search?: string;
   collection?: string;
-  sortBy?: "price" | "name" | "newest";
+  sortBy?: "price" | "name" | "newest" | "featured";
   sortOrder?: "asc" | "desc";
   page?: number;
   limit?: number;
