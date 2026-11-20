@@ -24,6 +24,9 @@ export type AppUser = {
   active: boolean;
   defaultBranchId?: string;
   createdAt: string;
+  hasProvisionedPassword?: boolean;
+  provisionedPasswordSetAt?: string;
+  provisionedPasswordSetByName?: string;
 };
 
 export type CreateUserInput = {

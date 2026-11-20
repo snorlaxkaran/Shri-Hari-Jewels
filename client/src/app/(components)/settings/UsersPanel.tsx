@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createUser, fetchUsers } from "@/lib/api/users";
+import {
+  createUser,
+  fetchUsers,
+  revealProvisionedPassword,
+  resetUserProvisionedPassword,
+} from "@/lib/api/users";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { ROLE_LABELS } from "@/lib/auth/permissions";
 import type { AppUser, UserRole } from "@/lib/types";
@@ -28,6 +33,9 @@ export default function UsersPanel() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("Karigar");
+  const [resetUserId, setResetUserId] = useState<string | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({});
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -75,7 +83,8 @@ export default function UsersPanel() {
       <div>
         <h2 className="text-sm font-semibold text-zinc-900">Team & workers</h2>
         <p className="text-xs text-zinc-500 mt-1">
-          Create worker logins. User ID <strong>workerkaran</strong> logs in as{" "}
+          Create worker logins. Passwords you set are encrypted and can be revealed here (not
+          user-chosen trial passwords). User ID <strong>workerkaran</strong> logs in as{" "}
           <strong>workerkaran</strong> or <strong>workerkaran@shreehari.com</strong>.
         </p>
       </div>
@@ -160,15 +169,102 @@ export default function UsersPanel() {
                 <div>
                   <p className="font-medium text-zinc-900">{user.name}</p>
                   <p className="text-xs text-zinc-500">{user.email}</p>
+                  {user.hasProvisionedPassword ? (
+                    <p className="text-xs text-emerald-700 mt-1">
+                      Admin password on file
+                      {user.provisionedPasswordSetByName
+                        ? ` · set by ${user.provisionedPasswordSetByName}`
+                        : ""}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-zinc-400 mt-1">No admin-saved password</p>
+                  )}
+                  {revealedPasswords[user.id] ? (
+                    <p className="text-xs font-mono mt-1 text-zinc-800">
+                      {revealedPasswords[user.id]}
+                    </p>
+                  ) : null}
                 </div>
-                <span className="text-xs px-2 py-1 rounded-full bg-zinc-100 text-zinc-600">
-                  {ROLE_LABELS[user.role]}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs px-2 py-1 rounded-full bg-zinc-100 text-zinc-600">
+                    {ROLE_LABELS[user.role]}
+                  </span>
+                  {user.hasProvisionedPassword && !revealedPasswords[user.id] ? (
+                    <button
+                      type="button"
+                      className="text-xs text-[#e74c3c] font-medium"
+                      onClick={() => {
+                        void revealProvisionedPassword(user.id).then((r) => {
+                          setRevealedPasswords((prev) => ({ ...prev, [user.id]: r.password }));
+                        });
+                      }}
+                    >
+                      Reveal
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="text-xs text-zinc-600 underline"
+                    onClick={() => {
+                      setResetUserId(user.id);
+                      setResetPassword("");
+                    }}
+                  >
+                    Reset password
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
         )}
       </div>
+
+      {resetUserId ? (
+        <form
+          className="border border-amber-200 bg-amber-50 rounded-lg p-4 space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setSubmitting(true);
+            void resetUserProvisionedPassword(resetUserId, resetPassword)
+              .then(async () => {
+                setSuccess("Password reset and saved for admin view.");
+                setResetUserId(null);
+                setResetPassword("");
+                setRevealedPasswords((prev) => {
+                  const next = { ...prev };
+                  delete next[resetUserId];
+                  return next;
+                });
+                await loadUsers();
+              })
+              .catch((err) => setError(getApiErrorMessage(err, "Reset failed.")))
+              .finally(() => setSubmitting(false));
+          }}
+        >
+          <p className="text-sm font-medium text-amber-900">Set new password (saved for admin)</p>
+          <input
+            type="password"
+            className={inputClass}
+            minLength={6}
+            required
+            value={resetPassword}
+            onChange={(e) => setResetPassword(e.target.value)}
+            placeholder="New password"
+          />
+          <div className="flex gap-2">
+            <button type="submit" className="btn-primary px-3 py-1.5 text-sm" disabled={submitting}>
+              Save
+            </button>
+            <button
+              type="button"
+              className="btn-secondary px-3 py-1.5 text-sm"
+              onClick={() => setResetUserId(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : null}
     </section>
   );
 }

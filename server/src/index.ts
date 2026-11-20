@@ -38,6 +38,7 @@ import { catalogRouter } from "./routes/catalog.js";
 import { productionRunsRouter } from "./routes/production-runs.js";
 import { usersRouter } from "./routes/users.js";
 import { organizationsRouter } from "./routes/organizations.js";
+import { platformCredentialsRouter } from "./routes/platform-credentials.js";
 import { demoRequestsRouter } from "./routes/demo-requests.js";
 import { billingRouter } from "./routes/billing.js";
 import { marketRatesRouter } from "./routes/market-rates.js";
@@ -186,6 +187,7 @@ app.get("/api/health", async (_req, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/organizations", organizationsRouter);
+app.use("/api/platform/credentials", platformCredentialsRouter);
 app.use("/api/demo-requests", demoRequestsRouter);
 app.use("/api/billing", billingRouter);
 app.use("/api/branches", branchesRouter);

@@ -1,5 +1,6 @@
 import { prisma } from "../db.js";
 import { hashPassword } from "../auth/password.js";
+import { clearAdminProvisionedPassword } from "../users/provisioned-password.js";
 
 export class CredentialsError extends Error {
   constructor(
@@ -56,6 +57,8 @@ export const saveLoginCredentials = async (
     },
     select: { email: true, name: true },
   });
+
+  await clearAdminProvisionedPassword(userId);
 
   return updated;
 };

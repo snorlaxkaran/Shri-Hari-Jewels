@@ -1,5 +1,6 @@
 import { prisma } from "../db.js";
 import { hashPassword } from "../auth/password.js";
+import { storeAdminProvisionedPassword } from "../users/provisioned-password.js";
 import { createTrialSubscription } from "../subscriptions/service.js";
 import type { UserRole } from "../../types.js";
 
@@ -108,6 +109,7 @@ export const getOrganization = async (
 
 export const createOrganization = async (
   input: CreateOrganizationInput,
+  actor?: { id?: string; name: string },
 ): Promise<OrganizationSummary> => {
   const name = input.name.trim();
   const slug = slugify(input.slug || name);
@@ -183,19 +185,29 @@ export const createOrganization = async (
       },
     });
 
-    return tx.organization.findUniqueOrThrow({
-      where: { id: created.id },
-      include: {
-        _count: { select: { branches: true, users: true } },
-        users: {
-          where: { id: admin.id },
-          select: { email: true },
-        },
-      },
-    });
+    return { org: created, adminId: admin.id };
   });
 
-  return toSummary(org);
+  await storeAdminProvisionedPassword(
+    org.adminId,
+    adminPassword,
+    actor ?? { name: "Platform" },
+    "platform_create",
+  );
+
+  const summary = await prisma.organization.findUniqueOrThrow({
+    where: { id: org.org.id },
+    include: {
+      _count: { select: { branches: true, users: true } },
+      users: {
+        where: { id: org.adminId },
+        select: { email: true },
+        take: 1,
+      },
+    },
+  });
+
+  return toSummary(summary);
 };
 
 export const updateOrganization = async (

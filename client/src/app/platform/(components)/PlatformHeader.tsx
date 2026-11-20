@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Gem, Inbox, LogOut } from "lucide-react";
+import { Building2, Gem, Inbox, KeyRound, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 
 const NAV = [
   { href: "/platform/companies", label: "Companies", icon: Building2 },
   { href: "/platform/demo-requests", label: "Demo requests", icon: Inbox },
+  { href: "/platform/credentials", label: "Password vault", icon: KeyRound },
 ] as const;
 
 export default function PlatformHeader() {

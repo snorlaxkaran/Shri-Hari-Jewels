@@ -4,6 +4,7 @@ import { isAuthenticatedRole, USER_ROLES } from "../auth/permissions.js";
 import { writeAuditLog } from "../audit/service.js";
 import type { UserRole } from "../../types.js";
 import { getOrganizationHeadOfficeBranchId } from "../branches/access.js";
+import { storeAdminProvisionedPassword } from "./provisioned-password.js";
 
 export class UserError extends Error {
   constructor(
@@ -23,6 +24,9 @@ export type AppUser = {
   active: boolean;
   defaultBranchId?: string;
   createdAt: string;
+  hasProvisionedPassword?: boolean;
+  provisionedPasswordSetAt?: string;
+  provisionedPasswordSetByName?: string;
 };
 
 const toAppUser = (user: {
@@ -33,6 +37,9 @@ const toAppUser = (user: {
   active: boolean;
   defaultBranchId: string | null;
   createdAt: Date;
+  provisionedPasswordEnc?: string | null;
+  provisionedPasswordSetAt?: Date | null;
+  provisionedPasswordSetByName?: string | null;
 }): AppUser => ({
   id: user.id,
   email: user.email,
@@ -41,6 +48,9 @@ const toAppUser = (user: {
   active: user.active,
   defaultBranchId: user.defaultBranchId ?? undefined,
   createdAt: user.createdAt.toISOString(),
+  hasProvisionedPassword: Boolean(user.provisionedPasswordEnc),
+  provisionedPasswordSetAt: user.provisionedPasswordSetAt?.toISOString(),
+  provisionedPasswordSetByName: user.provisionedPasswordSetByName ?? undefined,
 });
 
 export const listUsers = async (organizationId: string): Promise<AppUser[]> => {
@@ -121,6 +131,13 @@ export const createUser = async (
     },
   });
 
+  await storeAdminProvisionedPassword(
+    user.id,
+    password,
+    actor ?? { name: "System" },
+    "admin_create",
+  );
+
   if (actor) {
     await writeAuditLog({
       organizationId,
@@ -132,5 +149,9 @@ export const createUser = async (
     });
   }
 
-  return toAppUser(user);
+  return toAppUser(
+    await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    }),
+  );
 };

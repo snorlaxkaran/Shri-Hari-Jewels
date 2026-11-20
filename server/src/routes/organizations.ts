@@ -138,9 +138,12 @@ organizationsRouter.post("/:id/subscription/reactivate", async (req, res) => {
   }
 });
 
-organizationsRouter.post("/", async (req, res) => {
+organizationsRouter.post("/", async (req: AuthenticatedRequest, res) => {
   try {
-    const org = await createOrganization(req.body as CreateOrganizationInput);
+    const org = await createOrganization(req.body as CreateOrganizationInput, {
+      id: req.user?.id,
+      name: req.user?.name ?? "Platform",
+    });
     res.status(201).json(org);
   } catch (error) {
     if (error instanceof OrganizationError) {
