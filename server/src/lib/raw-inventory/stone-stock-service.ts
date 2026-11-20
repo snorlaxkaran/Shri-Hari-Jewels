@@ -147,9 +147,9 @@ export const listStoneStock = async (
       ...(search
         ? {
             OR: [
-              { lotNo: { contains: search, mode: "insensitive" } },
-              { supplierName: { contains: search, mode: "insensitive" } },
-              { stoneType: { contains: search, mode: "insensitive" } },
+              { lotNo: { contains: search } },
+              { supplierName: { contains: search } },
+              { stoneType: { contains: search } },
             ],
           }
         : {}),
@@ -437,7 +437,7 @@ export const getStoneTypeAvgRate = async (
 ): Promise<number> => {
   const rows = await prisma.stoneStock.findMany({
     where: {
-      stoneType: { equals: stoneType, mode: "insensitive" },
+      stoneType: { equals: stoneType },
       branch: { organizationId },
       status: StoneStockStatus.Active,
       OR: [{ currentPieces: { gt: 0 } }, { currentWeightCt: { gt: 0 } }],

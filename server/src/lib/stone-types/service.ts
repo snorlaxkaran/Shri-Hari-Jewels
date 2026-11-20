@@ -71,7 +71,7 @@ export const createStoneType = async (
   const existing = await prisma.stoneType.findFirst({
     where: {
       organizationId,
-      name: { equals: name, mode: "insensitive" },
+      name: { equals: name },
     },
   });
   if (existing) {
@@ -145,7 +145,7 @@ export const resolveStoneTypeIds = async (
         const existing = await prisma.stoneType.findFirst({
           where: {
             organizationId,
-            name: { equals: name, mode: "insensitive" },
+            name: { equals: name },
           },
         });
         if (existing) {
@@ -189,7 +189,7 @@ export const resolveStoneTypeName = async (
   const existing = await prisma.stoneType.findFirst({
     where: {
       organizationId,
-      name: { equals: name, mode: "insensitive" },
+      name: { equals: name },
     },
   });
   if (existing) {

@@ -19,7 +19,7 @@ export const listKarigarSettlements = async (
       organizationId,
       ...(filters?.status ? { status: filters.status } : {}),
       ...(filters?.karigarName
-        ? { karigarName: { contains: filters.karigarName, mode: "insensitive" } }
+        ? { karigarName: { contains: filters.karigarName } }
         : {}),
       ...(filters?.fromDate || filters?.toDate
         ? {

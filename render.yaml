@@ -14,7 +14,7 @@ services:
     autoDeploy: true
     buildCommand: npm install --include=dev && npm run build && npm run db:deploy && npm run db:seed-if-empty
     startCommand: npm run start:prod
-    healthCheckPath: /api/health
+    healthCheckPath: /api/health/live
     envVars:
       - key: NODE_ENV
         value: production

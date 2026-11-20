@@ -50,11 +50,6 @@ const normalizeSortKey = (value: string | undefined): string | null => {
   return digits;
 };
 
-const productHasListingImage = async (productId: string): Promise<boolean> => {
-  const count = await prisma.productImage.count({ where: { productId } });
-  return count >= 1;
-};
-
 export const importProductListingRows = async (
   organizationId: string,
   rows: ListingImportRowInput[],
@@ -73,7 +68,7 @@ export const importProductListingRows = async (
     }
 
     const product = await prisma.product.findFirst({
-      where: { organizationId, sku: { equals: sku, mode: "insensitive" } },
+      where: { organizationId, sku: { equals: sku } },
       include: { images: true },
     });
 
@@ -143,25 +138,13 @@ export const importProductListingRows = async (
       data,
     });
 
-    const hasImage = product.images.length > 0 || (await productHasListingImage(product.id));
-    let didPublish = false;
-    if (hasImage) {
-      await prisma.product.update({
-        where: { id: product.id },
-        data: { publishedToStorefront: true },
-      });
-      didPublish = true;
-      published += 1;
-    }
-
     updated += 1;
     results.push({
       sku,
       status: "updated",
-      published: didPublish,
-      message: didPublish
-        ? "Listing saved and product is live on the website."
-        : "Listing saved. Add at least 1 photo (SKU_1 … SKU_8) to publish.",
+      published: false,
+      message:
+        "Listing data saved on the server. Review the product and publish manually when ready.",
     });
   }
 
@@ -207,7 +190,7 @@ export const applyBulkListingImages = async (
     }
 
     const product = await prisma.product.findFirst({
-      where: { organizationId, sku: { equals: skuKey, mode: "insensitive" } },
+      where: { organizationId, sku: { equals: skuKey } },
       include: { images: { orderBy: { sortOrder: "asc" } } },
     });
     if (!product) {
@@ -229,21 +212,6 @@ export const applyBulkListingImages = async (
     ]);
 
     applied += sorted.length;
-
-    const listingComplete = await prisma.product.findUnique({
-      where: { id: product.id },
-      select: { storefrontDescription: true, storefrontMetaTitle: true },
-    });
-    const hasListingData =
-      Boolean(listingComplete?.storefrontDescription) ||
-      Boolean(listingComplete?.storefrontMetaTitle);
-
-    if (hasListingData) {
-      await prisma.product.update({
-        where: { id: product.id },
-        data: { publishedToStorefront: true },
-      });
-    }
   }
 
   return { applied, errors };
@@ -260,7 +228,7 @@ export const assertCanPublishProduct = async (
   if (!product) throw new StorefrontError("Product not found.", 404);
   if (product.images.length < 1) {
     throw new StorefrontError(
-      "Add at least 1 product photo (SKU_1) before enabling on the website.",
+      "Upload at least 1 website listing photo (SKU_1 … SKU_8, white-background catalogue images) before going live.",
       400,
     );
   }

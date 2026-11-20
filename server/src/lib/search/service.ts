@@ -48,8 +48,8 @@ export const globalSearch = async (
         organizationId,
         ...(branchId ? { branchId } : {}),
         OR: [
-          { sku: { contains: q, mode: "insensitive" } },
-          { name: { contains: q, mode: "insensitive" } },
+          { sku: { contains: q } },
+          { name: { contains: q } },
         ],
       },
       select: { id: true, sku: true, name: true },
@@ -59,10 +59,10 @@ export const globalSearch = async (
       where: {
         organizationId,
         OR: [
-          { name: { contains: q, mode: "insensitive" } },
+          { name: { contains: q } },
           { mobile: { contains: q } },
-          { email: { contains: q, mode: "insensitive" } },
-          { companyName: { contains: q, mode: "insensitive" } },
+          { email: { contains: q } },
+          { companyName: { contains: q } },
         ],
       },
       select: { id: true, name: true, mobile: true },
@@ -72,10 +72,10 @@ export const globalSearch = async (
       where: {
         ...organizationBranchFilter(organizationId, branchId),
         OR: [
-          { itemCode: { contains: q, mode: "insensitive" } },
-          { sku: { contains: q, mode: "insensitive" } },
+          { itemCode: { contains: q } },
+          { sku: { contains: q } },
           { customerPhone: { contains: q } },
-          { customerName: { contains: q, mode: "insensitive" } },
+          { customerName: { contains: q } },
         ],
       },
       select: { id: true, itemCode: true, productName: true },
@@ -85,9 +85,9 @@ export const globalSearch = async (
       where: {
         ...organizationBranchFilter(organizationId, branchId),
         OR: [
-          { invoiceNo: { contains: q, mode: "insensitive" } },
-          { customerName: { contains: q, mode: "insensitive" } },
-          { items: { some: { itemCode: { contains: q, mode: "insensitive" } } } },
+          { invoiceNo: { contains: q } },
+          { customerName: { contains: q } },
+          { items: { some: { itemCode: { contains: q } } } },
         ],
       },
       select: { id: true, invoiceNo: true, customerName: true },
@@ -97,8 +97,8 @@ export const globalSearch = async (
       where: {
         ...organizationBranchFilter(organizationId, branchId),
         OR: [
-          { orderNo: { contains: q, mode: "insensitive" } },
-          { description: { contains: q, mode: "insensitive" } },
+          { orderNo: { contains: q } },
+          { description: { contains: q } },
         ],
       },
       include: { customer: { select: { name: true } } },
@@ -109,8 +109,8 @@ export const globalSearch = async (
         organizationId,
         ...(branchId ? { branchId } : {}),
         OR: [
-          { code: { contains: q, mode: "insensitive" } },
-          { name: { contains: q, mode: "insensitive" } },
+          { code: { contains: q } },
+          { name: { contains: q } },
         ],
       },
       select: { id: true, code: true, name: true },
@@ -121,9 +121,9 @@ export const globalSearch = async (
         ...(branchId ? { branchId } : {}),
         branch: { organizationId },
         OR: [
-          { name: { contains: q, mode: "insensitive" } },
-          { description: { contains: q, mode: "insensitive" } },
-          { subCategory: { contains: q, mode: "insensitive" } },
+          { name: { contains: q } },
+          { description: { contains: q } },
+          { subCategory: { contains: q } },
         ],
       },
       select: { id: true, name: true, subCategory: true },
@@ -133,7 +133,7 @@ export const globalSearch = async (
       where: {
         organizationId,
         ...(branchId ? { branchId } : {}),
-        runNo: { contains: q, mode: "insensitive" },
+        runNo: { contains: q },
       },
       select: { id: true, runNo: true, design: { select: { code: true } } },
       take: perType,
@@ -141,7 +141,7 @@ export const globalSearch = async (
     prisma.workOrder.findMany({
       where: {
         ...organizationBranchFilter(organizationId, branchId),
-        workOrderNo: { contains: q, mode: "insensitive" },
+        workOrderNo: { contains: q },
       },
       select: { id: true, workOrderNo: true, description: true },
       take: perType,

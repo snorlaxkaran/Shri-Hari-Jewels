@@ -302,7 +302,7 @@ export const scanStockAuditItem = async (
   const existingScan = await prisma.stockAuditScan.findFirst({
     where: {
       sessionId: session.id,
-      itemCode: { equals: code, mode: "insensitive" },
+      itemCode: { equals: code },
     },
     select: { id: true },
   });
@@ -313,7 +313,7 @@ export const scanStockAuditItem = async (
   const unit = await prisma.inventoryUnit.findFirst({
     where: {
       organizationId,
-      itemCode: { equals: code, mode: "insensitive" },
+      itemCode: { equals: code },
     },
     include: { product: true },
   });

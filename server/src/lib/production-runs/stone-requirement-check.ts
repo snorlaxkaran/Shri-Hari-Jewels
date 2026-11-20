@@ -59,7 +59,7 @@ export const checkStoneStock = async (
       where: {
         branchId,
         status: StoneStockStatus.Active,
-        stoneType: { equals: stoneType, mode: "insensitive" },
+        stoneType: { equals: stoneType },
         OR: [{ currentPieces: { gt: 0 } }, { currentWeightCt: { gt: 0 } }],
       },
     });

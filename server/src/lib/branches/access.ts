@@ -31,7 +31,7 @@ export const getOrganizationHeadOfficeBranchId = async (
     where: {
       organizationId,
       active: true,
-      name: { contains: "Head Office", mode: "insensitive" },
+      name: { contains: "Head Office" },
     },
     orderBy: { createdAt: "asc" },
     select: { id: true },

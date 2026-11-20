@@ -13,6 +13,7 @@ import type {
 import { createInvoiceForRepair } from "../invoices/service.js";
 import { queueAutoEInvoiceGeneration } from "../einvoice/auto-generate.js";
 import { generateRepairNo } from "./repair-no.js";
+import { coerceStringArray } from "../coerce-string-array.js";
 import { toApiRepairStatus, toDbRepairStatus, toRepairOrder } from "./mappers.js";
 import { toMoney } from "../money.js";
 
@@ -80,8 +81,8 @@ export const listRepairs = async (
       ...(search
         ? {
             OR: [
-              { repairNo: { contains: search, mode: "insensitive" } },
-              { customerName: { contains: search, mode: "insensitive" } },
+              { repairNo: { contains: search } },
+              { customerName: { contains: search } },
               { customerMobile: { contains: search } },
             ],
           }
@@ -476,7 +477,7 @@ export const createRepairRedo = async (
         customerMobile: original.customerMobile,
         itemDescription: original.itemDescription,
         intakeCondition: original.intakeCondition,
-        intakePhotoUrls: original.intakePhotoUrls,
+        intakePhotoUrls: coerceStringArray(original.intakePhotoUrls),
         requestedWork: original.requestedWork,
         redoOf: original.id,
         createdByName,

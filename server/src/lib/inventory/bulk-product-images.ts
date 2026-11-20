@@ -142,5 +142,5 @@ export const bulkImportProductImages = async (
     }
   }
 
-  return { updated, unchanged: 0, errors };
+  return { updated, unchanged: 0, errors, productsCreated: 0 };
 };

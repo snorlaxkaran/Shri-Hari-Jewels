@@ -171,7 +171,9 @@ app.get("/api/health/live", (_req, res) => {
 
 app.get("/api/health", async (_req, res) => {
   const payload = await getHealthPayload();
-  res.status(payload.database.persistent ? 200 : 503).json({
+  // Always 200 when the process is listening — Render uses this path as healthCheckPath.
+  // A 503 here removes every route (including login) even when only the DB is down.
+  res.status(200).json({
     ...payload,
     features: {
       motifs: true,

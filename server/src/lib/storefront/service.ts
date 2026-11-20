@@ -1,5 +1,6 @@
 import { InventoryUnitStatus } from "@prisma/client";
 import { prisma } from "../db.js";
+import { stringContains } from "../prisma-string-filter.js";
 import { getOrganizationHeadOfficeBranchId } from "../branches/access.js";
 import { syncProductStockInTx } from "../inventory/stock-sync.js";
 import {
@@ -121,9 +122,9 @@ export const listStorefrontProducts = async (
     ...(filters.metal && { metal: filters.metal }),
     ...(filters.search && {
       OR: [
-        { name: { contains: filters.search, mode: "insensitive" as const } },
-        { sku: { contains: filters.search, mode: "insensitive" as const } },
-        { category: { contains: filters.search, mode: "insensitive" as const } },
+        { name: stringContains(filters.search) },
+        { sku: stringContains(filters.search) },
+        { category: stringContains(filters.search) },
       ],
     }),
     ...(filters.collection && {
@@ -160,9 +161,9 @@ export const listStorefrontProducts = async (
             ...(filters.metal && { metal: filters.metal }),
             ...(filters.search && {
               OR: [
-                { name: { contains: filters.search, mode: "insensitive" as const } },
-                { sku: { contains: filters.search, mode: "insensitive" as const } },
-                { category: { contains: filters.search, mode: "insensitive" as const } },
+                { name: stringContains(filters.search) },
+                { sku: stringContains(filters.search) },
+                { category: stringContains(filters.search) },
               ],
             }),
           },

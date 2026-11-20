@@ -11,6 +11,7 @@ import type {
   RepairStatusLog,
 } from "../../types.js";
 import { moneyToNumber } from "../money.js";
+import { coerceStringArray } from "../coerce-string-array.js";
 
 const DB_TO_API_STATUS: Record<DbRepairStatus, RepairStatus> = {
   Received: "Received",
@@ -75,7 +76,7 @@ export const toRepairOrder = (order: RepairOrderWithRelations): RepairOrder => (
   customerMobile: order.customerMobile,
   itemDescription: order.itemDescription,
   intakeCondition: order.intakeCondition ?? undefined,
-  intakePhotoUrls: order.intakePhotoUrls,
+  intakePhotoUrls: coerceStringArray(order.intakePhotoUrls),
   requestedWork: order.requestedWork,
   estimatedCost:
     order.estimatedCost != null ? moneyToNumber(order.estimatedCost) : undefined,

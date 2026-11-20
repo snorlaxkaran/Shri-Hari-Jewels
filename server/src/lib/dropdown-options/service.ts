@@ -94,7 +94,7 @@ export const createDropdownOption = async (
     where: {
       organizationId,
       fieldKey,
-      value: { equals: value, mode: "insensitive" },
+      value: { equals: value },
     },
   });
 

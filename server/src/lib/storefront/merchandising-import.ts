@@ -27,7 +27,7 @@ const resolveCollection = async (
   const existing = await prisma.storefrontCollection.findFirst({
     where: {
       organizationId,
-      name: { equals: trimmed, mode: "insensitive" },
+      name: { equals: trimmed },
     },
   });
   if (existing) return { id: existing.id };
@@ -157,5 +157,5 @@ export const importStorefrontMerchandising = async (
     updated += 1;
   }
 
-  return { updated, unchanged, errors };
+  return { updated, unchanged, errors, productsCreated: 0 };
 };

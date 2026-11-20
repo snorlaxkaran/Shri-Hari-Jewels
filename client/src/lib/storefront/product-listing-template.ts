@@ -36,17 +36,6 @@ export const parseListingSkus = (input: string): string[] => {
 export const isListingActiveProduct = (product: PublishableProduct): boolean =>
   product.stock > 0 && product.status !== "Out of Stock";
 
-const todaySortKey = (): string => {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}${m}${day}`;
-};
-
-const defaultComposition = (product: PublishableProduct): string =>
-  [product.metal, product.purity].filter(Boolean).join(" ").trim();
-
 export type ListingWorkbookResult = {
   requestedCount: number;
   exportedCount: number;
@@ -73,22 +62,11 @@ export const buildProductListingWorkbook = (
     activeRows.push(product);
   }
 
-  const sortDefault = todaySortKey();
+  const emptyFields = PRODUCT_LISTING_HEADERS.length - 2;
   const productRows = activeRows.map((product) => [
     product.stockItemCode ?? product.id,
     product.sku,
-    product.name,
-    product.weightGrams,
-    product.price,
-    product.price,
-    product.storefrontDescription ?? "",
-    defaultComposition(product),
-    product.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-    product.name,
-    product.category,
-    product.storefrontDescription ?? "",
-    sortDefault,
-    product.hsnCode ?? "",
+    ...Array.from({ length: emptyFields }, () => ""),
   ]);
 
   const workbook = XLSX.utils.book_new();
@@ -102,12 +80,13 @@ export const buildProductListingWorkbook = (
 
   const instructionSheet = XLSX.utils.aoa_to_sheet([
     ["Website listing workbook", "Instructions"],
-    ["Download", "Only SKUs that are active in central stock are included. Inactive or missing SKUs are omitted."],
-    ["WEIGHT & PRICE", "Must match central ERP values. Upload is rejected if they differ."],
+    ["Download", "Only STOCK ID and SKU are prefilled for active central-stock items. Fill SEO, selling price, etc. as needed."],
+    ["WEIGHT & PRICE", "Leave blank to use central ERP values. If you enter values, they must match central stock."],
     ["SELLING PRICE", "Website price shown to customers. Can differ from central PRICE."],
-    ["SORTING NO", "Use YYYYMMDD. Newest sort keys appear first on the shop."],
-    ["Photos", "Upload images named SKU_1 … SKU_8 (jpg/png). Minimum 1 photo required to go live."],
-    ["Upload", "Fill this sheet, upload it on Product listing, then upload photos."],
+    ["SORTING NO", "Optional YYYYMMDD. Newest sort keys appear first on the shop."],
+    ["Upload Excel", "Saves listing fields on the server only — products do NOT go live automatically."],
+    ["Photos", "Upload website catalogue images (SKU_1 … SKU_8) anytime. At least 1 required before manual publish."],
+    ["Go live", "After upload, review each SKU in the table below and turn Published on manually."],
   ]);
   instructionSheet["!cols"] = [{ wch: 28 }, { wch: 90 }];
   XLSX.utils.book_append_sheet(workbook, instructionSheet, "Instructions");

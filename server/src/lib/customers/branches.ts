@@ -102,10 +102,10 @@ export const listCustomerBranches = async (
       ...(query?.trim()
         ? {
             OR: [
-              { name: { contains: query.trim(), mode: "insensitive" } },
-              { city: { contains: query.trim(), mode: "insensitive" } },
-              { address: { contains: query.trim(), mode: "insensitive" } },
-              { gstNumber: { contains: query.trim(), mode: "insensitive" } },
+              { name: { contains: query.trim() } },
+              { city: { contains: query.trim() } },
+              { address: { contains: query.trim() } },
+              { gstNumber: { contains: query.trim() } },
             ],
           }
         : {}),

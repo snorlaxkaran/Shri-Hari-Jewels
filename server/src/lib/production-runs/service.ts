@@ -16,6 +16,7 @@ import {
   isValidDesignMetal,
   isValidDesignPurity,
 } from "../designs/validation.js";
+import { coerceStringArray } from "../coerce-string-array.js";
 import { generateProductionRunNo } from "./run-no.js";
 import {
   deductRawMaterialForItemInTx,
@@ -208,7 +209,7 @@ const toProductionRun = (run: {
     cadFileUrl?: string | null;
     moldPhotoUrl?: string | null;
     finishedPhotoUrl?: string | null;
-    finishedPhotoUrls?: string[];
+    finishedPhotoUrls?: unknown;
   };
   items?: Array<Parameters<typeof toProductionRunItem>[0]>;
   stageLogs?: Array<Parameters<typeof toStageLog>[0]>;
@@ -220,7 +221,7 @@ const toProductionRun = (run: {
   const castingItems = items.filter((i) => i.elementType === "Casting");
   const castingsReceived = castingItems.filter((i) => i.castingReceived).length;
   const finishedPhotoUrls = [
-    ...(run.design?.finishedPhotoUrls ?? []),
+    ...coerceStringArray(run.design?.finishedPhotoUrls),
     ...(run.design?.finishedPhotoUrl ? [run.design.finishedPhotoUrl] : []),
   ].filter((url, index, all) => url && all.indexOf(url) === index);
 

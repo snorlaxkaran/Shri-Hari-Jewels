@@ -12,6 +12,7 @@ import type {
   UpdateDesignInput,
 } from "../../types.js";
 import { safeRecordCatalogAudit } from "../catalog/audit.js";
+import { coerceStringArray } from "../coerce-string-array.js";
 import { organizationBranchFilter } from "../branches/access.js";
 import { getBranchOrganizationId } from "../organizations/access.js";
 import { getMotif } from "../motifs/service.js";
@@ -105,7 +106,7 @@ const toDesign = (design: {
   moldPhotoUrl: string | null;
   moldCompletedAt: Date | null;
   finishedPhotoUrl: string | null;
-  finishedPhotoUrls: string[];
+  finishedPhotoUrls: unknown;
   builderCompletedAt: Date | null;
   approvalStatus: Parameters<typeof toApiDesignApprovalStatus>[0];
   approvedById: string | null;
@@ -135,8 +136,10 @@ const toDesign = (design: {
   moldPhotoUrl: design.moldPhotoUrl ?? undefined,
   moldCompletedAt: design.moldCompletedAt?.toISOString(),
   finishedPhotoUrl: design.finishedPhotoUrl ?? undefined,
-  finishedPhotoUrls:
-    design.finishedPhotoUrls.length > 0 ? design.finishedPhotoUrls : undefined,
+  finishedPhotoUrls: (() => {
+    const urls = coerceStringArray(design.finishedPhotoUrls);
+    return urls.length > 0 ? urls : undefined;
+  })(),
   builderCompletedAt: design.builderCompletedAt?.toISOString(),
   approvalStatus: toApiDesignApprovalStatus(design.approvalStatus),
   approvedById: design.approvedById ?? undefined,

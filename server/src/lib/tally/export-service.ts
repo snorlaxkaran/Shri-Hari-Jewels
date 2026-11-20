@@ -1,4 +1,5 @@
 import { prisma } from "../db.js";
+import { coerceStringArray } from "../coerce-string-array.js";
 import type { TallyExportLog, TallyExportType } from "../../types.js";
 import { moneyToNumber } from "../money.js";
 import { getShopSettings } from "../settings/service.js";
@@ -49,7 +50,7 @@ const toExportLog = (row: {
   organizationId: string;
   fromDate: Date;
   toDate: Date;
-  types: string[];
+  types: unknown;
   exportedByName: string;
   fileName: string | null;
   createdAt: Date;
@@ -57,7 +58,9 @@ const toExportLog = (row: {
   id: row.id,
   fromDate: row.fromDate.toISOString(),
   toDate: row.toDate.toISOString(),
-  types: row.types as TallyExportType[],
+  types: coerceStringArray(row.types).filter((t): t is TallyExportType =>
+    VALID_TYPES.includes(t as TallyExportType),
+  ),
   exportedByName: row.exportedByName,
   fileName: row.fileName ?? undefined,
   createdAt: row.createdAt.toISOString(),

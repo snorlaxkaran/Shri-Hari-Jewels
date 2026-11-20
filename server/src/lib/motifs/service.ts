@@ -622,7 +622,7 @@ export const recalculateMotifsForStoneType = async (
 ): Promise<number> => {
   const links = await prisma.motifStone.findMany({
     where: {
-      stoneType: { equals: stoneType, mode: "insensitive" },
+      stoneType: { equals: stoneType },
       motif: { branch: { organizationId } },
     },
     select: { motifId: true },

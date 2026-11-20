@@ -174,7 +174,7 @@ export const listExpenses = async (
       ...(query.status ? { status: toDbExpenseStatus(query.status) } : {}),
       ...(query.category ? { category: toDbExpenseCategory(query.category) } : {}),
       ...(query.requestedByName
-        ? { requestedByName: { contains: query.requestedByName, mode: "insensitive" } }
+        ? { requestedByName: { contains: query.requestedByName } }
         : {}),
       ...(fromDate || toDate
         ? {
@@ -187,10 +187,10 @@ export const listExpenses = async (
       ...(search
         ? {
             OR: [
-              { voucherNo: { contains: search, mode: "insensitive" } },
-              { description: { contains: search, mode: "insensitive" } },
-              { requestedByName: { contains: search, mode: "insensitive" } },
-              { vendorName: { contains: search, mode: "insensitive" } },
+              { voucherNo: { contains: search } },
+              { description: { contains: search } },
+              { requestedByName: { contains: search } },
+              { vendorName: { contains: search } },
             ],
           }
         : {}),

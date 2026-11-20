@@ -2,6 +2,7 @@ import {
   DesignBuilderStage as DbDesignBuilderStage,
 } from "@prisma/client";
 import { prisma } from "../db.js";
+import { coerceStringArray } from "../coerce-string-array.js";
 import { DesignError, toDesign } from "./service.js";
 import {
   nextBuilderStage,
@@ -63,7 +64,7 @@ export const saveAndAdvanceDesignBuilderStage = async (
     finishedPhotoUrls:
       fields?.finishedPhotoUrls !== undefined
         ? (fields.finishedPhotoUrls ?? [])
-        : design.finishedPhotoUrls,
+        : coerceStringArray(design.finishedPhotoUrls),
   };
 
   validateStageComplete(merged, current);
@@ -189,7 +190,7 @@ const validateStageComplete = (
     case "Photo":
       if (
         !design.finishedPhotoUrl &&
-        !(design.finishedPhotoUrls && design.finishedPhotoUrls.length > 0)
+        coerceStringArray(design.finishedPhotoUrls).length === 0
       ) {
         throw new DesignError(
           "Upload a finished piece photo before completing.",

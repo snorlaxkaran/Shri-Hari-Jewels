@@ -13,6 +13,8 @@
     "db:push": "prisma db push",
     "db:push:deploy": "prisma db push --force-reset --accept-data-loss",
     "db:deploy": "tsx scripts/migrate-status-enums.ts && tsx scripts/migrate-deploy-schema.ts && prisma db push --accept-data-loss",
+    "db:deploy:mysql": "prisma db push --accept-data-loss",
+    "db:reset:mysql": "prisma db push --force-reset --accept-data-loss && npm run db:seed-if-empty",
     "build:render": "npm run build && npm run db:deploy",
     "db:backfill-wholesale-sale-branches": "tsx scripts/backfill-wholesale-sale-branches.ts",
     "db:backfill-missing-wholesale-sales": "tsx scripts/backfill-missing-wholesale-sales.ts",

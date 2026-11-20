@@ -211,3 +211,27 @@ export const importStorefrontMerchandising = async (
   );
   return data;
 };
+
+export type WebsiteSortingRow = {
+  sku: string;
+  collectionName: string;
+  sortingNumber: number;
+};
+
+export const fetchWebsiteSortingList = async (): Promise<WebsiteSortingRow[]> => {
+  const { data } = await api.get<{ rows: WebsiteSortingRow[] }>(
+    "/api/storefront-admin/sorting/list",
+  );
+  return data.rows;
+};
+
+export const importWebsiteSorting = async (
+  rows: WebsiteSortingRow[],
+): Promise<BulkUpdateResult> => {
+  const { data } = await api.post<BulkUpdateResult>(
+    "/api/storefront-admin/sorting/import",
+    { rows },
+    { timeout: 120000 },
+  );
+  return data;
+};

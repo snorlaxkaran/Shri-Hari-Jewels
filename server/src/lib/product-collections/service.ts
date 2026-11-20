@@ -70,7 +70,7 @@ export const createProductCollection = async (
   const existing = await prisma.productCollection.findFirst({
     where: {
       organizationId,
-      name: { equals: name, mode: "insensitive" },
+      name: { equals: name },
     },
   });
 

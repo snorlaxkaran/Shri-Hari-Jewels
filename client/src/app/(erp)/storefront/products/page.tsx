@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, ExternalLink, FileSpreadsheet, ImagePlus, Upload } from "lucide-react";
+import { Download, ExternalLink, FileSpreadsheet, ImagePlus, ListOrdered, Upload } from "lucide-react";
 import { getApiErrorMessage } from "@/lib/api/client";
 import PageHeader from "@/app/(components)/PageHeader";
 import PageSkeleton from "@/app/(components)/PageSkeleton";
@@ -11,17 +11,18 @@ import {
   fetchPublishableProducts,
   fetchRelatedProductIds,
   fetchStorefrontAdminSettings,
+  fetchWebsiteSortingList,
   importProductListing,
-  importStorefrontMerchandising,
+  importWebsiteSorting,
   setAdminRelatedProducts,
   setProductPublished,
   uploadListingImages,
 } from "@/lib/api/storefront-admin";
-import BulkUpdateCard from "@/app/(components)/settings/BulkUpdateCard";
 import {
-  MERCHANDISING_HEADERS,
-  mapMerchandisingRows,
-} from "@/lib/storefront/merchandising-import";
+  downloadSortingListWorkbook,
+  mapSortingListRows,
+  parseSortingWorkbook,
+} from "@/lib/storefront/sorting-list";
 import { formatCurrency } from "@/lib/format";
 import {
   buildListingImagePayload,
@@ -47,8 +48,12 @@ export default function StorefrontProductsPage() {
   const [listingSkus, setListingSkus] = useState("");
   const [listingFeedback, setListingFeedback] = useState("");
   const [listingError, setListingError] = useState("");
+  const [listingUploadAlert, setListingUploadAlert] = useState("");
   const [importingListing, setImportingListing] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [sortingLoading, setSortingLoading] = useState(false);
+  const [importingSorting, setImportingSorting] = useState(false);
+  const [sortingFeedback, setSortingFeedback] = useState("");
   const [publishError, setPublishError] = useState("");
   const [filter, setFilter] = useState<"all" | "published" | "unpublished">("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -131,6 +136,7 @@ export default function StorefrontProductsPage() {
   const handleListingUpload = async (file: File) => {
     setListingError("");
     setListingFeedback("");
+    setListingUploadAlert("");
     setImportingListing(true);
     try {
       const buffer = await readExcelFileWithGuard(file);
@@ -141,8 +147,20 @@ export default function StorefrontProductsPage() {
       }
       const result = await importProductListing(rows);
       const failed = result.errors.length;
+      const saved = result.updated;
+      if (saved > 0) {
+        const alertText = `Listing data for ${saved} SKU(s) has been saved to the server. Nothing is live on the website yet — review each product below and publish manually when ready.`;
+        setListingUploadAlert(alertText);
+        if (typeof window !== "undefined") {
+          window.alert(alertText);
+        }
+      }
       setListingFeedback(
-        `Imported ${result.updated} SKU(s). ${result.published} live on website. ${failed} row(s) failed validation.`,
+        failed > 0
+          ? `${saved} row(s) saved. ${failed} row(s) could not be imported — see errors below.`
+          : saved > 0
+            ? `${saved} row(s) saved to the server. Use the table below to publish when ready.`
+            : "No rows were imported.",
       );
       if (failed > 0) {
         const sample = result.errors
@@ -174,7 +192,9 @@ export default function StorefrontProductsPage() {
       }
       const payload = await buildListingImagePayload(parsed);
       const result = await uploadListingImages(payload);
-      setListingFeedback(`Uploaded ${result.applied} image(s) for website listing.`);
+      setListingFeedback(
+        `Uploaded ${result.applied} website photo(s) to the server. Products stay draft until you publish them manually.`,
+      );
       if (result.errors.length > 0) {
         setListingError(result.errors.slice(0, 4).join(" · "));
       }
@@ -183,6 +203,59 @@ export default function StorefrontProductsPage() {
       setListingError(getApiErrorMessage(err, "Could not upload listing images."));
     } finally {
       setUploadingImages(false);
+    }
+  };
+
+  const handleGetSortingList = async () => {
+    setSortingFeedback("");
+    setListingError("");
+    setSortingLoading(true);
+    try {
+      const rows = await fetchWebsiteSortingList();
+      if (rows.length === 0) {
+        setListingError(
+          "No products are live on the website yet. Publish products first, then download the sorting list.",
+        );
+        return;
+      }
+      const { count } = downloadSortingListWorkbook(rows);
+      setSortingFeedback(`Downloaded sorting list with ${count} live product(s).`);
+    } catch (err) {
+      setListingError(getApiErrorMessage(err, "Could not download sorting list."));
+    } finally {
+      setSortingLoading(false);
+    }
+  };
+
+  const handleSetSortingUpload = async (file: File) => {
+    setSortingFeedback("");
+    setListingError("");
+    setImportingSorting(true);
+    try {
+      const buffer = await readExcelFileWithGuard(file);
+      const { rows, errors: parseErrors } = parseSortingWorkbook(buffer);
+      if (parseErrors.length > 0) {
+        setListingError(parseErrors.slice(0, 5).join(" · "));
+        if (rows.length === 0) return;
+      }
+      if (rows.length === 0) {
+        setListingError("No sorting rows found. Use columns SKU and Sorting number on the Sorting sheet.");
+        return;
+      }
+      const result = await importWebsiteSorting(rows);
+      const alertText = `Sorting updated on the server for ${result.updated} product(s). Higher numbers appear nearer the top of the shop.`;
+      setSortingFeedback(alertText);
+      if (typeof window !== "undefined") {
+        window.alert(alertText);
+      }
+      if (result.errors.length > 0) {
+        setListingError(result.errors.slice(0, 4).join(" · "));
+      }
+      load();
+    } catch (err) {
+      setListingError(getApiErrorMessage(err, "Could not import sorting list."));
+    } finally {
+      setImportingSorting(false);
     }
   };
 
@@ -215,7 +288,7 @@ export default function StorefrontProductsPage() {
     <div className="page-content">
       <PageHeader
         title="Product listing"
-        subtitle="Download listing Excel from central SKUs, fill SEO fields, upload, then add photos to go live"
+        subtitle="Download SKU rows, upload listing data (saved only), add website photos, then publish each product manually"
         action={
           settings?.storeUrl ? (
             <a
@@ -242,9 +315,9 @@ export default function StorefrontProductsPage() {
           <h2 className="font-semibold">1. Download listing Excel (central SKUs)</h2>
         </div>
         <p className="mb-3 max-w-3xl text-sm text-zinc-500">
-          Enter comma-separated SKUs. Only SKUs that are <strong>active in central stock</strong> are
-          included in the Excel. Columns: stock id, weight, price, selling price, description, SEO,
-          sorting (YYYYMMDD — newest sorts first on the shop), HSN, and more.
+          Enter comma-separated SKUs. The Excel includes only <strong>active central-stock</strong> SKUs.
+          Only <strong>STOCK ID</strong> and <strong>SKU</strong> are prefilled — fill SEO, selling price,
+          and other website fields yourself. Weight and price may be left blank (central values apply on import).
         </p>
         <label htmlFor="listing-skus" className="mb-1 block text-sm font-medium">
           SKUs to list
@@ -277,8 +350,9 @@ export default function StorefrontProductsPage() {
           <h2 className="font-semibold">2. Upload filled Excel</h2>
         </div>
         <p className="mb-3 max-w-3xl text-sm text-zinc-500">
-          Weight and price must match central ERP or the row is rejected. Products go live only when
-          they have at least one photo (step 3).
+          Saves website listing fields to the server only — <strong>nothing goes live automatically</strong>.
+          Leave weight and price blank to use central stock; if you type them, they must match ERP.
+          After upload you will get a confirmation alert. Review each SKU in the table and publish manually.
         </p>
         <label className="btn-secondary inline-flex cursor-pointer items-center gap-2 px-4 py-2 text-sm">
           <input
@@ -302,10 +376,10 @@ export default function StorefrontProductsPage() {
           <h2 className="font-semibold">3. Upload product photos</h2>
         </div>
         <p className="mb-3 max-w-3xl text-sm text-zinc-500">
-          Name files <code className="text-xs bg-zinc-100 px-1 rounded">SKU_1.jpg</code> through{" "}
-          <code className="text-xs bg-zinc-100 px-1 rounded">SKU_8.png</code> (e.g.{" "}
-          <code className="text-xs bg-zinc-100 px-1 rounded">TSER0220_1.jpeg</code>). Minimum 1, maximum
-          8 photos per SKU required to publish on the website.
+          Website catalogue photos (white background, not central-stock snaps). Name files{" "}
+          <code className="text-xs bg-zinc-100 px-1 rounded">SKU_1.jpg</code> through{" "}
+          <code className="text-xs bg-zinc-100 px-1 rounded">SKU_8.png</code>. You can upload before or
+          after the Excel. At least 1 photo is required before you can publish manually in the table below.
         </p>
         <label className="btn-secondary inline-flex cursor-pointer items-center gap-2 px-4 py-2 text-sm">
           <input
@@ -320,30 +394,60 @@ export default function StorefrontProductsPage() {
         </label>
       </section>
 
-      {(listingError || listingFeedback || publishError) && (
+      {listingUploadAlert && (
+        <div
+          role="alert"
+          className="mb-6 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-900"
+        >
+          <strong className="font-semibold">Listing uploaded.</strong> {listingUploadAlert}
+        </div>
+      )}
+
+      {(listingError || listingFeedback || publishError || sortingFeedback) && (
         <div className="mb-4 space-y-2">
           {listingError && <p className="text-sm text-red-700">{listingError}</p>}
           {publishError && <p className="text-sm text-red-700">{publishError}</p>}
           {listingFeedback && <p className="text-sm text-blue-800">{listingFeedback}</p>}
+          {sortingFeedback && <p className="text-sm text-blue-800">{sortingFeedback}</p>}
         </div>
       )}
 
       <section className="surface-card mb-8 p-5">
-        <BulkUpdateCard
-          title="4. Import collection & sort order (Excel)"
-          description="Optional: upload a sheet with SKU, Collection name, and Sorting number. Higher numbers appear nearer the top of the shop. New collection names are created automatically."
-          headers={MERCHANDISING_HEADERS}
-          sampleRow={["SKU0001", "Bridal", "100"]}
-          templateFileName="storefront-merchandising-template"
-          columns={[
-            { label: "SKU", value: (row) => row.sku },
-            { label: "Collection", value: (row) => row.collectionName },
-            { label: "Sort", value: (row) => String(row.sortingNumber) },
-          ]}
-          parse={mapMerchandisingRows}
-          onApply={importStorefrontMerchandising}
-          applyLabel="Apply merchandising"
-        />
+        <div className="mb-3 flex items-center gap-2">
+          <ListOrdered size={18} className="text-zinc-600" />
+          <h2 className="font-semibold">Shop sorting</h2>
+        </div>
+        <p className="mb-4 max-w-3xl text-sm text-zinc-500">
+          For products <strong>live on the website</strong>. Sheet columns:{" "}
+          <strong>SKU</strong>, <strong>Collection name</strong> (optional on upload),{" "}
+          <strong>Sorting number</strong> — higher numbers appear nearer the top of the shop.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => void handleGetSortingList()}
+            disabled={sortingLoading}
+            className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-60"
+          >
+            <Download size={15} />
+            {sortingLoading ? "Preparing…" : "Get sorting list"}
+          </button>
+          <label className="btn-secondary inline-flex cursor-pointer items-center gap-2 px-4 py-2 text-sm">
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              disabled={importingSorting}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleSetSortingUpload(file);
+                e.target.value = "";
+              }}
+            />
+            <Upload size={15} />
+            {importingSorting ? "Applying…" : "Set sorting"}
+          </label>
+        </div>
       </section>
 
       <div className="mb-4 flex flex-wrap gap-3 items-center">
@@ -443,7 +547,7 @@ export default function StorefrontProductsPage() {
                       disabled={!product.publishedToStorefront && product.imageCount < 1}
                       title={
                         product.imageCount < 1
-                          ? "Upload at least one SKU_N photo first"
+                          ? "Upload at least one website listing photo (SKU_1) first"
                           : undefined
                       }
                       className={`rounded px-2 py-1 text-xs font-medium ${

@@ -92,7 +92,7 @@ export const resolveVendorId = async (
   const existing = await prisma.vendor.findFirst({
     where: {
       organizationId,
-      name: { equals: name, mode: "insensitive" },
+      name: { equals: name },
     },
   });
   if (existing) return existing.id;

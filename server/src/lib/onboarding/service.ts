@@ -1,4 +1,5 @@
 import { prisma } from "../db.js";
+import { coerceStringArray } from "../coerce-string-array.js";
 import {
   JEWELLERY_MODULES,
   type JewelleryModuleId,
@@ -193,7 +194,7 @@ export const getOnboardingStatus = async (
   });
 
   const enabledModules = await getOrganizationModules(organizationId);
-  const dismissed = new Set(settings?.dismissedModuleOnboarding ?? []);
+  const dismissed = new Set(coerceStringArray(settings?.dismissedModuleOnboarding));
 
   const modules = {} as OnboardingStatusPayload["modules"];
   for (const moduleId of JEWELLERY_MODULES) {
@@ -319,7 +320,7 @@ export const dismissModuleOnboarding = async (
     where: { organizationId },
     select: { dismissedModuleOnboarding: true },
   });
-  const dismissed = new Set(settings?.dismissedModuleOnboarding ?? []);
+  const dismissed = new Set(coerceStringArray(settings?.dismissedModuleOnboarding));
   dismissed.add(moduleId);
   await prisma.shopSettings.update({
     where: { organizationId },

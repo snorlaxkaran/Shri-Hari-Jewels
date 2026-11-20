@@ -93,7 +93,7 @@ export const requireEinvoiceConfig = (): EinvoiceConfig => {
   return config;
 };
 
-/** Validate env at startup — fails fast on partial configuration. */
+/** Validate env at startup — partial / invalid config disables e-Invoice but must not crash the API. */
 export const validateEinvoiceEnvironment = (): void => {
   const partial = REQUIRED_KEYS.some((key) => Boolean(process.env[key]?.trim()));
   if (!partial) {
@@ -101,10 +101,18 @@ export const validateEinvoiceEnvironment = (): void => {
     return;
   }
 
-  const config = requireEinvoiceConfig();
-  console.info(
-    `[einvoice] NIC direct integration configured for GSTIN ${config.gstin} → ${config.baseUrl}`,
-  );
+  try {
+    const config = requireEinvoiceConfig();
+    console.info(
+      `[einvoice] NIC direct integration configured for GSTIN ${config.gstin} → ${config.baseUrl}`,
+    );
+  } catch (error) {
+    cachedConfig = null;
+    console.warn(
+      "[einvoice] Partial or invalid env — NIC integration disabled (login and core API keep running). Fix or clear EINVOICE_* in Render → Environment.",
+      error instanceof Error ? error.message : error,
+    );
+  }
 };
 
 /** @internal test helper */

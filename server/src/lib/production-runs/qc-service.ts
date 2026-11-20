@@ -1,5 +1,6 @@
 import type { NcrSeverity, QcResult } from "@prisma/client";
 import { prisma } from "../db.js";
+import { coerceStringArray } from "../coerce-string-array.js";
 import { assertProductionRunInOrganization } from "../organizations/access.js";
 import { ProductionRunError } from "./errors.js";
 import { QC_CHECKLIST } from "./stage-config.js";
@@ -85,14 +86,14 @@ const toQcRecord = (row: {
   result: QcResult;
   checklistResults: unknown;
   inspectedByName: string;
-  photoUrls: string[];
+  photoUrls: unknown;
   createdAt: Date;
   ncr?: {
     id: string;
     qcRecordId: string;
     ncrNo: string;
     severity: NcrSeverity;
-    failedCriteria: string[];
+    failedCriteria: unknown;
     description: string;
     rootCause: string | null;
     correctiveAction: string | null;
@@ -111,7 +112,7 @@ const toQcRecord = (row: {
       ? (row.checklistResults as Record<string, boolean>)
       : {},
   inspectedByName: row.inspectedByName,
-  photoUrls: row.photoUrls,
+  photoUrls: coerceStringArray(row.photoUrls),
   createdAt: row.createdAt.toISOString(),
   ncr: row.ncr
     ? {
@@ -119,7 +120,7 @@ const toQcRecord = (row: {
         qcRecordId: row.ncr.qcRecordId,
         ncrNo: row.ncr.ncrNo,
         severity: row.ncr.severity,
-        failedCriteria: row.ncr.failedCriteria,
+        failedCriteria: coerceStringArray(row.ncr.failedCriteria),
         description: row.ncr.description,
         rootCause: row.ncr.rootCause ?? undefined,
         correctiveAction: row.ncr.correctiveAction ?? undefined,
@@ -139,7 +140,7 @@ const toNcr = (
     qcRecordId: string;
     ncrNo: string;
     severity: NcrSeverity;
-    failedCriteria: string[];
+    failedCriteria: unknown;
     description: string;
     rootCause: string | null;
     correctiveAction: string | null;
@@ -154,7 +155,7 @@ const toNcr = (
   qcRecordId: row.qcRecordId,
   ncrNo: row.ncrNo,
   severity: row.severity,
-  failedCriteria: row.failedCriteria,
+  failedCriteria: coerceStringArray(row.failedCriteria),
   description: row.description,
   rootCause: row.rootCause ?? undefined,
   correctiveAction: row.correctiveAction ?? undefined,

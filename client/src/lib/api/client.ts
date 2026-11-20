@@ -87,8 +87,11 @@ export const getApiErrorMessage = (
     if (error.response?.status === 404) {
       return "API route not found. Restart or redeploy the backend server (Render → Manual Deploy).";
     }
+    if (error.response?.status === 503) {
+      return "The API server is offline or still starting (database may be disconnected). Open Render → shri-hari-jewels-api → Logs, confirm DATABASE_URL, then Manual Deploy. Free tier can take 1–2 minutes to wake up.";
+    }
     if (!error.response) {
-      return "Could not connect to the server. Start the backend locally (cd server && npm run dev) or check NEXT_PUBLIC_API_URL.";
+      return "Could not reach the API server. If you use the live site, check Render (shri-hari-jewels-api). Locally: cd server && npm run dev and set NEXT_PUBLIC_API_URL=http://localhost:4000 in client/.env.local.";
     }
   }
   if (error instanceof Error && error.message) return error.message;

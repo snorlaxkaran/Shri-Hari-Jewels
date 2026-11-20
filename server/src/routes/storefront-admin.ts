@@ -35,6 +35,11 @@ import {
   type StorefrontMerchandisingRow,
 } from "../lib/storefront/merchandising-import.js";
 import {
+  importWebsiteSortingRows,
+  listWebsiteSortingRows,
+  type WebsiteSortingRow,
+} from "../lib/storefront/sorting-list.js";
+import {
   authenticate,
   requireRole,
   type AuthenticatedRequest,
@@ -338,6 +343,41 @@ storefrontAdminRouter.get(
     } catch (error) {
       console.error("GET /api/storefront-admin/products/:id/related-products", error);
       res.status(500).json({ error: "Failed to load related products." });
+    }
+  },
+);
+
+storefrontAdminRouter.get(
+  "/sorting/list",
+  requireRole(canManageStorefront),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const rows = await listWebsiteSortingRows(req.organizationId!);
+      res.json({ rows });
+    } catch (error) {
+      console.error("GET /api/storefront-admin/sorting/list", error);
+      res.status(500).json({ error: "Failed to load sorting list." });
+    }
+  },
+);
+
+storefrontAdminRouter.post(
+  "/sorting/import",
+  requireRole(canManageStorefront),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const rows = Array.isArray(req.body?.rows)
+        ? (req.body.rows as WebsiteSortingRow[])
+        : [];
+      const result = await importWebsiteSortingRows(rows, req.organizationId!);
+      res.json(result);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error("POST /api/storefront-admin/sorting/import", error);
+      res.status(500).json({ error: "Failed to import sorting list." });
     }
   },
 );

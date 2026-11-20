@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import type { FinishedGoodsInput } from "../../types.js";
 import { prisma } from "../db.js";
+import { coerceStringArray } from "../coerce-string-array.js";
 import { ProductionRunError } from "./errors.js";
 import {
   assertPositiveFinishedGoodsWeight,
@@ -24,10 +25,10 @@ export const PRODUCTION_RUN_COMPLETION_TX_OPTIONS = {
 
 const designPhotosToImages = (design: {
   finishedPhotoUrl: string | null;
-  finishedPhotoUrls: string[];
+  finishedPhotoUrls: unknown;
 }): FinishedGoodsInput["images"] => {
   const urls = [
-    ...design.finishedPhotoUrls,
+    ...coerceStringArray(design.finishedPhotoUrls),
     ...(design.finishedPhotoUrl ? [design.finishedPhotoUrl] : []),
   ].filter((url, index, all) => url && all.indexOf(url) === index);
 

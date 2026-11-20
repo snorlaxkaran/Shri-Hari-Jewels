@@ -40,9 +40,23 @@ export const BUSINESS_TYPE_MODULES: Record<string, JewelleryModuleId[]> = {
   Other: ["inventory", "sales"],
 };
 
-export const normalizeModules = (modules: string[]): JewelleryModuleId[] => {
+export const normalizeModules = (modules: unknown): JewelleryModuleId[] => {
+  const list = Array.isArray(modules)
+    ? modules.filter((id): id is string => typeof id === "string")
+    : typeof modules === "string"
+      ? (() => {
+          try {
+            const parsed: unknown = JSON.parse(modules);
+            return Array.isArray(parsed)
+              ? parsed.filter((id): id is string => typeof id === "string")
+              : [];
+          } catch {
+            return [];
+          }
+        })()
+      : [];
   const set = new Set<JewelleryModuleId>();
-  for (const id of modules) {
+  for (const id of list) {
     if ((JEWELLERY_MODULES as readonly string[]).includes(id)) {
       set.add(id as JewelleryModuleId);
     }
