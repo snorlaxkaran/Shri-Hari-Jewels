@@ -18,6 +18,22 @@ Every quantity, weight, price, and stock figure shown in the app must be **100% 
 
 When changing pricing, BOM, production, or inventory code, verify the math end-to-end: per-set → × sets → deduct from lots → UI totals match.
 
+## Database connection failed on Render
+
+Build log shows **`tenant/user postgres.… not found`** or **`ENOTFOUND`** during `db:deploy`:
+
+The **`DATABASE_URL`** or **`DIRECT_URL`** in Render still points at a Postgres project that was **deleted, paused, or rotated**. The API build cannot run migrations until both vars point at a live database.
+
+1. Open [Prisma Data Platform](https://console.prisma.io), [Supabase](https://supabase.com/dashboard), or [Neon](https://neon.tech) — find the old project or **create a new Postgres** database.
+2. Render → **shri-hari-jewels-api** → **Environment**:
+   - **`DIRECT_URL`** — direct Postgres URL (host port **5432**, not the pooler). Used during build for `db:push`.
+   - **`DATABASE_URL`** — runtime URL (Supabase: port **6543** with `?pgbouncer=true`).
+3. **Save** → **Manual Deploy** → **Deploy latest commit**.
+4. Watch logs for `Database preflight OK`, then `Status enum migration complete`.
+5. Open `/api/health` — `database.persistent` should be `true`. On a **new empty DB**, `db:seed-if-empty` creates demo users; use your real admin or sign up via trial.
+
+You need whoever owns the Render account (your friend) for step 2 unless they share API/env access.
+
 ## Motifs API (404 fix)
 
 If **Motif Library** shows "Could not load motifs" or Excel import returns **404**, the live API on Render has not been redeployed with the latest code.
