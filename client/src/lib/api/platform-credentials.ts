@@ -10,6 +10,7 @@ export type ProvisionedCredentialSummary = {
   setAt: string;
   setByName: string;
   source: string;
+  lastLoginAt: string | null;
 };
 
 export type ProvisionedPasswordReveal = {

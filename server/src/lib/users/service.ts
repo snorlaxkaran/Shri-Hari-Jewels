@@ -27,6 +27,7 @@ export type AppUser = {
   hasProvisionedPassword?: boolean;
   provisionedPasswordSetAt?: string;
   provisionedPasswordSetByName?: string;
+  lastLoginAt?: string;
 };
 
 const toAppUser = (user: {
@@ -40,6 +41,7 @@ const toAppUser = (user: {
   provisionedPasswordEnc?: string | null;
   provisionedPasswordSetAt?: Date | null;
   provisionedPasswordSetByName?: string | null;
+  lastLoginAt?: Date | null;
 }): AppUser => ({
   id: user.id,
   email: user.email,
@@ -51,6 +53,7 @@ const toAppUser = (user: {
   hasProvisionedPassword: Boolean(user.provisionedPasswordEnc),
   provisionedPasswordSetAt: user.provisionedPasswordSetAt?.toISOString(),
   provisionedPasswordSetByName: user.provisionedPasswordSetByName ?? undefined,
+  lastLoginAt: user.lastLoginAt?.toISOString(),
 });
 
 export const listUsers = async (organizationId: string): Promise<AppUser[]> => {

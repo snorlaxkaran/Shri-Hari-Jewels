@@ -27,6 +27,7 @@ export type AppUser = {
   hasProvisionedPassword?: boolean;
   provisionedPasswordSetAt?: string;
   provisionedPasswordSetByName?: string;
+  lastLoginAt?: string;
 };
 
 export type CreateUserInput = {

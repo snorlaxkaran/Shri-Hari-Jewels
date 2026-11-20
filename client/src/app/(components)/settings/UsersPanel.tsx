@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchLoginAuditLogs, type AuditLogEntry } from "@/lib/api/audit";
 import {
   createUser,
   fetchUsers,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/api/users";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { ROLE_LABELS } from "@/lib/auth/permissions";
+import { formatDate } from "@/lib/format";
 import type { AppUser, UserRole } from "@/lib/types";
 
 const WORKER_ROLES: UserRole[] = [
@@ -36,6 +38,7 @@ export default function UsersPanel() {
   const [resetUserId, setResetUserId] = useState<string | null>(null);
   const [resetPassword, setResetPassword] = useState("");
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({});
+  const [loginHistory, setLoginHistory] = useState<AuditLogEntry[]>([]);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -52,6 +55,12 @@ export default function UsersPanel() {
   useEffect(() => {
     void loadUsers();
   }, [loadUsers]);
+
+  useEffect(() => {
+    void fetchLoginAuditLogs()
+      .then(setLoginHistory)
+      .catch(() => setLoginHistory([]));
+  }, [users.length]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,6 +178,10 @@ export default function UsersPanel() {
                 <div>
                   <p className="font-medium text-zinc-900">{user.name}</p>
                   <p className="text-xs text-zinc-500">{user.email}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Last login:{" "}
+                    {user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never (since tracking)"}
+                  </p>
                   {user.hasProvisionedPassword ? (
                     <p className="text-xs text-emerald-700 mt-1">
                       Admin password on file
@@ -218,6 +231,22 @@ export default function UsersPanel() {
           </ul>
         )}
       </div>
+
+      {loginHistory.length > 0 ? (
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-2">
+            Recent sign-ins
+          </h3>
+          <ul className="text-xs text-zinc-600 space-y-1 max-h-40 overflow-y-auto border border-zinc-200 rounded-lg p-3">
+            {loginHistory.slice(0, 25).map((log) => (
+              <li key={log.id}>
+                <strong>{log.actorName}</strong>
+                {log.after?.email ? ` (${log.after.email})` : ""} — {formatDate(log.createdAt)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {resetUserId ? (
         <form

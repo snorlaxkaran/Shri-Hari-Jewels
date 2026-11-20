@@ -53,6 +53,7 @@ export const listAuditLogs = async (filters: {
   organizationId?: string;
   entityType?: string;
   entityId?: string;
+  action?: string;
   limit?: number;
 }) => {
   const logs = await prisma.auditLog.findMany({
@@ -60,6 +61,7 @@ export const listAuditLogs = async (filters: {
       organizationId: filters.organizationId,
       entityType: filters.entityType,
       entityId: filters.entityId,
+      action: filters.action,
     },
     orderBy: { createdAt: "desc" },
     take: filters.limit ?? 100,

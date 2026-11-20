@@ -28,6 +28,7 @@ import {
   verifyTotpCode,
 } from "./totp.js";
 import { writeAuditLog } from "../audit/service.js";
+import { recordSuccessfulLogin } from "./login-activity.js";
 import { logBusinessEvent } from "../logger.js";
 import {
   normalizeIndianPhone,
@@ -166,6 +167,7 @@ export const login = async (input: LoginInput): Promise<LoginResult> => {
   }
 
   const refreshToken = await createRefreshToken(user.id);
+  await recordSuccessfulLogin(user);
   return {
     token: signAccessToken(buildTokenPayload(user)),
     refreshToken,
@@ -193,6 +195,7 @@ export const verify2faLogin = async (
   }
 
   const refreshToken = await createRefreshToken(user.id);
+  await recordSuccessfulLogin(user);
   return {
     token: signAccessToken(buildTokenPayload(user)),
     refreshToken,

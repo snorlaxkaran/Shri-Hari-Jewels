@@ -99,6 +99,7 @@ export default function PlatformCredentialsPage() {
                   <th className="px-4 py-3">User</th>
                   <th className="px-4 py-3">Company</th>
                   <th className="px-4 py-3">Set by</th>
+                  <th className="px-4 py-3">Last login</th>
                   <th className="px-4 py-3">Password</th>
                 </tr>
               </thead>
@@ -119,6 +120,9 @@ export default function PlatformCredentialsPage() {
                       <td className="px-4 py-3 text-zinc-600">
                         <p>{entry.setByName}</p>
                         <p className="text-xs text-zinc-400">{formatDate(entry.setAt)}</p>
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600 text-xs">
+                        {entry.lastLoginAt ? formatDate(entry.lastLoginAt) : "Never (since tracking)"}
                       </td>
                       <td className="px-4 py-3">
                         {plain ? (

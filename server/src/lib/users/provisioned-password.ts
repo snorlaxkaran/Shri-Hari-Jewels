@@ -31,6 +31,7 @@ export type ProvisionedCredentialSummary = {
   setAt: string;
   setByName: string;
   source: string;
+  lastLoginAt: string | null;
 };
 
 export const storeAdminProvisionedPassword = async (
@@ -144,6 +145,7 @@ export const listProvisionedCredentials = async (
       provisionedPasswordSetAt: true,
       provisionedPasswordSetByName: true,
       provisionedPasswordSource: true,
+      lastLoginAt: true,
       organization: { select: { name: true } },
     },
     orderBy: { provisionedPasswordSetAt: "desc" },
@@ -161,6 +163,7 @@ export const listProvisionedCredentials = async (
       setAt: u.provisionedPasswordSetAt!.toISOString(),
       setByName: u.provisionedPasswordSetByName ?? "Unknown",
       source: u.provisionedPasswordSource ?? "unknown",
+      lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
     }));
 };
 
